@@ -274,6 +274,14 @@ static void mergeSettings(LanguagePack& lp, const yaml_min::Node& settings) {
   getBool("stopClosureClusterGapsEnabled", lp.stopClosureClusterGapsEnabled);
   getBool("stopClosureAfterNasalsEnabled", lp.stopClosureAfterNasalsEnabled);
 
+  // Stop closure timing (ms at speed=1.0; divided by current speed in the engine).
+  getNum("stopClosureVowelGapMs", lp.stopClosureVowelGapMs);
+  getNum("stopClosureVowelFadeMs", lp.stopClosureVowelFadeMs);
+  getNum("stopClosureClusterGapMs", lp.stopClosureClusterGapMs);
+  getNum("stopClosureClusterFadeMs", lp.stopClosureClusterFadeMs);
+  getNum("stopClosureWordBoundaryClusterGapMs", lp.stopClosureWordBoundaryClusterGapMs);
+  getNum("stopClosureWordBoundaryClusterFadeMs", lp.stopClosureWordBoundaryClusterFadeMs);
+
   getNum("lengthenedScale", lp.lengthenedScale);
   getNum("lengthenedScaleHu", lp.lengthenedScaleHu);
   getBool("applyLengthenedScaleToVowelsOnly", lp.applyLengthenedScaleToVowelsOnly);

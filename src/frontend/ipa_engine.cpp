@@ -539,10 +539,22 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
 
     if (t.preStopGap) {
       if (t.clusterGap) {
-        dur = 22.0 / curSpeed;
-        fade = 4.0 / curSpeed;
+        double baseDur = lang.stopClosureClusterGapMs;
+        double baseFade = lang.stopClosureClusterFadeMs;
+
+        // Optional: allow a larger cluster gap at word boundaries.
+        if (t.wordStart && lang.stopClosureWordBoundaryClusterGapMs > 0.0) {
+          baseDur = lang.stopClosureWordBoundaryClusterGapMs;
+        }
+        if (t.wordStart && lang.stopClosureWordBoundaryClusterFadeMs > 0.0) {
+          baseFade = lang.stopClosureWordBoundaryClusterFadeMs;
+        }
+
+        dur = baseDur / curSpeed;
+        fade = baseFade / curSpeed;
       } else {
-        dur = 41.0 / curSpeed;
+        dur = lang.stopClosureVowelGapMs / curSpeed;
+        fade = lang.stopClosureVowelFadeMs / curSpeed;
       }
     } else if (t.postStopAspiration) {
       dur = 20.0 / curSpeed;
@@ -1190,6 +1202,9 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
         gap.silence = true;
         gap.preStopGap = true;
         gap.clusterGap = clusterGap;
+        // Preserve word boundary information for timing tweaks.
+        // The gap is inserted *before* the stop/affricate token `t`.
+        gap.wordStart = t.wordStart;
         outTokens.push_back(gap);
         // IMPORTANT: do NOT update lastIndex here; Python keeps lastPhoneme as the
         // previous *real* phoneme, not the inserted gap.

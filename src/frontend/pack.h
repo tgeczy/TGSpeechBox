@@ -161,6 +161,19 @@ struct LanguagePack {
   // Default false to avoid "clicks" in languages where this sounds unnatural.
   bool stopClosureAfterNasalsEnabled = false;
 
+  // Stop closure timing (ms at speed=1.0; divided by current speed).
+  // These control the duration/fade of inserted silence frames (preStopGap)
+  // before stops/affricates.
+  double stopClosureVowelGapMs = 41.0;
+  double stopClosureVowelFadeMs = 10.0;
+  double stopClosureClusterGapMs = 22.0;
+  double stopClosureClusterFadeMs = 4.0;
+
+  // Optional: if >0, override cluster gap timing specifically at word boundaries
+  // (when the stop/affricate is at word start).
+  double stopClosureWordBoundaryClusterGapMs = 0.0;
+  double stopClosureWordBoundaryClusterFadeMs = 0.0;
+
   // Duration scaling.
   double lengthenedScale = 1.05;
   double lengthenedScaleHu = 1.3;
