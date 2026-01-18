@@ -14,6 +14,7 @@
 #define IDD_EDIT_VALUE    204
 #define IDD_EDIT_SETTINGS 205
 #define IDD_EDIT_SETTING  206
+#define IDD_SPEECH_SETTINGS 207
 
 // -----------------
 // Menu commands
@@ -25,6 +26,7 @@
 
 #define IDM_SETTINGS_ESPEAK_DIR   40101
 #define IDM_SETTINGS_DLL_DIR      40102
+#define IDM_SETTINGS_SPEECH_SETTINGS 40103
 
 #define IDM_HELP_ABOUT            40201
 
@@ -83,6 +85,7 @@
 // -----------------
 #define IDC_VAL_FIELD             2401
 #define IDC_VAL_VALUE             2402
+#define IDC_VAL_LIVE_PREVIEW      2403
 
 // -----------------
 // Dialog controls: Edit settings
@@ -97,3 +100,22 @@
 // -----------------
 #define IDC_SETTING_KEY           2601
 #define IDC_SETTING_VALUE         2602
+
+// -----------------
+// Dialog controls: Speech settings
+// -----------------
+#define IDC_SPEECH_VOICE              2701
+#define IDC_SPEECH_RATE_SLIDER        2702
+#define IDC_SPEECH_RATE_VAL           2703
+#define IDC_SPEECH_PITCH_SLIDER       2704
+#define IDC_SPEECH_PITCH_VAL          2705
+#define IDC_SPEECH_VOLUME_SLIDER      2706
+#define IDC_SPEECH_VOLUME_VAL         2707
+#define IDC_SPEECH_INFLECTION_SLIDER  2708
+#define IDC_SPEECH_INFLECTION_VAL     2709
+#define IDC_SPEECH_PARAM_LIST         2710
+#define IDC_SPEECH_PARAM_SLIDER       2711
+#define IDC_SPEECH_PARAM_VAL          2712
+#define IDC_SPEECH_PARAM_RESET        2713
+#define IDC_SPEECH_RESET_ALL          2714
+

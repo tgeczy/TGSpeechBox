@@ -7,8 +7,10 @@
 #include <shellapi.h>
 #include <shobjidl.h>
 #include <mmsystem.h>
+#include <oleacc.h>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <string>
 #include <unordered_set>
@@ -83,6 +85,16 @@ static void writeIni(const wchar_t* section, const wchar_t* key, const std::wstr
   WritePrivateProfileStringW(section, key, value.c_str(), iniPath().c_str());
 }
 
+static int readIniInt(const wchar_t* section, const wchar_t* key, int defVal) {
+  return static_cast<int>(GetPrivateProfileIntW(section, key, defVal, iniPath().c_str()));
+}
+
+static void writeIniInt(const wchar_t* section, const wchar_t* key, int value) {
+  wchar_t buf[64];
+  _itow_s(value, buf, 10);
+  WritePrivateProfileStringW(section, key, buf, iniPath().c_str());
+}
+
 static void msgBox(HWND owner, const std::wstring& text, const std::wstring& title = L"NV Speech Player Phoneme Editor", UINT flags = MB_OK) {
   // Preserve keyboard focus across modal message boxes.
   HWND prevFocus = GetFocus();
@@ -90,6 +102,141 @@ static void msgBox(HWND owner, const std::wstring& text, const std::wstring& tit
   if (prevFocus && IsWindow(prevFocus) && IsWindowEnabled(prevFocus) && IsWindowVisible(prevFocus)) {
     SetFocus(prevFocus);
   }
+}
+
+// Forward declaration (used by dialog procs before list helpers are defined).
+static void ensureListViewHasSelection(HWND lv);
+
+// -------------------------
+// Accessibility: force stable names for certain controls (ListView)
+//
+// NVDA sometimes announces a SysListView32 as just "list" if we don't provide
+// a robust accName. Dialog-label association isn't reliable in a normal Win32
+// top-level window, so we override accName for CHILDID_SELF via WM_GETOBJECT.
+//
+// This keeps the UI readable with screen readers while still using plain
+// Win32 controls.
+
+class AccNameWrapper : public IAccessible {
+public:
+  AccNameWrapper(IAccessible* inner, std::wstring name)
+      : m_ref(1), m_inner(inner), m_name(std::move(name)) {
+    if (m_inner) m_inner->AddRef();
+  }
+  ~AccNameWrapper() {
+    if (m_inner) m_inner->Release();
+  }
+
+  // IUnknown
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override {
+    if (!ppvObject) return E_INVALIDARG;
+    *ppvObject = nullptr;
+    if (riid == IID_IUnknown || riid == IID_IDispatch || riid == IID_IAccessible) {
+      *ppvObject = static_cast<IAccessible*>(this);
+      AddRef();
+      return S_OK;
+    }
+    return m_inner ? m_inner->QueryInterface(riid, ppvObject) : E_NOINTERFACE;
+  }
+  ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&m_ref)); }
+  ULONG STDMETHODCALLTYPE Release() override {
+    LONG r = InterlockedDecrement(&m_ref);
+    if (r == 0) delete this;
+    return static_cast<ULONG>(r);
+  }
+
+  // IDispatch (forward)
+  HRESULT STDMETHODCALLTYPE GetTypeInfoCount(UINT* pctinfo) override { return m_inner ? m_inner->GetTypeInfoCount(pctinfo) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo** ppTInfo) override { return m_inner ? m_inner->GetTypeInfo(iTInfo, lcid, ppTInfo) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE GetIDsOfNames(REFIID riid, LPOLESTR* rgszNames, UINT cNames, LCID lcid, DISPID* rgDispId) override {
+    return m_inner ? m_inner->GetIDsOfNames(riid, rgszNames, cNames, lcid, rgDispId) : E_FAIL;
+  }
+  HRESULT STDMETHODCALLTYPE Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags, DISPPARAMS* pDispParams, VARIANT* pVarResult, EXCEPINFO* pExcepInfo, UINT* puArgErr) override {
+    return m_inner ? m_inner->Invoke(dispIdMember, riid, lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr) : E_FAIL;
+  }
+
+  // IAccessible: forward everything except get_accName for CHILDID_SELF
+  HRESULT STDMETHODCALLTYPE get_accParent(IDispatch** ppdispParent) override { return m_inner ? m_inner->get_accParent(ppdispParent) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accChildCount(long* pcountChildren) override { return m_inner ? m_inner->get_accChildCount(pcountChildren) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accChild(VARIANT varChild, IDispatch** ppdispChild) override { return m_inner ? m_inner->get_accChild(varChild, ppdispChild) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accName(VARIANT varChild, BSTR* pszName) override {
+    if (!pszName) return E_INVALIDARG;
+    if (varChild.vt == VT_I4 && varChild.lVal == CHILDID_SELF) {
+      *pszName = SysAllocString(m_name.c_str());
+      return (*pszName) ? S_OK : E_OUTOFMEMORY;
+    }
+    return m_inner ? m_inner->get_accName(varChild, pszName) : E_FAIL;
+  }
+  HRESULT STDMETHODCALLTYPE get_accValue(VARIANT varChild, BSTR* pszValue) override { return m_inner ? m_inner->get_accValue(varChild, pszValue) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accDescription(VARIANT varChild, BSTR* pszDescription) override { return m_inner ? m_inner->get_accDescription(varChild, pszDescription) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accRole(VARIANT varChild, VARIANT* pvarRole) override { return m_inner ? m_inner->get_accRole(varChild, pvarRole) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accState(VARIANT varChild, VARIANT* pvarState) override { return m_inner ? m_inner->get_accState(varChild, pvarState) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accHelp(VARIANT varChild, BSTR* pszHelp) override { return m_inner ? m_inner->get_accHelp(varChild, pszHelp) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accHelpTopic(BSTR* pszHelpFile, VARIANT varChild, long* pidTopic) override { return m_inner ? m_inner->get_accHelpTopic(pszHelpFile, varChild, pidTopic) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accKeyboardShortcut(VARIANT varChild, BSTR* pszKeyboardShortcut) override { return m_inner ? m_inner->get_accKeyboardShortcut(varChild, pszKeyboardShortcut) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accFocus(VARIANT* pvarChild) override { return m_inner ? m_inner->get_accFocus(pvarChild) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accSelection(VARIANT* pvarChildren) override { return m_inner ? m_inner->get_accSelection(pvarChildren) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE get_accDefaultAction(VARIANT varChild, BSTR* pszDefaultAction) override { return m_inner ? m_inner->get_accDefaultAction(varChild, pszDefaultAction) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE accSelect(long flagsSelect, VARIANT varChild) override { return m_inner ? m_inner->accSelect(flagsSelect, varChild) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE accLocation(long* pxLeft, long* pyTop, long* pcxWidth, long* pcyHeight, VARIANT varChild) override { return m_inner ? m_inner->accLocation(pxLeft, pyTop, pcxWidth, pcyHeight, varChild) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE accNavigate(long navDir, VARIANT varStart, VARIANT* pvarEndUpAt) override { return m_inner ? m_inner->accNavigate(navDir, varStart, pvarEndUpAt) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE accHitTest(long xLeft, long yTop, VARIANT* pvarChild) override { return m_inner ? m_inner->accHitTest(xLeft, yTop, pvarChild) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE accDoDefaultAction(VARIANT varChild) override { return m_inner ? m_inner->accDoDefaultAction(varChild) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE put_accName(VARIANT varChild, BSTR szName) override { return m_inner ? m_inner->put_accName(varChild, szName) : E_FAIL; }
+  HRESULT STDMETHODCALLTYPE put_accValue(VARIANT varChild, BSTR szValue) override { return m_inner ? m_inner->put_accValue(varChild, szValue) : E_FAIL; }
+
+private:
+  LONG m_ref;
+  IAccessible* m_inner;
+  std::wstring m_name;
+};
+
+struct AccSubclassData {
+  std::wstring name;
+  AccNameWrapper* wrapper = nullptr;
+};
+
+static LRESULT CALLBACK accListViewSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+  AccSubclassData* data = reinterpret_cast<AccSubclassData*>(dwRefData);
+  if (msg == WM_GETOBJECT && static_cast<long>(lParam) == OBJID_CLIENT) {
+    // Cache wrapper the first time we're asked.
+    if (data && !data->wrapper) {
+      IAccessible* inner = nullptr;
+      if (SUCCEEDED(CreateStdAccessibleObject(hwnd, OBJID_CLIENT, IID_IAccessible, reinterpret_cast<void**>(&inner))) && inner) {
+        data->wrapper = new AccNameWrapper(inner, data->name);
+        inner->Release();
+      }
+    }
+    if (data && data->wrapper) {
+      return LresultFromObject(IID_IAccessible, wParam, data->wrapper);
+    }
+  }
+  if (msg == WM_SETFOCUS) {
+    // When tabbing into a list view, make sure an actual item is focused
+    // so keyboard users and screen readers land somewhere meaningful.
+    ensureListViewHasSelection(hwnd);
+  }
+
+  if (msg == WM_NCDESTROY) {
+    if (data) {
+      if (data->wrapper) {
+        data->wrapper->Release();
+        data->wrapper = nullptr;
+      }
+      delete data;
+    }
+    RemoveWindowSubclass(hwnd, accListViewSubclassProc, uIdSubclass);
+  }
+  return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+static void installAccessibleNameForListView(HWND lv, const std::wstring& name) {
+  if (!lv) return;
+  // Keep window text set too; some AT uses it.
+  SetWindowTextW(lv, name.c_str());
+  auto* data = new AccSubclassData();
+  data->name = name;
+  SetWindowSubclass(lv, accListViewSubclassProc, 1, reinterpret_cast<DWORD_PTR>(data));
 }
 
 // -------------------------
@@ -261,6 +408,7 @@ static INT_PTR CALLBACK AddMappingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
       }
       break;
     }
+
   }
 
   return FALSE;
@@ -330,11 +478,113 @@ static INT_PTR CALLBACK ClonePhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, 
 struct EditValueDialogState {
   std::string field;
   std::string value;
+  nvsp_editor::Node baseMap;
+  NvspRuntime* runtime = nullptr;
+  bool livePreview = true;
+  bool armed = false;
+  UINT_PTR previewTimer = 0;
   bool ok = false;
 };
 
+static bool tryParseDoubleStrict(const std::wstring& s, double& out) {
+  const wchar_t* p = s.c_str();
+  wchar_t* end = nullptr;
+  out = wcstod(p, &end);
+  if (end == p) return false;
+  // Allow trailing whitespace only.
+  while (end && (*end == L' ' || *end == L'\t' || *end == L'\r' || *end == L'\n')) ++end;
+  return end && *end == 0;
+}
+
+static std::wstring formatDoubleSmart(double v) {
+  // Prefer integer formatting when the value is very close to an integer.
+  const double r = std::round(v);
+  if (std::fabs(v - r) < 1e-9) {
+    wchar_t buf[64];
+    swprintf_s(buf, L"%.0f", r);
+    return buf;
+  }
+
+  // Otherwise format with a few decimals and trim trailing zeros.
+  wchar_t buf[64];
+  swprintf_s(buf, L"%.6f", v);
+  std::wstring out = buf;
+  // Trim trailing zeros
+  while (!out.empty() && out.back() == L'0') out.pop_back();
+  // Trim trailing dot
+  if (!out.empty() && out.back() == L'.') out.pop_back();
+  return out;
+}
+
+static LRESULT CALLBACK numericSpinEditSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                                   UINT_PTR uIdSubclass, DWORD_PTR) {
+  if (msg == WM_NCDESTROY) {
+    RemoveWindowSubclass(hwnd, numericSpinEditSubclassProc, uIdSubclass);
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+  }
+  if (msg == WM_KEYDOWN) {
+    if (wParam == VK_UP || wParam == VK_DOWN || wParam == VK_PRIOR || wParam == VK_NEXT) {
+      wchar_t buf[256];
+      GetWindowTextW(hwnd, buf, 256);
+      double v = 0.0;
+      if (!tryParseDoubleStrict(buf, v)) {
+        return DefSubclassProc(hwnd, msg, wParam, lParam);
+      }
+      const double step = (wParam == VK_PRIOR || wParam == VK_NEXT) ? 50.0 : 1.0;
+      v += (wParam == VK_UP || wParam == VK_PRIOR) ? step : -step;
+      std::wstring out = formatDoubleSmart(v);
+      SetWindowTextW(hwnd, out.c_str());
+      SendMessageW(hwnd, EM_SETSEL, static_cast<WPARAM>(out.size()), static_cast<LPARAM>(out.size()));
+      return 0;
+    }
+  }
+  return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
 static INT_PTR CALLBACK EditValueDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
   EditValueDialogState* st = reinterpret_cast<EditValueDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
+
+  auto schedulePreview = [&]() {
+    if (!st || !st->livePreview || !st->armed) return;
+    if (st->previewTimer) KillTimer(hDlg, st->previewTimer);
+    st->previewTimer = SetTimer(hDlg, 1, 250, nullptr);
+  };
+
+  auto doPreview = [&]() {
+    if (!st || !st->livePreview || !st->armed) return;
+    if (!st->runtime) return;
+    if (!st->runtime->dllsLoaded()) return;
+    if (!st->baseMap.isMap()) return;
+
+    // Grab current text from the edit control.
+    wchar_t buf[1024];
+    GetDlgItemTextW(hDlg, IDC_VAL_VALUE, buf, 1024);
+    st->value = wideToUtf8(buf);
+
+    nvsp_editor::Node tmp = st->baseMap;
+    auto it = tmp.map.find(st->field);
+    if (it == tmp.map.end()) {
+      // If missing, create it.
+      tmp.map[st->field] = nvsp_editor::Node{};
+      it = tmp.map.find(st->field);
+    }
+    it->second.type = nvsp_editor::Node::Type::Scalar;
+    it->second.scalar = st->value;
+
+    std::vector<sample> samples;
+    std::string err;
+    if (!st->runtime->synthPreviewPhoneme(tmp, kSampleRate, samples, err)) {
+      return; // silent on preview errors
+    }
+    if (samples.empty()) return;
+
+    std::wstring wavPath = nvsp_editor::makeTempWavPath(L"nvpe");
+    if (!nvsp_editor::writeWav16Mono(wavPath, kSampleRate, samples, err)) {
+      return;
+    }
+    PlaySoundW(nullptr, NULL, SND_ASYNC);
+    PlaySoundW(wavPath.c_str(), NULL, SND_FILENAME | SND_ASYNC);
+  };
 
   switch (msg) {
     case WM_INITDIALOG: {
@@ -342,11 +592,47 @@ static INT_PTR CALLBACK EditValueDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPA
       SetWindowLongPtrW(hDlg, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(st));
       SetDlgItemTextW(hDlg, IDC_VAL_FIELD, utf8ToWide(st->field).c_str());
       SetDlgItemTextW(hDlg, IDC_VAL_VALUE, utf8ToWide(st->value).c_str());
+      CheckDlgButton(hDlg, IDC_VAL_LIVE_PREVIEW, st->livePreview ? BST_CHECKED : BST_UNCHECKED);
+      // Make the numeric field behave like a spinbox: Up/Down adjusts by 1, typing still works.
+      if (HWND valEdit = GetDlgItem(hDlg, IDC_VAL_VALUE)) {
+        SetWindowSubclass(valEdit, numericSpinEditSubclassProc, 1, 0);
+        // Select all so numeric edits are quick.
+        SendMessageW(valEdit, EM_SETSEL, 0, -1);
+      }
+      st->armed = true;
       return TRUE;
     }
 
+    case WM_TIMER: {
+      if (!st) break;
+      if (wParam == 1) {
+        KillTimer(hDlg, 1);
+        st->previewTimer = 0;
+        doPreview();
+        return TRUE;
+      }
+      break;
+    }
+
     case WM_COMMAND: {
-      if (LOWORD(wParam) == IDOK && st) {
+      if (!st) break;
+
+      if (LOWORD(wParam) == IDC_VAL_LIVE_PREVIEW) {
+        st->livePreview = (IsDlgButtonChecked(hDlg, IDC_VAL_LIVE_PREVIEW) == BST_CHECKED);
+        if (st->livePreview) schedulePreview();
+        return TRUE;
+      }
+
+      if (LOWORD(wParam) == IDC_VAL_VALUE && HIWORD(wParam) == EN_CHANGE) {
+        schedulePreview();
+        return TRUE;
+      }
+
+      if (LOWORD(wParam) == IDOK) {
+        if (st->previewTimer) {
+          KillTimer(hDlg, st->previewTimer);
+          st->previewTimer = 0;
+        }
         wchar_t buf[1024];
         GetDlgItemTextW(hDlg, IDC_VAL_VALUE, buf, 1024);
         st->value = wideToUtf8(buf);
@@ -355,6 +641,10 @@ static INT_PTR CALLBACK EditValueDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPA
         return TRUE;
       }
       if (LOWORD(wParam) == IDCANCEL) {
+        if (st && st->previewTimer) {
+          KillTimer(hDlg, st->previewTimer);
+          st->previewTimer = 0;
+        }
         EndDialog(hDlg, IDCANCEL);
         return TRUE;
       }
@@ -400,6 +690,11 @@ static INT_PTR CALLBACK EditSettingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
         SetWindowTextW(combo, utf8ToWide(st->key).c_str());
       }
       SetDlgItemTextW(hDlg, IDC_SETTING_VALUE, utf8ToWide(st->value).c_str());
+
+      HWND valEdit = GetDlgItem(hDlg, IDC_SETTING_VALUE);
+      if (valEdit) {
+        SetWindowSubclass(valEdit, numericSpinEditSubclassProc, 1, 0);
+      }
       return TRUE;
     }
 
@@ -506,6 +801,7 @@ static INT_PTR CALLBACK EditSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, 
     if (!lv || !st) return;
     sortSettings(st->settings);
     settingsListPopulate(lv, st->settings);
+    ensureListViewHasSelection(lv);
   };
 
   switch (msg) {
@@ -515,12 +811,22 @@ static INT_PTR CALLBACK EditSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, 
 
       HWND lv = GetDlgItem(hDlg, IDC_SETTINGS_LIST);
       if (lv) {
+        installAccessibleNameForListView(lv, L"Language settings list");
         ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
         settingsListAddColumns(lv);
       }
 
       refresh();
       return TRUE;
+    }
+
+    case WM_NOTIFY: {
+      NMHDR* hdr = reinterpret_cast<NMHDR*>(lParam);
+      if (hdr && hdr->code == NM_SETFOCUS && hdr->idFrom == IDC_SETTINGS_LIST) {
+        ensureListViewHasSelection(hdr->hwndFrom);
+        return TRUE;
+      }
+      break;
     }
 
     case WM_COMMAND: {
@@ -593,6 +899,7 @@ struct EditPhonemeDialogState {
   std::string phonemeKey;
   nvsp_editor::Node original;
   nvsp_editor::Node working;
+  NvspRuntime* runtime = nullptr;
   bool ok = false;
 };
 
@@ -664,9 +971,11 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
       SetDlgItemTextW(hDlg, IDC_PHONEME_KEY_LABEL, (L"Phoneme: " + utf8ToWide(st->phonemeKey)).c_str());
 
       HWND lv = GetDlgItem(hDlg, IDC_PHONEME_FIELDS);
+      if (lv) installAccessibleNameForListView(lv, L"Phoneme fields list");
       ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       listviewAddColumns(lv);
       populatePhonemeFieldsList(lv, st->working);
+      ensureListViewHasSelection(lv);
 
       return TRUE;
     }
@@ -691,12 +1000,16 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
         EditValueDialogState vs;
         vs.field = field;
         vs.value = it->second.scalar;
+        vs.baseMap = st->working;
+        vs.runtime = st->runtime;
+        vs.livePreview = true;
 
         DialogBoxParamW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_EDIT_VALUE), hDlg, EditValueDlgProc, reinterpret_cast<LPARAM>(&vs));
         if (vs.ok) {
           it->second.type = nvsp_editor::Node::Type::Scalar;
           it->second.scalar = vs.value;
           populatePhonemeFieldsList(lv, st->working);
+          ensureListViewHasSelection(lv);
         }
         return TRUE;
       }
@@ -724,9 +1037,14 @@ struct App {
   HINSTANCE hInst = nullptr;
   HWND wnd = nullptr;
 
-  // Static labels (for screen-reader friendly names on inputs).
+  // Static labels (for screen-reader friendly names on controls).
   HWND lblFilter = nullptr;
+  HWND lblAllPhonemes = nullptr;
+
   HWND lblLanguage = nullptr;
+  HWND lblLangPhonemes = nullptr;
+  HWND lblMappings = nullptr;
+
   HWND lblText = nullptr;
   HWND lblIpaOut = nullptr;
 
@@ -824,6 +1142,20 @@ static void lvAddRow3(HWND lv, int row, const std::wstring& c1, const std::wstri
 
 static int lvSelectedIndex(HWND lv) {
   return ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+}
+
+static void ensureListViewHasSelection(HWND lv) {
+  if (!lv) return;
+  int count = ListView_GetItemCount(lv);
+  if (count <= 0) return;
+
+  int sel = lvSelectedIndex(lv);
+  if (sel < 0) sel = 0;
+
+  // Ensure something is both selected and focused so users don't tab into a
+  // list that appears empty to assistive tech.
+  ListView_SetItemState(lv, sel, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+  ListView_EnsureVisible(lv, sel, FALSE);
 }
 
 static std::string lvGetTextUtf8(HWND lv, int row, int col) {
@@ -930,6 +1262,8 @@ static void populatePhonemeList(App& app, const std::wstring& filter) {
     ListView_InsertItem(app.listPhonemes, &it);
     row++;
   }
+
+  ensureListViewHasSelection(app.listPhonemes);
 }
 
 static void populateMappingsList(App& app) {
@@ -939,6 +1273,8 @@ static void populateMappingsList(App& app) {
     lvAddRow3(app.listMappings, row, utf8ToWide(r.from), utf8ToWide(r.to), whenToText(r.when));
     row++;
   }
+
+  ensureListViewHasSelection(app.listMappings);
 }
 
 static void populateLanguagePhonemesList(App& app) {
@@ -954,6 +1290,8 @@ static void populateLanguagePhonemesList(App& app) {
     ListView_InsertItem(app.listLangPhonemes, &it);
     row++;
   }
+
+  ensureListViewHasSelection(app.listLangPhonemes);
 }
 
 static void refreshLanguageDerivedLists(App& app) {
@@ -1097,6 +1435,16 @@ static bool loadLanguage(App& app, const std::wstring& langPath) {
   return true;
 }
 
+static std::wstring runtimePackDir(const App& app) {
+  if (!app.packsDir.empty()) return app.packsDir;
+  if (!app.packRoot.empty()) {
+    fs::path p(app.packRoot);
+    p /= "packs";
+    return p.wstring();
+  }
+  return {};
+}
+
 static bool loadPackRoot(App& app, const std::wstring& root) {
   if (root.empty()) return false;
 
@@ -1129,7 +1477,7 @@ static bool loadPackRoot(App& app, const std::wstring& root) {
   // Point runtime at pack root.
   if (app.runtime.dllsLoaded()) {
     std::string rtErr;
-    app.runtime.setPackRoot(app.packRoot, rtErr);
+    app.runtime.setPackRoot(runtimePackDir(app), rtErr);
   }
 
   writeIni(L"state", L"packRoot", app.packRoot);
@@ -1165,7 +1513,7 @@ static bool ensureDllDir(App& app) {
   // Also set pack root on runtime.
   if (!app.packRoot.empty()) {
     std::string tmp;
-    app.runtime.setPackRoot(app.packRoot, tmp);
+    app.runtime.setPackRoot(runtimePackDir(app), tmp);
     std::string tmp2;
     std::string langTag = selectedLangTagUtf8(app);
     if (!langTag.empty()) app.runtime.setLanguage(langTag, tmp2);
@@ -1307,7 +1655,10 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "toneContoursMode",
     "toneContoursAbsolute",
     "segmentBoundaryGapMs",
-    "segmentBoundaryFadeMs"
+    "segmentBoundaryFadeMs",
+    "segmentBoundarySkipVowelToVowel",
+    "autoTieDiphthongs",
+    "autoDiphthongOffglideToSemivowel"
   };
 
   std::vector<std::string> keys;
@@ -1316,6 +1667,243 @@ static std::vector<std::string> knownLanguageSettingKeys() {
   std::sort(keys.begin(), keys.end());
   keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
   return keys;
+}
+
+// -------------------------
+// Speech settings (voice + sliders)
+// -------------------------
+
+static nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
+  nvsp_editor::SpeechSettings s;
+  s.voiceName = wideToUtf8(readIni(L"speech", L"voice", L"Adam"));
+  s.rate = readIniInt(L"speech", L"rate", s.rate);
+  s.pitch = readIniInt(L"speech", L"pitch", s.pitch);
+  s.volume = readIniInt(L"speech", L"volume", s.volume);
+  s.inflection = readIniInt(L"speech", L"inflection", s.inflection);
+
+  const auto& names = NvspRuntime::frameParamNames();
+  s.frameParams.assign(names.size(), 50);
+  for (size_t i = 0; i < names.size(); ++i) {
+    std::wstring key = L"frame_" + utf8ToWide(names[i]);
+    s.frameParams[i] = readIniInt(L"speech", key.c_str(), 50);
+  }
+  return s;
+}
+
+static void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s) {
+  writeIni(L"speech", L"voice", utf8ToWide(s.voiceName));
+  writeIniInt(L"speech", L"rate", s.rate);
+  writeIniInt(L"speech", L"pitch", s.pitch);
+  writeIniInt(L"speech", L"volume", s.volume);
+  writeIniInt(L"speech", L"inflection", s.inflection);
+
+  const auto& names = NvspRuntime::frameParamNames();
+  for (size_t i = 0; i < names.size() && i < s.frameParams.size(); ++i) {
+    std::wstring key = L"frame_" + utf8ToWide(names[i]);
+    writeIniInt(L"speech", key.c_str(), s.frameParams[i]);
+  }
+}
+
+struct SpeechSettingsDialogState {
+  nvsp_editor::SpeechSettings settings;
+  std::vector<std::string> paramNames;
+  bool ok = false;
+};
+
+static void setTrackbarRangeAndPos(HWND tb, int pos) {
+  if (!tb) return;
+  SendMessageW(tb, TBM_SETRANGE, TRUE, MAKELONG(0, 100));
+  SendMessageW(tb, TBM_SETTICFREQ, 10, 0);
+  SendMessageW(tb, TBM_SETPOS, TRUE, pos);
+}
+
+static int getTrackbarPos(HWND tb) {
+  if (!tb) return 0;
+  return static_cast<int>(SendMessageW(tb, TBM_GETPOS, 0, 0));
+}
+
+static void setDlgIntText(HWND hDlg, int id, int value) {
+  wchar_t buf[64];
+  _itow_s(value, buf, 10);
+  SetDlgItemTextW(hDlg, id, buf);
+}
+
+static void fillVoices(HWND combo, const std::string& selected) {
+  if (!combo) return;
+  SendMessageW(combo, CB_RESETCONTENT, 0, 0);
+  const char* voices[] = {"Adam", "Benjamin", "Caleb", "David"};
+  int sel = 0;
+  for (int i = 0; i < 4; ++i) {
+    std::wstring w = utf8ToWide(voices[i]);
+    int idx = static_cast<int>(SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
+    if (selected == voices[i]) sel = idx;
+  }
+  SendMessageW(combo, CB_SETCURSEL, sel, 0);
+}
+
+static void populateParamList(HWND list, const std::vector<std::string>& names, const std::vector<int>& values) {
+  if (!list) return;
+  SendMessageW(list, LB_RESETCONTENT, 0, 0);
+  for (size_t i = 0; i < names.size(); ++i) {
+    std::wstring text = utf8ToWide(names[i]) + L" (" + std::to_wstring((i < values.size()) ? values[i] : 50) + L")";
+    SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text.c_str()));
+  }
+  SendMessageW(list, LB_SETCURSEL, 0, 0);
+}
+
+static void refreshParamListRow(HWND list, size_t idx, const std::string& name, int value) {
+  if (!list) return;
+  std::wstring text = utf8ToWide(name) + L" (" + std::to_wstring(value) + L")";
+  SendMessageW(list, LB_DELETESTRING, static_cast<WPARAM>(idx), 0);
+  SendMessageW(list, LB_INSERTSTRING, static_cast<WPARAM>(idx), reinterpret_cast<LPARAM>(text.c_str()));
+}
+
+static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+  SpeechSettingsDialogState* st = reinterpret_cast<SpeechSettingsDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
+
+  auto syncSelectedParamToUi = [&]() {
+    if (!st) return;
+    HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
+    int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+    if (sel < 0) sel = 0;
+    if (sel >= static_cast<int>(st->paramNames.size())) return;
+    int v = (sel < static_cast<int>(st->settings.frameParams.size())) ? st->settings.frameParams[static_cast<size_t>(sel)] : 50;
+    HWND tb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_SLIDER);
+    setTrackbarRangeAndPos(tb, v);
+    setDlgIntText(hDlg, IDC_SPEECH_PARAM_VAL, v);
+  };
+
+  switch (msg) {
+    case WM_INITDIALOG: {
+      st = reinterpret_cast<SpeechSettingsDialogState*>(lParam);
+      SetWindowLongPtrW(hDlg, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(st));
+
+      // Accessible names for any ListView controls (none here), and predictable defaults.
+      HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
+      fillVoices(combo, st->settings.voiceName);
+
+      setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_RATE_SLIDER), st->settings.rate);
+      setDlgIntText(hDlg, IDC_SPEECH_RATE_VAL, st->settings.rate);
+
+      setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_PITCH_SLIDER), st->settings.pitch);
+      setDlgIntText(hDlg, IDC_SPEECH_PITCH_VAL, st->settings.pitch);
+
+      setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_VOLUME_SLIDER), st->settings.volume);
+      setDlgIntText(hDlg, IDC_SPEECH_VOLUME_VAL, st->settings.volume);
+
+      setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_INFLECTION_SLIDER), st->settings.inflection);
+      setDlgIntText(hDlg, IDC_SPEECH_INFLECTION_VAL, st->settings.inflection);
+
+      // Param list
+      HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
+      populateParamList(lb, st->paramNames, st->settings.frameParams);
+      syncSelectedParamToUi();
+      return TRUE;
+    }
+
+    case WM_HSCROLL: {
+      if (!st) break;
+      HWND src = reinterpret_cast<HWND>(lParam);
+      if (!src) break;
+
+      const int id = GetDlgCtrlID(src);
+      if (id == IDC_SPEECH_RATE_SLIDER) {
+        st->settings.rate = getTrackbarPos(src);
+        setDlgIntText(hDlg, IDC_SPEECH_RATE_VAL, st->settings.rate);
+        return TRUE;
+      }
+      if (id == IDC_SPEECH_PITCH_SLIDER) {
+        st->settings.pitch = getTrackbarPos(src);
+        setDlgIntText(hDlg, IDC_SPEECH_PITCH_VAL, st->settings.pitch);
+        return TRUE;
+      }
+      if (id == IDC_SPEECH_VOLUME_SLIDER) {
+        st->settings.volume = getTrackbarPos(src);
+        setDlgIntText(hDlg, IDC_SPEECH_VOLUME_VAL, st->settings.volume);
+        return TRUE;
+      }
+      if (id == IDC_SPEECH_INFLECTION_SLIDER) {
+        st->settings.inflection = getTrackbarPos(src);
+        setDlgIntText(hDlg, IDC_SPEECH_INFLECTION_VAL, st->settings.inflection);
+        return TRUE;
+      }
+      if (id == IDC_SPEECH_PARAM_SLIDER) {
+        int v = getTrackbarPos(src);
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.frameParams.size())) {
+          st->settings.frameParams[static_cast<size_t>(sel)] = v;
+          setDlgIntText(hDlg, IDC_SPEECH_PARAM_VAL, v);
+          if (sel < static_cast<int>(st->paramNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->paramNames[static_cast<size_t>(sel)], v);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+      break;
+    }
+
+    case WM_COMMAND: {
+      if (!st) break;
+      const int id = LOWORD(wParam);
+      const int code = HIWORD(wParam);
+
+      if (id == IDC_SPEECH_VOICE && code == CBN_SELCHANGE) {
+        HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
+        int sel = combo ? static_cast<int>(SendMessageW(combo, CB_GETCURSEL, 0, 0)) : -1;
+        if (sel >= 0) {
+          wchar_t buf[128];
+          SendMessageW(combo, CB_GETLBTEXT, sel, reinterpret_cast<LPARAM>(buf));
+          st->settings.voiceName = wideToUtf8(buf);
+        }
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_PARAM_LIST && code == LBN_SELCHANGE) {
+        syncSelectedParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_PARAM_RESET) {
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.frameParams.size())) {
+          st->settings.frameParams[static_cast<size_t>(sel)] = 50;
+          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_PARAM_SLIDER), 50);
+          setDlgIntText(hDlg, IDC_SPEECH_PARAM_VAL, 50);
+          if (sel < static_cast<int>(st->paramNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->paramNames[static_cast<size_t>(sel)], 50);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_RESET_ALL) {
+        st->settings.frameParams.assign(st->paramNames.size(), 50);
+        st->settings.voiceName = st->settings.voiceName.empty() ? "Adam" : st->settings.voiceName;
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
+        populateParamList(lb, st->paramNames, st->settings.frameParams);
+        syncSelectedParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDOK) {
+        st->ok = true;
+        EndDialog(hDlg, IDOK);
+        return TRUE;
+      }
+      if (id == IDCANCEL) {
+        EndDialog(hDlg, IDCANCEL);
+        return TRUE;
+      }
+      break;
+    }
+  }
+  return FALSE;
 }
 
 static void onEditLanguageSettings(App& app) {
@@ -1381,6 +1969,8 @@ static void onEditSelectedPhoneme(App& app, bool fromLanguageList) {
   st.phonemeKey = key;
   st.original = *node;
   st.working = *node;
+  st.runtime = &app.runtime;
+  st.runtime = &app.runtime;
 
   DialogBoxParamW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_EDIT_PHONEME), app.wnd, EditPhonemeDlgProc, reinterpret_cast<LPARAM>(&st));
   if (!st.ok) return;
@@ -1448,36 +2038,83 @@ static bool convertTextToIpaViaEspeak(App& app, const std::wstring& text, std::s
     return false;
   }
 
+  std::string langTag = selectedLangTagUtf8(app);
+
+  // Sanitize text for command-line invocation: make it single-line and trim.
+  std::wstring safeText = text;
+  for (wchar_t& c : safeText) {
+    if (c == L'\r' || c == L'\n' || c == L'\t') c = L' ';
+  }
+  {
+    std::wstring collapsed;
+    collapsed.reserve(safeText.size());
+    bool inSpace = true; // trim leading
+    for (wchar_t c : safeText) {
+      const bool isSpace = (c == L' ' || c == L'\v' || c == L'\f');
+      if (isSpace) {
+        if (!inSpace) collapsed.push_back(L' ');
+        inSpace = true;
+      } else {
+        collapsed.push_back(c);
+        inSpace = false;
+      }
+    }
+    while (!collapsed.empty() && collapsed.back() == L' ') collapsed.pop_back();
+    safeText.swap(collapsed);
+  }
+
+  std::wstring dataDir = nvsp_editor::findEspeakDataDir(app.espeakDir);
+
+  // Prefer NVDA-compatible IPA from the eSpeak DLL if present.
+  // This matches NVDA's use of espeak_TextToPhonemes() more closely than
+  // command-line IPA flags, which can differ for some languages (e.g. Hungarian).
+  {
+    std::string dllErr;
+    if (nvsp_editor::espeakTextToIpaViaDll(app.espeakDir, langTag, safeText, outIpaUtf8, dllErr)) {
+      return true;
+    }
+  }
+
+  // Fall back to spawning espeak-ng.exe / espeak.exe.
   std::wstring espeakExe = nvsp_editor::findEspeakExe(app.espeakDir);
   if (espeakExe.empty()) {
     outError = "Could not find espeak-ng.exe or espeak.exe in the configured directory";
     return false;
   }
 
-  std::string langTag = selectedLangTagUtf8(app);
   std::wstring wLang = utf8ToWide(langTag);
 
-  // eSpeak args (best-effort):
-  //   -q           quiet (no extra prints)
+  // eSpeak args:
+  //   -q           quiet
   //   --ipa=3      output IPA phonemes (level 3)
   //   -v <lang>    voice
-  //
-  // Different eSpeak builds vary; if this fails, the app will show the error.
+  //   --path=...   force data directory when a packaged build uses a relative layout
   std::wstring args;
   args += L"-q ";
+  if (!dataDir.empty()) {
+    args += L"--path=\"" + dataDir + L"\" ";
+  }
   args += L"--ipa=3 ";
   if (!wLang.empty()) {
-    args += L"-v ";
-    args += L"\"" + wLang + L"\" ";
+    args += L"-v \"" + wLang + L"\" ";
   }
-  args += L"\"" + text + L"\"";
+  args += L"\"" + safeText + L"\"";
 
   std::string stdoutUtf8;
   if (!nvsp_editor::runProcessCaptureStdout(espeakExe, args, stdoutUtf8, outError)) {
     return false;
   }
 
-  outIpaUtf8 = stdoutUtf8;
+  // Trim ASCII whitespace from both ends.
+  while (!stdoutUtf8.empty() && (stdoutUtf8.back() == '\r' || stdoutUtf8.back() == '\n' || stdoutUtf8.back() == ' ' || stdoutUtf8.back() == '\t')) {
+    stdoutUtf8.pop_back();
+  }
+  size_t startWs = 0;
+  while (startWs < stdoutUtf8.size() && (stdoutUtf8[startWs] == ' ' || stdoutUtf8[startWs] == '\t' || stdoutUtf8[startWs] == '\r' || stdoutUtf8[startWs] == '\n')) {
+    startWs++;
+  }
+
+  outIpaUtf8 = stdoutUtf8.substr(startWs);
   return true;
 }
 
@@ -1514,7 +2151,7 @@ static bool synthIpaFromUi(App& app, std::vector<sample>& outSamples, std::strin
 
   // Ensure runtime pack root and language.
   std::string tmp;
-  app.runtime.setPackRoot(app.packRoot, tmp);
+  app.runtime.setPackRoot(runtimePackDir(app), tmp);
   std::string langTag = selectedLangTagUtf8(app);
   if (!langTag.empty()) {
     std::string errLang;
@@ -1603,6 +2240,8 @@ static void layout(App& app, int w, int h) {
   int btnRowH = 26;
   int btnAreaH = btnRowH + margin;
 
+  MoveWindow(app.lblAllPhonemes, xL, y, leftW, labelH, TRUE);
+  y += labelH + labelGap;
   MoveWindow(app.listPhonemes, xL, y, leftW, topH - y - btnAreaH + margin, TRUE);
 
   int btnY = topH - btnRowH + margin;
@@ -1621,6 +2260,8 @@ static void layout(App& app, int w, int h) {
   MoveWindow(app.comboLang, xR, yR, rightW, 200, TRUE);
   yR += 26 + margin;
 
+  MoveWindow(app.lblLangPhonemes, xR, yR, rightW, labelH, TRUE);
+  yR += labelH + labelGap;
   int langPhH = 90;
   MoveWindow(app.listLangPhonemes, xR, yR, rightW, langPhH, TRUE);
 
@@ -1634,6 +2275,8 @@ static void layout(App& app, int w, int h) {
   int mapBtnH = btnRowH;
   int mapBtnAreaH = mapBtnH + margin;
 
+  MoveWindow(app.lblMappings, xR, mapY, rightW, labelH, TRUE);
+  mapY += labelH + labelGap;
   MoveWindow(app.listMappings, xR, mapY, rightW, topH - mapY - mapBtnAreaH + margin, TRUE);
 
   int mapBtnY = topH - mapBtnH + margin;
@@ -1681,8 +2324,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
       // that don't associate this edit with the adjacent STATIC label.
       SendMessageW(app.editFilter, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"Filter phonemes"));
 
-      app.listPhonemes = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
+      app.lblAllPhonemes = CreateWindowW(L"STATIC", L"All phonemes:", WS_CHILD | WS_VISIBLE,
+                                        0, 0, 100, 18, hWnd, nullptr, app.hInst, nullptr);
+
+      app.listPhonemes = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"All phonemes", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
                                          0, 0, 100, 100, hWnd, (HMENU)IDC_LIST_PHONEMES, app.hInst, nullptr);
+      installAccessibleNameForListView(app.listPhonemes, L"All phonemes list");
       ListView_SetExtendedListViewStyle(app.listPhonemes, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listPhonemes, 0, L"All phonemes", 160);
 
@@ -1700,8 +2347,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
       app.comboLang = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
                                      0, 0, 100, 200, hWnd, (HMENU)IDC_COMBO_LANGUAGE, app.hInst, nullptr);
 
-      app.listLangPhonemes = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
+      app.lblLangPhonemes = CreateWindowW(L"STATIC", L"Phonemes in language:", WS_CHILD | WS_VISIBLE,
+                                        0, 0, 100, 18, hWnd, nullptr, app.hInst, nullptr);
+
+      app.listLangPhonemes = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"Phonemes in language", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
                                             0, 0, 100, 100, hWnd, (HMENU)IDC_LIST_LANG_PHONEMES, app.hInst, nullptr);
+      installAccessibleNameForListView(app.listLangPhonemes, L"Phonemes in language list");
       ListView_SetExtendedListViewStyle(app.listLangPhonemes, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listLangPhonemes, 0, L"Language phonemes", 160);
 
@@ -1712,8 +2363,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
       app.btnLangSettings = CreateWindowW(L"BUTTON", L"Language settings...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                           0, 0, 140, 24, hWnd, (HMENU)IDC_BTN_LANG_SETTINGS, app.hInst, nullptr);
 
-      app.listMappings = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
+      app.lblMappings = CreateWindowW(L"STATIC", L"Normalization mappings:", WS_CHILD | WS_VISIBLE,
+                                   0, 0, 160, 18, hWnd, nullptr, app.hInst, nullptr);
+
+      app.listMappings = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"Normalization mappings", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
                                         0, 0, 100, 100, hWnd, (HMENU)IDC_LIST_MAPPINGS, app.hInst, nullptr);
+      installAccessibleNameForListView(app.listMappings, L"Normalization mappings list");
       ListView_SetExtendedListViewStyle(app.listMappings, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listMappings, 0, L"From", 120);
       lvAddColumn(app.listMappings, 1, L"To", 120);
@@ -1758,6 +2413,78 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
       app.packRoot = readIni(L"state", L"packRoot", L"");
       app.espeakDir = readIni(L"paths", L"espeakDir", L"");
       app.dllDir = readIni(L"paths", L"dllDir", L"");
+
+      // Try to auto-detect a portable layout when paths are missing.
+      // This is silent by design: we only show errors when the user attempts
+      // to synthesize and something is still misconfigured.
+      auto dirHasDlls = [](const std::wstring& dir) -> bool {
+        std::error_code ec;
+        fs::path p(dir);
+        return fs::exists(p / "speechPlayer.dll", ec) && fs::exists(p / "nvspFrontend.dll", ec);
+      };
+      auto rootHasPacks = [](const std::wstring& root) -> bool {
+        std::error_code ec;
+        return fs::is_directory(fs::path(root) / "packs", ec);
+      };
+      auto detectEspeakDir = [](const std::wstring& baseDir) -> std::wstring {
+        const std::wstring sep = (!baseDir.empty() && baseDir.back() == L'\\') ? L"" : L"\\";
+        const std::wstring cands[] = {
+          baseDir,
+          baseDir + sep + L"espeak",
+          baseDir + sep + L"espeak ng",
+          baseDir + sep + L"espeak ng\\bin",
+        };
+        for (const auto& d : cands) {
+          if (d.empty()) continue;
+          std::error_code ec;
+          fs::path p(d);
+          if (fs::exists(p / "espeak-ng.exe", ec) || fs::exists(p / "espeak.exe", ec)) {
+            return d;
+          }
+        }
+        return {};
+      };
+
+      // Auto-load DLLs if they live next to the EXE.
+      if (app.dllDir.empty()) {
+        std::wstring base = exeDir();
+        if (dirHasDlls(base)) {
+          std::string err;
+          if (app.runtime.setDllDirectory(base, err)) {
+            app.dllDir = base;
+            writeIni(L"paths", L"dllDir", app.dllDir);
+          }
+        }
+      } else {
+        // Best-effort load (silent).
+        std::string err;
+        app.runtime.setDllDirectory(app.dllDir, err);
+      }
+
+      // Auto-detect a bundled eSpeak directory.
+      if (app.espeakDir.empty()) {
+        std::wstring es = detectEspeakDir(exeDir());
+        if (!es.empty()) {
+          app.espeakDir = es;
+          writeIni(L"paths", L"espeakDir", app.espeakDir);
+        }
+      }
+
+      // If packRoot isn't set yet, try the DLL dir (common portable layout)
+      // and then the EXE dir.
+      if (app.packRoot.empty()) {
+        if (!app.dllDir.empty() && rootHasPacks(app.dllDir)) {
+          app.packRoot = app.dllDir;
+        } else {
+          std::wstring base = exeDir();
+          if (rootHasPacks(base)) {
+            app.packRoot = base;
+          }
+        }
+      }
+
+      // Load speech settings (voice + sliders) and apply to runtime.
+      app.runtime.setSpeechSettings(loadSpeechSettingsFromIni());
 
       // Initial layout.
       RECT rc{};
@@ -1844,9 +2571,17 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             msgBox(hWnd, L"DLL load failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
           } else {
             app.setStatus(L"DLL directory set and loaded.");
+            // Convenience: if packs live alongside the DLLs (portable layout),
+            // automatically treat this folder as the pack root.
+            if (app.packRoot.empty()) {
+              std::error_code ec;
+              if (fs::is_directory(fs::path(folder) / "packs", ec)) {
+                loadPackRoot(app, folder);
+              }
+            }
             if (!app.packRoot.empty()) {
               std::string tmp;
-              app.runtime.setPackRoot(app.packRoot, tmp);
+              app.runtime.setPackRoot(runtimePackDir(app), tmp);
               std::string lt = selectedLangTagUtf8(app);
               if (!lt.empty()) {
                 std::string tmp2;
@@ -1854,6 +2589,23 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
               }
             }
           }
+        }
+        return 0;
+      }
+
+      if (id == IDM_SETTINGS_SPEECH_SETTINGS) {
+        SpeechSettingsDialogState st;
+        st.settings = app.runtime.getSpeechSettings();
+        st.paramNames = std::vector<std::string>(NvspRuntime::frameParamNames().begin(), NvspRuntime::frameParamNames().end());
+        if (st.settings.frameParams.size() != st.paramNames.size()) {
+          st.settings.frameParams.assign(st.paramNames.size(), 50);
+        }
+
+        DialogBoxParamW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_SPEECH_SETTINGS), hWnd, SpeechSettingsDlgProc, reinterpret_cast<LPARAM>(&st));
+        if (st.ok) {
+          app.runtime.setSpeechSettings(st.settings);
+          saveSpeechSettingsToIni(st.settings);
+          app.setStatus(L"Updated speech settings.");
         }
         return 0;
       }
@@ -1941,6 +2693,18 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
       break;
     }
 
+    case WM_NOTIFY: {
+      NMHDR* hdr = reinterpret_cast<NMHDR*>(lParam);
+      if (hdr && hdr->code == NM_SETFOCUS) {
+        wchar_t cls[64] = {0};
+        GetClassNameW(hdr->hwndFrom, cls, 64);
+        if (_wcsicmp(cls, WC_LISTVIEWW) == 0 || _wcsicmp(cls, L"SysListView32") == 0) {
+          ensureListViewHasSelection(hdr->hwndFrom);
+        }
+      }
+      return 0;
+    }
+
     case WM_CLOSE:
       DestroyWindow(hWnd);
       return 0;
@@ -2014,6 +2778,27 @@ static bool handleTabNavigation(HWND hWnd, const MSG& msg) {
   return true;
 }
 
+// Enable Ctrl+A (Select All) in EDIT controls.
+// The standard Win32 EDIT control does not implement this shortcut by default,
+// so we provide it to make text selection predictable.
+static bool handleCtrlASelectAll(HWND hWnd, const MSG& msg) {
+  if (msg.message != WM_KEYDOWN) return false;
+  if ((GetKeyState(VK_CONTROL) & 0x8000) == 0) return false;
+  if (msg.wParam != 'A' && msg.wParam != 'a') return false;
+
+  // Only handle when the focused control is one of our children.
+  HWND focused = GetFocus();
+  if (!(focused && (focused == hWnd || IsChild(hWnd, focused)))) return false;
+
+  wchar_t cls[32] = {0};
+  GetClassNameW(focused, cls, 32);
+  if (_wcsicmp(cls, L"Edit") != 0) return false;
+
+  SendMessageW(focused, EM_SETSEL, 0, -1);
+  return true;
+}
+
+
 // -------------------------
 // WinMain
 // -------------------------
@@ -2074,6 +2859,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
 
     // Make Tab / Shift+Tab move focus across WS_TABSTOP controls.
     if (handleTabNavigation(hWnd, msg)) {
+      continue;
+    }
+
+    if (handleCtrlASelectAll(hWnd, msg)) {
       continue;
     }
 

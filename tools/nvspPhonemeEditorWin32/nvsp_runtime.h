@@ -14,6 +14,20 @@
 
 namespace nvsp_editor {
 
+// Mirrors the NVDA driver's public-facing speech settings.
+// - Voice: preset that applies multipliers/overrides to the generated frames.
+// - Rate/Pitch/Volume/Inflection: passed to nvspFrontend.dll (and/or applied to frames).
+// - frameParams: 0..100 sliders that act as multipliers on each speechPlayer frame field,
+//   with 50 meaning "neutral" (x1.0).
+struct SpeechSettings {
+  std::string voiceName = "Adam";
+  int rate = 50;       // 0..100
+  int pitch = 50;      // 0..100
+  int volume = 90;     // 0..100
+  int inflection = 60; // 0..100
+  std::vector<int> frameParams; // size == frameParamNames().size()
+};
+
 // -------------------------
 // Dynamic DLL function types
 // -------------------------
@@ -46,6 +60,13 @@ public:
   NvspRuntime();
   ~NvspRuntime();
 
+  // Speech settings (voice, sliders). Safe to call before DLLs are loaded.
+  void setSpeechSettings(const SpeechSettings& s);
+  SpeechSettings getSpeechSettings() const;
+
+  // Names of the 47 frame parameters exposed in the NVDA driver.
+  static const std::vector<std::string>& frameParamNames();
+
   // Directory containing speechPlayer.dll and nvspFrontend.dll.
   bool setDllDirectory(const std::wstring& dllDir, std::string& outError);
 
@@ -76,6 +97,10 @@ public:
   // Last frontend error (if available).
   std::string lastFrontendError() const { return m_lastFrontendError; }
 
+  // Apply voice preset + per-field multipliers + volume scaling.
+  // Exposed so the free callback helper can reuse the same logic.
+  void applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const;
+
 private:
   void unload();
 
@@ -99,6 +124,8 @@ private:
   std::string m_lastFrontendError;
   std::wstring m_packRoot;
   std::string m_langTag;
+
+  SpeechSettings m_speech;
 };
 
 } // namespace nvsp_editor

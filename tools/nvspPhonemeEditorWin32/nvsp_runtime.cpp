@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstring>
 #include <sstream>
 
@@ -110,6 +111,19 @@ static const FieldMap kFieldMap[] = {
   {"endVoicePitch", &speechPlayer_frame_t::endVoicePitch},
 };
 
+static size_t kFieldCount() {
+  return sizeof(kFieldMap) / sizeof(kFieldMap[0]);
+}
+
+const std::vector<std::string>& NvspRuntime::frameParamNames() {
+  static std::vector<std::string> names;
+  if (names.empty()) {
+    names.reserve(kFieldCount());
+    for (const auto& f : kFieldMap) names.emplace_back(f.name);
+  }
+  return names;
+}
+
 static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t& frame, bool& outIsVowel) {
   outIsVowel = false;
 
@@ -139,10 +153,101 @@ static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t&
 
 NvspRuntime::NvspRuntime() {
   // No static layout assumptions: we convert frames field-by-field in the callback.
+  m_speech.frameParams.assign(frameParamNames().size(), 50);
 }
 
 NvspRuntime::~NvspRuntime() {
   unload();
+}
+
+void NvspRuntime::setSpeechSettings(const SpeechSettings& s) {
+  m_speech = s;
+  if (m_speech.voiceName.empty()) m_speech.voiceName = "Adam";
+  if (m_speech.frameParams.size() != frameParamNames().size()) {
+    m_speech.frameParams.assign(frameParamNames().size(), 50);
+  }
+}
+
+SpeechSettings NvspRuntime::getSpeechSettings() const {
+  return m_speech;
+}
+
+static int clampInt(int v, int lo, int hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+static void applyMul(speechPlayer_frame_t& frame, speechPlayer_frameParam_t speechPlayer_frame_t::* member, double mul) {
+  frame.*member = static_cast<speechPlayer_frameParam_t>(static_cast<double>(frame.*member) * mul);
+}
+
+static void applyAbs(speechPlayer_frame_t& frame, speechPlayer_frameParam_t speechPlayer_frame_t::* member, double val) {
+  frame.*member = static_cast<speechPlayer_frameParam_t>(val);
+}
+
+static const FieldMap* findField(const char* name) {
+  for (const auto& f : kFieldMap) {
+    if (std::strcmp(f.name, name) == 0) return &f;
+  }
+  return nullptr;
+}
+
+void NvspRuntime::applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const {
+  // 1) Voice preset (from NVDA driver's __init__.py)
+  const std::string voice = m_speech.voiceName.empty() ? "Adam" : m_speech.voiceName;
+
+  auto mulByName = [&](const char* field, double mul) {
+    const FieldMap* f = findField(field);
+    if (f) applyMul(frame, f->member, mul);
+  };
+  auto absByName = [&](const char* field, double val) {
+    const FieldMap* f = findField(field);
+    if (f) applyAbs(frame, f->member, val);
+  };
+
+  if (voice == "Adam") {
+    mulByName("cb1", 1.3);
+    mulByName("pa6", 1.3);
+    mulByName("fricationAmplitude", 0.85);
+  } else if (voice == "Benjamin") {
+    mulByName("cf1", 1.01);
+    mulByName("cf2", 1.02);
+    absByName("cf4", 3770);
+    absByName("cf5", 4100);
+    absByName("cf6", 5000);
+    mulByName("cfNP", 0.9);
+    mulByName("cb1", 1.3);
+    mulByName("fricationAmplitude", 0.7);
+    mulByName("pa6", 1.3);
+  } else if (voice == "Caleb") {
+    absByName("aspirationAmplitude", 1);
+    absByName("voiceAmplitude", 0);
+  } else if (voice == "David") {
+    mulByName("voicePitch", 0.75);
+    mulByName("endVoicePitch", 0.75);
+    mulByName("cf1", 0.75);
+    mulByName("cf2", 0.85);
+    mulByName("cf3", 0.85);
+  } else {
+    // Unknown voice name: fall back to Adam behavior.
+    mulByName("cb1", 1.3);
+    mulByName("pa6", 1.3);
+    mulByName("fricationAmplitude", 0.85);
+  }
+
+  // 2) Per-field multipliers (0..100, 50 => neutral)
+  if (m_speech.frameParams.size() == kFieldCount()) {
+    for (size_t i = 0; i < kFieldCount(); ++i) {
+      const double ratio = static_cast<double>(clampInt(m_speech.frameParams[i], 0, 100)) / 50.0;
+      if (ratio == 1.0) continue;
+      applyMul(frame, kFieldMap[i].member, ratio);
+    }
+  }
+
+  // 3) Volume scaling (match NVDA driver: preFormantGain *= volume/75)
+  const double vol = static_cast<double>(clampInt(m_speech.volume, 0, 100)) / 75.0;
+  frame.preFormantGain = static_cast<speechPlayer_frameParam_t>(static_cast<double>(frame.preFormantGain) * vol);
 }
 
 void NvspRuntime::unload() {
@@ -320,6 +425,7 @@ bool NvspRuntime::synthPreviewPhoneme(
   speechPlayer_frame_t frame{};
   bool isVowel = false;
   applyPhonemeMapToFrame(phonemeMap, frame, isVowel);
+  applySpeechSettingsToFrame(frame);
 
   const double preMs = 35.0;
   const double durMs = isVowel ? 180.0 : 120.0;
@@ -346,6 +452,7 @@ struct QueueCtx {
   speechPlayer_handle_t player;
   int sampleRate;
   bool first;
+  const NvspRuntime* runtime;
 };
 
 static void __cdecl frameCallback(
@@ -420,6 +527,10 @@ static void __cdecl frameCallback(
     f.outputGain = frameOrNull->outputGain;
     f.endVoicePitch = frameOrNull->endVoicePitch;
 
+    if (ctx->runtime) {
+      ctx->runtime->applySpeechSettingsToFrame(f);
+    }
+
     ctx->queueFrame(ctx->player, &f, durS, fadeS, userIndex, ctx->first);
   } else {
     ctx->queueFrame(ctx->player, nullptr, durS, fadeS, userIndex, ctx->first);
@@ -476,10 +587,18 @@ bool NvspRuntime::synthIpa(
   ctx.player = player;
   ctx.sampleRate = sampleRate;
   ctx.first = true;
+  ctx.runtime = this;
 
-  const double speed = 1.0;
-  const double basePitch = 120.0;
-  const double inflection = 0.75;
+  // Match NVDA driver's mapping:
+  //   rate: 0..100 -> 0.25 * 2^(rate/25)
+  //   pitch: 0..100 -> basePitch = 25 + 21.25*(pitch/12.5)
+  //   inflection: 0..100 -> 0.0..1.0
+  const int rate = clampInt(m_speech.rate, 0, 100);
+  const int pitch = clampInt(m_speech.pitch, 0, 100);
+  const int infl = clampInt(m_speech.inflection, 0, 100);
+  const double speed = 0.25 * std::pow(2.0, static_cast<double>(rate) / 25.0);
+  const double basePitch = 25.0 + (21.25 * (static_cast<double>(pitch) / 12.5));
+  const double inflection = static_cast<double>(infl) / 100.0;
   const char* clause = ".";
 
   int ok = m_feQueueIPA(

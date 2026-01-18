@@ -41,6 +41,7 @@ endif()
 if(WIN32)
   target_link_libraries(nvspPhonemeEditor PRIVATE
     comctl32
+    oleacc
     ole32
     shell32
     shlwapi

@@ -48,4 +48,3 @@ The tool stores these paths in `nvspPhonemeEditor.ini` next to the exe.
 - YAML comments and original formatting are not preserved when saving.
   Use git to review diffs.
 - For the frontend DLL to work, your pack root must contain `packs/phonemes.yaml`.
-  If you only have `phonemes-good.yaml`, copy or rename it to `phonemes.yaml`.
