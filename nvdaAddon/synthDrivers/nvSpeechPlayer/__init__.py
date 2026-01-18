@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
-NV Speech Player - NVDA synth driver (modernized)
+"""NV Speech Player - NVDA synth driver (modernized)
 
-This driver uses:
-- eSpeak (NVDA's built-in) for text -> phoneme/IPA conversion
-- NV Speech Player (speechPlayer.dll) for formant synthesis rendering
+Pipeline:
+- eSpeak (NVDA built-in) for text -> IPA/phonemes
+- nvspFrontend.dll for IPA -> timed SpeechPlayer frames
+- speechPlayer.dll for frame -> PCM synthesis
 """
 
 from __future__ import annotations
@@ -17,6 +17,8 @@ import re
 import threading
 import weakref
 from collections import OrderedDict
+
+from typing import Optional
 
 import config
 import nvwave
@@ -39,8 +41,192 @@ except Exception:
 
 from autoSettingsUtils.driverSetting import DriverSetting, NumericDriverSetting
 
-from . import ipa
 from . import speechPlayer
+
+# --- nvspFrontend.dll (IPA -> Frames) ---
+#
+# This replaces the old pure-Python ipa.py pipeline.
+#
+# The frontend reads YAML packs from a local "packs" folder.
+# Your directory layout should look like this (case-insensitive on Windows):
+#   synthDrivers/nvSpeechPlayer/
+#     __init__.py
+#     speechPlayer.dll
+#     nvspFrontend.dll
+#     packs/
+#       phonemes.yaml
+#       lang/
+#         default.yaml
+#         bg.yaml
+#         zh.yaml
+#         hu.yaml
+#         pt.yaml
+#         pl.yaml
+#         es.yaml
+#
+# Note: the C++ pack loader looks for "phonemes.yaml" and "packs/phonemes.yaml".
+# If your file is named "Phonemes.yaml", Windows will still open it, but keeping
+# everything lowercase helps if you ever run builds/tests on a case-sensitive FS.
+
+
+class _NvspFrontend(object):
+    """Thin ctypes wrapper around nvspFrontend.dll.
+
+    - create(packDir) makes a handle.
+    - setLanguage(langTag) loads packs for that language.
+    - queueIPA() converts IPA -> frames and calls you back per frame.
+
+    All strings are UTF-8.
+    """
+
+    def __init__(self, dllPath: str, packDir: str):
+        self._dllPath = dllPath
+        self._packDir = packDir
+        self._dll = None
+        self._h = None
+        self._dllDirCookie = None
+
+        # Python 3.8+ tightened Windows DLL search rules. If nvspFrontend.dll ever
+        # grows extra local dependencies, keeping its directory on the DLL search
+        # path makes loading more reliable.
+        if hasattr(os, "add_dll_directory"):
+            try:
+                self._dllDirCookie = os.add_dll_directory(os.path.dirname(self._dllPath))
+            except Exception:
+                self._dllDirCookie = None
+
+        self._dll = ctypes.cdll.LoadLibrary(self._dllPath)
+        self._setupPrototypes()
+
+        packDirUtf8 = (self._packDir or "").encode("utf-8")
+        self._h = self._dll.nvspFrontend_create(packDirUtf8)
+        if not self._h:
+            raise RuntimeError("nvSpeechPlayer: nvspFrontend_create failed")
+
+    def _setupPrototypes(self) -> None:
+        # nvspFrontend_handle_t nvspFrontend_create(const char* packDirUtf8);
+        self._dll.nvspFrontend_create.argtypes = [ctypes.c_char_p]
+        self._dll.nvspFrontend_create.restype = ctypes.c_void_p
+
+        # void nvspFrontend_destroy(nvspFrontend_handle_t handle);
+        self._dll.nvspFrontend_destroy.argtypes = [ctypes.c_void_p]
+        self._dll.nvspFrontend_destroy.restype = None
+
+        # int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, const char* langTagUtf8);
+        self._dll.nvspFrontend_setLanguage.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        self._dll.nvspFrontend_setLanguage.restype = ctypes.c_int
+
+        # const char* nvspFrontend_getLastError(nvspFrontend_handle_t handle);
+        self._dll.nvspFrontend_getLastError.argtypes = [ctypes.c_void_p]
+        self._dll.nvspFrontend_getLastError.restype = ctypes.c_char_p
+
+        # int nvspFrontend_queueIPA(..., nvspFrontend_FrameCallback cb, void* userData);
+        self._CBTYPE = ctypes.CFUNCTYPE(
+            None,
+            ctypes.c_void_p,  # userData
+            ctypes.POINTER(speechPlayer.Frame),  # frameOrNull
+            ctypes.c_double,  # durationMs
+            ctypes.c_double,  # fadeMs
+            ctypes.c_int,     # userIndexBase (we ignore and manage index on Python side)
+        )
+
+        self._dll.nvspFrontend_queueIPA.argtypes = [
+            ctypes.c_void_p,   # handle
+            ctypes.c_char_p,   # ipaUtf8
+            ctypes.c_double,   # speed
+            ctypes.c_double,   # basePitch
+            ctypes.c_double,   # inflection
+            ctypes.c_char_p,   # clauseTypeUtf8
+            ctypes.c_int,      # userIndexBase
+            self._CBTYPE,      # cb
+            ctypes.c_void_p,   # userData
+        ]
+        self._dll.nvspFrontend_queueIPA.restype = ctypes.c_int
+
+    def terminate(self) -> None:
+        if self._dll and self._h:
+            try:
+                self._dll.nvspFrontend_destroy(self._h)
+            except Exception:
+                pass
+        self._h = None
+
+        if getattr(self, "_dllDirCookie", None):
+            try:
+                self._dllDirCookie.close()
+            except Exception:
+                pass
+            self._dllDirCookie = None
+
+    def getLastError(self) -> str:
+        try:
+            if not self._dll or not self._h:
+                return ""
+            msg = self._dll.nvspFrontend_getLastError(self._h)
+            if not msg:
+                return ""
+            return msg.decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    def setLanguage(self, langTag: str) -> bool:
+        if not self._dll or not self._h:
+            return False
+        tag = (langTag or "").strip().lower().replace("_", "-")
+        ok = int(self._dll.nvspFrontend_setLanguage(self._h, tag.encode("utf-8")))
+        return bool(ok)
+
+    def queueIPA(
+        self,
+        ipaText: str,
+        *,
+        speed: float,
+        basePitch: float,
+        inflection: float,
+        clauseType: Optional[str],
+        userIndex: Optional[int],
+        onFrame,
+    ) -> bool:
+        """Call onFrame(framePtrOrNone, durationMs, fadeMs, indexOrNone) for each frame."""
+        if not self._dll or not self._h:
+            return False
+
+        ipaUtf8 = (ipaText or "").encode("utf-8")
+        clauseUtf8 = None
+        if clauseType:
+            # Frontend reads the first byte only.
+            clauseUtf8 = str(clauseType)[0].encode("ascii", errors="ignore") or b"."
+
+        first = True
+
+        @self._CBTYPE
+        def _cb(userData, framePtr, durationMs, fadeMs, userIndexBase):
+            nonlocal first
+
+            # Only attach the NVDA index to the first *real* frame.
+            # If the frontend emits a silence frame first (framePtr is None),
+            # do not consume the "first" slot.
+            idx = None
+            if framePtr:
+                if first and userIndex is not None:
+                    idx = userIndex
+                first = False
+
+            onFrame(framePtr, float(durationMs), float(fadeMs), idx)
+
+        ok = int(self._dll.nvspFrontend_queueIPA(
+            self._h,
+            ipaUtf8,
+            float(speed),
+            float(basePitch),
+            float(inflection),
+            clauseUtf8,
+            int(-1),   # we manage index-per-first-frame in Python
+            _cb,
+            None,
+        ))
+        return bool(ok)
+
 
 
 # Split on punctuation+space so we can add end-of-clause pauses.
@@ -50,10 +236,24 @@ re_textPause = re.compile(r"(?<=[.?!,:;])\s", re.DOTALL | re.UNICODE)
 languages = OrderedDict([
     ("en-us", VoiceInfo("en-us", "English (US)")),
     ("en", VoiceInfo("en", "English (UK)")),
-    ("es", VoiceInfo("es", "Spanish")),
+    ("zh", VoiceInfo("zh", "Chinese")),
+    ("pt", VoiceInfo("pt", "Portuguese")),
     ("hu", VoiceInfo("hu", "Hungarian")),
+    ("fi", VoiceInfo("fi", "Finnish")),
+    ("bg", VoiceInfo("bg", "Bulgarian")),
+    ("fr", VoiceInfo("fr", "French")),
+    ("es", VoiceInfo("es", "Spanish (Spain)")),
+    ("es-mx", VoiceInfo("es-mx", "Spanish (México)")),
+    ("it", VoiceInfo("it", "Italian")),
+    ("it", VoiceInfo("it", "Italian")),
     ("pt-br", VoiceInfo("pt-br", "Brazilian Portuguese")),
+    ("ro", VoiceInfo("ro", "Romanian")),
+    ("de", VoiceInfo("de", "German")),
+    ("nl", VoiceInfo("nl", "Dutch")),
+    ("sv", VoiceInfo("sv", "Swedish")),
     ("pl", VoiceInfo("pl", "Polish")),
+    ("sk", VoiceInfo("sk", "Slovak")),
+    ("cs", VoiceInfo("cs", "Czech")),
 ])
 
 
@@ -288,6 +488,61 @@ class SynthDriver(SynthDriver):
         self._sampleRate = 16000
         self._player = speechPlayer.SpeechPlayer(self._sampleRate)
 
+        # Frontend: YAML packs + IPA->frames conversion.
+        here = os.path.dirname(__file__)
+        packsDir = os.path.join(here, "packs")
+        packDir = packsDir
+
+        # Validate expected pack files so missing optional language YAML doesn't silently
+        # fall back to default.
+        requiredRel = [
+            "phonemes.yaml",
+            os.path.join("lang", "default.yaml"),
+            os.path.join("lang", "bg.yaml"),
+            os.path.join("lang", "zh.yaml"),
+            os.path.join("lang", "hu.yaml"),
+            os.path.join("lang", "pt.yaml"),
+            os.path.join("lang", "pl.yaml"),
+            os.path.join("lang", "es.yaml"),
+        ]
+        missingRel = []
+        for rel in requiredRel:
+            try:
+                if not os.path.isfile(os.path.join(packsDir, rel)):
+                    missingRel.append(rel)
+            except Exception:
+                missingRel.append(rel)
+
+        # Hard fail if the core files are missing.
+        if not os.path.isdir(packsDir) or "phonemes.yaml" in missingRel or os.path.join("lang", "default.yaml") in missingRel:
+            msg = "nvSpeechPlayer: missing required packs under %s" % packsDir
+            if missingRel:
+                msg += ": " + ", ".join(missingRel)
+            raise RuntimeError(msg)
+
+        # Soft warning for missing optional language packs.
+        optMissing = [x for x in missingRel if x not in ("phonemes.yaml", os.path.join("lang", "default.yaml"))]
+        if optMissing:
+            log.warning("nvSpeechPlayer: missing optional language packs: %s", ", ".join(optMissing))
+
+        feDllPath = os.path.join(here, "nvspFrontend.dll")
+        self._frontend = _NvspFrontend(feDllPath, packDir)
+
+        # Load default explicitly now. If this fails, the frontend won't be usable.
+        if not self._frontend.setLanguage("default"):
+            raise RuntimeError(
+                "nvSpeechPlayer: could not load default pack: %s" % (self._frontend.getLastError() or "unknown error")
+            )
+
+        # Preload language-specific packs you said you ship right now.
+        # This doesn't lock you in: calling setLanguage() later will reload/merge packs.
+        for tag in ("bg", "zh", "hu", "pt", "pl", "es"):
+            try:
+                if not self._frontend.setLanguage(tag):
+                    log.error(f"nvSpeechPlayer: failed to load language pack '{tag}': {self._frontend.getLastError()}")
+            except Exception:
+                log.error("nvSpeechPlayer: error while preloading language packs", exc_info=True)
+
         _espeak.initialize()
 
         self._language = "en-us"
@@ -312,10 +567,34 @@ class SynthDriver(SynthDriver):
 
     @classmethod
     def check(cls):
+        # NV Speech Player is a 32-bit synth driver.
         if ctypes.sizeof(ctypes.c_void_p) != 4:
             return False
-        dllPath = os.path.join(os.path.dirname(__file__), "speechPlayer.dll")
-        return os.path.isfile(dllPath)
+
+        here = os.path.dirname(__file__)
+        dspDll = os.path.join(here, "speechPlayer.dll")
+        feDll = os.path.join(here, "nvspFrontend.dll")
+
+        if not os.path.isfile(dspDll) or not os.path.isfile(feDll):
+            return False
+
+        # Packs are expected in a local ./packs folder.
+        packsDir = os.path.join(here, "packs")
+        if not os.path.isdir(packsDir):
+            return False
+
+        # Accept either casing on Windows, but check for both to be explicit.
+        phonemesLower = os.path.join(packsDir, "phonemes.yaml")
+        phonemesUpper = os.path.join(packsDir, "Phonemes.yaml")
+        if not (os.path.isfile(phonemesLower) or os.path.isfile(phonemesUpper)):
+            return False
+
+        # default.yaml is required (others are optional at runtime).
+        defaultYaml = os.path.join(packsDir, "lang", "default.yaml")
+        if not os.path.isfile(defaultYaml):
+            return False
+
+        return True
 
     def _get_availableLanguages(self):
         return languages
@@ -353,6 +632,14 @@ class SynthDriver(SynthDriver):
                 log.error("nvSpeechPlayer: could not set language", exc_info=True)
 
         self._language = code
+
+        # Keep frontend pack selection in sync with the driver language.
+        try:
+            if getattr(self, "_frontend", None):
+                if not self._frontend.setLanguage(code):
+                    log.error(f"nvSpeechPlayer: frontend could not load '{code}': {self._frontend.getLastError()}")
+        except Exception:
+            log.error("nvSpeechPlayer: error setting frontend language", exc_info=True)
 
     def _enqueue(self, func, *args, **kwargs):
         if self._bgStop.is_set():
@@ -455,36 +742,60 @@ class SynthDriver(SynthDriver):
                 pitch = float(self._curPitch) + float(pitchOffset)
                 basePitch = 25.0 + (21.25 * (pitch / 12.5))
 
-                gen = list(ipa.generateFramesAndTiming(
-                    ipaText,
-                    speed=self._curRate,
-                    basePitch=basePitch,
-                    inflection=self._curInflection,
-                    clauseType=clauseType,
-                    language=self._language,
-                ))
-                
-                # FORCE INDEX FALLBACK: handle index if ipa.py generates nothing
-                if not gen:
-                    if userIndex is not None:
-                        dummy = speechPlayer.Frame()
-                        dummy.voiceAmplitude = 0
-                        self._player.queueFrame(dummy, 10.0, 5.0, userIndex=userIndex)
-                        userIndex = None
-                    continue
+                # nvspFrontend.dll: IPA -> frames.
+                queuedCount = 0
 
-                for i, (frame, frameDuration, fadeDuration) in enumerate(gen):
-                    if frame:
+                def _onFrame(framePtr, frameDuration, fadeDuration, idxToSet):
+                    nonlocal queuedCount
+
+                    frame = None
+                    if framePtr:
+                        # Copy the C frame into a Python-owned Frame.
+                        frame = speechPlayer.Frame()
+                        ctypes.memmove(ctypes.byref(frame), framePtr, ctypes.sizeof(speechPlayer.Frame))
+
                         applyVoiceToFrame(frame, self._curVoice)
+
                         if self.exposeExtraParams:
                             for x in self._extraParamNames:
                                 ratio = float(getattr(self, f"speechPlayer_{x}", 50)) / 50.0
                                 setattr(frame, x, getattr(frame, x) * ratio)
+
                         frame.preFormantGain *= self._curVolume
 
-                    currentIdx = userIndex if i == 0 else None
-                    self._player.queueFrame(frame, frameDuration, fadeDuration, userIndex=currentIdx)
-                
+                    self._player.queueFrame(frame, frameDuration, fadeDuration, userIndex=idxToSet)
+                    queuedCount += 1
+
+                ok = False
+                try:
+                    ok = self._frontend.queueIPA(
+                        ipaText,
+                        speed=self._curRate,
+                        basePitch=basePitch,
+                        inflection=self._curInflection,
+                        clauseType=clauseType,
+                        userIndex=userIndex,
+                        onFrame=_onFrame,
+                    )
+                except Exception:
+                    log.error("nvSpeechPlayer: frontend queueIPA failed", exc_info=True)
+                    ok = False
+
+                if not ok:
+                    err = self._frontend.getLastError()
+                    if err:
+                        log.error(f"nvSpeechPlayer: frontend error: {err}")
+
+                # FORCE INDEX FALLBACK: if the frontend fails or outputs nothing, at least carry the index.
+                if (not ok) or queuedCount <= 0:
+                    if userIndex is not None:
+                        dummy = speechPlayer.Frame()
+                        dummy.voiceAmplitude = 0
+                        dummy.fricationAmplitude = 0
+                        self._player.queueFrame(dummy, 10.0, 5.0, userIndex=userIndex)
+                        userIndex = None
+                    continue
+
                 userIndex = None
 
         self._player.queueFrame(None, endPause, max(10.0, 10.0 / float(self._curRate)), userIndex=userIndex)
@@ -514,6 +825,11 @@ class SynthDriver(SynthDriver):
             self._bgStop.set()
             self._bgQueue.put(None)
             self._bgThread.join(timeout=2.0)
+            try:
+                if getattr(self, "_frontend", None):
+                    self._frontend.terminate()
+            except Exception:
+                pass
             self._audio.terminate()
             self._player.terminate()
             _espeak.terminate()
