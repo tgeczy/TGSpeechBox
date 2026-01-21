@@ -182,7 +182,7 @@ These settings help when callers stitch speech from multiple chunks (common in N
 - `segmentBoundarySkipVowelToVowel` (bool, default `true`)
   - If true, skips the segment-boundary silence when a chunk ends with a vowel/semivowel and the next chunk begins with a vowel/semivowel (to avoid audible gaps across diphthongs).
 - `segmentBoundarySkipVowelToLiquid` (bool, default `false`)
-  - If true, also skips the segment-boundary silence when a chunk ends with a vowel/semivowel and the next chunk begins with a liquid-like consonant (liquids/taps/trills). This can help reduce audible seams in vowel+R transitions across chunks (e.g. “play” + “er”).
+  - If true, also skips the segment-boundary silence when a chunk ends with a vowel/semivowel and the next chunk begins with a liquid-like consonant (liquids/taps/trills). This can help reduce audible seams in vowel+R transitions across chunks if it's noticeable in your language.
 
 #### Automatic diphthong handling
 These settings optionally add tie bars for vowel+vowel sequences that should behave like a diphthong.
@@ -434,7 +434,4 @@ The NVDA driver loads:
 - and uses eSpeak for text → IPA conversion.
 
 This keeps the DSP core small and stable while making language updates fast and community-editable.
-
-If you want, I can also:
-- add a short “Troubleshooting” section (common gotchas: pack path, YAML casing, dialect inheritance),
-- and add a “Contributing language fixes” section with a simple checklist (so PRs are consistent).
+The driver now supports NVDA 2026.1, but should be compatible across NVDA 2023.2. This has created a lot of boilerplate code, unfortunately, as supporting older NVDA is complex. Nonetheless, I recognize some people still want to use this in Windows 7 environments, so we will continue to support older NVDA as long as we can until performance penalties arise.
