@@ -206,6 +206,17 @@ struct LanguagePack {
   // (e.g. diphthongs across chunks).
   bool segmentBoundarySkipVowelToVowel = true;
 
+  // If true, also suppress the segmentBoundary* silence insertion when the
+  // previous chunk ends with a vowel/semivowel and the next chunk starts with a
+  // liquid-like consonant (liquids/taps/trills).
+  //
+  // This helps avoid audible seams in cases like vowel+R transitions across
+  // chunks (e.g. "play" + "er"), where a tiny boundary pause can sound like an
+  // unnatural syllable break.
+  //
+  // Disabled by default to preserve existing behavior.
+  bool segmentBoundarySkipVowelToLiquid = false;
+
   // Automatic diphthong handling (optional).
   //
   // eSpeak usually encodes diphthongs as a sequence of two vowel qualities,
@@ -221,6 +232,21 @@ struct LanguagePack {
   // vowel with a semivowel (e.g. i/ɪ -> j, u/ʊ -> w) when those phonemes exist
   // in phonemes.yaml. This can make diphthong movement more obvious.
   bool autoDiphthongOffglideToSemivowel = false;
+
+  // Semivowel offglide shortening (optional).
+  //
+  // In some packs (notably English), diphthongs are rendered as vowel+semivowel
+  // sequences (e.g. eɪ -> ej). When that offglide semivowel is followed by a
+  // vowel or a liquid-like consonant (e.g. "player" /plˈejɚ/, "later" /lˈejɾɚ/),
+  // giving the semivowel a full consonant duration can sound like a tiny
+  // syllable break.
+  //
+  // If semivowelOffglideScale != 1.0, the engine multiplies the duration/fade
+  // of semivowel tokens that occur *within a word* in the pattern:
+  //   vowel + semivowel + (vowel | liquid | tap | trill)
+  //
+  // Default 1.0 = disabled.
+  double semivowelOffglideScale = 1.0;
 
   // Intra-word vowel hiatus break (optional).
   //

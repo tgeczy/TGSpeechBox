@@ -145,7 +145,14 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA(
     return (f & kIsVowel) || (f & kIsSemivowel);
   };
 
+  auto isLiquidLike = [](const Token& t) -> bool {
+    if (!t.def) return false;
+    const std::uint32_t f = t.def->flags;
+    return (f & kIsLiquid) || (f & kIsTap) || (f & kIsTrill);
+  };
+
   const bool startsVowelLike = firstReal && isVowelLike(*firstReal);
+  const bool startsLiquidLike = firstReal && isLiquidLike(*firstReal);
   const bool endsVowelLike = lastReal && isVowelLike(*lastReal);
   const bool hasRealPhoneme = (firstReal != nullptr);
 
@@ -164,6 +171,10 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA(
       bool skip = false;
       if (h->pack.lang.segmentBoundarySkipVowelToVowel &&
           h->lastEndsVowelLike && startsVowelLike) {
+        skip = true;
+      }
+      if (!skip && h->pack.lang.segmentBoundarySkipVowelToLiquid &&
+          h->lastEndsVowelLike && startsLiquidLike) {
         skip = true;
       }
       if (!skip) {

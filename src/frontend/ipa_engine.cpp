@@ -79,6 +79,10 @@ static inline bool isSpace(char32_t c) {
   return c == U' ' || c == U'\t' || c == U'\n' || c == U'\r';
 }
 
+static inline bool isStressMark(char32_t c) {
+  return c == U'ˈ' || c == U'ˌ';
+}
+
 static void collapseWhitespace(std::u32string& s) {
   std::u32string out;
   out.reserve(s.size());
@@ -147,6 +151,13 @@ static bool classContainsNext(const std::unordered_map<std::string, std::vector<
   if (it == classes.end()) return false;
   if (nextIndex >= text.size()) return false;
 
+  // Skip stress marks so rules like "insert schwa before r when beforeClass: VOWELS"
+  // still match when eSpeak emits "rˈa" (stress mark between consonant and vowel).
+  while (nextIndex < text.size() && isStressMark(text[nextIndex])) {
+    ++nextIndex;
+  }
+  if (nextIndex >= text.size()) return false;
+
   // Support both single-codepoint and multi-codepoint class members.
   // This allows pack rules like beforeClass: ["t͡ʃ", "d͡ʒ"] if needed.
   for (const auto& member : it->second) {
@@ -166,6 +177,14 @@ static bool classContainsPrev(const std::unordered_map<std::string, std::vector<
   if (it == classes.end()) return false;
   if (text.empty()) return false;
   if (prevIndex >= text.size()) return false;
+
+  // Skip stress marks so afterClass rules still match when eSpeak places a stress
+  // marker between the previous consonant and the match.
+  while (true) {
+    if (!isStressMark(text[prevIndex])) break;
+    if (prevIndex == 0) return false;
+    --prevIndex;
+  }
 
   // Support both single-codepoint and multi-codepoint class members.
   // prevIndex is the index of the character immediately before the match.
@@ -599,6 +618,33 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
         if (tokenIsLiquid(t) || tokenIsSemivowel(t)) {
           fade = 20.0 / curSpeed;
         }
+      }
+    }
+
+    // Optional: semivowel offglide shortening.
+    //
+    // Some packs render diphthongs as vowel+semivowel sequences (e.g. eɪ -> ej).
+    // When that semivowel is followed by a vowel or liquid-like consonant within
+    // the same word, giving it a full consonant duration can sound like an
+    // unintended micro-break (e.g. "player", "later").
+    if (lang.semivowelOffglideScale != 1.0 && tokenIsSemivowel(t)) {
+      double s = lang.semivowelOffglideScale;
+      if (s <= 0.0) s = 1.0;
+      // Keep this bounded to avoid pathological configs.
+      if (s < 0.05) s = 0.05;
+      if (s > 3.0) s = 3.0;
+
+      const bool prevIsVowel = (last && !last->silence && tokenIsVowel(*last));
+      const bool nextOk = (next && !next->silence && !next->wordStart &&
+                           (tokenIsVowel(*next) || tokenIsLiquid(*next) || tokenIsTap(*next) || tokenIsTrill(*next)));
+
+      if (prevIsVowel && nextOk) {
+        dur *= s;
+        fade *= s;
+        // Avoid zero/negative durations.
+        dur = std::max(dur, 1.0 / curSpeed);
+        fade = std::max(fade, 0.001);
+        if (fade > dur) fade = dur;
       }
     }
 

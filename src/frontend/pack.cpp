@@ -293,8 +293,10 @@ static void mergeSettings(LanguagePack& lp, const yaml_min::Node& settings) {
   getNum("segmentBoundaryGapMs", lp.segmentBoundaryGapMs);
   getNum("segmentBoundaryFadeMs", lp.segmentBoundaryFadeMs);
   getBool("segmentBoundarySkipVowelToVowel", lp.segmentBoundarySkipVowelToVowel);
+  getBool("segmentBoundarySkipVowelToLiquid", lp.segmentBoundarySkipVowelToLiquid);
   getBool("autoTieDiphthongs", lp.autoTieDiphthongs);
   getBool("autoDiphthongOffglideToSemivowel", lp.autoDiphthongOffglideToSemivowel);
+  getNum("semivowelOffglideScale", lp.semivowelOffglideScale);
 
   // Optional: spelling diphthong handling in acronym-like (spelled-out) words.
   {
