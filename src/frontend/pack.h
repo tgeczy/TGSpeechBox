@@ -257,10 +257,12 @@ struct LanguagePack {
   // When trillModulationMs > 0, the frontend will render `_isTrill` phonemes as
   // a series of micro-frames that apply an amplitude modulation to voiceAmplitude.
   //
-  // - trillModulationMs: modulation cycle duration in milliseconds.
+  // - trillModulationMs: base trill duration in milliseconds (at speed=1.0).
+  //   This also acts as the enable flag (> 0).
   // - trillModulationFadeMs: fade duration (ms) between micro-frames (0 = auto).
   //
-  // NOTE: These values are treated as absolute milliseconds (not scaled by speed).
+  // NOTE: trillModulationMs is subject to normal speed scaling (like other durations).
+  // The internal flutter cycle rate is fixed in code (see ipa_engine.cpp).
   double trillModulationMs = 0.0;
   double trillModulationFadeMs = 0.0;
 
