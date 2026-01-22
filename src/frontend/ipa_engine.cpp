@@ -582,7 +582,10 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       dur = 20.0 / curSpeed;
     } else if (tokenIsTap(t) || tokenIsTrill(t)) {
       if (tokenIsTrill(t)) {
-        dur = 22.0 / curSpeed;
+        // Use trillModulationMs as the base duration for trills (at speed=1.0).
+        // If unset/invalid, fall back to a reasonable short trill.
+        double baseDur = (lang.trillModulationMs > 0.0) ? lang.trillModulationMs : 40.0;
+        dur = baseDur / curSpeed;
       } else {
         dur = std::min(14.0 / curSpeed, 14.0);
       }
@@ -1800,14 +1803,14 @@ void emitFrames(
   // phoneme tokens.
   //
   // These constants were chosen to produce an audible trill without introducing
-  // clicks or an overly "tremolo" sound. Packs can tune the modulation speed and
-  // fade via settings, but not the depth (kept fixed for simplicity).
+  // clicks or an overly "tremolo" sound. Packs can tune the trill duration and
+  // micro-frame fade via settings, but not the depth (kept fixed for simplicity).
   constexpr double kTrillCloseFactor = 0.22;   // voiceAmplitude multiplier during closure
   constexpr double kTrillCloseFrac = 0.28;     // fraction of cycle spent in closure
   constexpr double kTrillFricFloor = 0.12;     // minimum fricationAmplitude during closure (if frication is present)
-  constexpr double kMinCycleMs = 6.0;          // avoid pathological configs
-  constexpr double kMaxCycleMs = 120.0;
-  constexpr double kMinPhaseMs = 1.0;
+  // Minimum phase duration for the trill micro-frames. Keep this small so
+  // very fast modulation settings (e.g. 2ms cycles) still behave as expected.
+  constexpr double kMinPhaseMs = 0.25;
 
   for (const Token& t : tokens) {
     if (t.silence || !t.def) {
@@ -1828,10 +1831,11 @@ void emitFrames(
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {
       double totalDur = t.durationMs;
 
-      // Cycle length is an absolute milliseconds value from the pack.
-      double cycleMs = pack.lang.trillModulationMs;
-      if (cycleMs < kMinCycleMs) cycleMs = kMinCycleMs;
-      if (cycleMs > kMaxCycleMs) cycleMs = kMaxCycleMs;
+      // Trill flutter speed is hardcoded to a natural-sounding ~35Hz.
+      // The pack setting (trillModulationMs) controls the *total duration* via calculateTimes().
+      constexpr double kFixedTrillCycleMs = 28.0;
+
+      double cycleMs = kFixedTrillCycleMs;
 
       // For short trills, compress the cycle so we still get at least one closure dip.
       if (cycleMs > totalDur) cycleMs = totalDur;
@@ -1869,6 +1873,7 @@ void emitFrames(
       double remaining = totalDur;
       double pos = 0.0;
       bool highPhase = true;
+      bool firstPhase = true;
 
       while (remaining > 1e-9) {
         double phaseDur = highPhase ? openMs : closeMs;
@@ -1890,7 +1895,7 @@ void emitFrames(
           }
           // Add a small noise burst on closure to make the trill more perceptible,
           // but only if the phoneme already has a frication path.
-          if (hasFricAmp) {
+          if (hasFricAmp && baseFricAmp > 0.0) {
             seg[fa] = std::max(baseFricAmp, kTrillFricFloor);
           }
         }
@@ -1898,20 +1903,22 @@ void emitFrames(
         nvspFrontend_Frame frame;
         std::memcpy(&frame, seg, sizeof(frame));
 
-        // Internal fades use microFadeMs; the final micro-frame must use the
-        // token's original fade (transition to the next phoneme).
-        const bool isLast = (remaining - phaseDur) <= 1e-9;
-        double fadeOut = isLast ? t.fadeMs : microFadeMs;
-        if (isLast && fadeOut < microFadeMs) fadeOut = microFadeMs;
+        // In speechPlayer.dll, the fade duration belongs to the *incoming* frame
+        // (it's the crossfade from the previous frame to this one). Preserve the
+        // token's original fade on entry to the trill, then use microFadeMs for
+        // the internal micro-frame boundaries.
+        double fadeIn = firstPhase ? t.fadeMs : microFadeMs;
+        if (fadeIn <= 0.0) fadeIn = microFadeMs;
 
         // Prevent fade dominating very short micro-frames.
-        if (fadeOut > phaseDur) fadeOut = phaseDur;
+        if (fadeIn > phaseDur) fadeIn = phaseDur;
 
-        cb(userData, &frame, phaseDur, fadeOut, userIndexBase);
+        cb(userData, &frame, phaseDur, fadeIn, userIndexBase);
 
         remaining -= phaseDur;
         pos += phaseDur;
         highPhase = !highPhase;
+        firstPhase = false;
 
         // If the remaining duration is too small to fit another phase, let the loop
         // handle it naturally by truncating phaseDur above.
