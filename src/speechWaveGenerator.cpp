@@ -84,7 +84,10 @@ class VoiceGenerator {
 			double openLen = 1.0 - effectiveOQ;
 			if (openLen < 0.0001) openLen = 0.0001;
 			double phase = (voice - effectiveOQ) / openLen;
-			voice = sin(phase * PITWO);
+			// Rosenberg C pulse approximation: 0.5 * (1 - cos(pi * t))
+			// This creates a smooth "shoulder" (rise) and a sharp "initial spike" (closure drop)
+			// characteristic of the buzzy Reed voice.
+			voice = 0.5 * (1.0 - cos(phase * M_PI));
 		}
 		voice+=turbulence;
 		voice*=frame->voiceAmplitude;
