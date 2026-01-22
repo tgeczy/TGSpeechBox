@@ -36,6 +36,10 @@ class NoiseGenerator {
 	public:
 	NoiseGenerator(): lastValue(0.0) {};
 
+	void reset() {
+		lastValue=0.0;
+	}
+
 	double getNext() {
 		// rand() returns a non-negative value, so using it directly yields strictly
 		// positive noise and a significant DC bias after the one-pole filter.
@@ -56,6 +60,10 @@ class FrequencyGenerator {
 	public:
 	FrequencyGenerator(int sr): sampleRate(sr), lastCyclePos(0) {}
 
+	void reset() {
+		lastCyclePos=0;
+	}
+
 	double getNext(double frequency) {
 		double cyclePos=fmod((frequency/sampleRate)+lastCyclePos,1);
 		lastCyclePos=cyclePos;
@@ -73,6 +81,13 @@ class VoiceGenerator {
 	public:
 	bool glottisOpen;
 	VoiceGenerator(int sr): pitchGen(sr), vibratoGen(sr), aspirationGen(), glottisOpen(false) {};
+
+	void reset() {
+		pitchGen.reset();
+		vibratoGen.reset();
+		aspirationGen.reset();
+		glottisOpen=false;
+	}
 
 	double getNext(const speechPlayer_frame_t* frame) {
 		double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
@@ -117,6 +132,12 @@ class Resonator {
 		this->p2=0;
 	}
 
+	void reset() {
+		p1=0;
+		p2=0;
+		setOnce=false;
+	}
+
 	void setParams(double frequency, double bandwidth) {
 		if(!setOnce||(frequency!=this->frequency)||(bandwidth!=this->bandwidth)) {
 			this->frequency=frequency;
@@ -152,6 +173,17 @@ class CascadeFormantGenerator {
 	public:
 	CascadeFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), rN0(sr,true), rNP(sr) {};
 
+	void reset() {
+		r1.reset();
+		r2.reset();
+		r3.reset();
+		r4.reset();
+		r5.reset();
+		r6.reset();
+		rN0.reset();
+		rNP.reset();
+	}
+
 	double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
 		input/=2.0;
 		double n0Output=rN0.resonate(input,frame->cfN0,frame->cbN0);
@@ -175,6 +207,15 @@ class ParallelFormantGenerator {
 	public:
 	ParallelFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr) {};
 
+	void reset() {
+		r1.reset();
+		r2.reset();
+		r3.reset();
+		r4.reset();
+		r5.reset();
+		r6.reset();
+	}
+
 	double getNext(const speechPlayer_frame_t* frame, double input) {
 		input/=2.0;
 		double output=0;
@@ -197,9 +238,10 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 	CascadeFormantGenerator cascade;
 	ParallelFormantGenerator parallel;
 	FrameManager* frameManager;
+	bool wasSilent;
 
 	public:
-	SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL) {
+	SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), wasSilent(true) {
 	}
 
 	unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
@@ -208,6 +250,16 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 		for(unsigned int i=0;i<sampleCount;++i) {
 			const speechPlayer_frame_t* frame=frameManager->getCurrentFrame();
 			if(frame) {
+				// If we were silent (no frames) and we're about to speak again, clear
+				// filter/generator memory so old resonance energy can't "ring" into the
+				// new utterance at a new frequency (transient pop).
+				if(wasSilent) {
+					voiceGenerator.reset();
+					fricGenerator.reset();
+					cascade.reset();
+					parallel.reset();
+					wasSilent=false;
+				}
 				double voice=voiceGenerator.getNext(frame);
 				double cascadeOut=cascade.getNext(frame,voiceGenerator.glottisOpen,voice*frame->preFormantGain);
 				double fric=fricGenerator.getNext()*0.3*frame->fricationAmplitude;
@@ -215,6 +267,7 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 				double out=(cascadeOut+parallelOut)*frame->outputGain;
 				sampleBuf[i].value=(int)max(min(out*4000,32000),-32000);
 			} else {
+				wasSilent=true;
 				return i;
 			}
 		}
