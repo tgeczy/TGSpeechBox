@@ -13,6 +13,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 */
 
 #include <queue>
+#include <cstring>
 #include "utils.h"
 #include "frame.h"
 
@@ -45,6 +46,8 @@ class FrameManagerImpl: public FrameManager {
 				delete oldFrameRequest;
 				oldFrameRequest=newFrameRequest;
 				newFrameRequest=NULL;
+				// Ensure curFrame is updated even when numFadeSamples==0.
+				memcpy(&curFrame, &(oldFrameRequest->frame), sizeof(speechPlayer_frame_t));
 			} else {
 				double curFadeRatio=(double)sampleCounter/(newFrameRequest->numFadeSamples);
 				for(int i=0;i<speechPlayer_frame_numParams;++i) {
@@ -68,6 +71,9 @@ class FrameManagerImpl: public FrameManager {
 				if(newFrameRequest) {
 					if(newFrameRequest->userIndex!=-1) lastUserIndex=newFrameRequest->userIndex;
 					sampleCounter=0;
+					// Process the start of the transition immediately (sample 0), so the
+					// first sample of a new segment can't use stale/garbage parameters.
+					memcpy(&curFrame, &(oldFrameRequest->frame), sizeof(speechPlayer_frame_t));
 					newFrameRequest->frame.voicePitch+=(newFrameRequest->voicePitchInc*newFrameRequest->numFadeSamples);
 				}
 			} else {
@@ -83,8 +89,15 @@ class FrameManagerImpl: public FrameManager {
 	public:
 
 	FrameManagerImpl(): curFrame(), curFrameIsNULL(true), sampleCounter(0), newFrameRequest(NULL), lastUserIndex(-1)  {
+		// speechPlayer_frame_t is a plain C struct; ensure it starts from a known state.
+		memset(&curFrame, 0, sizeof(speechPlayer_frame_t));
 		oldFrameRequest=new frameRequest_t();
+		oldFrameRequest->minNumSamples=0;
+		oldFrameRequest->numFadeSamples=0;
 		oldFrameRequest->NULLFrame=true;
+		memset(&(oldFrameRequest->frame), 0, sizeof(speechPlayer_frame_t));
+		oldFrameRequest->voicePitchInc=0;
+		oldFrameRequest->userIndex=-1;
 	}
 
 	void queueFrame(speechPlayer_frame_t* frame, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) {
@@ -95,9 +108,11 @@ class FrameManagerImpl: public FrameManager {
 		if(frame) {
 			frameRequest->NULLFrame=false;
 			memcpy(&(frameRequest->frame),frame,sizeof(speechPlayer_frame_t));
-			frameRequest->voicePitchInc=(frame->endVoicePitch-frame->voicePitch)/frameRequest->minNumSamples;
+			frameRequest->voicePitchInc=(frameRequest->minNumSamples>0)?((frame->endVoicePitch-frame->voicePitch)/frameRequest->minNumSamples):0;
 		} else {
 			frameRequest->NULLFrame=true;
+			memset(&(frameRequest->frame), 0, sizeof(speechPlayer_frame_t));
+			frameRequest->voicePitchInc=0;
 		}
 		frameRequest->userIndex=userIndex;
 		if(purgeQueue) {
