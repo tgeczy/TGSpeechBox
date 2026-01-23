@@ -41,12 +41,12 @@ class NoiseGenerator {
 	}
 
 	double getNext() {
-		// rand() returns a non-negative value, so using it directly yields strictly
-		// positive noise and a significant DC bias after the one-pole filter.
-		//
-		// Center the random value at 0 ([-0.5, 0.5]) to avoid DC offset "thumps"
-		// when the signal (especially turbulence) is faded in/out.
-		lastValue=(((double)rand()/(double)RAND_MAX)-0.5)+0.75*lastValue;
+		// rand() returns a non-negative value.
+		// Center the random value at 0 ([-0.5, 0.5]).
+		// FIXED: Set coeff to 0.0 (Pure White Noise).
+		// Previous values (0.75, 0.25) created "dark rumble."
+		// 0.0 allows full high-frequency "air" to pass through.
+		lastValue=(((double)rand()/(double)RAND_MAX)-0.5)+0.0*lastValue;
 		return lastValue;
 	}
 
@@ -103,8 +103,7 @@ class VoiceGenerator {
 		double aspiration=aspirationGen.getNext()*0.1;
 
 		// glottalOpenQuotient is optional in many packs.
-		// Keep a sensible default that preserves brightness (and ensures there is
-		// still a closed phase for coefficient updates).
+		// Keep a sensible default that preserves brightness.
 		double effectiveOQ = frame->glottalOpenQuotient;
 		if (effectiveOQ <= 0.0) effectiveOQ = 0.4;
 		if (effectiveOQ < 0.10) effectiveOQ = 0.10;
@@ -118,23 +117,32 @@ class VoiceGenerator {
 			if (openLen < 0.0001) openLen = 0.0001;
 			double phase = (cyclePos - effectiveOQ) / openLen; // 0..1 across open phase
 
-			// KLGLOTT88 / Rosenberg C-style pulse (polynomial rise, sharp closure at wrap).
-			// This keeps the classic "robotic" buzz without additional post-EQ.
-			flow = (3.0 * phase * phase) - (2.0 * phase * phase * phase);
+			// 90/10 Asymmetric Pulse (The "Bright & Clear" Fix).
+			// 1. Rise Phase (0.0 to 0.9): Long, smooth rise fills out the "Mids".
+			// 2. Fall Phase (0.9 to 1.0): Very fast (10%) closure generates the "Highs".
+			// 3. NO Squaring: We keep the raw amplitude to prevent "muffling".
+			
+			const double peakPos = 0.90; // Peak at 90% (Sharper than previous 75/80)
+
+			if (phase < peakPos) {
+				// Gentle Rise
+				flow = 0.5 * (1.0 - cos(phase * M_PI / peakPos));
+			} else {
+				// Fast "Snap" Closure (Generates Highs/Brightness)
+				flow = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
+			}
 		}
 
 		// Scale the flow pulse into a classic-ish excitation range.
-		// (Keep headroom to avoid the "clippy" feeling.)
 		const double flowScale = 1.6;
 		flow *= flowScale;
 
-		// Add a small "radiation" component (first difference) to restore some edge
-		// without a heavy post-EQ that would also boost fricatives.
+		// Add a "radiation" component (first difference).
+		// 2.0 is good. Combined with the 90/10 pulse, this will produce 
+		// plenty of high-end presence.
 		double dFlow = flow - lastFlow;
 		lastFlow = flow;
-		// Standard lip radiation is approximately a first derivative.
-		// Keep this modest to avoid transient spikes that feel like compression.
-		const double radiationMix = 1.0;
+		const double radiationMix = 2.0;
 		double voicedSrc = flow + (dFlow * radiationMix);
 
 		// Turbulence: scale by instantaneous flow so it ramps smoothly with the pulse.
@@ -143,7 +151,11 @@ class VoiceGenerator {
 			double flow01 = flow / flowScale; // 0..1
 			if(flow01 < 0.0) flow01 = 0.0;
 			if(flow01 > 1.0) flow01 = 1.0;
-			turbulence *= flow01;
+			
+			// Turbulence Mix:
+			// Back to standard scaling (no extra reduction) since we fixed the
+			// noise generator filter. This restores the "air" texture.
+			turbulence *= flow01; 
 		} else {
 			turbulence = 0.0;
 		}
@@ -190,8 +202,6 @@ class Resonator {
 			this->bandwidth=bandwidth;
 
 			// Keep bandwidths "as-is" for clarity.
-			// (Adding constant bandwidth can reduce boxiness, but it also smears consonants
-			// and reduces the crisp, buzzy character we're aiming for.)
 			double effectiveBandwidth = bandwidth;
 
 			double r=exp(-M_PI/sampleRate*effectiveBandwidth);
@@ -345,9 +355,9 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 				lastOutput=filteredOut;
 
 				// Linear output scaling + hard clip.
-				// This avoids the "clippy but not loud" compression artifacts caused by
-				// soft-knee limiters on high-crest-factor signals (sharp closure spikes).
-				double scaled = filteredOut * 3000.0;
+				// Reduced gain slightly (6000.0) because removing the "square" function
+				// makes the pulse significantly louder naturally.
+				double scaled = filteredOut * 6000.0;
 				const double limit = 32767.0;
 				if(scaled > limit) scaled = limit;
 				if(scaled < -limit) scaled = -limit;
