@@ -91,17 +91,32 @@ class VoiceGenerator {
 
 	double getNext(const speechPlayer_frame_t* frame) {
 		double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
-		double phase=pitchGen.getNext(frame->voicePitch*vibrato);
-		double aspiration=aspirationGen.getNext()*0.2;
+		double voice=pitchGen.getNext(frame->voicePitch*vibrato);
+		double aspiration=aspirationGen.getNext()*0.1;
 		double turbulence=aspiration*frame->voiceTurbulenceAmplitude;
-		glottisOpen=phase>=frame->glottalOpenQuotient;
+		double effectiveOQ = frame->glottalOpenQuotient;
+		if (effectiveOQ <= 0.0) effectiveOQ = 0.7;
+		glottisOpen=voice>=effectiveOQ;
 		if(!glottisOpen) {
 			turbulence*=0.01;
+			voice=0.0;
+		} else {
+			double openLen = 1.0 - effectiveOQ;
+			if (openLen < 0.0001) openLen = 0.0001;
+			double phase = (voice - effectiveOQ) / openLen;
+			// Smooth Peak Hybrid:
+			// Rise (0..0.9): Standard Cosine rise (fat, warm).
+			// Fall (0.9..1.0): Quadratic fall (starts flat, accelerates to sharp closure).
+			// This matches slopes at the peak (slope 0), removing the "peak kink" artifact (phaser),
+			// while retaining the sharp closure (buzz) and zero-return (no clicks).
+			if (phase < 0.9) {
+				voice = 0.5 * (1.0 - cos(phase * M_PI / 0.9));
+			} else {
+				double v = (phase - 0.9) * 10.0; // 0..1
+				voice = 1.0 - v * v;
+			}
+			voice *= 2.0;
 		}
-		// Keep the classic geometric sawtooth excitation: bright, efficient, and
-		// close to the "classic" Klatt/ETI-style sound. The noise/DC-bias fix
-		// addresses the start/stop pop without needing to replace the source.
-		double voice=(phase*2.0)-1.0;
 		voice+=turbulence;
 		voice*=frame->voiceAmplitude;
 		aspiration*=frame->aspirationAmplitude;
@@ -132,17 +147,13 @@ class Resonator {
 		this->p2=0;
 	}
 
-	void reset() {
-		p1=0;
-		p2=0;
-		setOnce=false;
-	}
-
 	void setParams(double frequency, double bandwidth) {
 		if(!setOnce||(frequency!=this->frequency)||(bandwidth!=this->bandwidth)) {
 			this->frequency=frequency;
 			this->bandwidth=bandwidth;
-			double r=exp(-M_PI/sampleRate*bandwidth);
+			// Add constant bandwidth to reduce "boxiness" and soften transient clicks
+			double effectiveBandwidth = bandwidth + 25.0;
+			double r=exp(-M_PI/sampleRate*effectiveBandwidth);
 			c=-(r*r);
 			b=r*cos(PITWO/sampleRate*-frequency)*2.0;
 			a=1.0-b-c;
@@ -155,12 +166,18 @@ class Resonator {
 		this->setOnce=true;
 	}
 
-	double resonate(double in, double frequency, double bandwidth) {
-		setParams(frequency,bandwidth);
+	double resonate(double in, double frequency, double bandwidth, bool allowUpdate=true) {
+		if(allowUpdate) setParams(frequency,bandwidth);
 		double out=a*in+b*p1+c*p2;
 		p2=p1;
 		p1=anti?in:out;
 		return out;
+	}
+
+	void reset() {
+		p1=0;
+		p2=0;
+		setOnce=false;
 	}
 
 };
@@ -174,26 +191,20 @@ class CascadeFormantGenerator {
 	CascadeFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), rN0(sr,true), rNP(sr) {};
 
 	void reset() {
-		r1.reset();
-		r2.reset();
-		r3.reset();
-		r4.reset();
-		r5.reset();
-		r6.reset();
-		rN0.reset();
-		rNP.reset();
+		r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset(); rN0.reset(); rNP.reset();
 	}
 
 	double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
 		input/=2.0;
-		double n0Output=rN0.resonate(input,frame->cfN0,frame->cbN0);
-		double output=calculateValueAtFadePosition(input,rNP.resonate(n0Output,frame->cfNP,frame->cbNP),frame->caNP);
-		output=r6.resonate(output,frame->cf6,frame->cb6);
-		output=r5.resonate(output,frame->cf5,frame->cb5);
-		output=r4.resonate(output,frame->cf4,frame->cb4);
-		output=r3.resonate(output,frame->cf3,frame->cb3);
-		output=r2.resonate(output,frame->cf2,frame->cb2);
-		output=r1.resonate(output,frame->cf1,frame->cb1);
+		bool allowUpdate=!glottisOpen;
+		double n0Output=rN0.resonate(input,frame->cfN0,frame->cbN0,allowUpdate);
+		double output=calculateValueAtFadePosition(input,rNP.resonate(n0Output,frame->cfNP,frame->cbNP,allowUpdate),frame->caNP);
+		output=r6.resonate(output,frame->cf6,frame->cb6,allowUpdate);
+		output=r5.resonate(output,frame->cf5,frame->cb5,allowUpdate);
+		output=r4.resonate(output,frame->cf4,frame->cb4,allowUpdate);
+		output=r3.resonate(output,frame->cf3,frame->cb3,allowUpdate);
+		output=r2.resonate(output,frame->cf2,frame->cb2,allowUpdate);
+		output=r1.resonate(output,frame->cf1,frame->cb1,allowUpdate);
 		return output;
 	}
 
@@ -208,23 +219,19 @@ class ParallelFormantGenerator {
 	ParallelFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr) {};
 
 	void reset() {
-		r1.reset();
-		r2.reset();
-		r3.reset();
-		r4.reset();
-		r5.reset();
-		r6.reset();
+		r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset();
 	}
 
-	double getNext(const speechPlayer_frame_t* frame, double input) {
+	double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
 		input/=2.0;
+		bool allowUpdate=!glottisOpen;
 		double output=0;
-		output+=(r1.resonate(input,frame->pf1,frame->pb1)-input)*frame->pa1;
-		output+=(r2.resonate(input,frame->pf2,frame->pb2)-input)*frame->pa2;
-		output+=(r3.resonate(input,frame->pf3,frame->pb3)-input)*frame->pa3;
-		output+=(r4.resonate(input,frame->pf4,frame->pb4)-input)*frame->pa4;
-		output+=(r5.resonate(input,frame->pf5,frame->pb5)-input)*frame->pa5;
-		output+=(r6.resonate(input,frame->pf6,frame->pb6)-input)*frame->pa6;
+		output+=(r1.resonate(input,frame->pf1,frame->pb1,allowUpdate)-input)*frame->pa1;
+		output+=(r2.resonate(input,frame->pf2,frame->pb2,allowUpdate)-input)*frame->pa2;
+		output+=(r3.resonate(input,frame->pf3,frame->pb3,allowUpdate)-input)*frame->pa3;
+		output+=(r4.resonate(input,frame->pf4,frame->pb4,allowUpdate)-input)*frame->pa4;
+		output+=(r5.resonate(input,frame->pf5,frame->pb5,allowUpdate)-input)*frame->pa5;
+		output+=(r6.resonate(input,frame->pf6,frame->pb6,allowUpdate)-input)*frame->pa6;
 		return calculateValueAtFadePosition(output,input,frame->parallelBypass);
 	}
 
@@ -238,10 +245,14 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 	CascadeFormantGenerator cascade;
 	ParallelFormantGenerator parallel;
 	FrameManager* frameManager;
-	bool wasSilent;
+	double lastInput;
+	double lastOutput;
+	double lastVoiceInput;
+	double lastVoiceOutput;
+	bool wasSilence;
 
 	public:
-	SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), wasSilent(true) {
+	SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), lastVoiceInput(0.0), lastVoiceOutput(0.0), wasSilence(true) {
 	}
 
 	unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
@@ -250,24 +261,31 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 		for(unsigned int i=0;i<sampleCount;++i) {
 			const speechPlayer_frame_t* frame=frameManager->getCurrentFrame();
 			if(frame) {
-				// If we were silent (no frames) and we're about to speak again, clear
-				// filter/generator memory so old resonance energy can't "ring" into the
-				// new utterance at a new frequency (transient pop).
-				if(wasSilent) {
+				if(wasSilence) {
 					voiceGenerator.reset();
 					fricGenerator.reset();
 					cascade.reset();
 					parallel.reset();
-					wasSilent=false;
+					lastInput=0.0;
+					lastOutput=0.0;
+					lastVoiceInput=0.0;
+					lastVoiceOutput=0.0;
+					wasSilence=false;
 				}
-				double voice=voiceGenerator.getNext(frame);
+				double rawVoice=voiceGenerator.getNext(frame);
+				double voice=rawVoice-lastVoiceInput+0.995*lastVoiceOutput;
+				lastVoiceInput=rawVoice;
+				lastVoiceOutput=voice;
 				double cascadeOut=cascade.getNext(frame,voiceGenerator.glottisOpen,voice*frame->preFormantGain);
-				double fric=fricGenerator.getNext()*0.3*frame->fricationAmplitude;
-				double parallelOut=parallel.getNext(frame,fric*frame->preFormantGain);
+				double fric=fricGenerator.getNext()*0.175*frame->fricationAmplitude;
+				double parallelOut=parallel.getNext(frame,voiceGenerator.glottisOpen,fric*frame->preFormantGain);
 				double out=(cascadeOut+parallelOut)*frame->outputGain;
-				sampleBuf[i].value=(int)max(min(out*4000,32000),-32000);
+				double filteredOut=out-lastInput+0.999*lastOutput;
+				lastInput=out;
+				lastOutput=filteredOut;
+				sampleBuf[i].value=(int)max(min(filteredOut*4000,32000),-32000);
 			} else {
-				wasSilent=true;
+				wasSilence=true;
 				return i;
 			}
 		}
