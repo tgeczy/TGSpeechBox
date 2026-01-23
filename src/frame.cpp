@@ -77,7 +77,12 @@ class FrameManagerImpl: public FrameManager {
 					newFrameRequest->frame.voicePitch+=(newFrameRequest->voicePitchInc*newFrameRequest->numFadeSamples);
 				}
 			} else {
-				curFrameIsNULL=true;
+								curFrameIsNULL=true;
+				// FIX: We have run out of frames. Mark the old request as NULL (Silence).
+				// This ensures that when a new frame eventually arrives, the engine treats it
+				// as a "Start from Silence" (triggering the 0-gain fade-in logic) rather than
+				// trying to interpolate from the stale state of the last utterance.
+				oldFrameRequest->NULLFrame = true;
 			}
 		} else {
 			curFrame.voicePitch+=oldFrameRequest->voicePitchInc;
@@ -119,7 +124,10 @@ class FrameManagerImpl: public FrameManager {
 			for(;!frameRequestQueue.empty();frameRequestQueue.pop()) delete frameRequestQueue.front();
 			sampleCounter=oldFrameRequest->minNumSamples;
 			if(newFrameRequest) {
-				oldFrameRequest->NULLFrame=newFrameRequest->NULLFrame;
+				// FIX: We are snapshotting curFrame (valid audio state), so this is never a NULL frame.
+				// Explicitly set to false so the next transition fades FROM this snapshot
+				// instead of treating it as silence/empty and overwriting it.
+				oldFrameRequest->NULLFrame=false;
 				memcpy(&(oldFrameRequest->frame),&curFrame,sizeof(speechPlayer_frame_t));
 				delete newFrameRequest;
 				newFrameRequest=NULL;
