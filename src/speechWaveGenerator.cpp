@@ -77,50 +77,87 @@ class VoiceGenerator {
 	FrequencyGenerator pitchGen;
 	FrequencyGenerator vibratoGen;
 	NoiseGenerator aspirationGen;
+	// State for source shaping / DC-blocking.
+	double lastFlow;
+	double lastVoicedIn;
+	double lastVoicedOut;
 
 	public:
 	bool glottisOpen;
-	VoiceGenerator(int sr): pitchGen(sr), vibratoGen(sr), aspirationGen(), glottisOpen(false) {};
+	VoiceGenerator(int sr): pitchGen(sr), vibratoGen(sr), aspirationGen(), lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), glottisOpen(false) {};
 
 	void reset() {
 		pitchGen.reset();
 		vibratoGen.reset();
 		aspirationGen.reset();
+		lastFlow=0.0;
+		lastVoicedIn=0.0;
+		lastVoicedOut=0.0;
 		glottisOpen=false;
 	}
 
 	double getNext(const speechPlayer_frame_t* frame) {
 		double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
-		double voice=pitchGen.getNext(frame->voicePitch*vibrato);
+		double cyclePos=pitchGen.getNext(frame->voicePitch*vibrato);
+
 		double aspiration=aspirationGen.getNext()*0.1;
-		double turbulence=aspiration*frame->voiceTurbulenceAmplitude;
+
+		// glottalOpenQuotient is optional in many packs.
+		// Keep a sensible default that preserves brightness (and ensures there is
+		// still a closed phase for coefficient updates).
 		double effectiveOQ = frame->glottalOpenQuotient;
-		if (effectiveOQ <= 0.0) effectiveOQ = 0.7;
-		glottisOpen=voice>=effectiveOQ;
-		if(!glottisOpen) {
-			turbulence*=0.01;
-			voice=0.0;
-		} else {
+		if (effectiveOQ <= 0.0) effectiveOQ = 0.4;
+		if (effectiveOQ < 0.10) effectiveOQ = 0.10;
+		if (effectiveOQ > 0.95) effectiveOQ = 0.95;
+
+		glottisOpen = cyclePos >= effectiveOQ;
+
+		double flow = 0.0;
+		if(glottisOpen) {
 			double openLen = 1.0 - effectiveOQ;
 			if (openLen < 0.0001) openLen = 0.0001;
-			double phase = (voice - effectiveOQ) / openLen;
-			// Smooth Peak Hybrid:
-			// Rise (0..0.9): Standard Cosine rise (fat, warm).
-			// Fall (0.9..1.0): Quadratic fall (starts flat, accelerates to sharp closure).
-			// This matches slopes at the peak (slope 0), removing the "peak kink" artifact (phaser),
-			// while retaining the sharp closure (buzz) and zero-return (no clicks).
-			if (phase < 0.9) {
-				voice = 0.5 * (1.0 - cos(phase * M_PI / 0.9));
-			} else {
-				double v = (phase - 0.9) * 10.0; // 0..1
-				voice = 1.0 - v * v;
-			}
-			voice *= 2.0;
+			double phase = (cyclePos - effectiveOQ) / openLen; // 0..1 across open phase
+
+			// KLGLOTT88 / Rosenberg C-style pulse (polynomial rise, sharp closure at wrap).
+			// This keeps the classic "robotic" buzz without additional post-EQ.
+			flow = (3.0 * phase * phase) - (2.0 * phase * phase * phase);
 		}
-		voice+=turbulence;
-		voice*=frame->voiceAmplitude;
-		aspiration*=frame->aspirationAmplitude;
-		return aspiration+voice;
+
+		// Scale the flow pulse into a classic-ish excitation range.
+		// (Keep headroom to avoid the "clippy" feeling.)
+		const double flowScale = 1.6;
+		flow *= flowScale;
+
+		// Add a small "radiation" component (first difference) to restore some edge
+		// without a heavy post-EQ that would also boost fricatives.
+		double dFlow = flow - lastFlow;
+		lastFlow = flow;
+		// Standard lip radiation is approximately a first derivative.
+		// Keep this modest to avoid transient spikes that feel like compression.
+		const double radiationMix = 1.0;
+		double voicedSrc = flow + (dFlow * radiationMix);
+
+		// Turbulence: scale by instantaneous flow so it ramps smoothly with the pulse.
+		double turbulence = aspiration * frame->voiceTurbulenceAmplitude;
+		if(glottisOpen) {
+			double flow01 = flow / flowScale; // 0..1
+			if(flow01 < 0.0) flow01 = 0.0;
+			if(flow01 > 1.0) flow01 = 1.0;
+			turbulence *= flow01;
+		} else {
+			turbulence = 0.0;
+		}
+
+		// Apply voice amplitude, and remove any residual DC from the voiced source
+		// (low cutoff so this doesn't "thin" the sound).
+		double voicedIn = (voicedSrc + turbulence) * frame->voiceAmplitude;
+		const double dcPole = 0.9995;
+		double voiced = voicedIn - lastVoicedIn + (dcPole * lastVoicedOut);
+		lastVoicedIn = voicedIn;
+		lastVoicedOut = voiced;
+
+		double aspOut = aspiration * frame->aspirationAmplitude;
+		return aspOut + voiced;
 	}
 
 };
@@ -151,19 +188,13 @@ class Resonator {
 		if(!setOnce||(frequency!=this->frequency)||(bandwidth!=this->bandwidth)) {
 			this->frequency=frequency;
 			this->bandwidth=bandwidth;
-			// Add constant bandwidth to reduce "boxiness" and soften transient clicks
-			double effectiveBandwidth = bandwidth + 25.0;
+
+			// Keep bandwidths "as-is" for clarity.
+			// (Adding constant bandwidth can reduce boxiness, but it also smears consonants
+			// and reduces the crisp, buzzy character we're aiming for.)
+			double effectiveBandwidth = bandwidth;
+
 			double r=exp(-M_PI/sampleRate*effectiveBandwidth);
-// Add extra damping mainly to low formants (reduces boxiness),
-// but keep high formants sharper (keeps brightness).
-double bwAdd = 25.0;
-if (frequency > 0.0) {
-	// 25Hz extra at 0Hz, tapering down to ~8Hz extra by 4000Hz+
-	double f = frequency;
-	if (f > 4000.0) f = 4000.0;
-	bwAdd = 8.0 + (25.0 - 8.0) * (1.0 - (f / 4000.0));
-}
-double effectiveBandwidth = bandwidth + bwAdd;
 			c=-(r*r);
 			b=r*cos(PITWO/sampleRate*-frequency)*2.0;
 			a=1.0-b-c;
@@ -206,7 +237,12 @@ class CascadeFormantGenerator {
 
 	double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
 		input/=2.0;
-		bool allowUpdate=!glottisOpen;
+		// Updating resonator coefficients while strongly driven can produce zipper/clicks.
+		// However, freezing them all the way through the open phase can leave a few
+		// "stale" samples at segment boundaries (e.g. stop onsets like "B"), which is
+		// also audible. Allow updates when the excitation is tiny.
+		const double kUpdateEps = 0.03;
+		bool allowUpdate = (!glottisOpen) || (fabs(input) < kUpdateEps);
 		double n0Output=rN0.resonate(input,frame->cfN0,frame->cbN0,allowUpdate);
 		double output=calculateValueAtFadePosition(input,rNP.resonate(n0Output,frame->cfNP,frame->cbNP,allowUpdate),frame->caNP);
 		output=r6.resonate(output,frame->cf6,frame->cb6,allowUpdate);
@@ -234,7 +270,8 @@ class ParallelFormantGenerator {
 
 	double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
 		input/=2.0;
-		bool allowUpdate=!glottisOpen;
+		const double kUpdateEps = 0.06;
+		bool allowUpdate = (!glottisOpen) || (fabs(input) < kUpdateEps);
 		double output=0;
 		output+=(r1.resonate(input,frame->pf1,frame->pb1,allowUpdate)-input)*frame->pa1;
 		output+=(r2.resonate(input,frame->pf2,frame->pb2,allowUpdate)-input)*frame->pa2;
@@ -257,17 +294,23 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 	FrameManager* frameManager;
 	double lastInput;
 	double lastOutput;
-	double lastVoiceInput;
-	double lastVoiceOutput;
 	bool wasSilence;
 
+	// Tiny attack smoothing for preFormantGain (helps stop onsets like "B" in letter echo).
+	double smoothPreGain;
+	double preGainAttackAlpha;
+
+
+
 	public:
-	SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), lastVoiceInput(0.0), lastVoiceOutput(0.0), wasSilence(true) {
+	SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0) {
+		// Tiny attack smoothing for preFormantGain (helps stop onsets like "B" in letter echo).
+		const double attackMs = 1.0;
+		preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
 	}
 
 	unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
 		if(!frameManager) return 0; 
-		double val=0;
 		for(unsigned int i=0;i<sampleCount;++i) {
 			const speechPlayer_frame_t* frame=frameManager->getCurrentFrame();
 			if(frame) {
@@ -278,22 +321,37 @@ class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 					parallel.reset();
 					lastInput=0.0;
 					lastOutput=0.0;
-					lastVoiceInput=0.0;
-					lastVoiceOutput=0.0;
+					smoothPreGain=0.0;
 					wasSilence=false;
 				}
-				double rawVoice=voiceGenerator.getNext(frame);
-				double voice=rawVoice-lastVoiceInput+0.995*lastVoiceOutput;
-				lastVoiceInput=rawVoice;
-				lastVoiceOutput=voice;
-				double cascadeOut=cascade.getNext(frame,voiceGenerator.glottisOpen,voice*frame->preFormantGain);
+
+				// Smooth only the attack of preFormantGain (fast release keeps stops crisp).
+				double targetPreGain = frame->preFormantGain;
+				if(targetPreGain > smoothPreGain) {
+					smoothPreGain += (targetPreGain - smoothPreGain) * preGainAttackAlpha;
+				} else {
+					smoothPreGain = targetPreGain;
+				}
+
+				double voice=voiceGenerator.getNext(frame);
+
+				double cascadeOut=cascade.getNext(frame,voiceGenerator.glottisOpen,voice*smoothPreGain);
+
 				double fric=fricGenerator.getNext()*0.175*frame->fricationAmplitude;
-				double parallelOut=parallel.getNext(frame,voiceGenerator.glottisOpen,fric*frame->preFormantGain);
+				double parallelOut=parallel.getNext(frame,voiceGenerator.glottisOpen,fric*smoothPreGain);
 				double out=(cascadeOut+parallelOut)*frame->outputGain;
-				double filteredOut=out-lastInput+0.999*lastOutput;
+				double filteredOut=out-lastInput+0.9995*lastOutput;
 				lastInput=out;
 				lastOutput=filteredOut;
-				sampleBuf[i].value=(int)max(min(filteredOut*4000,32000),-32000);
+
+				// Linear output scaling + hard clip.
+				// This avoids the "clippy but not loud" compression artifacts caused by
+				// soft-knee limiters on high-crest-factor signals (sharp closure spikes).
+				double scaled = filteredOut * 3000.0;
+				const double limit = 32767.0;
+				if(scaled > limit) scaled = limit;
+				if(scaled < -limit) scaled = -limit;
+				sampleBuf[i].value = (int)scaled;
 			} else {
 				wasSilence=true;
 				return i;
