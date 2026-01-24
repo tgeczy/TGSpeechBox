@@ -121,6 +121,16 @@ pauseModes = OrderedDict(
     )
 )
 
+# Sample rates exposed in NVDA settings
+sampleRates = OrderedDict(
+    (
+        ("11025", VoiceInfo("11025", "11025 Hz")),
+        ("16000", VoiceInfo("16000", "16000 Hz")),
+        ("22050", VoiceInfo("22050", "22050 Hz (default)")),
+        ("44100", VoiceInfo("44100", "44100 Hz")),
+    )
+)
+
 
 # Voice presets: multipliers/overrides on generated frames
 voices = {
@@ -453,6 +463,7 @@ class SynthDriver(SynthDriver):
         SynthDriver.InflectionSetting(),
         SynthDriver.VolumeSetting(),
         DriverSetting("pauseMode", "Pause mode"),
+        DriverSetting("sampleRate", "Sample rate"),
         DriverSetting("language", "Language"),
 
         # --- Language-pack quick settings (YAML: packs/lang/*.yaml -> settings:) ---
@@ -521,7 +532,7 @@ class SynthDriver(SynthDriver):
             for attrName in self._extraParamAttrNames:
                 setattr(self, attrName, 50)
 
-        self._sampleRate = 16000
+        self._sampleRate = 22050
         self._player = speechPlayer.SpeechPlayer(self._sampleRate)
 
         # Frontend: YAML packs + IPA->frames conversion.
@@ -674,6 +685,60 @@ class SynthDriver(SynthDriver):
         if m not in pauseModes:
             m = "short"
         self._pauseMode = m
+
+    # ---- Sample rate (driver setting) ----
+
+    def _get_availableSampleRates(self):
+        return sampleRates
+
+    def _get_availableSamplerates(self):
+        return sampleRates
+
+    def _get_sampleRate(self):
+        return str(getattr(self, "_sampleRate", 22050))
+
+    def _set_sampleRate(self, rate):
+        try:
+            r = int(str(rate).strip())
+        except (ValueError, TypeError):
+            r = 22050
+        if str(r) not in sampleRates:
+            r = 22050
+        
+        # Only reinitialize if rate actually changed
+        if r == getattr(self, "_sampleRate", None):
+            return
+        
+        self._sampleRate = r
+        
+        # Only reinitialize if audio system already exists (not during initial construction)
+        if hasattr(self, "_audio") and self._audio:
+            self._reinitializeAudio()
+
+    def _reinitializeAudio(self):
+        """Reinitialize audio subsystem after sample rate change."""
+        try:
+            self.cancel()
+        except Exception:
+            log.debug("nvSpeechPlayer: cancel failed during audio reinit", exc_info=True)
+        
+        try:
+            # Terminate old audio thread
+            if hasattr(self, "_audio") and self._audio:
+                self._audio.terminate()
+            
+            # Terminate old player
+            if hasattr(self, "_player") and self._player:
+                self._player.terminate()
+            
+            # Create new player with new sample rate
+            self._player = speechPlayer.SpeechPlayer(self._sampleRate)
+            
+            # Create new audio thread
+            self._audio = _AudioThread(self, self._player, self._sampleRate)
+            
+        except Exception:
+            log.error("nvSpeechPlayer: failed to reinitialize audio", exc_info=True)
 
     def _get_language(self):
         return getattr(self, "_language", "en-us")
