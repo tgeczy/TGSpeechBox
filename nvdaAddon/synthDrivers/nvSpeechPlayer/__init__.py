@@ -125,8 +125,8 @@ pauseModes = OrderedDict(
 sampleRates = OrderedDict(
     (
         ("11025", VoiceInfo("11025", "11025 Hz")),
-        ("16000", VoiceInfo("16000", "16000 Hz")),
-        ("22050", VoiceInfo("22050", "22050 Hz (default)")),
+        ("16000", VoiceInfo("16000", "16000 Hz (default)")),
+        ("22050", VoiceInfo("22050", "22050 Hz")),
         ("44100", VoiceInfo("44100", "44100 Hz")),
     )
 )
@@ -532,7 +532,7 @@ class SynthDriver(SynthDriver):
             for attrName in self._extraParamAttrNames:
                 setattr(self, attrName, 50)
 
-        self._sampleRate = 22050
+        self._sampleRate = 16000
         self._player = speechPlayer.SpeechPlayer(self._sampleRate)
 
         # Frontend: YAML packs + IPA->frames conversion.
@@ -695,7 +695,7 @@ class SynthDriver(SynthDriver):
         return sampleRates
 
     def _get_sampleRate(self):
-        return str(getattr(self, "_sampleRate", 22050))
+        return str(getattr(self, "_sampleRate", 16000))
 
     def _set_sampleRate(self, rate):
         try:
