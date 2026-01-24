@@ -38,7 +38,7 @@ const double PITWO=M_PI*2;
 // Glottal pulse shape:
 // Higher peak pos => faster closing portion => more high-frequency harmonic energy ("crisper").
 // Try 0.91 (smoother) .. 0.93 (crisper). 0.92 is a good middle.
-const double kBasePeakPos = 0.92;
+const double kBasePeakPos = 0.91;
 
 // Radiation / lip-model emphasis (derivative term). 1.0 matches current behavior.
 const double kRadiationMix = 1.0;
