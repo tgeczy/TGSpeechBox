@@ -1,4 +1,4 @@
-/*
+	/*
 This file is a part of the NV Speech Player project. 
 URL: https://bitbucket.org/nvaccess/speechplayer
 Copyright 2014 NV Access Limited.
@@ -28,6 +28,48 @@ Based on klsyn-88, found at http://linguistics.berkeley.edu/phonlab/resources/
 using namespace std;
 
 const double PITWO=M_PI*2;
+
+// ------------------------------------------------------------
+// Tuning knobs (DSP-layer). Keep these together so you can A/B fast.
+// The goal here is: keep voiced clarity, but reduce "sharp corners"
+// where consonants (and some vowel onsets) jump out in loudness.
+// ------------------------------------------------------------
+
+// Glottal pulse shape:
+// Higher peak pos => faster closing portion => more high-frequency harmonic energy ("crisper").
+// Try 0.91 (smoother) .. 0.93 (crisper). 0.92 is a good middle.
+const double kBasePeakPos = 0.92;
+
+// Radiation / lip-model emphasis (derivative term). 1.0 matches current behavior.
+const double kRadiationMix = 1.0;
+
+// Voiced-only pre-emphasis (high-pass) blended into the voiced excitation.
+// Lower mix => smoother, less "edgy". Higher => crisper, but can sound sharp.
+const double kVoicedPreEmphA = 0.92;
+const double kVoicedPreEmphMix = 0.35;
+
+// Turbulence gating curvature when glottis is open.
+// Higher power => less turbulence near closure (cleaner, less "grain").
+const double kTurbulenceFlowPower = 1.5;
+
+// Frication shaping: reduce "corners" where fric/affric energy pops above vowels.
+const double kFricNoiseScale = 0.175;
+
+// Soft compression on frication amplitude (static, no limiter/pumping).
+// 0 disables. Typical useful range: 0.12 .. 0.25
+const double kFricSoftClipK = 0.18;
+
+// Reduce bypass-heavy noise (often /f/ /v/) so it sits closer to the vowel body.
+// gain at parallelBypass==1.0
+const double kBypassMinGain = 0.70;
+
+// Extra ducking for voiced bypass-heavy frication (e.g. /v/) so it doesn't overpower vowels.
+const double kBypassVoicedDuck = 0.20;
+
+// General voiced frication ducking (helps "ge" in "change" not poke out).
+// Keep this modest so /z/ /ʒ/ stay intelligible.
+const double kVoicedFricDuck = 0.18;
+const double kVoicedFricDuckPower = 1.0;
 
 class NoiseGenerator {
 private:
@@ -111,7 +153,7 @@ public:
 			double openLen = 1.0 - effectiveOQ;
 			if (openLen < 0.0001) openLen = 0.0001;
 
-			const double basePeakPos = 0.91;
+			const double basePeakPos = kBasePeakPos;
 			double peakPos = basePeakPos;
 
 			double dt = 0.0;
@@ -145,7 +187,7 @@ public:
 
 		double dFlow = flow - lastFlow;
 		lastFlow = flow;
-		const double radiationMix = 1.0;
+		const double radiationMix = kRadiationMix;
 		double voicedSrc = flow + (dFlow * radiationMix);
 
 		
@@ -153,8 +195,8 @@ public:
 		// ---- Voiced-only pre-emphasis (adds crispness without brightening frication) ----
 		// voicedPreEmphA: 0.0..0.97-ish. Higher = more HF boost. Start around 0.92.
 		// voicedPreEmphMix: 0..1. 0 disables it. Start around 0.35.
-		const double voicedPreEmphA = 0.92;
-		const double voicedPreEmphMix = 0.5;
+		const double voicedPreEmphA = kVoicedPreEmphA;
+		const double voicedPreEmphMix = kVoicedPreEmphMix;
 
 		double pre = voicedSrc - (voicedPreEmphA * lastVoicedSrc);
 		lastVoicedSrc = voicedSrc;
@@ -164,7 +206,7 @@ public:
 			double flow01 = flow / flowScale;
 			if(flow01 < 0.0) flow01 = 0.0;
 			if(flow01 > 1.0) flow01 = 1.0;
-			turbulence *= pow(flow01, 1.5);
+			turbulence *= pow(flow01, kTurbulenceFlowPower);
 		} else {
 			turbulence = 0.0;
 		}
@@ -349,7 +391,7 @@ public:
 		fricAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (fricAttackMs * 0.001)));
 		fricReleaseAlpha = 1.0 - exp(-1.0 / (sampleRate * (fricReleaseMs * 0.001)));
 		
-		// High shelf: boost above 2kHz by 6dB for Eloquence-like brightness
+		// High shelf: gentle boost above 2kHz (post-radiation brightness)
 		initHighShelf(2000.0, 4.0, 0.7);
 	}
 
@@ -384,7 +426,39 @@ public:
 				double fricAlpha = (targetFricAmp > smoothFricAmp) ? fricAttackAlpha : fricReleaseAlpha;
 				smoothFricAmp += (targetFricAmp - smoothFricAmp) * fricAlpha;
 
-				double fric=fricGenerator.getNext()*0.175*smoothFricAmp;
+				
+				// Frication shaping (math-based, no limiter/pumping):
+				// - Soft-compress raw frication amplitude so consonant "corners" don't jump out.
+				// - Attenuate bypass-heavy noise (often /f/ /v/) so it blends into nearby vowels.
+				// - Slightly duck voiced frication (helps /d͡ʒ/ in "change" not sound too sharp).
+				double fricAmp = smoothFricAmp;
+
+				if (kFricSoftClipK > 0.0) {
+					fricAmp = fricAmp * (1.0 - kFricSoftClipK * fricAmp);
+					if (fricAmp < 0.0) fricAmp = 0.0;
+				}
+
+				double bypass = frame->parallelBypass;
+				if (bypass < 0.0) bypass = 0.0;
+				if (bypass > 1.0) bypass = 1.0;
+				double bypassGain = 1.0 - bypass * (1.0 - kBypassMinGain);
+
+				double va = frame->voiceAmplitude;
+				if (va < 0.0) va = 0.0;
+				if (va > 1.0) va = 1.0;
+
+				double bypassVoicedDuck = 1.0;
+				if (bypass > 0.3 && va > 0.0) {
+					bypassVoicedDuck = 1.0 - kBypassVoicedDuck * va;
+				}
+
+				double voicedFricScale = 1.0;
+				if (va > 0.0) {
+					voicedFricScale = 1.0 - kVoicedFricDuck * pow(va, kVoicedFricDuckPower);
+					if (voicedFricScale < 0.0) voicedFricScale = 0.0;
+				}
+
+				double fric=fricGenerator.getNext()*kFricNoiseScale*fricAmp*bypassGain*bypassVoicedDuck*voicedFricScale;
 				double parallelOut=parallel.getNext(frame,voiceGenerator.glottisOpen,fric*smoothPreGain);
 				double out=(cascadeOut+parallelOut)*frame->outputGain;
 				
