@@ -296,6 +296,16 @@ struct LanguagePack {
 
   // Duration scaling.
   double lengthenedScale = 1.05;
+
+// Optional: phonemic length & gemination constraints (post-timing pass).
+// Values are interpreted as milliseconds at speed=1 and internally scaled by ctx.speed.
+bool lengthContrastEnabled = false;
+double lengthContrastShortVowelCeilingMs = 80.0;
+double lengthContrastLongVowelFloorMs = 120.0;
+double lengthContrastGeminateClosureScale = 1.8;
+double lengthContrastGeminateReleaseScale = 0.9;
+double lengthContrastPreGeminateVowelScale = 0.85;
+
   double lengthenedScaleHu = 1.3;
   bool applyLengthenedScaleToVowelsOnly = true;
 
@@ -343,7 +353,28 @@ struct LanguagePack {
   double coarticulationVelarPinchF2Scale = 0.9;
   double coarticulationVelarPinchF3 = 2400.0;
 
-  // Phrase-final lengthening.
+  
+
+// Liquid / glide internal dynamics (optional).
+// Implemented by splitting the token into a short onglide segment + a steady segment.
+bool liquidDynamicsEnabled = false;
+
+// /l/ onglide: quick tongue-tip gesture at the start of /l/ (helps clarity).
+double liquidDynamicsLateralOnglideF1Delta = -50.0;
+double liquidDynamicsLateralOnglideF2Delta = 200.0;
+double liquidDynamicsLateralOnglideDurationPct = 0.30;
+
+// /r/ F3 dip: American English rhotic quality (bunched/retroflex style).
+bool liquidDynamicsRhoticF3DipEnabled = false;
+double liquidDynamicsRhoticF3Minimum = 1600.0;
+double liquidDynamicsRhoticF3DipDurationPct = 0.50;
+
+// /w/ formant movement: start low (labial), then move toward the vowel.
+bool liquidDynamicsLabialGlideTransitionEnabled = false;
+double liquidDynamicsLabialGlideStartF1 = 300.0;
+double liquidDynamicsLabialGlideStartF2 = 700.0;
+double liquidDynamicsLabialGlideTransitionPct = 0.60;
+// Phrase-final lengthening.
   bool phraseFinalLengtheningEnabled = false;
   double phraseFinalLengtheningFinalSyllableScale = 1.4;
   double phraseFinalLengtheningPenultimateSyllableScale = 1.15;
@@ -371,8 +402,29 @@ struct LanguagePack {
   double nasalizationAnticipatoryAmplitude = 0.4;
   double nasalizationAnticipatoryBlend = 0.5;
 
-  // Placeholder for future systematic positional allophones.
-  bool positionalAllophonesEnabled = false;
+// Positional allophones (optional; frontend-level, pack-configurable).
+// Small "how to say it" tweaks by position, without requiring new phonemes.
+bool positionalAllophonesEnabled = false;
+
+// Stop aspiration scaling (applies to the inserted post-stop aspiration phoneme).
+// Multipliers: 1.0 keeps the default aspiration; lower values reduce it.
+double positionalAllophonesStopAspirationWordInitialStressed = 0.8;
+double positionalAllophonesStopAspirationWordInitial = 0.5;
+double positionalAllophonesStopAspirationIntervocalic = 0.2;
+double positionalAllophonesStopAspirationWordFinal = 0.1;
+
+// /l/ darkness (0..1). Higher = darker (more [ɫ]-like).
+double positionalAllophonesLateralDarknessPreVocalic = 0.2;
+double positionalAllophonesLateralDarknessPostVocalic = 0.8;
+double positionalAllophonesLateralDarknessSyllabic = 0.9;
+
+// Darkness target for /l/ (used as a simple F2 pull).
+double positionalAllophonesLateralDarkF2TargetHz = 900.0;
+
+// Glottal reinforcement of (typically voiceless) word-final stops.
+bool positionalAllophonesGlottalReinforcementEnabled = false;
+std::vector<std::string> positionalAllophonesGlottalReinforcementContexts = {"V_#"};
+double positionalAllophonesGlottalReinforcementDurationMs = 18.0;
 
   // Language-specific duration tweaks.
   bool huShortAVowelEnabled = true;

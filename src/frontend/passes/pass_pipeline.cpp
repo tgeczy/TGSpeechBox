@@ -6,6 +6,8 @@
 #include "nasalization.h"
 #include "prosody.h"
 #include "reduction.h"
+#include "liquid_dynamics.h"
+#include "length_contrast.h"
 
 namespace nvsp_frontend {
 
@@ -18,6 +20,8 @@ const PassDesc kPasses[] = {
     {"coarticulation", PassStage::PostTiming, &passes::runCoarticulation},
     {"prosody", PassStage::PostTiming, &passes::runProsody},
     {"reduction", PassStage::PostTiming, &passes::runReduction},
+    {"liquid_dynamics", PassStage::PostTiming, &passes::runLiquidDynamics},
+    {"length_contrast", PassStage::PostTiming, &passes::runLengthContrast},
 
     {"microprosody", PassStage::PostPitch, &passes::runMicroprosody},
 };

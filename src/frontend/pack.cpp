@@ -9,6 +9,18 @@ namespace fs = std::filesystem;
 
 namespace nvsp_frontend {
 
+static bool parseBool(const std::string& s) {
+  std::string t;
+  t.reserve(s.size());
+  for (char c : s) {
+    t.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  }
+  if (t == "1" || t == "true" || t == "yes" || t == "on") return true;
+  if (t == "0" || t == "false" || t == "no" || t == "off") return false;
+  return false;
+}
+
+
 static fs::path findPacksRoot(const std::string& packDir, std::string& outError) {
   fs::path p(packDir);
   fs::path direct = p / "phonemes.yaml";
@@ -261,7 +273,59 @@ static void mergeSettings(LanguagePack& lp, const yaml_min::Node& settings) {
     if (n && n->isScalar()) field = n->scalar;
   };
 
-  getNum("primaryStressDiv", lp.primaryStressDiv);
+  
+
+// Helpers for nested setting blocks (maps) inside `settings:`.
+auto getNumFrom = [&](const yaml_min::Node& map, const char* k, double& out) {
+  const yaml_min::Node* n = map.get(k);
+  if (n && n->isScalar()) {
+    out = std::atof(n->scalar.c_str());
+  }
+};
+
+auto getBoolFrom = [&](const yaml_min::Node& map, const char* k, bool& out) {
+  const yaml_min::Node* n = map.get(k);
+  if (n && n->isScalar()) {
+    out = parseBool(n->scalar);
+  }
+};
+
+auto getStrFrom = [&](const yaml_min::Node& map, const char* k, std::string& out) {
+  const yaml_min::Node* n = map.get(k);
+  if (n && n->isScalar()) out = n->scalar;
+};
+
+auto getStrListFrom = [&](const yaml_min::Node& map, const char* k, std::vector<std::string>& out) {
+  const yaml_min::Node* n = map.get(k);
+  if (!n) return;
+  if (n->isSeq()) {
+    std::vector<std::string> tmp;
+    tmp.reserve(n->seq.size());
+    for (const auto& el : n->seq) {
+      if (el.isScalar()) tmp.push_back(el.scalar);
+    }
+    if (!tmp.empty()) out = tmp;
+    return;
+  }
+  // Also accept a single scalar with comma-separated values.
+  if (n->isScalar()) {
+    std::vector<std::string> tmp;
+    std::string s = n->scalar;
+    size_t start = 0;
+    while (start < s.size()) {
+      size_t comma = s.find(',', start);
+      std::string part = (comma == std::string::npos) ? s.substr(start) : s.substr(start, comma - start);
+      // trim
+      while (!part.empty() && (part.front()==' ' || part.front()=='\t')) part.erase(part.begin());
+      while (!part.empty() && (part.back()==' ' || part.back()=='\t')) part.pop_back();
+      if (!part.empty()) tmp.push_back(part);
+      if (comma == std::string::npos) break;
+      start = comma + 1;
+    }
+    if (!tmp.empty()) out = tmp;
+  }
+};
+getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("secondaryStressDiv", lp.secondaryStressDiv);
 
   // Legacy pitch mode (ported from the ee80f4d-era ipa.py / ipa-older.py).
@@ -340,6 +404,20 @@ static void mergeSettings(LanguagePack& lp, const yaml_min::Node& settings) {
   getNum("coarticulationVelarPinchF2Scale", lp.coarticulationVelarPinchF2Scale);
   getNum("coarticulationVelarPinchF3", lp.coarticulationVelarPinchF3);
 
+// Liquid dynamics (optional)
+getBool("liquidDynamicsEnabled", lp.liquidDynamicsEnabled);
+getNum("liquidDynamicsLateralOnglideF1Delta", lp.liquidDynamicsLateralOnglideF1Delta);
+getNum("liquidDynamicsLateralOnglideF2Delta", lp.liquidDynamicsLateralOnglideF2Delta);
+getNum("liquidDynamicsLateralOnglideDurationPct", lp.liquidDynamicsLateralOnglideDurationPct);
+getBool("liquidDynamicsRhoticF3DipEnabled", lp.liquidDynamicsRhoticF3DipEnabled);
+getNum("liquidDynamicsRhoticF3Minimum", lp.liquidDynamicsRhoticF3Minimum);
+getNum("liquidDynamicsRhoticF3DipDurationPct", lp.liquidDynamicsRhoticF3DipDurationPct);
+getBool("liquidDynamicsLabialGlideTransitionEnabled", lp.liquidDynamicsLabialGlideTransitionEnabled);
+getNum("liquidDynamicsLabialGlideStartF1", lp.liquidDynamicsLabialGlideStartF1);
+getNum("liquidDynamicsLabialGlideStartF2", lp.liquidDynamicsLabialGlideStartF2);
+getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTransitionPct);
+
+
   getBool("phraseFinalLengtheningEnabled", lp.phraseFinalLengtheningEnabled);
   getNum("phraseFinalLengtheningFinalSyllableScale", lp.phraseFinalLengtheningFinalSyllableScale);
   getNum("phraseFinalLengtheningPenultimateSyllableScale", lp.phraseFinalLengtheningPenultimateSyllableScale);
@@ -365,6 +443,89 @@ static void mergeSettings(LanguagePack& lp, const yaml_min::Node& settings) {
   getNum("nasalizationAnticipatoryBlend", lp.nasalizationAnticipatoryBlend);
 
   getBool("positionalAllophonesEnabled", lp.positionalAllophonesEnabled);
+
+// Length contrast / gemination (optional)
+getBool("lengthContrastEnabled", lp.lengthContrastEnabled);
+getNum("lengthContrastShortVowelCeilingMs", lp.lengthContrastShortVowelCeilingMs);
+getNum("lengthContrastLongVowelFloorMs", lp.lengthContrastLongVowelFloorMs);
+getNum("lengthContrastGeminateClosureScale", lp.lengthContrastGeminateClosureScale);
+getNum("lengthContrastGeminateReleaseScale", lp.lengthContrastGeminateReleaseScale);
+getNum("lengthContrastPreGeminateVowelScale", lp.lengthContrastPreGeminateVowelScale);
+
+// Positional allophones details (optional)
+getNum("positionalAllophonesStopAspirationWordInitialStressed", lp.positionalAllophonesStopAspirationWordInitialStressed);
+getNum("positionalAllophonesStopAspirationWordInitial", lp.positionalAllophonesStopAspirationWordInitial);
+getNum("positionalAllophonesStopAspirationIntervocalic", lp.positionalAllophonesStopAspirationIntervocalic);
+getNum("positionalAllophonesStopAspirationWordFinal", lp.positionalAllophonesStopAspirationWordFinal);
+
+getNum("positionalAllophonesLateralDarknessPreVocalic", lp.positionalAllophonesLateralDarknessPreVocalic);
+getNum("positionalAllophonesLateralDarknessPostVocalic", lp.positionalAllophonesLateralDarknessPostVocalic);
+getNum("positionalAllophonesLateralDarknessSyllabic", lp.positionalAllophonesLateralDarknessSyllabic);
+getNum("positionalAllophonesLateralDarkF2TargetHz", lp.positionalAllophonesLateralDarkF2TargetHz);
+
+getBool("positionalAllophonesGlottalReinforcementEnabled", lp.positionalAllophonesGlottalReinforcementEnabled);
+getNum("positionalAllophonesGlottalReinforcementDurationMs", lp.positionalAllophonesGlottalReinforcementDurationMs);
+
+// Nested settings blocks inside `settings:` (optional; override flat keys)
+if (const yaml_min::Node* ld = settings.get("liquidDynamics"); ld && ld->isMap()) {
+  getBoolFrom(*ld, "enabled", lp.liquidDynamicsEnabled);
+
+  if (const yaml_min::Node* lo = ld->get("lateralOnglide"); lo && lo->isMap()) {
+    getNumFrom(*lo, "f1Delta", lp.liquidDynamicsLateralOnglideF1Delta);
+    getNumFrom(*lo, "f2Delta", lp.liquidDynamicsLateralOnglideF2Delta);
+    getNumFrom(*lo, "durationPct", lp.liquidDynamicsLateralOnglideDurationPct);
+  }
+
+  if (const yaml_min::Node* rd = ld->get("rhoticF3Dip"); rd && rd->isMap()) {
+    getBoolFrom(*rd, "enabled", lp.liquidDynamicsRhoticF3DipEnabled);
+    getNumFrom(*rd, "f3Minimum", lp.liquidDynamicsRhoticF3Minimum);
+    getNumFrom(*rd, "dipDurationPct", lp.liquidDynamicsRhoticF3DipDurationPct);
+  }
+
+  if (const yaml_min::Node* wg = ld->get("labialGlideTransition"); wg && wg->isMap()) {
+    getBoolFrom(*wg, "enabled", lp.liquidDynamicsLabialGlideTransitionEnabled);
+    getNumFrom(*wg, "startF1", lp.liquidDynamicsLabialGlideStartF1);
+    getNumFrom(*wg, "startF2", lp.liquidDynamicsLabialGlideStartF2);
+    getNumFrom(*wg, "transitionPct", lp.liquidDynamicsLabialGlideTransitionPct);
+  }
+}
+
+if (const yaml_min::Node* lc = settings.get("lengthContrast"); lc && lc->isMap()) {
+  getBoolFrom(*lc, "enabled", lp.lengthContrastEnabled);
+  getNumFrom(*lc, "shortVowelCeiling", lp.lengthContrastShortVowelCeilingMs);
+  getNumFrom(*lc, "longVowelFloor", lp.lengthContrastLongVowelFloorMs);
+  getNumFrom(*lc, "geminateClosureScale", lp.lengthContrastGeminateClosureScale);
+  getNumFrom(*lc, "geminateReleaseScale", lp.lengthContrastGeminateReleaseScale);
+  getNumFrom(*lc, "preGeminateVowelScale", lp.lengthContrastPreGeminateVowelScale);
+}
+
+if (const yaml_min::Node* pa = settings.get("positionalAllophones"); pa && pa->isMap()) {
+  getBoolFrom(*pa, "enabled", lp.positionalAllophonesEnabled);
+
+  if (const yaml_min::Node* sa = pa->get("stopAspiration"); sa && sa->isMap()) {
+    getNumFrom(*sa, "wordInitialStressed", lp.positionalAllophonesStopAspirationWordInitialStressed);
+    getNumFrom(*sa, "wordInitial", lp.positionalAllophonesStopAspirationWordInitial);
+    getNumFrom(*sa, "intervocalic", lp.positionalAllophonesStopAspirationIntervocalic);
+    getNumFrom(*sa, "wordFinal", lp.positionalAllophonesStopAspirationWordFinal);
+  }
+
+  if (const yaml_min::Node* ld = pa->get("lateralDarkness"); ld && ld->isMap()) {
+    getNumFrom(*ld, "preVocalic", lp.positionalAllophonesLateralDarknessPreVocalic);
+    getNumFrom(*ld, "postVocalic", lp.positionalAllophonesLateralDarknessPostVocalic);
+    getNumFrom(*ld, "syllabic", lp.positionalAllophonesLateralDarknessSyllabic);
+  }
+  // Optional explicit target for darkness
+  getNumFrom(*pa, "lateralDarkF2Target", lp.positionalAllophonesLateralDarkF2TargetHz);
+
+  if (const yaml_min::Node* gr = pa->get("glottalReinforcement"); gr && gr->isMap()) {
+    getBoolFrom(*gr, "enabled", lp.positionalAllophonesGlottalReinforcementEnabled);
+    getStrListFrom(*gr, "contexts", lp.positionalAllophonesGlottalReinforcementContexts);
+  }
+  // Optional explicit duration for inserted glottal stop (ms at speed=1)
+  getNumFrom(*pa, "glottalReinforcementDurationMs", lp.positionalAllophonesGlottalReinforcementDurationMs);
+}
+
+
 
   getBool("huShortAVowelEnabled", lp.huShortAVowelEnabled);
   {
