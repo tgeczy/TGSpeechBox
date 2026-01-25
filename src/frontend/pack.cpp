@@ -326,6 +326,46 @@ static void mergeSettings(LanguagePack& lp, const yaml_min::Node& settings) {
   getBool("applyLengthenedScaleToVowelsOnly", lp.applyLengthenedScaleToVowelsOnly);
   getNum("lengthenedVowelFinalCodaScale", lp.lengthenedVowelFinalCodaScale);
 
+  // Frontend rule passes (token-level)
+  getBool("coarticulationEnabled", lp.coarticulationEnabled);
+  getNum("coarticulationStrength", lp.coarticulationStrength);
+  getNum("coarticulationTransitionExtent", lp.coarticulationTransitionExtent);
+  getBool("coarticulationFadeIntoConsonants", lp.coarticulationFadeIntoConsonants);
+  getNum("coarticulationWordInitialFadeScale", lp.coarticulationWordInitialFadeScale);
+  getNum("coarticulationLabialF2Locus", lp.coarticulationLabialF2Locus);
+  getNum("coarticulationAlveolarF2Locus", lp.coarticulationAlveolarF2Locus);
+  getNum("coarticulationVelarF2Locus", lp.coarticulationVelarF2Locus);
+  getBool("coarticulationVelarPinchEnabled", lp.coarticulationVelarPinchEnabled);
+  getNum("coarticulationVelarPinchThreshold", lp.coarticulationVelarPinchThreshold);
+  getNum("coarticulationVelarPinchF2Scale", lp.coarticulationVelarPinchF2Scale);
+  getNum("coarticulationVelarPinchF3", lp.coarticulationVelarPinchF3);
+
+  getBool("phraseFinalLengtheningEnabled", lp.phraseFinalLengtheningEnabled);
+  getNum("phraseFinalLengtheningFinalSyllableScale", lp.phraseFinalLengtheningFinalSyllableScale);
+  getNum("phraseFinalLengtheningPenultimateSyllableScale", lp.phraseFinalLengtheningPenultimateSyllableScale);
+  getNum("phraseFinalLengtheningStatementScale", lp.phraseFinalLengtheningStatementScale);
+  getNum("phraseFinalLengtheningQuestionScale", lp.phraseFinalLengtheningQuestionScale);
+  getBool("phraseFinalLengtheningNucleusOnlyMode", lp.phraseFinalLengtheningNucleusOnlyMode);
+
+  getBool("microprosodyEnabled", lp.microprosodyEnabled);
+  getBool("microprosodyVoicelessF0RaiseEnabled", lp.microprosodyVoicelessF0RaiseEnabled);
+  getNum("microprosodyVoicelessF0RaiseHz", lp.microprosodyVoicelessF0RaiseHz);
+  getNum("microprosodyVoicelessF0RaiseEndHz", lp.microprosodyVoicelessF0RaiseEndHz);
+  getBool("microprosodyVoicedF0LowerEnabled", lp.microprosodyVoicedF0LowerEnabled);
+  getNum("microprosodyVoicedF0LowerHz", lp.microprosodyVoicedF0LowerHz);
+  getNum("microprosodyMinVowelMs", lp.microprosodyMinVowelMs);
+
+  getBool("rateReductionEnabled", lp.rateReductionEnabled);
+  getNum("rateReductionSchwaReductionThreshold", lp.rateReductionSchwaReductionThreshold);
+  getNum("rateReductionSchwaMinDurationMs", lp.rateReductionSchwaMinDurationMs);
+  getNum("rateReductionSchwaScale", lp.rateReductionSchwaScale);
+
+  getBool("nasalizationAnticipatoryEnabled", lp.nasalizationAnticipatoryEnabled);
+  getNum("nasalizationAnticipatoryAmplitude", lp.nasalizationAnticipatoryAmplitude);
+  getNum("nasalizationAnticipatoryBlend", lp.nasalizationAnticipatoryBlend);
+
+  getBool("positionalAllophonesEnabled", lp.positionalAllophonesEnabled);
+
   getBool("huShortAVowelEnabled", lp.huShortAVowelEnabled);
   {
     const yaml_min::Node* n = settings.get("huShortAVowelKey");

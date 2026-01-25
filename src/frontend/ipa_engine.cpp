@@ -1,5 +1,7 @@
 #include "ipa_engine.h"
 
+#include "passes/pass_pipeline.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -1758,14 +1760,28 @@ bool convertIpaToTokens(
     setDefaultVoiceFields(pack.lang, t);
   }
 
+  // Frontend passes: modular token-level rules (coarticulation, prosody, etc.).
+  PassContext passCtx(pack, speed, basePitch, inflection, clauseType);
+  if (!runPasses(passCtx, PassStage::PreTiming, outTokens, outError)) {
+    return false;
+  }
+
   // Timing.
   calculateTimes(outTokens, pack, speed);
+
+  if (!runPasses(passCtx, PassStage::PostTiming, outTokens, outError)) {
+    return false;
+  }
 
   // Pitch.
   calculatePitches(outTokens, pack, speed, basePitch, inflection, clauseType);
 
   // Tone overlay (optional).
   applyToneContours(outTokens, pack, basePitch, inflection);
+
+  if (!runPasses(passCtx, PassStage::PostPitch, outTokens, outError)) {
+    return false;
+  }
 
   return true;
 }

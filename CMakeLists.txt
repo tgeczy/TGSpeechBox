@@ -44,8 +44,9 @@ endif()
 # nvspFrontend.dll (IPA -> Frames)
 # -------------------------
 file(GLOB FRONTEND_CPP CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/*.cpp")
+file(GLOB FRONTEND_PASSES_CPP CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/passes/*.cpp")
 
-add_library(nvspFrontend SHARED ${FRONTEND_CPP})
+add_library(nvspFrontend SHARED ${FRONTEND_CPP} ${FRONTEND_PASSES_CPP})
 
 target_include_directories(nvspFrontend PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/src"

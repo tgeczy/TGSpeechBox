@@ -314,6 +314,66 @@ struct LanguagePack {
   // Default 1.0 = disabled.
   double lengthenedVowelFinalCodaScale = 1.0;
 
+  // ---------------------------------------------------------------------------
+  // Frontend token-level rule passes
+  //
+  // These are implemented in C++ (src/frontend/passes/*) and can be enabled
+  // per-language via lang.yaml settings. All options have safe defaults so that
+  // older packs continue to load.
+  // ---------------------------------------------------------------------------
+
+  // Coarticulation (locus targets + optional velar pinch).
+  //
+  // The goal is not to "invent" new phonemes, but to nudge stop consonants
+  // toward more speech-like formant transitions.
+  //
+  // Defaults are conservative.
+  bool coarticulationEnabled = true;
+  double coarticulationStrength = 0.25;          // 0..1
+  double coarticulationTransitionExtent = 0.35;  // fraction of consonant duration
+  bool coarticulationFadeIntoConsonants = true;
+  double coarticulationWordInitialFadeScale = 1.0;
+
+  double coarticulationLabialF2Locus = 800.0;
+  double coarticulationAlveolarF2Locus = 1800.0;
+  double coarticulationVelarF2Locus = 2200.0;
+
+  bool coarticulationVelarPinchEnabled = true;
+  double coarticulationVelarPinchThreshold = 1800.0;
+  double coarticulationVelarPinchF2Scale = 0.9;
+  double coarticulationVelarPinchF3 = 2400.0;
+
+  // Phrase-final lengthening.
+  bool phraseFinalLengtheningEnabled = false;
+  double phraseFinalLengtheningFinalSyllableScale = 1.4;
+  double phraseFinalLengtheningPenultimateSyllableScale = 1.15;
+  double phraseFinalLengtheningStatementScale = 1.0;
+  double phraseFinalLengtheningQuestionScale = 0.9;
+  bool phraseFinalLengtheningNucleusOnlyMode = true;
+
+  // Microprosody.
+  bool microprosodyEnabled = false;
+  bool microprosodyVoicelessF0RaiseEnabled = true;
+  double microprosodyVoicelessF0RaiseHz = 15.0;
+  double microprosodyVoicelessF0RaiseEndHz = 0.0;  // 0 = full decay
+  bool microprosodyVoicedF0LowerEnabled = true;
+  double microprosodyVoicedF0LowerHz = 8.0;
+  double microprosodyMinVowelMs = 25.0;
+
+  // Rate-dependent reduction.
+  bool rateReductionEnabled = false;
+  double rateReductionSchwaReductionThreshold = 2.5;
+  double rateReductionSchwaMinDurationMs = 15.0;
+  double rateReductionSchwaScale = 0.8;
+
+  // Anticipatory nasalization.
+  bool nasalizationAnticipatoryEnabled = false;
+  double nasalizationAnticipatoryAmplitude = 0.4;
+  double nasalizationAnticipatoryBlend = 0.5;
+
+  // Placeholder for future systematic positional allophones.
+  bool positionalAllophonesEnabled = false;
+
   // Language-specific duration tweaks.
   bool huShortAVowelEnabled = true;
   std::u32string huShortAVowelKey = U"ᴒ";

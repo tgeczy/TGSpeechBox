@@ -1,0 +1,45 @@
+#include "pass_pipeline.h"
+
+#include "allophones.h"
+#include "coarticulation.h"
+#include "microprosody.h"
+#include "nasalization.h"
+#include "prosody.h"
+#include "reduction.h"
+
+namespace nvsp_frontend {
+
+namespace {
+
+const PassDesc kPasses[] = {
+    {"nasalization", PassStage::PreTiming, &passes::runNasalization},
+    {"allophones", PassStage::PreTiming, &passes::runAllophones},
+
+    {"coarticulation", PassStage::PostTiming, &passes::runCoarticulation},
+    {"prosody", PassStage::PostTiming, &passes::runProsody},
+    {"reduction", PassStage::PostTiming, &passes::runReduction},
+
+    {"microprosody", PassStage::PostPitch, &passes::runMicroprosody},
+};
+
+}  // namespace
+
+bool runPasses(
+    PassContext& ctx,
+    PassStage stage,
+    std::vector<Token>& tokens,
+    std::string& outError) {
+  for (const auto& pass : kPasses) {
+    if (pass.fn == nullptr) continue;
+    if (pass.stage != stage) continue;
+
+    std::string err;
+    if (!pass.fn(ctx, tokens, err)) {
+      outError = std::string("pass '") + pass.name + "' failed: " + err;
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace nvsp_frontend
