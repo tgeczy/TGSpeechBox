@@ -282,7 +282,7 @@ phonemes:
     caNP: 0
     cb1: 99
     cb2: 75
-    cb3: 60
+    cb3: 82.5
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -327,7 +327,7 @@ phonemes:
     caNP: 0
     cb1: 88
     cb2: 75
-    cb3: 60
+    cb3: 82.5
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -371,7 +371,7 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 88
-    cb2: 37.5
+    cb2: 45
     cb3: 105
     cb4: 250
     cb5: 200
@@ -395,7 +395,7 @@ phonemes:
     pa6: 0
     parallelBypass: 0
     pb1: 80
-    pb2: 50
+    pb2: 60
     pb3: 140
     pb4: 250
     pb5: 200
@@ -1788,7 +1788,7 @@ phonemes:
     caNP: 0
     cb1: 55
     cb2: 60
-    cb3: 45
+    cb3: 100
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -1812,7 +1812,7 @@ phonemes:
     parallelBypass: 0
     pb1: 50
     pb2: 80
-    pb3: 60
+    pb3: 130
     pb4: 250
     pb5: 200
     pb6: 1000
@@ -2060,7 +2060,7 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 166.6
-    cb2: 76.5
+    cb2: 115
     cb3: 178
     cb4: 250
     cb5: 200
@@ -2084,7 +2084,7 @@ phonemes:
     pa6: 0
     parallelBypass: 0
     pb1: 130
-    pb2: 70
+    pb2: 95
     pb3: 160
     pb4: 250
     pb5: 200
@@ -2873,7 +2873,7 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 88
-    cb2: 37.5
+    cb2: 45
     cb3: 105
     cb4: 250
     cb5: 200
@@ -2897,7 +2897,7 @@ phonemes:
     pa6: 0
     parallelBypass: 0
     pb1: 80
-    pb2: 50
+    pb2: 60
     pb3: 140
     pb4: 250
     pb5: 200
@@ -3145,7 +3145,7 @@ phonemes:
     caNP: 0
     cb1: 99
     cb2: 75
-    cb3: 60
+    cb3: 82.5
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -3233,7 +3233,7 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 88
-    cb2: 37.5
+    cb2: 45
     cb3: 97.5
     cb4: 250
     cb5: 200
@@ -3257,7 +3257,7 @@ phonemes:
     pa6: 0
     parallelBypass: 0
     pb1: 80
-    pb2: 50
+    pb2: 60
     pb3: 130
     pb4: 250
     pb5: 200
@@ -3819,7 +3819,7 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 88
-    cb2: 37.5
+    cb2: 45
     cb3: 105
     cb4: 250
     cb5: 200
@@ -3843,7 +3843,7 @@ phonemes:
     pa6: 0
     parallelBypass: 0
     pb1: 80
-    pb2: 50
+    pb2: 60
     pb3: 140
     pb4: 250
     pb5: 200
@@ -4089,51 +4089,6 @@ phonemes:
     _isVowel: false
     aspirationAmplitude: 0
     caNP: 1
-    cb1: 44
-    cb2: 225
-    cb3: 225
-    cb4: 250
-    cb5: 200
-    cb6: 1000
-    cbN0: 100
-    cbNP: 100
-    cf1: 280
-    cf2: 1900
-    cf3: 2900
-    cf4: 3300
-    cf5: 3750
-    cf6: 4900
-    cfN0: 450
-    cfNP: 216
-    fricationAmplitude: 0
-    pa1: 0
-    pa2: 0
-    pa3: 0
-    pa4: 0
-    pa5: 0
-    pa6: 0
-    parallelBypass: 0
-    pb1: 40
-    pb2: 300
-    pb3: 300
-    pb4: 250
-    pb5: 200
-    pb6: 1000
-    pf1: 280
-    pf2: 1900
-    pf3: 2900
-    pf4: 3300
-    pf5: 3750
-    pf6: 4900
-    voiceAmplitude: 0.9
-  "ɲʲ":
-    _isLiquid: false
-    _isNasal: true
-    _isStop: false
-    _isVoiced: true
-    _isVowel: false
-    aspirationAmplitude: 0
-    caNP: 1
     cb1: 70
     cb2: 225
     cb3: 225
@@ -4143,8 +4098,10 @@ phonemes:
     cbN0: 100
     cbNP: 170
     cf1: 280
-    cf2: 1900
-    cf3: 2900
+    cf2: 2250
+
+    cf3: 3250
+
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -4165,12 +4122,65 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 280
-    pf2: 1900
-    pf3: 2900
+    pf2: 2250
+
+    pf3: 3250
+
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.95
+    voiceAmplitude: 0.92
+
+  "ɲʲ":
+    _isLiquid: false
+    _isNasal: true
+    _isStop: false
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 1
+    cb1: 70
+    cb2: 225
+    cb3: 225
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 170
+    cf1: 280
+    cf2: 2450
+
+    cf3: 3450
+
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 450
+    cfNP: 240
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 40
+    pb2: 300
+    pb3: 300
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 280
+    pf2: 2450
+
+    pf3: 3450
+
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 1
+
   "ɵ":
     _isLiquid: false
     _isNasal: false
@@ -4591,14 +4601,14 @@ phonemes:
     caNP: 0
     cb1: 88
     cb2: 75
-    cb3: 60
+    cb3: 82.5
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 405
-    cf2: 900
+    cf1: 360
+    cf2: 1050
     cf3: 2420
     cf4: 3300
     cf5: 3750
@@ -4621,6 +4631,52 @@ phonemes:
     pb6: 1000
     pf1: 450
     pf2: 1100
+    pf3: 2350
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
+
+  "ʊ̞":
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 88
+    cb2: 75
+    cb3: 82.5
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 430
+    cf2: 1020
+    cf3: 2420
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 80
+    pb2: 100
+    pb3: 80
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 480
+    pf2: 1060
     pf3: 2350
     pf4: 3300
     pf5: 3750
@@ -4681,7 +4737,7 @@ phonemes:
     caNP: 0
     cb1: 55
     cb2: 60
-    cb3: 45
+    cb3: 100
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -4705,7 +4761,7 @@ phonemes:
     parallelBypass: 0
     pb1: 50
     pb2: 80
-    pb3: 60
+    pb3: 130
     pb4: 250
     pb5: 200
     pb6: 1000
@@ -5405,7 +5461,7 @@ phonemes:
     caNP: 0.6
     cb1: 88
     cb2: 75
-    cb3: 60
+    cb3: 82.5
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -5450,7 +5506,7 @@ phonemes:
     caNP: 0
     cb1: 88
     cb2: 75
-    cb3: 60
+    cb3: 82.5
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -5496,7 +5552,7 @@ phonemes:
     caNP: 0
     cb1: 55
     cb2: 60
-    cb3: 45
+    cb3: 100
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -5520,7 +5576,7 @@ phonemes:
     parallelBypass: 0
     pb1: 50
     pb2: 80
-    pb3: 60
+    pb3: 130
     pb4: 250
     pb5: 200
     pb6: 1000

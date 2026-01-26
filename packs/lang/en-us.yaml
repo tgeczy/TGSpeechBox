@@ -27,8 +27,23 @@ settings:
 
   spellingDiphthongMode: monophthong
   autoTieDiphthongs: false
-  autoDiphthongOffglideToSemivowel: false
+  autoDiphthongOffglideToSemivowel: true
   legacyPitchMode: false
+  coarticulationEnabled: true
+  coarticulationFadeIntoConsonants: true
+  coarticulationVelarPinchEnabled: true
+  phraseFinalLengtheningEnabled: false
+  phraseFinalLengtheningNucleusOnlyMode: true
+  microprosodyEnabled: true
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicedF0LowerEnabled: true
+  rateReductionEnabled: true
+  nasalizationAnticipatoryEnabled: false
+  segmentBoundarySkipVowelToLiquid: false
+  lengthContrastEnabled: false
+  positionalAllophonesEnabled: false
+  positionalAllophonesGlottalReinforcementEnabled: true
+  liquidDynamicsEnabled: false
 normalization:
   preReplacements:
     # Protect PRICE/MOUTH diphthongs from broad TRAP rules (e.g. five/nine/out).
@@ -153,6 +168,12 @@ normalization:
     - from: "ɔ"
       to:   "ᴐ"
 
+
+    # US English: /-yond/ words are closer to LOT than THOUGHT (Eloquence-ish)
+    - from: "jˈᴐnd"
+      to:   "jˈᴒnd"
+    - from: "jˌᴐnd"
+      to:   "jˌᴒnd"
     # BIG ONE:
     # eSpeak’s IPA often uses ɜ(ː) for NURSE even in en-us.
     # Force rhotic NURSE.

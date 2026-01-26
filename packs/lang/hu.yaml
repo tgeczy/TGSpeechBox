@@ -8,11 +8,18 @@ settings:
 
   # Make sure ː actually creates a clear long/short contrast in Hungarian.
   # (We set both the generic and HU compat keys so whichever path the frontend uses, it behaves.)
-  lengthenedScale: 1.60
-  lengthenedScaleHu: 1.60
-  lengthenedVowelFinalCodaScale: 0.90
-  applyLengthenedScaleToVowelsOnly: true
+  lengthenedScale: 1.40
+  # Length contrast + gemination (Hungarian has phonemic length)
+  lengthContrastEnabled: true
+  lengthContrastShortVowelCeilingMs: 90
+  lengthContrastLongVowelFloorMs: 100
+  lengthContrastGeminateClosureScale: 1.85
+  lengthContrastGeminateReleaseScale: 0.9
+  lengthContrastPreGeminateVowelScale: 0.88
 
+  lengthenedScaleHu: 1.40
+  lengthenedVowelFinalCodaScale: 0.90
+  applyLengthenedScaleToVowelsOnly: false
   # Hungarian occlusives are often softer; avoid clickiness:
   stopClosureMode: vowel-and-cluster
   stopClosureAfterNasalsEnabled: true
@@ -29,46 +36,18 @@ settings:
   huShortAVowelKey: "ᴒ"
   huShortAVowelScale: 0.85
 
+  phraseFinalLengtheningNucleusOnlyMode: true
+  phraseFinalLengtheningEnabled: true
+  coarticulationVelarPinchEnabled: false
+  coarticulationFadeIntoConsonants: false
+  coarticulationEnabled: false
+  microprosodyEnabled: true
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicedF0LowerEnabled: true
+  nasalizationAnticipatoryEnabled: true
+  positionalAllophonesGlottalReinforcementEnabled: false
 normalization:
   preReplacements:
-    # Convert consonant length marks to explicit doubling (since we only lengthen vowels with ː).
-    - from: "tː"
-      to: "tt"
-    - from: "dː"
-      to: "dd"
-    - from: "kː"
-      to: "kk"
-    - from: "pː"
-      to: "pp"
-    - from: "bː"
-      to: "bb"
-    - from: "sː"
-      to: "ss"
-    - from: "mː"
-      to: "mm"
-    - from: "nː"
-      to: "nn"
-    - from: "lː"
-      to: "ll"
-    - from: "rː"
-      to: "rr"
-    - from: "ɲː"
-      to: "ɲɲ"
-
-    # Hungarian palatals /c/ /ɟ/ can also be geminated in real words:
-    # eSpeak often emits these in cases like "fogadják" -> ... ɟː ...
-    - from: "cː"
-      to: "cc"
-    - from: "ɟː"
-      to: "ɟɟ"
-    - from: "ʎː"
-      to: "ʎʎ"
-
-  replacements:
-    # --- Hungarian long vowel quality helpers ---
-    # Keep long vowels as stable monophthongs, but with a slightly more Hungarian vowel space,
-    # so the result is less "English / American slant" while staying conservative.
-
     - from: "aː"
       to: "áː"
     - from: "eː"

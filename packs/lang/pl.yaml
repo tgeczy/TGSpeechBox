@@ -8,6 +8,11 @@ settings:
   trillModulationMs: 50
   trillModulationFadeMs: 2
 
+  # Coarticulation (helps clusters stay intelligible)
+  coarticulationEnabled: true
+  coarticulationFadeIntoConsonants: true
+  coarticulationVelarPinchEnabled: true
+
 normalization:
   replacements:
     # eSpeak Polish uses the palatalization marker ʲ on consonants.

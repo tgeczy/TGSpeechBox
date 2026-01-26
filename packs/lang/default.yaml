@@ -55,6 +55,40 @@ settings:
   semivowelOffglideScale: 1.0
 normalization:
   preReplacements:
+    # Strip eSpeak joiners / format chars so tokens match (e.g. ə‍l, e‍ɪ, etc.)
+    # We include BOTH the escaped form (\uXXXX) and the literal char, since some parsers don't unescape.
+    - from: "\u200d"   # ZWJ
+      to: ""
+    - from: "‍"       # ZWJ literal
+      to: ""
+
+    - from: "\u200c"   # ZWNJ
+      to: ""
+    - from: "‌"       # ZWNJ literal
+      to: ""
+
+    - from: "\u200b"   # ZWSP
+      to: ""
+    - from: "​"       # ZWSP literal
+      to: ""
+
+    - from: "\u2060"   # WORD JOINER
+      to: ""
+    - from: "⁠"       # WORD JOINER literal
+      to: ""
+
+    # Rare, but shows up in some IPA sources:
+    - from: "\u034f"   # CGJ
+      to: ""
+    - from: "͏"       # CGJ literal
+      to: ""
+
+    # Some environments still leak BOM/ZWNBSP into strings:
+    - from: "\ufeff"   # BOM / ZWNBSP
+      to: ""
+    - from: "﻿"       # BOM / ZWNBSP literal
+      to: ""
+
     # Tie common affricate spellings into the single phonemes in Phonemes.yaml.
     - from: "tʃ"
       to: "t͡ʃ"
@@ -84,4 +118,8 @@ normalization:
     - from: "\u200d"
       to: ""
     - from: "\u200c"
+      to: ""
+    - from: "\u200b"
+      to: ""
+    - from: "\u2060"
       to: ""

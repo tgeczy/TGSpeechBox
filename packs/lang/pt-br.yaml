@@ -49,6 +49,10 @@ normalization:
       to: "ãj"
     - from: "y"
       to: "i"
+    - from: "iˈãᴜ"
+      to:   "iːˈãᴜ"
+    - from: "iˌãᴜ"
+      to:   "iːˌãᴜ"
 
     # eSpeak pt-br often uses "æ" for word-final unstressed "a" (casa, feira).
     # Map it to a central a-like vowel so it doesn't sound like English "cat".

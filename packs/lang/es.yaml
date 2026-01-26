@@ -4,6 +4,13 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 
+  # Stop closure / boundary smoothing.
+  # Spanish clusters like /nt/ in "paréntesis" can "pop" if closure/boundary gaps are too short.
+  # These values match the earlier stable pack (packs-missingphonemes-yo-fix).
+  stopClosureClusterGapMs: 26
+  segmentBoundaryGapMs: 18
+  segmentBoundaryFadeMs: 4
+
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 60
   trillModulationFadeMs: 2

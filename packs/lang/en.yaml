@@ -65,6 +65,11 @@ normalization:
     - from: "d͡ʒ"
       to:   "dʒ"
 
+    # FOOT vowel: eSpeak uses /ʊ/ in many common words ("book", "good", "could").
+    # Our English-tuned variant opens it slightly so it doesn't collapse into GOOSE-like "boo".
+    - from: "ʊ"
+      to:   "ʊ̞"
+
     # Pre-fortis clipping: shorten long FLEECE before word-final /t/
     # so minimal pairs like "bead" vs "beat" are distinguishable.
     - from: "iːt"
@@ -84,3 +89,37 @@ normalization:
       when:
         atWordEnd: true
 
+    # Word-final syllabic /l/ (able, google, poodle, people, etc.)
+    # eSpeak usually emits these as schwa+L (ə l) or sometimes syllabic l (l̩).
+    #
+    # In a formant synth, schwa here can come out too front/central ("ö"-ish) and the /l/ can get lost.
+    # Screen-reader voices (including Eloquence) often sound clearer if this ends more like "...-ohl".
+    #
+    # We do this generically (no word lists) by backing/rounding the nucleus:
+    #   əl#  ->  ol#
+    #
+    # Note: en-us.yaml already slightly fronts "o" -> "ᵒ" for its GOAT vowel quality, so US vs UK stays sensible.
+    - from: "əl"
+      to:   "ol"
+      when:
+        atWordEnd: true
+    - from: "əɫ"
+      to:   "ol"
+      when:
+        atWordEnd: true
+    - from: "@l"
+      to:   "ol"
+      when:
+        atWordEnd: true
+    - from: "@ɫ"
+      to:   "ol"
+      when:
+        atWordEnd: true
+    - from: "l̩"
+      to:   "ol"
+      when:
+        atWordEnd: true
+    - from: "ɫ̩"
+      to:   "ol"
+      when:
+        atWordEnd: true
