@@ -82,6 +82,9 @@ public:
 
   nvsp_editor::NvspRuntime runtime;
 
+  // Track last focused child control for focus restoration on WM_ACTIVATE.
+  HWND lastFocus = nullptr;
+
   void setStatus(const std::wstring& text) {
     if (status) SendMessageW(status, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(text.c_str()));
   }

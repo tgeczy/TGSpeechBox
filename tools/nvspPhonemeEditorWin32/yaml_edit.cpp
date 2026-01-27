@@ -462,8 +462,43 @@ static std::vector<std::string> sortedKeys(const Node& mapNode) {
   return keys;
 }
 
+// Returns a priority for top-level language YAML keys.
+// Lower number = comes first. Keys not in the list get a high number (alphabetical after).
+static int topLevelKeyPriority(const std::string& key) {
+  // Preferred ordering for language YAML files:
+  // 1. settings (most important configuration)
+  // 2. normalization (IPA rules)
+  // 3. transforms
+  // 4. intonation
+  // 5. toneContours
+  // 6. everything else alphabetically
+  if (key == "settings") return 0;
+  if (key == "normalization") return 1;
+  if (key == "transforms") return 2;
+  if (key == "intonation") return 3;
+  if (key == "toneContours") return 4;
+  return 100; // everything else
+}
+
+static std::vector<std::string> sortedKeysTopLevel(const Node& mapNode) {
+  std::vector<std::string> keys;
+  keys.reserve(mapNode.map.size());
+  for (const auto& kv : mapNode.map) keys.push_back(kv.first);
+
+  std::sort(keys.begin(), keys.end(), [](const std::string& a, const std::string& b) {
+    int pa = topLevelKeyPriority(a);
+    int pb = topLevelKeyPriority(b);
+    if (pa != pb) return pa < pb;
+    return a < b; // alphabetical for same priority
+  });
+  return keys;
+}
+
 static void dumpMap(const Node& node, std::string& out, int ind) {
-  for (const auto& k : sortedKeys(node)) {
+  // Use special ordering for top-level keys (settings before normalization, etc.)
+  auto keys = (ind == 0) ? sortedKeysTopLevel(node) : sortedKeys(node);
+
+  for (const auto& k : keys) {
     const Node& v = node.map.at(k);
     indent(out, ind);
     out += dumpKey(k);

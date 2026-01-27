@@ -34,6 +34,7 @@ static constexpr int kSampleRate = 22050;
 
 static bool handleTabNavigation(HWND hWnd, const MSG& msg);
 static bool handleCtrlASelectAll(HWND hWnd, const MSG& msg);
+static bool handleAltShortcuts(HWND hWnd, const MSG& msg);
 
 LRESULT CALLBACK AppController::StaticWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   if (msg == WM_NCCREATE) {
@@ -112,6 +113,7 @@ int AppController::RunMessageLoop() {
     if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) {
       if (handleTabNavigation(wnd, msg)) continue;
       if (handleCtrlASelectAll(wnd, msg)) continue;
+      if (handleAltShortcuts(wnd, msg)) continue;
     }
 
     if (accel && TranslateAcceleratorW(wnd, accel, &msg)) continue;
@@ -640,17 +642,24 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "applyLengthenedScaleToVowelsOnly",
     "autoDiphthongOffglideToSemivowel",
     "autoTieDiphthongs",
+    "boundarySmoothingEnabled",
+    "boundarySmoothingStopToVowelFadeMs",
+    "boundarySmoothingVowelToFricFadeMs",
+    "boundarySmoothingVowelToStopFadeMs",
+    "coarticulationAdjacencyMaxConsonants",
     "coarticulationAlveolarF2Locus",
     "coarticulationEnabled",
     "coarticulationFadeIntoConsonants",
+    "coarticulationGraduated",
     "coarticulationLabialF2Locus",
     "coarticulationStrength",
     "coarticulationTransitionExtent",
     "coarticulationVelarF2Locus",
     "coarticulationVelarPinchEnabled",
     "coarticulationVelarPinchF2Scale",
-    "coarticulationVelarPinchF3Target",
-    "coarticulationVelarPinchThresholdF2",
+    "coarticulationVelarPinchF3",
+    "coarticulationVelarPinchThreshold",
+    "coarticulationWordInitialFadeScale",
     "defaultGlottalOpenQuotient",
     "defaultOutputGain",
     "defaultPreFormantGain",
@@ -744,6 +753,12 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "toneContoursAbsolute",
     "toneContoursMode",
     "toneDigitsEnabled",
+    "trajectoryLimitApplyAcrossWordBoundary",
+    "trajectoryLimitApplyTo",
+    "trajectoryLimitEnabled",
+    "trajectoryLimitMaxHzPerMsCf2",
+    "trajectoryLimitMaxHzPerMsCf3",
+    "trajectoryLimitWindowMs",
     "trillModulationFadeMs",
     "trillModulationMs",
   };
@@ -1150,14 +1165,14 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       ListView_SetExtendedListViewStyle(app.listPhonemes, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listPhonemes, 0, L"All phonemes", 160);
 
-      app.btnPlay = CreateWindowW(L"BUTTON", L"Play", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnPlay = CreateWindowW(L"BUTTON", L"&Play", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                  0, 0, 80, 24, hWnd, (HMENU)IDC_BTN_PLAY_PHONEME, app.hInst, nullptr);
-      app.btnClone = CreateWindowW(L"BUTTON", L"Clone...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnClone = CreateWindowW(L"BUTTON", L"&Clone...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                   0, 0, 80, 24, hWnd, (HMENU)IDC_BTN_CLONE_PHONEME, app.hInst, nullptr);
-      app.btnEdit = CreateWindowW(L"BUTTON", L"Edit...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnEdit = CreateWindowW(L"BUTTON", L"&Edit...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                  0, 0, 80, 24, hWnd, (HMENU)IDC_BTN_EDIT_PHONEME, app.hInst, nullptr);
-      app.btnAddToLang = CreateWindowW(L"BUTTON", L"Add to language...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                      0, 0, 120, 24, hWnd, (HMENU)IDC_BTN_ADD_TO_LANGUAGE, app.hInst, nullptr);
+      app.btnAddToLang = CreateWindowW(L"BUTTON", L"Add to lan&guage...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                                      0, 0, 130, 24, hWnd, (HMENU)IDC_BTN_ADD_TO_LANGUAGE, app.hInst, nullptr);
 
       app.lblLanguage = CreateWindowW(L"STATIC", L"Language:", WS_CHILD | WS_VISIBLE,
                                      0, 0, 100, 18, hWnd, nullptr, app.hInst, nullptr);
@@ -1173,12 +1188,12 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       ListView_SetExtendedListViewStyle(app.listLangPhonemes, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listLangPhonemes, 0, L"Language phonemes", 160);
 
-      app.btnLangPlay = CreateWindowW(L"BUTTON", L"Play", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                     0, 0, 80, 24, hWnd, (HMENU)IDC_BTN_LANG_PLAY_PHONEME, app.hInst, nullptr);
-      app.btnLangEdit = CreateWindowW(L"BUTTON", L"Edit phoneme...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                     0, 0, 120, 24, hWnd, (HMENU)IDC_BTN_LANG_EDIT_PHONEME, app.hInst, nullptr);
-      app.btnLangSettings = CreateWindowW(L"BUTTON", L"Language settings...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                          0, 0, 140, 24, hWnd, (HMENU)IDC_BTN_LANG_SETTINGS, app.hInst, nullptr);
+      app.btnLangPlay = CreateWindowW(L"BUTTON", L"Play from &language", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                                     0, 0, 130, 24, hWnd, (HMENU)IDC_BTN_LANG_PLAY_PHONEME, app.hInst, nullptr);
+      app.btnLangEdit = CreateWindowW(L"BUTTON", L"E&dit phoneme in language...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                                     0, 0, 180, 24, hWnd, (HMENU)IDC_BTN_LANG_EDIT_PHONEME, app.hInst, nullptr);
+      app.btnLangSettings = CreateWindowW(L"BUTTON", L"Language &settings...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                                          0, 0, 150, 24, hWnd, (HMENU)IDC_BTN_LANG_SETTINGS, app.hInst, nullptr);
 
       app.lblMappings = CreateWindowW(L"STATIC", L"Normalization mappings:", WS_CHILD | WS_VISIBLE,
                                    0, 0, 160, 18, hWnd, nullptr, app.hInst, nullptr);
@@ -1191,12 +1206,12 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       lvAddColumn(app.listMappings, 1, L"To", 120);
       lvAddColumn(app.listMappings, 2, L"When", 180);
 
-      app.btnAddMap = CreateWindowW(L"BUTTON", L"Add mapping...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnAddMap = CreateWindowW(L"BUTTON", L"&Add mapping...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                   0, 0, 120, 24, hWnd, (HMENU)IDC_BTN_ADD_MAPPING, app.hInst, nullptr);
-      app.btnEditMap = CreateWindowW(L"BUTTON", L"Edit mapping...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnEditMap = CreateWindowW(L"BUTTON", L"Edit &mapping...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                    0, 0, 120, 24, hWnd, (HMENU)IDC_BTN_EDIT_MAPPING, app.hInst, nullptr);
-      app.btnRemoveMap = CreateWindowW(L"BUTTON", L"Remove mapping", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                     0, 0, 120, 24, hWnd, (HMENU)IDC_BTN_REMOVE_MAPPING, app.hInst, nullptr);
+      app.btnRemoveMap = CreateWindowW(L"BUTTON", L"&Remove mapping", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                                     0, 0, 130, 24, hWnd, (HMENU)IDC_BTN_REMOVE_MAPPING, app.hInst, nullptr);
 
       app.lblText = CreateWindowW(L"STATIC", L"Input text:", WS_CHILD | WS_VISIBLE,
                                  0, 0, 100, 18, hWnd, nullptr, app.hInst, nullptr);
@@ -1210,11 +1225,11 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       app.chkInputIsIpa = CreateWindowW(L"BUTTON", L"Input is IPA", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
                                        0, 0, 120, 22, hWnd, (HMENU)IDC_CHK_INPUT_IS_IPA, app.hInst, nullptr);
 
-      app.btnConvertIpa = CreateWindowW(L"BUTTON", L"Convert to IPA", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnConvertIpa = CreateWindowW(L"BUTTON", L"Convert to &IPA", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                        0, 0, 120, 22, hWnd, (HMENU)IDC_BTN_CONVERT_IPA, app.hInst, nullptr);
-      app.btnSpeak = CreateWindowW(L"BUTTON", L"Speak", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnSpeak = CreateWindowW(L"BUTTON", L"Spea&k", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                   0, 0, 120, 22, hWnd, (HMENU)IDC_BTN_SPEAK, app.hInst, nullptr);
-      app.btnSaveWav = CreateWindowW(L"BUTTON", L"Save WAV...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+      app.btnSaveWav = CreateWindowW(L"BUTTON", L"Save &WAV...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                     0, 0, 120, 22, hWnd, (HMENU)IDC_BTN_SAVE_WAV, app.hInst, nullptr);
 
       app.lblIpaOut = CreateWindowW(L"STATIC", L"IPA output:", WS_CHILD | WS_VISIBLE,
@@ -1314,6 +1329,25 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         app.setStatus(L"Use File > Open pack root... to begin.");
       }
 
+      // Set initial focus to the filter edit box.
+      app.lastFocus = app.editFilter;
+      SetFocus(app.editFilter);
+
+      return 0;
+    }
+
+    case WM_ACTIVATE: {
+      // Restore focus when the window is reactivated (e.g., after Alt+Tab).
+      if (LOWORD(wParam) != WA_INACTIVE) {
+        HWND toFocus = app.lastFocus;
+        // Validate that the saved handle is still a valid child.
+        if (!toFocus || !IsWindow(toFocus) || !IsChild(hWnd, toFocus)) {
+          toFocus = app.editFilter; // fallback to filter box
+        }
+        if (toFocus && IsWindow(toFocus)) {
+          SetFocus(toFocus);
+        }
+      }
       return 0;
     }
 
@@ -1328,12 +1362,19 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       const int id = LOWORD(wParam);
       const int code = HIWORD(wParam);
 
+      // Track focus changes from EDIT (EN_SETFOCUS), BUTTON (BN_SETFOCUS), and COMBOBOX (CBN_SETFOCUS) controls.
+      HWND hwndCtl = reinterpret_cast<HWND>(lParam);
+      if (hwndCtl && IsWindow(hwndCtl) && IsChild(hWnd, hwndCtl)) {
+        if (code == EN_SETFOCUS || code == BN_SETFOCUS || code == CBN_SETFOCUS) {
+          app.lastFocus = hwndCtl;
+        }
+      }
+
       // Some accessibility actions (e.g., UIA Invoke from a screen reader's
       // object navigation) can activate a control without moving keyboard
       // focus. That makes the UI feel like focus "disappeared" after pressing
       // a button. If the message originated from a control, ensure focus is on
       // that control.
-      HWND hwndCtl = reinterpret_cast<HWND>(lParam);
       if (hwndCtl && IsWindow(hwndCtl)) {
         // Only force-focus on explicit *invocation* events (typically button
         // clicks). Many controls (especially EDIT) send WM_COMMAND
@@ -1539,6 +1580,11 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
     case WM_NOTIFY: {
       NMHDR* hdr = reinterpret_cast<NMHDR*>(lParam);
       if (hdr && hdr->code == NM_SETFOCUS) {
+        // Track focus for restoration on WM_ACTIVATE.
+        if (hdr->hwndFrom && IsChild(hWnd, hdr->hwndFrom)) {
+          app.lastFocus = hdr->hwndFrom;
+        }
+
         wchar_t cls[64] = {0};
         GetClassNameW(hdr->hwndFrom, cls, 64);
         if (_wcsicmp(cls, WC_LISTVIEWW) == 0 || _wcsicmp(cls, L"SysListView32") == 0) {
@@ -1639,6 +1685,45 @@ static bool handleCtrlASelectAll(HWND hWnd, const MSG& msg) {
 
   SendMessageW(focused, EM_SETSEL, 0, -1);
   return true;
+}
+
+// Handle Alt+key shortcuts for button actions.
+// This must be done in the message loop because WM_SYSKEYDOWN doesn't reliably
+// reach the window procedure when child controls have focus.
+static bool handleAltShortcuts(HWND hWnd, const MSG& msg) {
+  if (msg.message != WM_SYSKEYDOWN) return false;
+
+  // Check if Alt is held down.
+  if ((GetKeyState(VK_MENU) & 0x8000) == 0) return false;
+
+  // Only handle when the message is for our main window or one of its children.
+  if (!(msg.hwnd == hWnd || IsChild(hWnd, msg.hwnd))) return false;
+
+  int cmdId = 0;
+  switch (msg.wParam) {
+    case 'P': cmdId = IDC_BTN_PLAY_PHONEME; break;      // Alt+P: Play
+    case 'C': cmdId = IDC_BTN_CLONE_PHONEME; break;     // Alt+C: Clone
+    case 'E': cmdId = IDC_BTN_EDIT_PHONEME; break;      // Alt+E: Edit
+    case 'G': cmdId = IDC_BTN_ADD_TO_LANGUAGE; break;   // Alt+G: Add to language
+    case 'L': cmdId = IDC_BTN_LANG_PLAY_PHONEME; break; // Alt+L: Play from language
+    case 'D': cmdId = IDC_BTN_LANG_EDIT_PHONEME; break; // Alt+D: Edit phoneme in language
+    case 'S': cmdId = IDC_BTN_LANG_SETTINGS; break;     // Alt+S: Language settings
+    case 'A': cmdId = IDC_BTN_ADD_MAPPING; break;       // Alt+A: Add mapping
+    case 'M': cmdId = IDC_BTN_EDIT_MAPPING; break;      // Alt+M: Edit mapping
+    case 'R': cmdId = IDC_BTN_REMOVE_MAPPING; break;    // Alt+R: Remove mapping
+    case 'I': cmdId = IDC_BTN_CONVERT_IPA; break;       // Alt+I: Convert to IPA
+    case 'K': cmdId = IDC_BTN_SPEAK; break;             // Alt+K: Speak
+    case 'W': cmdId = IDC_BTN_SAVE_WAV; break;          // Alt+W: Save WAV
+    default: return false;
+  }
+
+  // Send the button click command to the main window.
+  HWND btn = GetDlgItem(hWnd, cmdId);
+  if (btn && IsWindowEnabled(btn)) {
+    SendMessageW(hWnd, WM_COMMAND, MAKEWPARAM(cmdId, BN_CLICKED), (LPARAM)btn);
+    return true;
+  }
+  return false;
 }
 
 
