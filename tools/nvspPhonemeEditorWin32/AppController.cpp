@@ -1161,7 +1161,7 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 
       app.listPhonemes = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"All phonemes", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
                                          0, 0, 100, 100, hWnd, (HMENU)IDC_LIST_PHONEMES, app.hInst, nullptr);
-      installAccessibleNameForListView(app.listPhonemes, L"All phonemes list");
+      installAccessibleNameForListView(app.listPhonemes, L"All phonemes");
       ListView_SetExtendedListViewStyle(app.listPhonemes, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listPhonemes, 0, L"All phonemes", 160);
 
@@ -1184,7 +1184,7 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 
       app.listLangPhonemes = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"Phonemes in language", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
                                             0, 0, 100, 100, hWnd, (HMENU)IDC_LIST_LANG_PHONEMES, app.hInst, nullptr);
-      installAccessibleNameForListView(app.listLangPhonemes, L"Phonemes in language list");
+      installAccessibleNameForListView(app.listLangPhonemes, L"Phonemes in language");
       ListView_SetExtendedListViewStyle(app.listLangPhonemes, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listLangPhonemes, 0, L"Language phonemes", 160);
 
@@ -1200,7 +1200,7 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 
       app.listMappings = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"Normalization mappings", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
                                         0, 0, 100, 100, hWnd, (HMENU)IDC_LIST_MAPPINGS, app.hInst, nullptr);
-      installAccessibleNameForListView(app.listMappings, L"Normalization mappings list");
+      installAccessibleNameForListView(app.listMappings, L"Normalization mappings");
       ListView_SetExtendedListViewStyle(app.listMappings, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       lvAddColumn(app.listMappings, 0, L"From", 120);
       lvAddColumn(app.listMappings, 1, L"To", 120);

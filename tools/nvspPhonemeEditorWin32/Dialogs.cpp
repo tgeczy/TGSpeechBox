@@ -568,7 +568,7 @@ static INT_PTR CALLBACK EditSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, 
 
       HWND lv = GetDlgItem(hDlg, IDC_SETTINGS_LIST);
       if (lv) {
-        installAccessibleNameForListView(lv, L"Language settings list");
+        installAccessibleNameForListView(lv, L"Language settings");
         ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
         settingsListAddColumns(lv);
       }
@@ -733,7 +733,7 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
       SetDlgItemTextW(hDlg, IDC_PHONEME_KEY_LABEL, (L"Phoneme: " + utf8ToWide(st->phonemeKey)).c_str());
 
       HWND lv = GetDlgItem(hDlg, IDC_PHONEME_FIELDS);
-      if (lv) installAccessibleNameForListView(lv, L"Phoneme fields list");
+      if (lv) installAccessibleNameForListView(lv, L"Phoneme fields");
       ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
       listviewAddColumns(lv);
       populatePhonemeFieldsList(lv, st->working);
