@@ -8,10 +8,11 @@ with visualization of formant trajectories over time.
 This models:
 - frame.cpp: Frame queuing, interpolation, fade logic, pitch ramping
 - speechWaveGenerator.cpp: Synthesis chain (for optional audio output)
+- pack.cpp: Language YAML loading with all ~120 settings
 
 Usage:
-  python formant_trajectory.py --packs /path/to/packs --text "hello world" --voice en-gb --out trajectory.png
-  python formant_trajectory.py --packs /path/to/packs --ipa "həˈləʊ" --out trajectory.png --wav out.wav
+  python formant_trajectory.py --packs /path/to/packs --lang en-us --text "hello world" --out trajectory.png
+  python formant_trajectory.py --packs /path/to/packs --lang hu --ipa "həˈləʊ" --out trajectory.png --wav out.wav
 """
 
 from __future__ import annotations
@@ -26,6 +27,13 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
+# Import the comprehensive language pack parser
+from lang_pack import (
+    load_pack_set, PackSet, LanguagePack, PhonemeDef,
+    FIELD_NAMES as FRAME_PARAM_NAMES, FIELD_ID, FRAME_FIELD_COUNT,
+    format_pack_summary,
+)
+
 # Optional matplotlib for visualization
 try:
     import matplotlib.pyplot as plt
@@ -35,25 +43,12 @@ except ImportError:
     HAS_MATPLOTLIB = False
 
 
+FRAME_PARAM_COUNT = FRAME_FIELD_COUNT
+
+
 # =============================================================================
 # Frame structure (mirrors frame.h)
 # =============================================================================
-
-FRAME_PARAM_NAMES = [
-    "voicePitch", "vibratoPitchOffset", "vibratoSpeed", "voiceTurbulenceAmplitude",
-    "glottalOpenQuotient", "voiceAmplitude", "aspirationAmplitude",
-    "cf1", "cf2", "cf3", "cf4", "cf5", "cf6", "cfN0", "cfNP",
-    "cb1", "cb2", "cb3", "cb4", "cb5", "cb6", "cbN0", "cbNP",
-    "caNP",
-    "fricationAmplitude",
-    "pf1", "pf2", "pf3", "pf4", "pf5", "pf6",
-    "pb1", "pb2", "pb3", "pb4", "pb5", "pb6",
-    "pa1", "pa2", "pa3", "pa4", "pa5", "pa6",
-    "parallelBypass", "preFormantGain", "outputGain", "endVoicePitch",
-]
-
-FRAME_PARAM_COUNT = len(FRAME_PARAM_NAMES)
-
 
 @dataclass
 class Frame:
@@ -634,58 +629,169 @@ def synthesize_from_trajectory(points: list[TrajectoryPoint], sample_rate: int =
 
 
 # =============================================================================
-# Phoneme Loading and IPA Tokenization (borrowed from klatt_tune_sim.py)
+# Phoneme Duration and Frame Building (using lang_pack)
 # =============================================================================
 
-def parse_phonemes_yaml(path: str) -> dict[str, dict[str, Any]]:
-    """Parse phonemes.yaml (simplified YAML subset)."""
-    text = Path(path).read_text(encoding="utf-8").splitlines()
-    phonemes: dict[str, dict[str, Any]] = {}
-    current_key: Optional[str] = None
+def get_phoneme_duration_ms(
+    pdef: PhonemeDef,
+    pack: PackSet,
+    speed: float = 1.0,
+    stress: int = 0,
+    lengthened: bool = False,
+) -> float:
+    """
+    Get phoneme duration using pack language parameters.
+    Mirrors timing logic from ipa_engine.cpp.
+    """
+    lp = pack.lang
 
-    for raw in text:
-        line = raw.split("#", 1)[0].rstrip()
-        if not line.strip():
-            continue
-        indent = len(line) - len(line.lstrip(" "))
-        s = line.strip()
+    # Base duration by phoneme type
+    if pdef.is_vowel:
+        base = 115.0
+    elif pdef.is_stop:
+        base = 55.0
+    elif pdef.is_affricate:
+        base = 70.0
+    elif pdef.is_semivowel:
+        base = 60.0
+    elif pdef.is_liquid:
+        base = 70.0
+    elif pdef.is_nasal:
+        base = 70.0
+    elif pdef.is_tap:
+        base = 35.0
+    elif pdef.is_trill:
+        base = lp.trill_modulation_ms if lp.trill_modulation_ms > 0 else 80.0
+    else:
+        base = 90.0  # Default (fricatives, etc.)
 
-        if indent == 0:
-            continue
+    dur = base / speed
 
-        if indent == 2 and s.endswith(":"):
-            key = s[:-1].strip()
-            if len(key) >= 2 and key[0] == key[-1] and key[0] in ("'", '"'):
-                key = key[1:-1]
-            current_key = key
-            phonemes[current_key] = {}
-            continue
+    # Stress scaling from pack
+    if stress == 1:
+        dur *= lp.primary_stress_div
+    elif stress == 2:
+        dur *= lp.secondary_stress_div
 
-        if indent == 4 and ":" in s and current_key is not None:
-            field, valstr = s.split(":", 1)
-            field = field.strip()
-            valstr = valstr.strip()
+    # Length mark scaling from pack
+    if lengthened:
+        if pdef.is_vowel or not lp.apply_lengthened_scale_to_vowels_only:
+            dur *= lp.lengthened_scale
 
-            if valstr.lower() == "true":
-                val: Any = True
-            elif valstr.lower() == "false":
-                val = False
-            else:
-                try:
-                    if valstr and all(c.isdigit() or c == "-" for c in valstr):
-                        val = int(valstr)
-                    else:
-                        val = float(valstr)
-                except Exception:
-                    if len(valstr) >= 2 and valstr[0] == valstr[-1] and valstr[0] in ("'", '"'):
-                        val = valstr[1:-1]
-                    else:
-                        val = valstr
+    return dur
 
-            phonemes[current_key][field] = val
 
-    return phonemes
+def get_fade_ms(
+    pdef: PhonemeDef,
+    pack: PackSet,
+    speed: float = 1.0,
+    prev_pdef: Optional[PhonemeDef] = None,
+) -> float:
+    """
+    Get fade/crossfade duration using pack boundary smoothing settings.
+    """
+    lp = pack.lang
+    base_fade = 10.0
 
+    if not lp.boundary_smoothing_enabled:
+        return base_fade / speed
+
+    if prev_pdef is not None:
+        prev_vowel_like = prev_pdef.is_vowel or prev_pdef.is_semivowel
+        cur_stop = pdef.is_stop or pdef.is_affricate
+        cur_fric = pdef.get_field("fricationAmplitude") > 0.3
+
+        if prev_vowel_like and cur_stop:
+            base_fade = lp.boundary_smoothing_vowel_to_stop_fade_ms
+        elif (prev_pdef.is_stop or prev_pdef.is_affricate) and (pdef.is_vowel or pdef.is_semivowel):
+            base_fade = lp.boundary_smoothing_stop_to_vowel_fade_ms
+        elif prev_vowel_like and cur_fric:
+            base_fade = lp.boundary_smoothing_vowel_to_fric_fade_ms
+
+    return base_fade / speed
+
+
+def get_stop_closure_gap(
+    pdef: PhonemeDef,
+    pack: PackSet,
+    speed: float = 1.0,
+    prev_pdef: Optional[PhonemeDef] = None,
+) -> tuple[float, float]:
+    """
+    Determine stop closure gap timing based on pack settings.
+    Returns: (gap_ms, fade_ms) - both 0.0 if no gap should be inserted
+    """
+    lp = pack.lang
+
+    if not (pdef.is_stop or pdef.is_affricate):
+        return 0.0, 0.0
+
+    mode = lp.stop_closure_mode
+    if mode == "none":
+        return 0.0, 0.0
+
+    after_vowel = prev_pdef is not None and (prev_pdef.is_vowel or prev_pdef.is_semivowel)
+    in_cluster = prev_pdef is not None and not after_vowel and not prev_pdef.is_vowel
+
+    # Check for nasal before stop
+    if prev_pdef and prev_pdef.is_nasal and not lp.stop_closure_after_nasals_enabled:
+        return 0.0, 0.0
+
+    if mode == "always":
+        pass
+    elif mode == "after-vowel":
+        if not after_vowel:
+            return 0.0, 0.0
+    elif mode == "vowel-and-cluster":
+        if not (after_vowel or (in_cluster and lp.stop_closure_cluster_gaps_enabled)):
+            return 0.0, 0.0
+
+    if after_vowel:
+        gap = lp.stop_closure_vowel_gap_ms
+        fade = lp.stop_closure_vowel_fade_ms
+    else:
+        gap = lp.stop_closure_cluster_gap_ms
+        fade = lp.stop_closure_cluster_fade_ms
+
+    return gap / speed, fade / speed
+
+
+def build_frame_from_phoneme(
+    pdef: PhonemeDef,
+    pack: PackSet,
+    f0: float = 140.0,
+) -> Frame:
+    """Build a Frame from a PhonemeDef using pack defaults."""
+    lp = pack.lang
+    f = Frame()
+    f.voicePitch = f0
+    f.endVoicePitch = f0
+
+    # Copy all explicitly set fields from phoneme definition
+    for i, name in enumerate(FRAME_PARAM_NAMES):
+        if pdef.has_field(name):
+            setattr(f, name, pdef.fields[i])
+
+    # Apply pack defaults for unset output parameters
+    if not pdef.has_field("preFormantGain"):
+        f.preFormantGain = lp.default_pre_formant_gain
+    if not pdef.has_field("outputGain"):
+        f.outputGain = lp.default_output_gain
+    if not pdef.has_field("vibratoPitchOffset"):
+        f.vibratoPitchOffset = lp.default_vibrato_pitch_offset
+    if not pdef.has_field("vibratoSpeed"):
+        f.vibratoSpeed = lp.default_vibrato_speed
+    if not pdef.has_field("voiceTurbulenceAmplitude"):
+        f.voiceTurbulenceAmplitude = lp.default_voice_turbulence_amplitude
+    if not pdef.has_field("glottalOpenQuotient"):
+        f.glottalOpenQuotient = lp.default_glottal_open_quotient
+
+    return f
+
+
+# =============================================================================
+# IPA Tokenization
+# =============================================================================
 
 TRANSPARENT_IPA = {"ˈ", "ˌ", "ː", "ˑ", ".", "‿", "͡", " ", "\t", "\n", "\r"}
 
@@ -695,7 +801,6 @@ def espeak_ipa(voice: str, text: str) -> str:
     try:
         out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
-        # Try espeak if espeak-ng not found
         cmd[0] = "espeak"
         out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
     return out.strip()
@@ -736,87 +841,6 @@ def tokenize_ipa(ipa: str, phoneme_keys: set[str]) -> list[str]:
             continue
         cleaned.append(t)
     return cleaned
-
-
-def build_frame_from_phoneme(
-    props: dict[str, Any],
-    f0: float = 140.0,
-    pre_formant_gain: float = 1.0,
-    output_gain: float = 1.5,
-) -> Frame:
-    """Build a Frame from phoneme properties."""
-    def getf(name: str, default: float = 0.0) -> float:
-        v = props.get(name, default)
-        try:
-            return float(v)
-        except Exception:
-            return default
-
-    f = Frame()
-    f.voicePitch = f0
-    f.endVoicePitch = f0
-    f.vibratoPitchOffset = getf("vibratoPitchOffset")
-    f.vibratoSpeed = getf("vibratoSpeed")
-    f.voiceTurbulenceAmplitude = getf("voiceTurbulenceAmplitude")
-    f.glottalOpenQuotient = getf("glottalOpenQuotient")
-    f.voiceAmplitude = getf("voiceAmplitude")
-    f.aspirationAmplitude = getf("aspirationAmplitude")
-    f.cf1 = getf("cf1")
-    f.cf2 = getf("cf2")
-    f.cf3 = getf("cf3")
-    f.cf4 = getf("cf4")
-    f.cf5 = getf("cf5")
-    f.cf6 = getf("cf6")
-    f.cfN0 = getf("cfN0")
-    f.cfNP = getf("cfNP")
-    f.cb1 = getf("cb1")
-    f.cb2 = getf("cb2")
-    f.cb3 = getf("cb3")
-    f.cb4 = getf("cb4")
-    f.cb5 = getf("cb5")
-    f.cb6 = getf("cb6")
-    f.cbN0 = getf("cbN0")
-    f.cbNP = getf("cbNP")
-    f.caNP = getf("caNP")
-    f.fricationAmplitude = getf("fricationAmplitude")
-    f.pf1 = getf("pf1")
-    f.pf2 = getf("pf2")
-    f.pf3 = getf("pf3")
-    f.pf4 = getf("pf4")
-    f.pf5 = getf("pf5")
-    f.pf6 = getf("pf6")
-    f.pb1 = getf("pb1")
-    f.pb2 = getf("pb2")
-    f.pb3 = getf("pb3")
-    f.pb4 = getf("pb4")
-    f.pb5 = getf("pb5")
-    f.pb6 = getf("pb6")
-    f.pa1 = getf("pa1")
-    f.pa2 = getf("pa2")
-    f.pa3 = getf("pa3")
-    f.pa4 = getf("pa4")
-    f.pa5 = getf("pa5")
-    f.pa6 = getf("pa6")
-    f.parallelBypass = getf("parallelBypass")
-    f.preFormantGain = pre_formant_gain
-    f.outputGain = output_gain
-    return f
-
-
-def get_phoneme_duration_ms(props: dict[str, Any], speed: float = 1.0) -> float:
-    """Estimate phoneme duration based on type."""
-    base = 90.0  # ms
-    if props.get("_isVowel"):
-        base = 115.0
-    elif props.get("_isStop"):
-        base = 55.0
-    elif props.get("_isSemivowel"):
-        base = 60.0
-    elif props.get("_isLiquid"):
-        base = 70.0
-    elif props.get("_isNasal"):
-        base = 70.0
-    return base / speed
 
 
 # =============================================================================
@@ -889,7 +913,6 @@ def plot_formant_trajectory(
     for ax in axes:
         for t, lbl in label_positions:
             ax.axvline(x=t, color="gray", linestyle="--", alpha=0.5, linewidth=0.5)
-        # Add labels on top axis only
         if ax == axes[0]:
             for t, lbl in label_positions:
                 ax.annotate(lbl, (t, ax.get_ylim()[1]), fontsize=8, ha="left", va="top")
@@ -906,7 +929,6 @@ def plot_vowel_space(points: list[TrajectoryPoint], title: str = "Vowel Space (F
 
     fig, ax = plt.subplots(figsize=(10, 8))
 
-    # Collect vowel-like points (high voice amplitude, low frication)
     vowel_points = []
     current_label = ""
     for p in points:
@@ -918,22 +940,18 @@ def plot_vowel_space(points: list[TrajectoryPoint], title: str = "Vowel Space (F
                     vowel_points.append((p.frame.cf2, p.frame.cf1, p.label))
                     current_label = p.label
 
-    # Plot
     for f2, f1, label in vowel_points:
         ax.scatter(f2, f1, s=150, alpha=0.7)
         ax.annotate(label, (f2, f1), fontsize=12, ha="left", va="bottom",
                    xytext=(5, 5), textcoords="offset points")
 
-    # Draw trajectory lines
     if len(vowel_points) > 1:
         f2s = [vp[0] for vp in vowel_points]
         f1s = [vp[1] for vp in vowel_points]
         ax.plot(f2s, f1s, "k--", alpha=0.3, linewidth=1)
 
-    # Invert axes (phonetic convention)
     ax.invert_xaxis()
     ax.invert_yaxis()
-
     ax.set_xlabel("F2 (Hz) ← front ... back →")
     ax.set_ylabel("F1 (Hz) ← close ... open →")
     ax.set_title(title)
@@ -948,31 +966,35 @@ def plot_vowel_space(points: list[TrajectoryPoint], title: str = "Vowel Space (F
 
 def process_ipa(
     ipa: str,
-    phoneme_map: dict[str, dict[str, Any]],
+    pack: PackSet,
     f0: float = 140.0,
     speed: float = 1.0,
     sample_rate: int = 16000,
-    fade_ms: float = 10.0,
 ) -> tuple[list[TrajectoryPoint], list[str]]:
     """
-    Convert IPA string to trajectory points.
+    Convert IPA string to trajectory points using pack parameters.
     Returns (points, tokens).
     """
-    tokens = tokenize_ipa(ipa, set(phoneme_map.keys()))
+    tokens = tokenize_ipa(ipa, set(pack.phonemes.keys()))
 
     recorder = TrajectoryRecorder(sample_rate=sample_rate, resolution_ms=0.5)
 
-    stress = None
+    stress = 0  # 0=none, 1=primary, 2=secondary
     tie_next = False
     lengthened = False
+    prev_pdef: Optional[PhonemeDef] = None
 
     for tok in tokens:
         if tok == " ":
             # Word gap - small silence
             recorder.queue_frame(None, duration_ms=35.0 / speed, fade_ms=5.0, label=" ")
+            prev_pdef = None
             continue
-        if tok in {"ˈ", "ˌ"}:
-            stress = tok
+        if tok == "ˈ":
+            stress = 1
+            continue
+        if tok == "ˌ":
+            stress = 2
             continue
         if tok == "͡":
             tie_next = True
@@ -983,39 +1005,42 @@ def process_ipa(
         if tok in {".", "‿"}:
             continue
 
-        props = phoneme_map.get(tok)
-        if props is None:
-            # Unknown token
+        pdef = pack.get_phoneme(tok)
+        if pdef is None:
             continue
 
-        dur = get_phoneme_duration_ms(props, speed)
+        # Check for stop closure gap
+        gap_ms, gap_fade = get_stop_closure_gap(pdef, pack, speed, prev_pdef)
+        if gap_ms > 0:
+            recorder.queue_frame(None, duration_ms=gap_ms, fade_ms=gap_fade, label="")
 
-        # Length mark
-        if lengthened:
-            dur *= 1.5
-            lengthened = False
+        # Get duration using pack parameters
+        dur = get_phoneme_duration_ms(pdef, pack, speed, stress, lengthened)
 
-        # Tie (offglide)
+        # Tie (offglide) shortening
         if tie_next:
             dur *= 0.4
             tie_next = False
 
-        # Stress adjustment
+        # Pitch adjustment for stress
         pitch = f0
-        if stress == "ˈ":
-            dur *= 1.1
+        if stress == 1:
             pitch *= 1.05
-        elif stress == "ˌ":
-            dur *= 1.05
+        elif stress == 2:
             pitch *= 1.02
-        stress = None
+        stress = 0
+        lengthened = False
 
-        frame = build_frame_from_phoneme(props, f0=pitch)
-        frame.endVoicePitch = pitch  # Could add contour here
+        # Get fade using pack parameters
+        fade = get_fade_ms(pdef, pack, speed, prev_pdef)
 
-        recorder.queue_frame(frame, duration_ms=dur, fade_ms=fade_ms, label=tok)
+        # Build frame using pack defaults
+        frame = build_frame_from_phoneme(pdef, pack, f0=pitch)
+        frame.endVoicePitch = pitch
 
-    # Run and collect trajectory
+        recorder.queue_frame(frame, duration_ms=dur, fade_ms=fade, label=tok)
+        prev_pdef = pdef
+
     points = recorder.run()
     return points, tokens
 
@@ -1030,7 +1055,6 @@ def write_wav(path: Path, audio: np.ndarray, sample_rate: int):
         peak = 1.0
     audio = audio / peak * 0.85
 
-    # Scale to int16
     pcm = np.clip(audio * 32767.0, -32767.0, 32767.0).astype(np.int16)
 
     with wave.open(str(path), "wb") as wf:
@@ -1047,6 +1071,7 @@ def write_wav(path: Path, audio: np.ndarray, sample_rate: int):
 def main():
     ap = argparse.ArgumentParser(description="Formant Trajectory Visualizer for NV Speech Player")
     ap.add_argument("--packs", required=True, help="Path to packs folder (contains packs/phonemes.yaml)")
+    ap.add_argument("--lang", default="default", help="Language tag (e.g., en-us, hu, pl)")
     ap.add_argument("--voice", default="en-gb", help="eSpeak voice for --text")
     ap.add_argument("--text", help="Text to convert via eSpeak")
     ap.add_argument("--ipa", help="IPA string directly")
@@ -1057,16 +1082,31 @@ def main():
     ap.add_argument("--vowel-space", help="Output PNG path for vowel space plot")
     ap.add_argument("--wav", help="Output WAV path for synthesized audio")
     ap.add_argument("--show", action="store_true", help="Show plots interactively")
+    ap.add_argument("--dump-settings", action="store_true", help="Dump language pack settings")
     args = ap.parse_args()
 
-    packs_path = Path(args.packs)
-    phon_path = packs_path / "packs" / "phonemes.yaml"
-    if not phon_path.exists():
-        print(f"ERROR: {phon_path} not found")
+    # Load pack with all language parameters
+    try:
+        pack = load_pack_set(args.packs, args.lang)
+    except FileNotFoundError as e:
+        print(f"ERROR: {e}")
         return 1
 
-    phoneme_map = parse_phonemes_yaml(str(phon_path))
-    print(f"Loaded {len(phoneme_map)} phonemes")
+    print(f"Loaded language: {pack.lang.lang_tag}")
+    print(f"Phonemes: {len(pack.phonemes)}")
+
+    # Show key settings being used
+    lp = pack.lang
+    print(f"\nKey settings:")
+    print(f"  Stop closure mode: {lp.stop_closure_mode}")
+    print(f"  Coarticulation: {'enabled' if lp.coarticulation_enabled else 'disabled'} (strength={lp.coarticulation_strength})")
+    print(f"  Boundary smoothing: {'enabled' if lp.boundary_smoothing_enabled else 'disabled'}")
+    print(f"  Primary stress div: {lp.primary_stress_div}")
+    print(f"  Lengthened scale: {lp.lengthened_scale}")
+
+    if args.dump_settings:
+        print("\n" + format_pack_summary(pack))
+        return 0
 
     # Get IPA
     if args.ipa:
@@ -1074,14 +1114,14 @@ def main():
     elif args.text:
         ipa = espeak_ipa(args.voice, args.text)
     else:
-        print("ERROR: Provide --text or --ipa")
+        print("\nERROR: Provide --text or --ipa")
         return 1
 
-    print(f"IPA: {ipa}")
+    print(f"\nIPA: {ipa}")
 
     # Process
     points, tokens = process_ipa(
-        ipa, phoneme_map,
+        ipa, pack,
         f0=args.f0, speed=args.speed, sample_rate=args.sr
     )
     print(f"Tokens: {' '.join([t for t in tokens if t.strip()])}")
