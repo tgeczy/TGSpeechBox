@@ -71,32 +71,21 @@ static inline const PhonemeDef* findPhoneme(const PackSet& pack, const std::u32s
   return &it->second;
 }
 
-// Build a sorted list of phoneme keys for greedy longest-match tokenization.
-// Keys are sorted by length descending so longer keys match first.
-static std::vector<std::u32string> buildSortedPhonemeKeys(const PackSet& pack) {
-  std::vector<std::u32string> keys;
-  keys.reserve(pack.phonemes.size());
-  for (const auto& kv : pack.phonemes) {
-    keys.push_back(kv.first);
-  }
-  std::sort(keys.begin(), keys.end(), [](const std::u32string& a, const std::u32string& b) {
-    // Sort by length descending; if equal, by lexicographic order for stability
-    if (a.size() != b.size()) return a.size() > b.size();
-    return a < b;
-  });
-  return keys;
-}
-
 // Greedy phoneme lookup: try to match the longest phoneme key starting at position `pos`.
 // Returns the PhonemeDef* and sets `outConsumed` to the number of codepoints matched.
+// Also sets `outBaseChar` to the first non-tie-bar character in the match.
 // If no match is found, returns nullptr and outConsumed is 0.
 static const PhonemeDef* greedyMatchPhoneme(
     const PackSet& pack,
-    const std::vector<std::u32string>& sortedKeys,
     const std::u32string& text,
     size_t pos,
-    size_t& outConsumed) {
+    size_t& outConsumed,
+    char32_t& outBaseChar) {
   outConsumed = 0;
+  outBaseChar = (pos < text.size()) ? text[pos] : 0;
+  
+  // Use the pre-sorted keys from PackSet (sorted by length descending).
+  const auto& sortedKeys = pack.sortedPhonemeKeys;
   
   for (const auto& key : sortedKeys) {
     if (key.empty()) continue;
@@ -107,6 +96,13 @@ static const PhonemeDef* greedyMatchPhoneme(
       const PhonemeDef* def = findPhoneme(pack, key);
       if (def) {
         outConsumed = key.size();
+        // Find the first non-tie-bar character for baseChar
+        for (size_t j = pos; j < pos + key.size(); ++j) {
+          if (!isTieBar(text[j])) {
+            outBaseChar = text[j];
+            break;
+          }
+        }
         return def;
       }
     }
@@ -117,6 +113,7 @@ static const PhonemeDef* greedyMatchPhoneme(
     size_t k = 0;
     size_t consumed = 0;
     bool matched = true;
+    char32_t firstNonTie = 0;
     
     while (k < key.size() && matched) {
       // Skip tie bars in key
@@ -139,6 +136,11 @@ static const PhonemeDef* greedyMatchPhoneme(
         break;
       }
       
+      // Track first non-tie-bar character
+      if (firstNonTie == 0) {
+        firstNonTie = text[t];
+      }
+      
       ++t;
       ++k;
       ++consumed;
@@ -151,6 +153,9 @@ static const PhonemeDef* greedyMatchPhoneme(
       const PhonemeDef* def = findPhoneme(pack, key);
       if (def) {
         outConsumed = consumed;
+        if (firstNonTie != 0) {
+          outBaseChar = firstNonTie;
+        }
         return def;
       }
     }
@@ -1354,14 +1359,6 @@ static void setDefaultVoiceFields(const LanguagePack& lang, Token& t) {
 static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::vector<Token>& outTokens, std::string& outError) {
   const LanguagePack& lang = pack.lang;
 
-  // Build sorted phoneme keys once for greedy matching (longest first).
-  static std::vector<std::u32string> sortedKeys;
-  static const PackSet* cachedPack = nullptr;
-  if (cachedPack != &pack) {
-    sortedKeys = buildSortedPhonemeKeys(pack);
-    cachedPack = &pack;
-  }
-
   bool newWord = true;
   int pendingStress = 0;
 
@@ -1450,7 +1447,7 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
     char32_t baseChar = c;
 
     // Use greedy longest-match tokenization.
-    def = greedyMatchPhoneme(pack, sortedKeys, text, i, consumed);
+    def = greedyMatchPhoneme(pack, text, i, consumed, baseChar);
     
     if (def && consumed > 0) {
       // Check if this match includes or is followed by a tie bar (for tiedTo flag).

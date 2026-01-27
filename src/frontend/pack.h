@@ -519,6 +519,11 @@ double positionalAllophonesGlottalReinforcementDurationMs = 18.0;
 struct PackSet {
   std::unordered_map<std::u32string, PhonemeDef> phonemes;
   LanguagePack lang;
+  
+  // Sorted phoneme keys for greedy longest-match tokenization.
+  // Populated by loadPackSet() after phonemes are loaded.
+  // Keys are sorted by length descending so longer keys match first.
+  std::vector<std::u32string> sortedPhonemeKeys;
 };
 
 // Load phonemes.yaml + merged language packs.

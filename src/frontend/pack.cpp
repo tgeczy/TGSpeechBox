@@ -1049,6 +1049,20 @@ bool loadPackSet(
     if (kv.second.headSteps.empty()) kv.second.headSteps = {100,75,50,25,0};
   }
 
+  // Build sorted phoneme keys for greedy longest-match tokenization.
+  // Keys are sorted by length descending so longer keys match first.
+  out.sortedPhonemeKeys.clear();
+  out.sortedPhonemeKeys.reserve(out.phonemes.size());
+  for (const auto& kv : out.phonemes) {
+    out.sortedPhonemeKeys.push_back(kv.first);
+  }
+  std::sort(out.sortedPhonemeKeys.begin(), out.sortedPhonemeKeys.end(),
+    [](const std::u32string& a, const std::u32string& b) {
+      // Sort by length descending; if equal, by lexicographic order for stability
+      if (a.size() != b.size()) return a.size() > b.size();
+      return a < b;
+    });
+
   return true;
 }
 
