@@ -192,6 +192,38 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA(
   return 1;
 }
 
+NVSP_FRONTEND_API int nvspFrontend_setVoiceProfile(nvspFrontend_handle_t handle, const char* profileNameUtf8) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  h->lastError.clear();
+
+  // Set the voice profile name in the language pack settings.
+  // This will be used during the next queueIPA call.
+  h->pack.lang.voiceProfileName = profileNameUtf8 ? std::string(profileNameUtf8) : std::string();
+  return 1;
+}
+
+NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfile(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return "";
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  return h->pack.lang.voiceProfileName.c_str();
+}
+
+NVSP_FRONTEND_API const char* nvspFrontend_getPackWarnings(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return "";
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  return h->pack.loadWarnings.c_str();
+}
+
 NVSP_FRONTEND_API const char* nvspFrontend_getLastError(nvspFrontend_handle_t handle) {
   using namespace nvsp_frontend;
   Handle* h = asHandle(handle);

@@ -1,4 +1,5 @@
 #include "pack.h"
+#include "voice_profile.h"
 
 #include <algorithm>
 #include <cctype>
@@ -169,6 +170,24 @@ static bool loadPhonemes(const fs::path& packsRoot, PackSet& out, std::string& o
     return false;
   }
 
+  // Parse optional voiceProfiles section.
+  // This is an overlay system for producing different voice qualities
+  // (e.g., female voice) without maintaining separate phoneme tables.
+  const yaml_min::Node* voiceProfilesNode = root.get("voiceProfiles");
+  if (voiceProfilesNode && voiceProfilesNode->isMap()) {
+    auto profiles = std::make_unique<VoiceProfileSet>();
+    std::string vpErr;
+    if (!parseVoiceProfiles(*voiceProfilesNode, *profiles, vpErr)) {
+      // Non-fatal: store warning and continue without voice profiles.
+      // This helps debug "why does my profile do nothing?" issues.
+      if (!out.loadWarnings.empty()) out.loadWarnings += "\n";
+      out.loadWarnings += "voiceProfiles parse error: " + vpErr;
+      out.voiceProfiles = nullptr;
+    } else if (!profiles->profiles.empty()) {
+      out.voiceProfiles = std::move(profiles);
+    }
+  }
+
   return true;
 }
 
@@ -327,6 +346,10 @@ auto getStrListFrom = [&](const yaml_min::Node& map, const char* k, std::vector<
 };
 getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("secondaryStressDiv", lp.secondaryStressDiv);
+  
+  // Voice profile name (optional).
+  // Set this to apply a voice profile to all phonemes.
+  getStr("voiceProfileName", lp.voiceProfileName);
 
   // Legacy pitch mode (ported from the ee80f4d-era ipa.py / ipa-older.py).
   // Enable per-language in packs via:

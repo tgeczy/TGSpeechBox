@@ -122,6 +122,40 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA(
 );
 
 /*
+  Set the voice profile to use for parameter transformation.
+  
+  Voice profiles allow producing different voice qualities (e.g., female voice)
+  by applying formant scaling and other modifications to phoneme parameters,
+  without maintaining separate phoneme tables.
+  
+  - profileNameUtf8: Name of the profile to use (e.g., "female").
+    Pass NULL or "" to disable voice profiles (use base phoneme parameters).
+  - The profile must be defined in the pack's phonemes.yaml under "voiceProfiles:".
+  - Unknown profile names are silently ignored (no effect).
+  
+  The voice profile setting persists until changed or the handle is destroyed.
+  It can also be set per-language in the lang.yaml file via "voiceProfileName:".
+  
+  Returns 1 on success, 0 on failure (e.g., invalid handle).
+*/
+NVSP_FRONTEND_API int nvspFrontend_setVoiceProfile(nvspFrontend_handle_t handle, const char* profileNameUtf8);
+
+/*
+  Get the currently active voice profile name.
+  Returns a pointer to an empty string if no profile is active.
+  The returned pointer is owned by the handle and valid until the next API call.
+*/
+NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfile(nvspFrontend_handle_t handle);
+
+/*
+  Get non-fatal warnings from pack loading (e.g., voice profile parse errors).
+  Returns an empty string if no warnings.
+  Useful for debugging "why does my voice profile do nothing?" issues.
+  The returned pointer is owned by the handle and valid until the next API call.
+*/
+NVSP_FRONTEND_API const char* nvspFrontend_getPackWarnings(nvspFrontend_handle_t handle);
+
+/*
   If a function returns failure, call this to get a human-readable message.
   The returned pointer is owned by the frontend handle and remains valid until the next call.
 */
