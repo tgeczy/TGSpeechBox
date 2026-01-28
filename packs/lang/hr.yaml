@@ -12,6 +12,10 @@ settings:
 
 normalization:
   replacements:
+    # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
+    - from: "ʲ"
+      to: ""
+
     # Use the trill key for Croatian /r/ so trill modulation can apply.
     - from: "ɾ"
       to: "r"

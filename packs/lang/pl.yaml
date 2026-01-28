@@ -14,11 +14,28 @@ settings:
   coarticulationVelarPinchEnabled: true
 
 normalization:
+  preReplacements:
+    # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
+    - from: "ʲ"
+      to: ""
+
+    # Make sure common Polish affricate spellings are treated as single tokens.
+    - from: "tɕ"
+      to: "t͡ɕ"
+    - from: "dʑ"
+      to: "d͡ʑ"
+    - from: "tʂ"
+      to: "t͡ʂ"
+    - from: "dʐ"
+      to: "d͡ʐ"
+    - from: "tʃ"
+      to: "t͡ʃ"
+    - from: "dʒ"
+      to: "d͡ʒ"
+
   replacements:
     # eSpeak Polish uses the palatalization marker ʲ on consonants.
-    # Convert it to an audible /j/ glide so it doesn't get dropped.
-    - from: "ʲ"
-      to: "j"
+    # With the greedy tokenizer we keep ʲ as its own token (phonemes.yaml defines a subtle ʲ offglide).
 
     # Some eSpeak outputs use plain 'y' for /ɨ/.
     - from: "y"

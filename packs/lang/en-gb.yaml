@@ -27,6 +27,146 @@ normalization:
   classes:
     BATH_FOLLOW: ["s", "f", "θ"]
 
+    # Vowel-like tokens used to detect post-vocalic /r/ contexts.
+    VOWELISH:
+      - "0"
+      - "3"
+      - "@"
+      - "E"
+      - "I"
+      - "O"
+      - "U"
+      - "V"
+      - "a"
+      - "e"
+      - "i"
+      - "o"
+      - "oː"
+      - "u"
+      - "y"
+      - "yː"
+      - "Ã"
+      - "á"
+      - "ã"
+      - "æ"
+      - "é"
+      - "í"
+      - "ó"
+      - "õ"
+      - "ø"
+      - "øː"
+      - "ú"
+      - "ĩ"
+      - "ő"
+      - "œ"
+      - "ũ"
+      - "ű"
+      - "ɐ"
+      - "ɑ"
+      - "ɑj"
+      - "ɑw"
+      - "ɑ̃"
+      - "ɒ"
+      - "ɔ"
+      - "ɔ_r"
+      - "ɔj"
+      - "ɘ"
+      - "ə"
+      - "ə͡l"
+      - "ɚ"
+      - "ɛ"
+      - "ɜ"
+      - "ɝ"
+      - "ɤ"
+      - "ɨ"
+      - "ɪ"
+      - "ɯ"
+      - "ɵ"
+      - "ʉ"
+      - "ʊ"
+      - "ʊ̞"
+      - "ʌ"
+      - "ʏ"
+      - "ᴀ"
+      - "ᴇ"
+      - "ᴏ"
+      - "ᴐ"
+      - "ᴒ"
+      - "ᴜ"
+      - "ᵁ"
+      - "ᵃ"
+      - "ᵒ"
+      - "ᵻ"
+      - "ᵾ"
+      - "ᵿ"
+      - "ẽ"
+      - "ᵊ"
+      - "ᵊᵉ"
+
+    # All consonant tokens in the phoneme table (used to detect /r/ before a consonant).
+    CONSONANTS:
+      - "?"
+      - "b"
+      - "c"
+      - "d"
+      - "d͡z"
+      - "d͡ʐ"
+      - "d͡ʑ"
+      - "d͡ʒ"
+      - "f"
+      - "g"
+      - "h"
+      - "j"
+      - "k"
+      - "l"
+      - "m"
+      - "n"
+      - "p"
+      - "r"
+      - "s"
+      - "t"
+      - "t(3"
+      - "t͡s"
+      - "t͡ɕ"
+      - "t͡ʂ"
+      - "t͡ʃ"
+      - "v"
+      - "w"
+      - "x"
+      - "z"
+      - "ç"
+      - "ð"
+      - "ŋ"
+      - "ɕ"
+      - "ɟ"
+      - "ɟʲ"
+      - "ɡ"
+      - "ɣ"
+      - "ɧ"
+      - "ɫ"
+      - "ɲ"
+      - "ɲʲ"
+      - "ɹ"
+      - "ɻ"
+      - "ɽ"
+      - "ɾ"
+      - "ʁ"
+      - "ʂ"
+      - "ʃ"
+      - "ʍ"
+      - "ʎ"
+      - "ʐ"
+      - "ʑ"
+      - "ʒ"
+      - "ʔ"
+      - "ʝ"
+      - "β"
+      - "θ"
+      - "ᴊ"
+      - "ᵂ"
+      - "ᵊ"
+      - "ᵊᵉ"
+
   replacements:
     # Broad BATH (bath/cast/fast): æ -> ɑː before s/f/θ
     - from: "æ"
@@ -43,7 +183,24 @@ normalization:
       to: "ɜː"
     - from: "ɝ"
       to: "ɜ"
-    # NEAR vowel (fear, hear, dear): collapse word-final iə to iᵊ so it doesn't sound over-held.
+
+    # NEAR vowel quality in en-gb:
+    # eSpeak's en-gb sometimes emits a very close /iə/ for NEAR (e.g. "weirdly" -> wˈiədli).
+    # In a formant synth this can drift towards a Scottish-ish "wee" start.
+    # The older Python normalizer (IPA.py) mapped this family closer to /ɪə/.
+    #
+    # Apply this only when the iə syllable is stressed, so we don't accidentally change
+    # unstressed sequences like the final "-ia" in "cavia" (kˈaviə).
+    - from: "ˈiə"
+      to:   "ˈɪə"
+    - from: "ˌiə"
+      to:   "ˌɪə"
+    - from: "ˈi͡ə"
+      to:   "ˈɪ͡ə"
+    - from: "ˌi͡ə"
+      to:   "ˌɪ͡ə"
+    # NEAR vowel (fear, hear, dear): collapse word-final iə/ɪə to a single vowel with a short tail
+    # so it doesn't sound over-held.
     - from: "iə"
       to:   "iᵊ"
       when:
@@ -52,7 +209,37 @@ normalization:
       to:   "iᵊ"
       when:
         atWordEnd: true
+    - from: "ɪə"
+      to:   "ɪᵊ"
+      when:
+        atWordEnd: true
+    - from: "ɪ͡ə"
+      to:   "ɪᵊ"
+      when:
+        atWordEnd: true
 
     # Make /d͡ʒ/ a little less 'soft' by keeping the stop+fricative components explicit.
     - from: "d͡ʒ"
       to:   "dʒ"
+
+    # Non-rhotic: drop post-vocalic /r/ in codas (word-final or before a consonant).
+    - from: "ɹ"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        atWordEnd: true
+    - from: "ɹ"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        beforeClass: CONSONANTS
+    - from: "r"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        atWordEnd: true
+    - from: "r"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        beforeClass: CONSONANTS

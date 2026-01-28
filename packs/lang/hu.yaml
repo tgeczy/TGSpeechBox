@@ -36,13 +36,13 @@ settings:
   huShortAVowelKey: "ᴒ"
   huShortAVowelScale: 0.85
 
-  phraseFinalLengtheningNucleusOnlyMode: true
+  phraseFinalLengtheningNucleusOnlyMode: false
   phraseFinalLengtheningEnabled: false
   coarticulationVelarPinchEnabled: false
   coarticulationFadeIntoConsonants: false
   coarticulationEnabled: false
   microprosodyEnabled: true
-  microprosodyVoicelessF0RaiseEnabled: true
+  microprosodyVoicelessF0RaiseEnabled: false
   microprosodyVoicedF0LowerEnabled: true
   nasalizationAnticipatoryEnabled: false
   positionalAllophonesGlottalReinforcementEnabled: false
@@ -72,16 +72,36 @@ normalization:
     
     - from: "ɒ"
       to: "ᴒ"
-# Hungarian "ny" (/ɲ/) can get lost in consonant clusters (e.g. "könyvtár").
+    # Hungarian "ny" (/ɲ/) can get lost in consonant clusters (e.g. "könyvtár").
     # Nudge it slightly toward a palatalized nasal variant with a touch more mid energy.
     - from: "ɲ"
-      to: "ɲʲ"
+      to: "ɲ"
+
+    # Safety: if a palatalization marker sneaks in, map it to our internal marker.
+    - from: "ʲ"
+      to: ""
 
     
 
     # Hungarian "gy" (/ɟ/) needs a true palatal stop quality (not an Englishy affricate).
     - from: "ɟ"
-      to: "ɟʲ"
-# Remove secondary stress marks to avoid English-like stressing of later syllables.
+      to: "ɟ"
+
+    # Hungarian "ty" (/c/) should keep its palatal quality (often like a soft "ty").
+    - from: "c"
+      to: "c"
+
+    # Hungarian geminates come from eSpeak as a length mark (tː, kː, etc.).
+    # Keep the length mark so the frontend renders a *single* long consonant
+    # (rather than two separated consonants).
+
+    # Remove secondary stress marks to avoid English-like stressing of later syllables.
     - from: "ˌ"
       to: ""
+  replacements:
+    # In long compounds, the final "jel" can get overly reduced (e.g. "felkiáltójel").
+    # Add a light secondary stress so the final syllable stays audible without turning it Englishy.
+    - from: "jɛl"
+      to: "jˌɛl"
+      when:
+        atWordEnd: true

@@ -1,0 +1,76 @@
+# Ukrainian (uk)
+#
+# First-pass support. Ukrainian is close to Russian, but with key differences:
+# - /ɦ/ (letter г) vs /ɡ/ (letter ґ)
+# - vowel inventory closer to Slavic "no schwa" (avoid English-like reductions)
+#
+# NOTE: classic eSpeak 1.48 doesn't ship a Ukrainian voice in this environment,
+# so this file is tuned to match typical eSpeak-ng Ukrainian IPA conventions.
+# Native-speaker feedback will help refine this.
+
+settings:
+  # Keep lexical stress audible, but not overly "sing-song".
+  primaryStressDiv: 1.25
+  secondaryStressDiv: 1.10
+
+  # Clusters are common; avoid extra gaps that can sound clicky.
+  stopClosureMode: vowel-and-cluster
+  # Allow small stop-closure gaps in clusters/word-boundaries so stops don't get swallowed.
+  # (This helps reduce the "everything blends together" feeling at higher rates.)
+  stopClosureClusterGapsEnabled: true
+  stopClosureAfterNasalsEnabled: true
+
+  # Smaller than the global defaults (22ms) to avoid sounding too clicky in Russian.
+  stopClosureClusterGapMs: 16
+  stopClosureClusterFadeMs: 4
+
+  # Word-initial stops after consonants often vanish in dense clusters; give them a tiny gap.
+  stopClosureWordBoundaryClusterGapMs: 18
+  stopClosureWordBoundaryClusterFadeMs: 4
+
+  # Rolled /r/ (Ukrainian typically trilled).
+  trillModulationMs: 45
+  trillModulationFadeMs: 2
+
+normalization:
+  preReplacements:
+    # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
+    - from: "ʲ"
+      to: ""
+
+    # eSpeak-ng Ukrainian sometimes emits dental diacritics (t̪/d̪).
+    # We don't treat these as distinct phonemes, so strip them.
+    - from: "t̪"
+      to: "t"
+    - from: "d̪"
+      to: "d"
+
+    # Some builds emit ɬ for Ukrainian "ш" in clusters like "шв".
+    # Ukrainian doesn't have /ɬ/, so map it to /ʃ/.
+    - from: "ɬ"
+      to: "ʃ"
+
+    # Ukrainian has no phonemic vowel length.
+    - from: "ː"
+      to: ""
+
+    # If a voice emits retroflex-l (ɭ), treat it as dark-L (ɫ).
+    - from: "ɭ"
+      to: "ɫ"
+
+    # Some engines use plain 'y' for Ukrainian /ɪ/ (letter и).
+    - from: "y"
+      to: "ɪ"
+
+    # Some sources output /h/ for letter г; Ukrainian is closer to /ɦ/.
+    - from: "h"
+      to: "ɦ"
+
+    # Avoid doubled glides if they appear in IPA output.
+    - from: "jj"
+      to: "j"
+
+  replacements:
+    # If schwa sneaks in from another IPA source, map it to a Slavic-like ɐ.
+    - from: "ə"
+      to: "ɐ"

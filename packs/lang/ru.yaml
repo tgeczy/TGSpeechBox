@@ -1,0 +1,58 @@
+# Russian (ru)
+#
+# Cyrillic support built around eSpeak / eSpeak-ng IPA output.
+# Notes:
+# - Russian stress is lexical; keep stress shaping modest so it remains audible.
+# - Palatalization marker ʲ is mapped to an internal phoneme key (U+E001)
+#   to work around an engine bug with the original character.
+
+settings:
+  primaryStressDiv: 1.25
+  secondaryStressDiv: 1.10
+
+  # Russian clusters can be dense; keep closures modest.
+  stopClosureMode: vowel-and-cluster
+  # Allow small stop-closure gaps in clusters/word-boundaries so stops don't get swallowed.
+  # (This helps reduce the "everything blends together" feeling at higher rates.)
+  stopClosureClusterGapsEnabled: true
+  stopClosureAfterNasalsEnabled: true
+
+  # Smaller than the global defaults (22ms) to avoid sounding too clicky in Russian.
+  stopClosureClusterGapMs: 16
+  stopClosureClusterFadeMs: 4
+
+  # Word-initial stops after consonants often vanish in dense clusters; give them a tiny gap.
+  stopClosureWordBoundaryClusterGapMs: 18
+  stopClosureWordBoundaryClusterFadeMs: 4
+
+  # Rolled /r/
+  trillModulationMs: 40
+  trillModulationFadeMs: 2
+
+normalization:
+  preReplacements:
+    # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
+    - from: "ʲ"
+      to: ""
+
+    # Russian has no phonemic vowel length; strip any stray length marks.
+    - from: "ː"
+      to: ""
+
+    # Some eSpeak tables output 'y' for Russian "ы" (should be ɨ).
+    - from: "y"
+      to: "ɨ"
+
+    # Some voices emit retroflex lateral ɭ for dark-L; treat it as ɫ.
+    - from: "ɭ"
+      to: "ɫ"
+
+    # eSpeak can emit doubled glides in a few contexts (e.g. семья).
+    # Keep it readable.
+    - from: "jj"
+      to: "j"
+
+  replacements:
+    # Some eSpeak Russian outputs use ʌ as a reduced vowel. Map it closer to Slavic ɐ.
+    - from: "ʌ"
+      to: "ɐ"

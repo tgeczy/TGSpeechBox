@@ -89,6 +89,10 @@ normalization:
     - from: "﻿"       # BOM / ZWNBSP literal
       to: ""
 
+    # eSpeak sometimes uses "_" as a non-IPA marker (e.g. in letter names).
+    - from: "_"
+      to: ""
+
     # Tie common affricate spellings into the single phonemes in Phonemes.yaml.
     - from: "tʃ"
       to: "t͡ʃ"

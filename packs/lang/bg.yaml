@@ -13,6 +13,9 @@ settings:
 
 normalization:
   preReplacements:
+    # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
+    - from: "ʲ"
+      to: ""
     # eSpeak bg often uses plain sequences for affricates.
     - from: "ts"
       to: "t͡s"
@@ -36,7 +39,5 @@ normalization:
     # eSpeak uses the plain 'e' symbol, so remap it to our 'ɛ' phoneme.
     - from: "e"
       to: "ɛ"
+    # Slavic palatalization marker: keep ʲ as its own token (phonemes.yaml defines a subtle ʲ offglide).
 
-    # Slavic palatalization marker: keep it audible as a /j/ glide.
-    - from: "ʲ"
-      to: "j"

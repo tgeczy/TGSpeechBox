@@ -15,7 +15,7 @@ normalization:
   replacements:
     # Palatalization marker: keep it audible as /j/.
     - from: "ʲ"
-      to: "j"
+      to: ""
 
     # Syllabic liquids (r̩, l̩) are common in Slovak (e.g. "vlk", "krk").
     # Approximate them as schwa + liquid so they remain audible.

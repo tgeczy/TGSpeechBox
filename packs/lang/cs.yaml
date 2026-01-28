@@ -29,7 +29,7 @@ normalization:
 
     # Palatalization marker: keep it audible as /j/.
     - from: "ʲ"
-      to: "j"
+      to: ""
 
     # eSpeak cs (--ipa) can emit palatal stops (ɟ, c) for ď/ť.
     # Approximate as d+j / t+j so they don't sound velar.
