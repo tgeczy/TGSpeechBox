@@ -2,15 +2,21 @@
 
 A Klatt-based speech synthesis engine written in C++.
 
-Author: NV Access Limited, with contributions and improvements by Tamas Geczy
+Author: Original project by NV Access Limited. This repository is maintained as a community fork by Tamas Geczy.
 
-## Maintenance Note
-NV Access is no longer maintaining this project. If you make use of this project or find it interesting, and you have the time and expertise to maintain it, please feel free to fork it and let us know you are interested in taking it on.
+## Project status (fork + naming)
+NV Access is not actively maintaining the original NV Speech Player project.
 
-This includes the SpeechPlayer core itself, plus the nvSpeechPlayer NVDA add-on also in this repository.
+This repository is an independently maintained fork. It is **not affiliated with, endorsed by, or supported by NV Access**.
 
-Note that the eSpeak-ng/espeak-ng project also includes a copy of the SpeechPlayer code as an alternative Klatt implementation.
+### About the name
+The “NV Speech Player” name is kept here for historical continuity and to help existing users find the project they already know. It should not be interpreted as NV Access involvement.
 
+### NVDA / trademarks
+This project includes an NVDA add-on and necessarily refers to NVDA for compatibility and documentation. NVDA and related names/marks belong to their respective owners. This fork does not claim any official relationship.
+
+### Note on eSpeak-ng
+The eSpeak-ng project also contains a separate copy of SpeechPlayer code as an alternative Klatt-style implementation. This fork is independent of that copy.
 ## Overview
 NV Speech Player is a free and open-source prototype speech synthesizer that can be used by NVDA. It generates speech using Klatt synthesis, making it somewhat similar to speech synthesizers such as Dectalk and Eloquence.
 
@@ -763,9 +769,10 @@ These fields are used by timing rules and by a few special cases:
 - `_isStop`: Stop consonant (very short; may get a silence gap).
 - `_isNasal`: Nasal consonant or nasal vowel coupling.
 - `_isLiquid`: l/r-like sounds (often get longer fades).
-- `_isSemivowel`: Glides like j/w.
+- `_isSemivowel`: Glides like j/w (often short and transitional).
 - `_isTap`, `_isTrill`: Very short rhotic types.
 - `_isAfricate`: Affricate (timed like a stop+fricative).
+- `_copyAdjacent`: Copy unset formant parameters from the nearest adjacent phoneme. Used for `h` and inserted post-stop aspirations so they take on the formant shape of the neighboring vowel, making them sound more natural in context.
 
 #### Core formant synthesizer knobs
 Think of a vowel as resonances (formants). The important ones are F1–F3.
