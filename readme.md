@@ -258,7 +258,7 @@ Override the **smallest number of fields** you can (often just `cf2`, or `cf1 + 
 If you’re overriding lots of phonemes, it usually means your `classScales` need tuning.
 
 **Example**
-````yaml
+```yaml
 voiceProfiles:
   female:
     classScales:
@@ -269,6 +269,7 @@ voiceProfiles:
         cf2: 2550
       "s":
         fricationAmplitude: 40
+```
 ##### How to enable a profile
 Preferred: select a profile at runtime via the frontend API:
 ```c
