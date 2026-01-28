@@ -164,6 +164,85 @@ phonemes:
     cb3: 82.5
 ```
 
+#### Voice profiles (optional)
+Voice profiles let you change the *character* of the voice (female, child, deep, etc.) without keeping separate phoneme tables. The base `phonemes:` map stays the same; a profile is just an overlay that scales or overrides some parameters.
+
+**Where they live:** voice profiles are defined in `packs/phonemes.yaml`, not in the per-language YAML files.
+
+**Basic shape:**
+```yaml
+phonemes:
+  "a":
+    _isVowel: true
+    cf1: 700
+    cf2: 1200
+
+voiceProfiles:
+  female:
+    classScales:
+      vowel:
+        cf_mul: [1.12, 1.16, 1.18, 1.08, 1.04, 1.02]
+        pf_mul: [1.12, 1.16, 1.18, 1.08, 1.04, 1.02]
+      unvoicedFricative:
+        fricationAmplitude_mul: 0.95
+        aspirationAmplitude_mul: 0.95
+    phonemeOverrides:
+      "i":
+        cf2: 2500  # absolute value
+        pf2: 2500
+```
+
+##### Class names you can use
+These match the flags already present in phoneme entries (like `_isVowel`, `_isVoiced`, etc.):
+- `vowel`
+- `consonant` (fallback for any non-vowel)
+- `voicedConsonant`
+- `voicedFricative`
+- `unvoicedFricative`
+- `nasal`
+- `liquid`
+- `stop`
+- `affricate`
+- `semivowel`
+
+##### Supported scale fields
+Class scales are *multipliers*:
+- `cf_mul`, `pf_mul` (formant frequency multipliers for F1..F6)
+- `cb_mul`, `pb_mul` (bandwidth multipliers for B1..B6)
+- `voiceAmplitude_mul`
+- `aspirationAmplitude_mul`
+- `fricationAmplitude_mul`
+- `preFormantGain_mul`
+- `outputGain_mul`
+
+**Scalar shorthand:** for `cf_mul` / `pf_mul` / `cb_mul` / `pb_mul`, you can provide a single number and it will be replicated across all 6 formants. Example: `cf_mul: 1.12` means `cf_mul: [1.12, 1.12, 1.12, 1.12, 1.12, 1.12]`.
+
+##### Per-phoneme overrides
+`phonemeOverrides` values are *absolute*, and they win over class scaling for that field. Use this sparingly for “this one vowel is odd” fixes.
+
+##### How to enable a profile
+Preferred: select a profile at runtime via the frontend API:
+```c
+// Enable
+nvspFrontend_setVoiceProfile(handle, "female");
+
+// Disable (back to base phonemes)
+nvspFrontend_setVoiceProfile(handle, "");
+
+// Read current profile ("" if none)
+const char* profile = nvspFrontend_getVoiceProfile(handle);
+```
+
+##### Debugging: pack load warnings
+If a profile isn’t taking effect (typo, YAML error, etc.), read the pack warnings:
+```c
+const char* warnings = nvspFrontend_getPackWarnings(handle);
+if (warnings && warnings[0] != '\0') {
+    // show or log warnings
+}
+```
+
+
 ### Language YAML example (en.yaml)
 Example (shortened):
 ```yaml
