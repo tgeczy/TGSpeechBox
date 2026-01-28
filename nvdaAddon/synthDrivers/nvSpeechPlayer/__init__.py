@@ -109,6 +109,8 @@ languages = OrderedDict([
     ("pl", VoiceInfo("pl", "Polish")),
     ("sk", VoiceInfo("sk", "Slovak")),
     ("cs", VoiceInfo("cs", "Czech")),
+    ("ru", VoiceInfo("ru", "Russian")),
+    ("uk", VoiceInfo("uk", "Ukrainian")),
 ])
 
 
@@ -555,6 +557,42 @@ class SynthDriver(SynthDriver):
                 BooleanDriverSetting("segmentBoundarySkipVowelToVowel", "Skip join gap between speech chunks when a vowel follows a vowel"),  # type: ignore
                 BooleanDriverSetting("segmentBoundarySkipVowelToLiquid", "Skip join gap between speech chunks when a liquid follows a vowel"),  # type: ignore
                 BooleanDriverSetting("postStopAspirationEnabled", "Add aspiration after unvoiced stop consonants"),  # type: ignore
+                # --- Coarticulation settings ---
+                BooleanDriverSetting("coarticulationEnabled", "Enable formant coarticulation"),  # type: ignore
+                BooleanDriverSetting("coarticulationFadeIntoConsonants", "Fade coarticulation into consonants"),  # type: ignore
+                BooleanDriverSetting("coarticulationVelarPinchEnabled", "Enable velar pinch effect for coarticulation"),  # type: ignore
+                BooleanDriverSetting("coarticulationGraduated", "Use graduated coarticulation blending"),  # type: ignore
+            ]
+        )
+        # Coarticulation adjacency combo-box (grouped with coarticulation settings)
+        _supportedSettings.append(DriverSetting("coarticulationAdjacencyMaxConsonants", "Coarticulation adjacency range"))
+
+    if BooleanDriverSetting is not None:
+        _supportedSettings.extend(
+            [
+                # --- Phrase-final lengthening settings ---
+                BooleanDriverSetting("phraseFinalLengtheningEnabled", "Enable phrase-final lengthening"),  # type: ignore
+                BooleanDriverSetting("phraseFinalLengtheningNucleusOnlyMode", "Apply phrase-final lengthening to nucleus only"),  # type: ignore
+                # --- Microprosody settings ---
+                BooleanDriverSetting("microprosodyEnabled", "Enable microprosody adjustments"),  # type: ignore
+                BooleanDriverSetting("microprosodyVoicelessF0RaiseEnabled", "Raise F0 for voiceless consonants"),  # type: ignore
+                BooleanDriverSetting("microprosodyVoicedF0LowerEnabled", "Lower F0 for voiced consonants"),  # type: ignore
+                # --- Rate reduction settings ---
+                BooleanDriverSetting("rateReductionEnabled", "Enable rate-dependent reduction"),  # type: ignore
+                # --- Nasalization settings ---
+                BooleanDriverSetting("nasalizationAnticipatoryEnabled", "Enable anticipatory nasalization"),  # type: ignore
+                # --- Liquid dynamics settings ---
+                BooleanDriverSetting("liquidDynamicsEnabled", "Enable liquid dynamics (lateral onglide transitions)"),  # type: ignore
+                # --- Length contrast settings ---
+                BooleanDriverSetting("lengthContrastEnabled", "Enable phonemic length contrast"),  # type: ignore
+                # --- Positional allophones settings ---
+                BooleanDriverSetting("positionalAllophonesEnabled", "Enable positional allophone variation"),  # type: ignore
+                BooleanDriverSetting("positionalAllophonesGlottalReinforcementEnabled", "Enable glottal reinforcement for stops"),  # type: ignore
+                # --- Boundary smoothing settings ---
+                BooleanDriverSetting("boundarySmoothingEnabled", "Enable boundary smoothing between sounds"),  # type: ignore
+                # --- Trajectory limit settings ---
+                BooleanDriverSetting("trajectoryLimitEnabled", "Enable formant trajectory rate limiting"),  # type: ignore
+                BooleanDriverSetting("trajectoryLimitApplyAcrossWordBoundary", "Apply trajectory limit across word boundaries"),  # type: ignore
                 BooleanDriverSetting("legacyPitchMode", "Use classic pitch and intonation style"),  # type: ignore
                 BooleanDriverSetting("tonal", "Enable tonal language behavior"),  # type: ignore
                 BooleanDriverSetting("toneDigitsEnabled", "Interpret tone numbers in text"),  # type: ignore
@@ -615,6 +653,16 @@ class SynthDriver(SynthDriver):
         # Cache packsDir for language-pack editing helpers.
         self._packsDir = packsDir
         self._langPackSettingsCache: dict[str, object] = {}
+
+        # Initialize language tag early so cache refresh works correctly.
+        # This will be updated again when self.language is set, but having a valid
+        # initial value ensures _refreshLangPackSettingsCache can work if called early.
+        self._language = "en-us"
+
+        # Prime the settings cache immediately after _packsDir is set.
+        # This ensures YAML-backed settings are available before NVDA queries them
+        # during initial driver configuration.
+        self._refreshLangPackSettingsCache()
 
         # Validate expected pack files so missing optional language YAML doesn't silently
         # fall back to default.
@@ -680,7 +728,7 @@ class SynthDriver(SynthDriver):
         except Exception:
             log.debug("nvSpeechPlayer: failed to configure espeak_TextToPhonemes prototype", exc_info=True)
 
-        self._language = "en-us"
+        # Note: self._language was already set earlier (before cache priming).
         self._curPitch = 50
         self._curVoice = "Adam"
         self._curInflection = 0.5
@@ -693,10 +741,10 @@ class SynthDriver(SynthDriver):
         #   clause boundaries more perceptible without introducing clicks.
         self._pauseMode = "short"
 
+        # Trigger the language setter to configure espeak and frontend.
+        # This also refreshes the cache (though it's already primed above).
         self.language = self._language
 
-        # Prime language-pack settings cache for the initial language.
-        self._refreshLangPackSettingsCache()
         self.pitch = 45
         self.rate = 50
         self.volume = 90
@@ -745,9 +793,8 @@ class SynthDriver(SynthDriver):
     def _get_availablePauseModes(self):
         return pauseModes
 
-    # NVDA 2023.x used capitalize() which lowercases the remainder.
-    def _get_availablePausemodes(self):
-        return pauseModes
+    # Alias for NVDA 2023.x compatibility (capitalize() lowercases the remainder).
+    _get_availablePausemodes = _get_availablePauseModes
 
     def _get_pauseMode(self):
         return getattr(self, "_pauseMode", "short")
@@ -763,8 +810,8 @@ class SynthDriver(SynthDriver):
     def _get_availableSampleRates(self):
         return sampleRates
 
-    def _get_availableSamplerates(self):
-        return sampleRates
+    # Alias for NVDA 2023.x compatibility (capitalize() lowercases the remainder).
+    _get_availableSamplerates = _get_availableSampleRates
 
     def _get_sampleRate(self):
         return str(getattr(self, "_sampleRate", 16000))
@@ -881,6 +928,80 @@ class SynthDriver(SynthDriver):
             self._refreshLangPackSettingsCache()
         except Exception:
             log.debug("nvSpeechPlayer: could not refresh language-pack cache", exc_info=True)
+
+        # Trigger a GUI refresh so checkboxes update to reflect the new language pack.
+        self._scheduleSettingsPanelRefresh()
+
+    def _scheduleSettingsPanelRefresh(self) -> None:
+        """Schedule a refresh of the VoiceSettingsPanel to update checkboxes.
+
+        When the user changes language, the language pack's settings may differ.
+        This method finds the open settings panel (if any) and triggers an update
+        so checkboxes reflect the new language pack's values.
+        """
+        try:
+            import wx
+            wx.CallAfter(self._doSettingsPanelRefresh)
+        except Exception:
+            pass
+
+    def _doSettingsPanelRefresh(self) -> None:
+        """Actually perform the settings panel refresh (called via wx.CallAfter)."""
+        try:
+            import wx
+            from gui import settingsDialogs
+
+            # Look for an open NVDASettingsDialog.
+            for win in wx.GetTopLevelWindows():
+                # Handle different NVDA versions: NVDASettingsDialog or SettingsDialog.
+                dlgCls = getattr(settingsDialogs, "NVDASettingsDialog", None)
+                if dlgCls is None:
+                    dlgCls = getattr(settingsDialogs, "SettingsDialog", None)
+                if dlgCls is None:
+                    continue
+
+                if not isinstance(win, dlgCls):
+                    continue
+
+                # Found the settings dialog. Now find the VoiceSettingsPanel.
+                # Different NVDA versions store panels differently.
+                panels = []
+
+                # NVDA 2024+: catIdToInstanceMap
+                if hasattr(win, "catIdToInstanceMap"):
+                    panels.extend(win.catIdToInstanceMap.values())
+
+                # Older NVDA: categoryClasses or similar
+                if hasattr(win, "_categoryPanel"):
+                    panels.append(win._categoryPanel)
+
+                # Try currentCategory attribute
+                if hasattr(win, "currentCategory"):
+                    cat = win.currentCategory
+                    if cat is not None:
+                        panels.append(cat)
+
+                voicePanelCls = getattr(settingsDialogs, "VoiceSettingsPanel", None)
+                for panel in panels:
+                    if panel is None:
+                        continue
+                    # Check if it's a VoiceSettingsPanel or has updateDriverSettings
+                    isVoicePanel = voicePanelCls and isinstance(panel, voicePanelCls)
+                    hasUpdater = hasattr(panel, "updateDriverSettings")
+
+                    if isVoicePanel or hasUpdater:
+                        try:
+                            panel.updateDriverSettings(changedSetting="language")
+                        except Exception:
+                            log.debug(
+                                "nvSpeechPlayer: updateDriverSettings failed",
+                                exc_info=True,
+                            )
+                        break
+                break
+        except Exception:
+            # GUI may not be available (e.g., running in secure mode or during shutdown).
+            log.debug("nvSpeechPlayer: could not refresh settings panel", exc_info=True)
 
     # ---- Startup guard for YAML writes (see __init__) ----
 
@@ -1036,7 +1157,8 @@ class SynthDriver(SynthDriver):
             cur = getattr(self, "_langPackSettingsCache", {}).get(key)
             try:
                 if isinstance(value, bool):
-                    if langPackYaml.parseBool(cur, default=value) == value:
+                    # If cur is None, the key doesn't exist in YAML yet - always write it.
+                    if cur is not None and langPackYaml.parseBool(cur, default=value) == value:
                         return
                 else:
                     # Packs store scalars as strings; normalize whitespace for comparison.
@@ -1110,6 +1232,14 @@ class SynthDriver(SynthDriver):
         )
     )
 
+    _COARTICULATION_ADJACENCY_MODES = OrderedDict(
+        (
+            ("0", VoiceInfo("0", "Immediate neighbors only")),
+            ("1", VoiceInfo("1", "Allow C_V (one consonant)")),
+            ("2", VoiceInfo("2", "Allow CC_V (two consonants)")),
+        )
+    )
+
     def _makeLangPackAccessors(attrName, yamlKey, kind="str", default=None, choices=None):
         """Generate _get/_set (and available* when needed) methods for YAML-backed settings."""
 
@@ -1145,23 +1275,55 @@ class SynthDriver(SynthDriver):
     # Settings specs: (attrName, yamlKey, kind, default, choices)
     # - kind: "bool" or "enum" (treated as string)
     # - choices: OrderedDict for "enum" settings; None for bool settings.
+    #
+    # NOTE: Boolean settings for extra/optional features default to False so that
+    # when the driver is first configured, it starts with a minimal/conservative
+    # configuration. Users can then enable features as desired.
     _LANG_PACK_SPECS = (
         ("stopClosureMode", "stopClosureMode", "enum", "vowel-and-cluster", _STOP_CLOSURE_MODES),
-        ("stopClosureClusterGapsEnabled", "stopClosureClusterGapsEnabled", "bool", True, None),
+        ("stopClosureClusterGapsEnabled", "stopClosureClusterGapsEnabled", "bool", False, None),
         ("stopClosureAfterNasalsEnabled", "stopClosureAfterNasalsEnabled", "bool", False, None),
         ("autoTieDiphthongs", "autoTieDiphthongs", "bool", False, None),
-        # Keep Python fallback aligned with default.yaml (currently true upstream).
-        ("autoDiphthongOffglideToSemivowel", "autoDiphthongOffglideToSemivowel", "bool", True, None),
-        ("segmentBoundarySkipVowelToVowel", "segmentBoundarySkipVowelToVowel", "bool", True, None),
+        ("autoDiphthongOffglideToSemivowel", "autoDiphthongOffglideToSemivowel", "bool", False, None),
+        ("segmentBoundarySkipVowelToVowel", "segmentBoundarySkipVowelToVowel", "bool", False, None),
         ("segmentBoundarySkipVowelToLiquid", "segmentBoundarySkipVowelToLiquid", "bool", False, None),
         ("spellingDiphthongMode", "spellingDiphthongMode", "enum", "none", _SPELLING_DIPHTHONG_MODES),
         ("postStopAspirationEnabled", "postStopAspirationEnabled", "bool", False, None),
+        # --- Coarticulation settings ---
+        ("coarticulationEnabled", "coarticulationEnabled", "bool", False, None),
+        ("coarticulationFadeIntoConsonants", "coarticulationFadeIntoConsonants", "bool", False, None),
+        ("coarticulationVelarPinchEnabled", "coarticulationVelarPinchEnabled", "bool", False, None),
+        ("coarticulationGraduated", "coarticulationGraduated", "bool", False, None),
+        ("coarticulationAdjacencyMaxConsonants", "coarticulationAdjacencyMaxConsonants", "enum", "2", _COARTICULATION_ADJACENCY_MODES),
+        # --- Phrase-final lengthening settings ---
+        ("phraseFinalLengtheningEnabled", "phraseFinalLengtheningEnabled", "bool", False, None),
+        ("phraseFinalLengtheningNucleusOnlyMode", "phraseFinalLengtheningNucleusOnlyMode", "bool", False, None),
+        # --- Microprosody settings ---
+        ("microprosodyEnabled", "microprosodyEnabled", "bool", False, None),
+        ("microprosodyVoicelessF0RaiseEnabled", "microprosodyVoicelessF0RaiseEnabled", "bool", False, None),
+        ("microprosodyVoicedF0LowerEnabled", "microprosodyVoicedF0LowerEnabled", "bool", False, None),
+        # --- Rate reduction settings ---
+        ("rateReductionEnabled", "rateReductionEnabled", "bool", False, None),
+        # --- Nasalization settings ---
+        ("nasalizationAnticipatoryEnabled", "nasalizationAnticipatoryEnabled", "bool", False, None),
+        # --- Liquid dynamics settings ---
+        ("liquidDynamicsEnabled", "liquidDynamics.enabled", "bool", False, None),
+        # --- Length contrast settings ---
+        ("lengthContrastEnabled", "lengthContrast.enabled", "bool", False, None),
+        # --- Positional allophones settings ---
+        ("positionalAllophonesEnabled", "positionalAllophones.enabled", "bool", False, None),
+        ("positionalAllophonesGlottalReinforcementEnabled", "positionalAllophones.glottalReinforcement.enabled", "bool", False, None),
+        # --- Boundary smoothing settings ---
+        ("boundarySmoothingEnabled", "boundarySmoothing.enabled", "bool", False, None),
+        # --- Trajectory limit settings ---
+        ("trajectoryLimitEnabled", "trajectoryLimit.enabled", "bool", False, None),
+        ("trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit.applyAcrossWordBoundary", "bool", False, None),
         ("legacyPitchMode", "legacyPitchMode", "bool", False, None),
         ("tonal", "tonal", "bool", False, None),
-        ("toneDigitsEnabled", "toneDigitsEnabled", "bool", True, None),
+        ("toneDigitsEnabled", "toneDigitsEnabled", "bool", False, None),
         ("toneContoursMode", "toneContoursMode", "enum", "absolute", _TONE_CONTOURS_MODES),
-        ("stripAllophoneDigits", "stripAllophoneDigits", "bool", True, None),
-        ("stripHyphen", "stripHyphen", "bool", True, None),
+        ("stripAllophoneDigits", "stripAllophoneDigits", "bool", False, None),
+        ("stripHyphen", "stripHyphen", "bool", False, None),
     )
 
     for _attrName, _yamlKey, _kind, _default, _choices in _LANG_PACK_SPECS:
@@ -1318,13 +1480,17 @@ class SynthDriver(SynthDriver):
         pauseMode = str(getattr(self, "_pauseMode", "short") or "short").strip().lower()
 
         def _punctuationPauseMs(punctToken: str | None) -> float:
-            """Return pause duration in ms for punctuation (max 50ms)."""
+            """Return pause duration in ms for punctuation.
+            
+            Short mode: subtle pauses for natural flow
+            Long mode: deliberate pauses for clarity
+            """
             if not punctToken or pauseMode == "off":
                 return 0.0
             if punctToken in (".", "!", "?", "...", ":", ";"):
-                return 50.0 if pauseMode == "long" else 30.0
+                return 60.0 if pauseMode == "long" else 35.0
             if punctToken == ",":
-                return 6.0 if pauseMode == "long" else 0.0
+                return 10.0 if pauseMode == "long" else 5.0
             return 0.0
 
         for (text, indexesAfter, blockPitchOffset) in blocks:
@@ -1482,7 +1648,7 @@ class SynthDriver(SynthDriver):
                     # be adding silence after silence.
                     if punctPauseMs and sawRealFrameInThisUtterance:
                         try:
-                            dur = float(min(float(punctPauseMs), 20.0))
+                            dur = float(punctPauseMs)
                             fd = float(min(float(minFadeOutMs), dur))
                             self._player.queueFrame(None, dur, fd)
                             lastStreamWasVoiced = False

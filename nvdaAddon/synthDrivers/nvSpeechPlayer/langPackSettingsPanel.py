@@ -61,6 +61,34 @@ def _getPacksDir() -> str:
 from . import langPackYaml
 
 GitHub_URL = "https://github.com/tgeczy/NVSpeechPlayer"
+ADDON_UPDATE_URL = "https://eurpod.com/synths/nvSpeechPlayer-2026.nvda-addon"
+ADDON_VERSION_URL = "https://eurpod.com/nvSpeechPlayer-version.txt"
+
+
+def _getInstalledAddonVersion() -> str:
+    """Read the version from this addon's manifest.ini file.
+    
+    Returns the version string (e.g., "170") or empty string if not found.
+    """
+    try:
+        # manifest.ini is in the addon root, which is parent of synthDrivers/nvSpeechPlayer
+        addonDir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        manifestPath = os.path.join(addonDir, "manifest.ini")
+        
+        if not os.path.isfile(manifestPath):
+            return ""
+        
+        with open(manifestPath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.lower().startswith("version"):
+                    # Parse "version = 170" or "version=170"
+                    parts = line.split("=", 1)
+                    if len(parts) == 2:
+                        return parts[1].strip()
+        return ""
+    except Exception:
+        return ""
 
 
 _PANEL_CLS = None
@@ -111,6 +139,38 @@ def _getPanelClass():
 
         # ----- NVDA SettingsPanel hooks -----
 
+        def _addLabeledControlCompat(self, sHelper, label, controlClass, **kwargs):
+            """Add a labeled control with compatibility for older NVDA versions.
+            
+            Older NVDA versions (e.g., 2023.2 with Python 3.10) have a more limited
+            addLabeledControl that doesn't support all control types like wx.ComboBox.
+            This helper creates the label and control manually if needed.
+            """
+            import wx
+            
+            # First, try the modern NVDA approach
+            try:
+                return sHelper.addLabeledControl(label, controlClass, **kwargs)
+            except (NotImplementedError, TypeError, AttributeError):
+                pass
+            
+            # Fallback: create label and control manually
+            # Create horizontal sizer for label + control
+            hSizer = wx.BoxSizer(wx.HORIZONTAL)
+            
+            # Create label
+            labelCtrl = wx.StaticText(self, label=label)
+            hSizer.Add(labelCtrl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+            
+            # Create the control
+            ctrl = controlClass(self, **kwargs)
+            hSizer.Add(ctrl, 1, wx.EXPAND)
+            
+            # Add the horizontal sizer to the helper's main sizer
+            sHelper.addItem(hSizer)
+            
+            return ctrl
+
         def makeSettings(self, settingsSizer):
             # Import GUI pieces lazily.
             try:
@@ -132,7 +192,8 @@ def _getPanelClass():
             )
 
             # Language tag control.
-            self.langTagCtrl = sHelper.addLabeledControl(
+            self.langTagCtrl = self._addLabeledControlCompat(
+                sHelper,
                 _("Language tag:"),
                 wx.ComboBox,
                 choices=self._getLanguageChoices(),
@@ -140,6 +201,12 @@ def _getPanelClass():
             )
             self.langTagCtrl.Bind(wx.EVT_TEXT, self._onLangTagChanged)
             self.langTagCtrl.Bind(wx.EVT_COMBOBOX, self._onLangTagChanged)
+
+            # --- Reset to Factory Defaults button ---
+            self.resetDefaultsButton = sHelper.addItem(
+                wx.Button(self, label=_("Reset Language Pack Defaults..."))
+            )
+            self.resetDefaultsButton.Bind(wx.EVT_BUTTON, self._onResetDefaultsClick)
 
             # --- Common quick settings ---
             sHelper.addItem(wx.StaticText(self, label=_("Common settings (applied on OK):")))
@@ -199,6 +266,288 @@ def _getPanelClass():
                 key="semivowelOffglideScale",
             )
 
+            # Newer language-pack setting: trill modulation timing.
+            sHelper.addItem(wx.StaticText(self, label=_("Trill modulation (ms):")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Modulation (trillModulationMs):"),
+                key="trillModulationMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Fade (trillModulationFadeMs):"),
+                key="trillModulationFadeMs",
+            )
+
+            # --- Coarticulation settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Coarticulation:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Strength (coarticulationStrength):"),
+                key="coarticulationStrength",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Transition extent (coarticulationTransitionExtent):"),
+                key="coarticulationTransitionExtent",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Word-initial fade scale (coarticulationWordInitialFadeScale):"),
+                key="coarticulationWordInitialFadeScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Labial F2 locus (coarticulationLabialF2Locus):"),
+                key="coarticulationLabialF2Locus",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Alveolar F2 locus (coarticulationAlveolarF2Locus):"),
+                key="coarticulationAlveolarF2Locus",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Velar F2 locus (coarticulationVelarF2Locus):"),
+                key="coarticulationVelarF2Locus",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Velar pinch threshold (coarticulationVelarPinchThreshold):"),
+                key="coarticulationVelarPinchThreshold",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Velar pinch F2 scale (coarticulationVelarPinchF2Scale):"),
+                key="coarticulationVelarPinchF2Scale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Velar pinch F3 (coarticulationVelarPinchF3):"),
+                key="coarticulationVelarPinchF3",
+            )
+
+            # --- Phrase-final lengthening settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Phrase-final lengthening:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Final syllable scale (phraseFinalLengtheningFinalSyllableScale):"),
+                key="phraseFinalLengtheningFinalSyllableScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Penultimate syllable scale (phraseFinalLengtheningPenultimateSyllableScale):"),
+                key="phraseFinalLengtheningPenultimateSyllableScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Statement scale (phraseFinalLengtheningStatementScale):"),
+                key="phraseFinalLengtheningStatementScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Question scale (phraseFinalLengtheningQuestionScale):"),
+                key="phraseFinalLengtheningQuestionScale",
+            )
+
+            # --- Microprosody settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Microprosody:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Voiceless F0 raise Hz (microprosodyVoicelessF0RaiseHz):"),
+                key="microprosodyVoicelessF0RaiseHz",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Voiceless F0 raise end Hz (microprosodyVoicelessF0RaiseEndHz):"),
+                key="microprosodyVoicelessF0RaiseEndHz",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Voiced F0 lower Hz (microprosodyVoicedF0LowerHz):"),
+                key="microprosodyVoicedF0LowerHz",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Minimum vowel ms (microprosodyMinVowelMs):"),
+                key="microprosodyMinVowelMs",
+            )
+
+            # --- Rate reduction settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Rate reduction:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Schwa reduction threshold (rateReductionSchwaReductionThreshold):"),
+                key="rateReductionSchwaReductionThreshold",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Schwa min duration ms (rateReductionSchwaMinDurationMs):"),
+                key="rateReductionSchwaMinDurationMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Schwa scale (rateReductionSchwaScale):"),
+                key="rateReductionSchwaScale",
+            )
+
+            # --- Nasalization settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Nasalization:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Anticipatory amplitude (nasalizationAnticipatoryAmplitude):"),
+                key="nasalizationAnticipatoryAmplitude",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Anticipatory blend (nasalizationAnticipatoryBlend):"),
+                key="nasalizationAnticipatoryBlend",
+            )
+
+            # --- Liquid dynamics settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Liquid dynamics:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Lateral onglide F1 delta (liquidDynamics.lateralOnglide.f1Delta):"),
+                key="liquidDynamics.lateralOnglide.f1Delta",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Lateral onglide F2 delta (liquidDynamics.lateralOnglide.f2Delta):"),
+                key="liquidDynamics.lateralOnglide.f2Delta",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Lateral onglide duration pct (liquidDynamics.lateralOnglide.durationPct):"),
+                key="liquidDynamics.lateralOnglide.durationPct",
+            )
+
+            # --- Length contrast settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Length contrast:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Short vowel ceiling ms (lengthContrast.shortVowelCeilingMs):"),
+                key="lengthContrast.shortVowelCeilingMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Long vowel floor ms (lengthContrast.longVowelFloorMs):"),
+                key="lengthContrast.longVowelFloorMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Geminate closure scale (lengthContrast.geminateClosureScale):"),
+                key="lengthContrast.geminateClosureScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Geminate release scale (lengthContrast.geminateReleaseScale):"),
+                key="lengthContrast.geminateReleaseScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Pre-geminate vowel scale (lengthContrast.preGeminateVowelScale):"),
+                key="lengthContrast.preGeminateVowelScale",
+            )
+
+            # --- Positional allophones settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Positional allophones - Stop aspiration:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Word-initial stressed (positionalAllophones.stopAspiration.wordInitialStressed):"),
+                key="positionalAllophones.stopAspiration.wordInitialStressed",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Word-initial (positionalAllophones.stopAspiration.wordInitial):"),
+                key="positionalAllophones.stopAspiration.wordInitial",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Intervocalic (positionalAllophones.stopAspiration.intervocalic):"),
+                key="positionalAllophones.stopAspiration.intervocalic",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Word-final (positionalAllophones.stopAspiration.wordFinal):"),
+                key="positionalAllophones.stopAspiration.wordFinal",
+            )
+
+            sHelper.addItem(wx.StaticText(self, label=_("Positional allophones - Lateral darkness:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Pre-vocalic (positionalAllophones.lateralDarkness.preVocalic):"),
+                key="positionalAllophones.lateralDarkness.preVocalic",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Post-vocalic (positionalAllophones.lateralDarkness.postVocalic):"),
+                key="positionalAllophones.lateralDarkness.postVocalic",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Syllabic (positionalAllophones.lateralDarkness.syllabic):"),
+                key="positionalAllophones.lateralDarkness.syllabic",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Dark F2 target (positionalAllophones.lateralDarkness.darkF2Target):"),
+                key="positionalAllophones.lateralDarkness.darkF2Target",
+            )
+
+            sHelper.addItem(wx.StaticText(self, label=_("Positional allophones - Glottal reinforcement:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_('Contexts (format: ["#_#", "V_#"]) (positionalAllophones.glottalReinforcement.contexts):'),
+                key="positionalAllophones.glottalReinforcement.contexts",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Duration ms (positionalAllophones.glottalReinforcement.durationMs):"),
+                key="positionalAllophones.glottalReinforcement.durationMs",
+            )
+
+            # --- Boundary smoothing settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Boundary smoothing:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Vowel to stop fade ms (boundarySmoothing.vowelToStopFadeMs):"),
+                key="boundarySmoothing.vowelToStopFadeMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Stop to vowel fade ms (boundarySmoothing.stopToVowelFadeMs):"),
+                key="boundarySmoothing.stopToVowelFadeMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Vowel to fricative fade ms (boundarySmoothing.vowelToFricFadeMs):"),
+                key="boundarySmoothing.vowelToFricFadeMs",
+            )
+
+            # --- Trajectory limit settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Trajectory limit:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_('Apply to formants (format: [cf2, cf3]) (trajectoryLimit.applyTo):'),
+                key="trajectoryLimit.applyTo",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Max Hz per ms for CF2 (trajectoryLimit.maxHzPerMs.cf2):"),
+                key="trajectoryLimit.maxHzPerMs.cf2",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Max Hz per ms for CF3 (trajectoryLimit.maxHzPerMs.cf3):"),
+                key="trajectoryLimit.maxHzPerMs.cf3",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Window ms (trajectoryLimit.windowMs):"),
+                key="trajectoryLimit.windowMs",
+            )
+
             # --- Generic key/value editor ---
             sHelper.addItem(wx.StaticText(self, label=_("Other settings:")))
 
@@ -217,9 +566,87 @@ def _getPanelClass():
                 "stressedVowelHiatusGapMs",
                 "stressedVowelHiatusFadeMs",
                 "semivowelOffglideScale",
+                "trillModulationMs",
+                "trillModulationFadeMs",
                 "spellingDiphthongMode",
                 "segmentBoundarySkipVowelToVowel",
                 "segmentBoundarySkipVowelToLiquid",
+                # --- Coarticulation settings ---
+                "coarticulationEnabled",
+                "coarticulationStrength",
+                "coarticulationTransitionExtent",
+                "coarticulationFadeIntoConsonants",
+                "coarticulationWordInitialFadeScale",
+                "coarticulationLabialF2Locus",
+                "coarticulationAlveolarF2Locus",
+                "coarticulationVelarF2Locus",
+                "coarticulationVelarPinchEnabled",
+                "coarticulationVelarPinchThreshold",
+                "coarticulationVelarPinchF2Scale",
+                "coarticulationVelarPinchF3",
+                "coarticulationGraduated",
+                "coarticulationAdjacencyMaxConsonants",
+                # --- Phrase-final lengthening settings ---
+                "phraseFinalLengtheningEnabled",
+                "phraseFinalLengtheningFinalSyllableScale",
+                "phraseFinalLengtheningPenultimateSyllableScale",
+                "phraseFinalLengtheningStatementScale",
+                "phraseFinalLengtheningQuestionScale",
+                "phraseFinalLengtheningNucleusOnlyMode",
+                # --- Microprosody settings ---
+                "microprosodyEnabled",
+                "microprosodyVoicelessF0RaiseEnabled",
+                "microprosodyVoicelessF0RaiseHz",
+                "microprosodyVoicelessF0RaiseEndHz",
+                "microprosodyVoicedF0LowerEnabled",
+                "microprosodyVoicedF0LowerHz",
+                "microprosodyMinVowelMs",
+                # --- Rate reduction settings ---
+                "rateReductionEnabled",
+                "rateReductionSchwaReductionThreshold",
+                "rateReductionSchwaMinDurationMs",
+                "rateReductionSchwaScale",
+                # --- Nasalization settings ---
+                "nasalizationAnticipatoryEnabled",
+                "nasalizationAnticipatoryAmplitude",
+                "nasalizationAnticipatoryBlend",
+                # --- Liquid dynamics settings ---
+                "liquidDynamics.enabled",
+                "liquidDynamics.lateralOnglide.f1Delta",
+                "liquidDynamics.lateralOnglide.f2Delta",
+                "liquidDynamics.lateralOnglide.durationPct",
+                # --- Length contrast settings ---
+                "lengthContrast.enabled",
+                "lengthContrast.shortVowelCeilingMs",
+                "lengthContrast.longVowelFloorMs",
+                "lengthContrast.geminateClosureScale",
+                "lengthContrast.geminateReleaseScale",
+                "lengthContrast.preGeminateVowelScale",
+                # --- Positional allophones settings ---
+                "positionalAllophones.enabled",
+                "positionalAllophones.stopAspiration.wordInitialStressed",
+                "positionalAllophones.stopAspiration.wordInitial",
+                "positionalAllophones.stopAspiration.intervocalic",
+                "positionalAllophones.stopAspiration.wordFinal",
+                "positionalAllophones.lateralDarkness.preVocalic",
+                "positionalAllophones.lateralDarkness.postVocalic",
+                "positionalAllophones.lateralDarkness.syllabic",
+                "positionalAllophones.lateralDarkness.darkF2Target",
+                "positionalAllophones.glottalReinforcement.enabled",
+                "positionalAllophones.glottalReinforcement.contexts",
+                "positionalAllophones.glottalReinforcement.durationMs",
+                # --- Boundary smoothing settings ---
+                "boundarySmoothing.enabled",
+                "boundarySmoothing.vowelToStopFadeMs",
+                "boundarySmoothing.stopToVowelFadeMs",
+                "boundarySmoothing.vowelToFricFadeMs",
+                # --- Trajectory limit settings ---
+                "trajectoryLimit.enabled",
+                "trajectoryLimit.applyTo",
+                "trajectoryLimit.maxHzPerMs.cf2",
+                "trajectoryLimit.maxHzPerMs.cf3",
+                "trajectoryLimit.windowMs",
+                "trajectoryLimit.applyAcrossWordBoundary",
             ]
             for k in _extraKeys:
                 if k not in self._knownKeys:
@@ -235,9 +662,22 @@ def _getPanelClass():
                     "semivowelOffglideScale",
                     "legacyPitchMode",
                     "stripAllophoneDigits",
+                    "coarticulationEnabled",
+                    "coarticulationStrength",
+                    "phraseFinalLengtheningEnabled",
+                    "microprosodyEnabled",
+                    "rateReductionEnabled",
+                    "nasalizationAnticipatoryEnabled",
+                    "liquidDynamics.enabled",
+                    "lengthContrast.enabled",
+                    "positionalAllophones.enabled",
+                    "positionalAllophones.glottalReinforcement.enabled",
+                    "boundarySmoothing.enabled",
+                    "trajectoryLimit.enabled",
                 ]
 
-            self.settingKeyCtrl = sHelper.addLabeledControl(
+            self.settingKeyCtrl = self._addLabeledControlCompat(
+                sHelper,
                 _("Setting:"),
                 wx.ComboBox,
                 choices=self._knownKeys,
@@ -245,14 +685,18 @@ def _getPanelClass():
             )
             self.settingKeyCtrl.Bind(wx.EVT_COMBOBOX, self._onSettingKeyChanged)
 
-            self.valueCtrl = sHelper.addLabeledControl(_("Value:"), wx.TextCtrl)
+            self.valueCtrl = self._addLabeledControlCompat(sHelper, _("Value:"), wx.TextCtrl)
             self.valueCtrl.Bind(wx.EVT_TEXT, self._onGenericValueChanged)
 
             self.sourceLabel = sHelper.addItem(wx.StaticText(self, label=""))
 
-            # Github link
+            # GitHub link
             self.gitHubButton = sHelper.addItem(wx.Button(self, label=_("Open NV Speech Player on GitHub")))
-            self.gitHubButton.Bind(wx.EVT_BUTTON, self._onDonateClick)
+            self.gitHubButton.Bind(wx.EVT_BUTTON, self._onGitHubClick)
+
+            # Check for updates button
+            self.updateButton = sHelper.addItem(wx.Button(self, label=_("Check for Add-on Updates")))
+            self.updateButton.Bind(wx.EVT_BUTTON, self._onUpdateClick)
 
             # Initialize defaults.
             self._setInitialLanguageTag()
@@ -290,8 +734,8 @@ def _getPanelClass():
 
         # ----- UI helpers -----
 
-        def _onDonateClick(self, evt):
-            """Open the donation link in the default browser."""
+        def _onGitHubClick(self, evt):
+            """Open the GitHub page in the default browser."""
             try:
                 import wx
                 wx.LaunchDefaultBrowser(GitHub_URL)
@@ -303,6 +747,375 @@ def _getPanelClass():
                     pass
             evt.Skip()
 
+        def _onUpdateClick(self, evt):
+            """Check for updates and download the latest add-on if available."""
+            try:
+                import wx
+            except Exception:
+                evt.Skip()
+                return
+
+            import tempfile
+            import urllib.request
+            import urllib.error
+
+            # First, check if an update is available
+            wx.BeginBusyCursor()
+            remoteVersion = None
+            versionCheckError = None
+
+            try:
+                req = urllib.request.Request(
+                    ADDON_VERSION_URL,
+                    headers={"User-Agent": "NVDA-NVSpeechPlayer-Updater/1.0"},
+                )
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    remoteVersion = response.read().decode("utf-8").strip()
+            except urllib.error.URLError as e:
+                versionCheckError = str(e.reason) if hasattr(e, 'reason') else str(e)
+            except Exception as e:
+                versionCheckError = str(e)
+            finally:
+                wx.EndBusyCursor()
+
+            if versionCheckError:
+                # Couldn't check version - ask user if they want to download anyway
+                dlg = wx.MessageDialog(
+                    self,
+                    _(
+                        "Could not check for updates:\n{}\n\n"
+                        "Would you like to download the add-on anyway?"
+                    ).format(versionCheckError),
+                    _("Version Check Failed"),
+                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+                )
+                result = dlg.ShowModal()
+                dlg.Destroy()
+                if result != wx.ID_YES:
+                    evt.Skip()
+                    return
+            else:
+                # Compare versions
+                installedVersion = _getInstalledAddonVersion()
+
+                if installedVersion and remoteVersion and installedVersion == remoteVersion:
+                    wx.MessageBox(
+                        _(
+                            "You already have the latest version installed.\n\n"
+                            "Installed version: {}\n"
+                            "Latest version: {}"
+                        ).format(installedVersion, remoteVersion),
+                        _("No Update Available"),
+                        wx.OK | wx.ICON_INFORMATION,
+                        self,
+                    )
+                    evt.Skip()
+                    return
+
+                # Update available - confirm with user
+                if installedVersion:
+                    msg = _(
+                        "A new version is available!\n\n"
+                        "Installed version: {}\n"
+                        "Latest version: {}\n\n"
+                        "Download and install the update?"
+                    ).format(installedVersion, remoteVersion)
+                else:
+                    msg = _(
+                        "Latest version available: {}\n\n"
+                        "Download and install?"
+                    ).format(remoteVersion)
+
+                dlg = wx.MessageDialog(
+                    self,
+                    msg,
+                    _("Update Available"),
+                    wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION,
+                )
+                result = dlg.ShowModal()
+                dlg.Destroy()
+
+                if result != wx.ID_YES:
+                    evt.Skip()
+                    return
+
+            # Show a simple busy cursor since download may take a moment
+            wx.BeginBusyCursor()
+
+            downloadPath = None
+            errorMsg = None
+
+            try:
+                # Download to temp directory
+                tempDir = tempfile.gettempdir()
+                # Extract filename from URL
+                addonFilename = ADDON_UPDATE_URL.rsplit("/", 1)[-1]
+                if not addonFilename.endswith(".nvda-addon"):
+                    addonFilename = "nvSpeechPlayer-update.nvda-addon"
+                downloadPath = os.path.join(tempDir, addonFilename)
+
+                # Clean up any old downloaded addon file from previous attempts
+                try:
+                    if os.path.isfile(downloadPath):
+                        os.remove(downloadPath)
+                except Exception:
+                    pass  # Not critical if cleanup fails
+
+                # Download the file
+                req = urllib.request.Request(
+                    ADDON_UPDATE_URL,
+                    headers={"User-Agent": "NVDA-NVSpeechPlayer-Updater/1.0"},
+                )
+                with urllib.request.urlopen(req, timeout=60) as response:
+                    data = response.read()
+
+                # Write to temp file
+                with open(downloadPath, "wb") as f:
+                    f.write(data)
+
+            except urllib.error.URLError as e:
+                errorMsg = _("Failed to download add-on:\n{}").format(str(e.reason) if hasattr(e, 'reason') else str(e))
+            except Exception as e:
+                errorMsg = _("An error occurred during download:\n{}").format(str(e))
+            finally:
+                wx.EndBusyCursor()
+
+            if errorMsg:
+                wx.MessageBox(
+                    errorMsg,
+                    _("Download Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            # Launch the downloaded file with the default handler (NVDA's addon installer)
+            # Note: os.startfile returns immediately; we can't know if user clicks "No" in NVDA's
+            # installer dialog. The temp file will be cleaned up on next download attempt.
+            try:
+                # os.startfile is Windows-only but NVDA is Windows-only anyway
+                os.startfile(downloadPath)
+            except Exception as e:
+                # If startfile fails, show the path so user can install manually
+                wx.MessageBox(
+                    _(
+                        "Download complete, but failed to launch installer:\n{}\n\n"
+                        "File saved to:\n{}\n\n"
+                        "Please install it manually by opening the file."
+                    ).format(str(e), downloadPath),
+                    _("Warning"),
+                    wx.OK | wx.ICON_WARNING,
+                    self,
+                )
+
+            evt.Skip()
+
+        def _onResetDefaultsClick(self, evt):
+            """Reset language packs to factory defaults by copying from .defaults folder."""
+            try:
+                import wx
+            except Exception:
+                evt.Skip()
+                return
+
+            # Get the currently selected language tag
+            currentLangTag = langPackYaml.normalizeLangTag(self.langTagCtrl.GetValue())
+
+            # Create a custom dialog with a checkbox
+            dlg = wx.Dialog(self, title=_("Reset to Factory Defaults"), style=wx.DEFAULT_DIALOG_STYLE)
+
+            sizer = wx.BoxSizer(wx.VERTICAL)
+
+            # Warning message
+            msgText = wx.StaticText(
+                dlg,
+                label=_(
+                    "This will overwrite language pack YAML files in packs/lang/ "
+                    "with the factory default versions from packs/.defaults/.\n\n"
+                    "Any customizations you have made will be lost."
+                ),
+            )
+            sizer.Add(msgText, 0, wx.ALL | wx.EXPAND, 10)
+
+            # Checkbox for single language pack reset
+            resetSingleCheckbox = wx.CheckBox(
+                dlg,
+                label=_("Reset only the currently selected language pack ({})").format(currentLangTag),
+            )
+            resetSingleCheckbox.SetValue(True)  # Default to single pack (safer)
+            sizer.Add(resetSingleCheckbox, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+            # Create buttons manually for better control
+            btnSizer = wx.BoxSizer(wx.HORIZONTAL)
+            yesBtn = wx.Button(dlg, wx.ID_YES, _("Yes"))
+            noBtn = wx.Button(dlg, wx.ID_NO, _("No"))
+            btnSizer.Add(yesBtn, 0, wx.RIGHT, 5)
+            btnSizer.Add(noBtn, 0)
+            sizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+
+            # Set No as default button and handle escape
+            noBtn.SetDefault()
+            dlg.SetEscapeId(wx.ID_NO)
+            dlg.SetAffirmativeId(wx.ID_YES)
+
+            dlg.SetSizer(sizer)
+            sizer.Fit(dlg)
+            dlg.CenterOnParent()
+
+            result = dlg.ShowModal()
+
+            # Only proceed if user explicitly clicked Yes
+            if result != wx.ID_YES:
+                dlg.Destroy()
+                evt.Skip()
+                return
+
+            # Get checkbox value before destroying dialog
+            resetSingleOnly = resetSingleCheckbox.GetValue()
+            dlg.Destroy()
+
+            # Perform the reset
+            defaultsDir = os.path.join(self._packsDir, ".defaults")
+            langDir = langPackYaml.getLangDir(self._packsDir)
+
+            if not os.path.isdir(defaultsDir):
+                wx.MessageBox(
+                    _(
+                        "Factory defaults folder not found:\n{}\n\n"
+                        "Cannot reset language packs."
+                    ).format(defaultsDir),
+                    _("Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            # Ensure lang directory exists
+            try:
+                os.makedirs(langDir, exist_ok=True)
+            except Exception as e:
+                wx.MessageBox(
+                    _("Failed to create language pack directory:\n{}").format(str(e)),
+                    _("Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            # Copy *.yaml files from .defaults to lang
+            copiedCount = 0
+            errors = []
+            try:
+                for fn in os.listdir(defaultsDir):
+                    if not fn.lower().endswith(".yaml"):
+                        continue
+
+                    # If resetting single language only, check if this file matches
+                    if resetSingleOnly:
+                        fileTag = os.path.splitext(fn)[0].lower()
+                        if fileTag != currentLangTag:
+                            continue
+
+                    srcPath = os.path.join(defaultsDir, fn)
+                    dstPath = os.path.join(langDir, fn)
+                    if not os.path.isfile(srcPath):
+                        continue
+                    try:
+                        # Read and write to avoid shutil dependency issues
+                        with open(srcPath, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        with open(dstPath, "w", encoding="utf-8", newline="\n") as f:
+                            f.write(content)
+                        copiedCount += 1
+                    except Exception as e:
+                        errors.append(f"{fn}: {e}")
+            except Exception as e:
+                wx.MessageBox(
+                    _("Failed to read defaults directory:\n{}").format(str(e)),
+                    _("Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            if copiedCount == 0 and resetSingleOnly:
+                wx.MessageBox(
+                    _(
+                        "No factory default found for language pack '{}'.\n\n"
+                        "The file '{}.yaml' does not exist in the .defaults folder."
+                    ).format(currentLangTag, currentLangTag),
+                    _("Not Found"),
+                    wx.OK | wx.ICON_WARNING,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            if errors:
+                wx.MessageBox(
+                    _(
+                        "Reset completed with errors.\n\n"
+                        "Copied {} file(s).\n\n"
+                        "Errors:\n{}"
+                    ).format(copiedCount, "\n".join(errors)),
+                    _("Warning"),
+                    wx.OK | wx.ICON_WARNING,
+                    self,
+                )
+            else:
+                if resetSingleOnly:
+                    wx.MessageBox(
+                        _("Successfully reset '{}' language pack to factory defaults.").format(currentLangTag),
+                        _("Reset Complete"),
+                        wx.OK | wx.ICON_INFORMATION,
+                        self,
+                    )
+                else:
+                    wx.MessageBox(
+                        _("Successfully reset {} language pack file(s) to factory defaults.").format(copiedCount),
+                        _("Reset Complete"),
+                        wx.OK | wx.ICON_INFORMATION,
+                        self,
+                    )
+
+            # Clear pending edits (they're now stale)
+            if resetSingleOnly:
+                # Only clear pending edits for the reset language
+                if currentLangTag in self._pending:
+                    del self._pending[currentLangTag]
+            else:
+                self._pending.clear()
+
+            # Refresh the language choices in case new files appeared
+            try:
+                currentTag = self.langTagCtrl.GetValue()
+                self.langTagCtrl.Clear()
+                for choice in self._getLanguageChoices():
+                    self.langTagCtrl.Append(choice)
+                self.langTagCtrl.SetValue(currentTag)
+            except Exception:
+                pass
+
+            # Refresh all displays to show the reset values
+            self._refreshAllDisplays()
+
+            # Trigger live reload if NV Speech Player is active
+            try:
+                import synthDriverHandler
+
+                synth = synthDriverHandler.getSynth()
+                if synth and synth.__class__.__module__.endswith("nvSpeechPlayer"):
+                    if hasattr(synth, "reloadLanguagePack"):
+                        synth.reloadLanguagePack()
+            except Exception:
+                pass
+
+            evt.Skip()
+
         def _addQuickTextField(self, sHelper, *, label: str, key: str):
             """Add a labeled wx.TextCtrl bound to a settings key."""
             try:
@@ -310,7 +1123,7 @@ def _getPanelClass():
             except Exception:
                 return
 
-            ctrl = sHelper.addLabeledControl(label, wx.TextCtrl)
+            ctrl = self._addLabeledControlCompat(sHelper, label, wx.TextCtrl)
             self._quickCtrls[key] = ctrl
             ctrl.Bind(wx.EVT_TEXT, lambda evt, k=key: self._onQuickValueChanged(evt, k))
             return ctrl
