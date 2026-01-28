@@ -1952,17 +1952,6 @@ bool convertIpaToTokens(
     setDefaultVoiceFields(pack.lang, t);
   }
 
-  // Voice profile application (optional).
-  // Apply formant scaling and per-phoneme overrides based on the active voice profile.
-  // This runs AFTER setDefaultVoiceFields so profiles can affect default values
-  // (e.g., glottalOpenQuotient, outputGain) if desired.
-  if (pack.voiceProfiles && !pack.lang.voiceProfileName.empty()) {
-    for (Token& t : outTokens) {
-      if (!t.def || t.silence) continue;
-      applyVoiceProfileToFields(t.field, t.setMask, t.def, pack.voiceProfiles.get(), pack.lang.voiceProfileName);
-    }
-  }
-
   // Frontend passes: modular token-level rules (coarticulation, prosody, etc.).
   PassContext passCtx(pack, speed, basePitch, inflection, clauseType);
   if (!runPasses(passCtx, PassStage::PreTiming, outTokens, outError)) {
@@ -1981,6 +1970,16 @@ bool convertIpaToTokens(
 
   // Tone overlay (optional).
   applyToneContours(outTokens, pack, basePitch, inflection);
+
+  // Voice profile application (optional).
+  // Apply formant scaling, pitch scaling, and per-phoneme overrides based on the active voice profile.
+  // This runs AFTER calculatePitches so pitch multipliers (voicePitch_mul, endVoicePitch_mul) work.
+  if (pack.voiceProfiles && !pack.lang.voiceProfileName.empty()) {
+    for (Token& t : outTokens) {
+      if (!t.def || t.silence) continue;
+      applyVoiceProfileToFields(t.field, t.setMask, t.def, pack.voiceProfiles.get(), pack.lang.voiceProfileName);
+    }
+  }
 
   if (!runPasses(passCtx, PassStage::PostPitch, outTokens, outError)) {
     return false;

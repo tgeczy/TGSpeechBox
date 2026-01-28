@@ -183,6 +183,12 @@ voiceProfiles:
       vowel:
         cf_mul: [1.12, 1.16, 1.18, 1.08, 1.04, 1.02]
         pf_mul: [1.12, 1.16, 1.18, 1.08, 1.04, 1.02]
+        voicePitch_mul: 1.4        # raise pitch ~40%
+        endVoicePitch_mul: 1.4
+        glottalOpenQuotient_mul: 1.08  # slightly breathier
+      consonant:
+        voicePitch_mul: 1.4
+        endVoicePitch_mul: 1.4
       unvoicedFricative:
         fricationAmplitude_mul: 0.95
         aspirationAmplitude_mul: 0.95
@@ -207,8 +213,24 @@ These match the flags already present in phoneme entries (like `_isVowel`, `_isV
 
 ##### Supported scale fields
 Class scales are *multipliers*:
+
+**Formant multipliers (arrays or scalar shorthand):**
 - `cf_mul`, `pf_mul` (formant frequency multipliers for F1..F6)
 - `cb_mul`, `pb_mul` (bandwidth multipliers for B1..B6)
+
+**Pitch multipliers:**
+- `voicePitch_mul` (fundamental frequency)
+- `endVoicePitch_mul` (end pitch for contours)
+
+**Vibrato multipliers:**
+- `vibratoPitchOffset_mul` (vibrato depth)
+- `vibratoSpeed_mul` (vibrato rate)
+
+**Voice quality multipliers:**
+- `voiceTurbulenceAmplitude_mul` (breathiness)
+- `glottalOpenQuotient_mul` (glottal open quotient)
+
+**Amplitude multipliers:**
 - `voiceAmplitude_mul`
 - `aspirationAmplitude_mul`
 - `fricationAmplitude_mul`
