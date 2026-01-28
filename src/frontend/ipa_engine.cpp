@@ -1,6 +1,7 @@
 #include "ipa_engine.h"
 
 #include "passes/pass_pipeline.h"
+#include "voice_profile.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1949,6 +1950,17 @@ bool convertIpaToTokens(
   for (Token& t : outTokens) {
     if (!t.def || t.silence) continue;
     setDefaultVoiceFields(pack.lang, t);
+  }
+
+  // Voice profile application (optional).
+  // Apply formant scaling and per-phoneme overrides based on the active voice profile.
+  // This runs AFTER setDefaultVoiceFields so profiles can affect default values
+  // (e.g., glottalOpenQuotient, outputGain) if desired.
+  if (pack.voiceProfiles && !pack.lang.voiceProfileName.empty()) {
+    for (Token& t : outTokens) {
+      if (!t.def || t.silence) continue;
+      applyVoiceProfileToFields(t.field, t.setMask, t.def, pack.voiceProfiles.get(), pack.lang.voiceProfileName);
+    }
   }
 
   // Frontend passes: modular token-level rules (coarticulation, prosody, etc.).

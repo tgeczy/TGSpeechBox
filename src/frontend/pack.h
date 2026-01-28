@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <array>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -10,6 +11,7 @@
 
 #include "yaml_min.h"
 #include "utf8.h"
+#include "voice_profile.h"
 
 namespace nvsp_frontend {
 
@@ -149,6 +151,13 @@ struct LanguagePack {
   // Settings / knobs.
   double primaryStressDiv = 1.4;
   double secondaryStressDiv = 1.1;
+  
+  // Voice profile name (optional).
+  // If set, this profile will be applied to phoneme parameters to produce
+  // different voice qualities (e.g., "female" for a female voice).
+  // Empty string means no voice profile (use base phoneme parameters).
+  std::string voiceProfileName;
+  
   // Legacy pitch mode.
   //
   // When enabled, the frontend uses the older time-based pitch curve math
@@ -524,6 +533,15 @@ struct PackSet {
   // Populated by loadPackSet() after phonemes are loaded.
   // Keys are sorted by length descending so longer keys match first.
   std::vector<std::u32string> sortedPhonemeKeys;
+  
+  // Voice profiles (optional). Loaded from "voiceProfiles:" in phonemes.yaml.
+  // If no profiles are defined, this will be empty/null.
+  std::unique_ptr<VoiceProfileSet> voiceProfiles;
+  
+  // Non-fatal warnings accumulated during pack loading (e.g., voice profile
+  // parse errors). Empty if no warnings. Useful for debugging "why does
+  // my profile do nothing?" issues.
+  std::string loadWarnings;
 };
 
 // Load phonemes.yaml + merged language packs.

@@ -1,0 +1,152 @@
+/*
+Voice Profile System for NV Speech Player Frontend
+
+This module provides optional "voice profiles" that can transform phoneme
+parameters to produce different voice qualities (e.g., female voice) without
+maintaining separate phoneme tables.
+
+Design principles:
+- Zero breaking changes: packs without voice profiles work exactly as before.
+- No reshaping: existing phonemes are the base; profiles are overlays.
+- Class-based transforms using existing phoneme flags (_isVowel, _isVoiced, etc.)
+- Per-phoneme overrides for fine-tuning.
+
+Copyright 2014-2026 Tamas Geczy
+Licensed under GNU General Public License version 2.0.
+*/
+
+#ifndef NVSP_FRONTEND_VOICE_PROFILE_H
+#define NVSP_FRONTEND_VOICE_PROFILE_H
+
+#include <array>
+#include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+// Forward declarations to avoid circular dependency with pack.h.
+namespace nvsp_frontend {
+namespace yaml_min { struct Node; }
+struct PhonemeDef;
+}
+
+namespace nvsp_frontend {
+
+// Frame field count - must match kFrameFieldCount in pack.h.
+constexpr int kVoiceProfileFrameFieldCount = 47;
+
+// Number of formant frequency/bandwidth fields (cf1-cf6, pf1-pf6, cb1-cb6, pb1-pb6).
+constexpr int kFormantCount = 6;
+
+// Class-based scaling factors.
+// Each array has kFormantCount elements for cf1-cf6, pf1-pf6, etc.
+struct ClassScales {
+  // Cascade formant frequency multipliers (cf1..cf6).
+  std::array<double, kFormantCount> cf_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  
+  // Parallel formant frequency multipliers (pf1..pf6).
+  std::array<double, kFormantCount> pf_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  
+  // Cascade formant bandwidth multipliers (cb1..cb6).
+  std::array<double, kFormantCount> cb_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  
+  // Parallel formant bandwidth multipliers (pb1..pb6).
+  std::array<double, kFormantCount> pb_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  
+  // Scalar amplitude multipliers (optional).
+  double voiceAmplitude_mul = 1.0;
+  double aspirationAmplitude_mul = 1.0;
+  double fricationAmplitude_mul = 1.0;
+  double preFormantGain_mul = 1.0;
+  double outputGain_mul = 1.0;
+  
+  // Scalar amplitude flags (true if explicitly set in YAML).
+  bool voiceAmplitude_mul_set = false;
+  bool aspirationAmplitude_mul_set = false;
+  bool fricationAmplitude_mul_set = false;
+  bool preFormantGain_mul_set = false;
+  bool outputGain_mul_set = false;
+};
+
+// Per-phoneme override values.
+// These are absolute values that replace the base + class-scaled result.
+struct PhonemeOverride {
+  // Map from FieldId index to absolute value.
+  std::unordered_map<int, double> values;
+};
+
+// A single voice profile definition.
+struct VoiceProfile {
+  std::string name;
+  
+  // Class-based transforms keyed by class name.
+  // Supported class names:
+  //   "vowel"            - _isVowel
+  //   "voicedConsonant"  - !_isVowel && _isVoiced
+  //   "voicedFricative"  - _isFricative && _isVoiced (fricationAmplitude > 0.05)
+  //   "unvoicedFricative"- _isFricative && !_isVoiced
+  //   "consonant"        - default fallback for non-vowels
+  //   "nasal"            - _isNasal
+  //   "liquid"           - _isLiquid
+  //   "stop"             - _isStop
+  //   "affricate"        - _isAfricate
+  //   "semivowel"        - _isSemivowel
+  std::unordered_map<std::string, ClassScales> classScales;
+  
+  // Per-phoneme overrides keyed by phoneme symbol (UTF-8).
+  std::unordered_map<std::string, PhonemeOverride> phonemeOverrides;
+};
+
+// Collection of voice profiles from a pack.
+struct VoiceProfileSet {
+  // Map from profile name to profile definition.
+  std::unordered_map<std::string, VoiceProfile> profiles;
+  
+  // Check if a profile exists.
+  bool hasProfile(const std::string& name) const {
+    return profiles.find(name) != profiles.end();
+  }
+  
+  // Get a profile by name, or nullptr if not found.
+  const VoiceProfile* getProfile(const std::string& name) const {
+    auto it = profiles.find(name);
+    return (it != profiles.end()) ? &it->second : nullptr;
+  }
+};
+
+// Parse voice profiles from a YAML node.
+// The node should be the value of the "voiceProfiles:" key.
+// Returns true on success.
+bool parseVoiceProfiles(const yaml_min::Node& node, VoiceProfileSet& out, std::string& outError);
+
+// Apply a voice profile to a token's field values.
+// This is the main hook called from ipa_engine.cpp after building the base frame.
+//
+// Parameters:
+//   field        - Array of kFrameFieldCount doubles (token field values, modified in-place).
+//   setMask      - Reference to the set mask (updated when override values are applied).
+//   phonemeDef   - The phoneme definition for this token (used for class detection).
+//   profileSet   - The set of voice profiles from the pack (may be nullptr).
+//   profileName  - The name of the voice profile to apply (empty = no-op).
+//
+// The function does nothing if:
+//   - profileSet is nullptr
+//   - profileName is empty
+//   - profileName is not found in profileSet
+void applyVoiceProfileToFields(
+  double* field,
+  std::uint64_t& setMask,
+  const PhonemeDef* phonemeDef,
+  const VoiceProfileSet* profileSet,
+  const std::string& profileName
+);
+
+// Determine which class keys apply to a phoneme based on its flags.
+// Returns a list of class keys in priority order (most general first).
+// The caller should apply class scales in order, letting later classes
+// compound on earlier ones.
+std::vector<std::string> getPhonemeClassKeys(const PhonemeDef* def, double fricationAmplitude);
+
+} // namespace nvsp_frontend
+
+#endif
