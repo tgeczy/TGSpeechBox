@@ -85,6 +85,10 @@ public:
   // Track last focused child control for focus restoration on WM_ACTIVATE.
   HWND lastFocus = nullptr;
 
+  // Track unsaved changes.
+  bool phonemesDirty = false;
+  bool languageDirty = false;
+
   void setStatus(const std::wstring& text) {
     if (status) SendMessageW(status, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(text.c_str()));
   }

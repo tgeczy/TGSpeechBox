@@ -67,7 +67,7 @@ bool AppController::Initialize(HINSTANCE hInstance, int nCmdShow) {
 
   // No accelerator table is bundled with this lightweight tool.
   // (If one is added later, wire it up here.)
-  accel = nullptr;
+  accel = LoadAcceleratorsW(hInstance, MAKEINTRESOURCEW(IDR_ACCEL));
 
   WNDCLASSW wc{};
   wc.lpfnWndProc = AppController::StaticWndProc;
@@ -366,6 +366,7 @@ static bool loadPhonemes(AppController& app, const std::wstring& packsDir) {
 
   app.phonemesPath = use.wstring();
   app.phonemeKeys = app.phonemes.phonemeKeysSorted();
+  app.phonemesDirty = false;
   rebuildPhonemeKeysU32(app);
 
   std::wstring filter;
@@ -434,6 +435,7 @@ static bool loadLanguage(AppController& app, const std::wstring& langPath) {
 
   app.repls = app.language.replacements();
   app.classNames = app.language.classNamesSorted();
+  app.languageDirty = false;
 
   refreshLanguageDerivedLists(app);
 
@@ -599,6 +601,7 @@ static void onAddMapping(AppController& app, const std::string& defaultTo = {}) 
 
   app.repls.push_back(st.rule);
   app.language.setReplacements(app.repls);
+  app.languageDirty = true;
   refreshLanguageDerivedLists(app);
 }
 
@@ -618,6 +621,7 @@ static void onEditSelectedMapping(AppController& app) {
 
   app.repls[static_cast<size_t>(sel)] = st.rule;
   app.language.setReplacements(app.repls);
+  app.languageDirty = true;
   refreshLanguageDerivedLists(app);
 }
 
@@ -630,6 +634,7 @@ static void onRemoveSelectedMapping(AppController& app) {
 
   app.repls.erase(app.repls.begin() + sel);
   app.language.setReplacements(app.repls);
+  app.languageDirty = true;
   refreshLanguageDerivedLists(app);
 }
 
@@ -782,6 +787,7 @@ static void onEditLanguageSettings(AppController& app) {
   if (!st.ok) return;
 
   app.language.setSettings(st.settings);
+  app.languageDirty = true;
   app.setStatus(L"Edited language settings in memory. Use File > Save language YAML (Ctrl+S) to write it.");
 }
 
@@ -810,8 +816,9 @@ static void onClonePhoneme(AppController& app) {
   app.phonemeKeys = app.phonemes.phonemeKeysSorted();
   rebuildPhonemeKeysU32(app);
   populatePhonemeList(app, L"");
+  app.phonemesDirty = true;
 
-  msgBox(app.wnd, L"Cloned phoneme. Remember to save phonemes YAML.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+  msgBox(app.wnd, L"Cloned phoneme. Remember to save phonemes YAML (Ctrl+P).", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
 }
 
 static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
@@ -838,7 +845,8 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
   if (!st.ok) return;
 
   *node = st.working;
-  msgBox(app.wnd, L"Phoneme updated. Remember to save phonemes YAML.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+  app.phonemesDirty = true;
+  msgBox(app.wnd, L"Phoneme updated. Remember to save phonemes YAML (Ctrl+P).", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
 }
 
 // -------------------------
@@ -854,6 +862,25 @@ static void onSaveLanguage(AppController& app) {
     msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
     return;
   }
+
+  // Reload from disk to sync with any external changes (e.g., edits made in a text editor).
+  std::string langPath = app.language.path();
+  if (!app.language.load(langPath, err)) {
+    msgBox(app.wnd, L"Warning: Failed to reload language YAML after save:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONWARNING);
+  } else {
+    app.repls = app.language.replacements();
+    app.classNames = app.language.classNamesSorted();
+    refreshLanguageDerivedLists(app);
+
+    // Update runtime language for TTS.
+    std::string langTag = selectedLangTagUtf8(app);
+    if (!langTag.empty() && app.runtime.dllsLoaded() && !app.packRoot.empty()) {
+      std::string rtErr;
+      app.runtime.setLanguage(langTag, rtErr);
+    }
+  }
+
+  app.languageDirty = false;
   app.setStatus(L"Saved language YAML");
 }
 
@@ -867,7 +894,109 @@ static void onSavePhonemes(AppController& app) {
     msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
     return;
   }
+
+  // Reload from disk to sync with any external changes (e.g., edits made in a text editor).
+  std::string phonemesPath = app.phonemes.path();
+  if (!app.phonemes.load(phonemesPath, err)) {
+    msgBox(app.wnd, L"Warning: Failed to reload phonemes YAML after save:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONWARNING);
+  } else {
+    app.phonemeKeys = app.phonemes.phonemeKeysSorted();
+    rebuildPhonemeKeysU32(app);
+
+    std::wstring filter;
+    wchar_t buf[512];
+    GetWindowTextW(app.editFilter, buf, 512);
+    filter = buf;
+    populatePhonemeList(app, filter);
+
+    // Also refresh language-derived lists since they depend on phoneme keys.
+    app.usedPhonemeKeys = extractUsedPhonemes(app, app.repls);
+    populateLanguagePhonemesList(app);
+  }
+
+  app.phonemesDirty = false;
   app.setStatus(L"Saved phonemes YAML");
+}
+
+// -------------------------
+// Reload YAML (from disk)
+// -------------------------
+static void onReloadLanguage(AppController& app) {
+  if (!app.language.isLoaded()) {
+    msgBox(app.wnd, L"No language YAML loaded.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    return;
+  }
+
+  // Warn if there are unsaved changes.
+  if (app.languageDirty) {
+    int res = MessageBoxW(app.wnd,
+      L"You have unsaved changes to the language YAML.\n\nReload from disk and discard changes?",
+      L"Unsaved Changes", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    if (res != IDYES) {
+      return;
+    }
+  }
+
+  std::string langPath = app.language.path();
+  std::string err;
+  if (!app.language.load(langPath, err)) {
+    msgBox(app.wnd, L"Failed to reload language YAML:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    return;
+  }
+
+  app.repls = app.language.replacements();
+  app.classNames = app.language.classNamesSorted();
+  app.languageDirty = false;
+  refreshLanguageDerivedLists(app);
+
+  // Update runtime language for TTS.
+  std::string langTag = selectedLangTagUtf8(app);
+  if (!langTag.empty() && app.runtime.dllsLoaded() && !app.packRoot.empty()) {
+    std::string rtErr;
+    app.runtime.setLanguage(langTag, rtErr);
+  }
+
+  app.setStatus(L"Reloaded language YAML from disk");
+}
+
+static void onReloadPhonemes(AppController& app) {
+  if (!app.phonemes.isLoaded()) {
+    msgBox(app.wnd, L"No phonemes YAML loaded.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    return;
+  }
+
+  // Warn if there are unsaved changes.
+  if (app.phonemesDirty) {
+    int res = MessageBoxW(app.wnd,
+      L"You have unsaved changes to the phonemes YAML.\n\nReload from disk and discard changes?",
+      L"Unsaved Changes", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    if (res != IDYES) {
+      return;
+    }
+  }
+
+  std::string phonemesPath = app.phonemes.path();
+  std::string err;
+  if (!app.phonemes.load(phonemesPath, err)) {
+    msgBox(app.wnd, L"Failed to reload phonemes YAML:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    return;
+  }
+
+  app.phonemeKeys = app.phonemes.phonemeKeysSorted();
+  app.phonemesDirty = false;
+  rebuildPhonemeKeysU32(app);
+
+  std::wstring filter;
+  wchar_t buf[512];
+  GetWindowTextW(app.editFilter, buf, 512);
+  filter = buf;
+  populatePhonemeList(app, filter);
+
+  // Also refresh language-derived lists since they depend on phoneme keys.
+  app.usedPhonemeKeys = extractUsedPhonemes(app, app.repls);
+  populateLanguagePhonemesList(app);
+
+  app.setStatus(L"Reloaded phonemes YAML from disk");
 }
 
 // -------------------------
@@ -1390,6 +1519,18 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       }
 
       if (id == IDM_FILE_OPEN_PACKROOT) {
+        // Check for unsaved changes before opening a new pack root.
+        if (app.phonemesDirty || app.languageDirty) {
+          std::wstring msg = L"You have unsaved changes:\n";
+          if (app.phonemesDirty) msg += L"  - Phonemes YAML\n";
+          if (app.languageDirty) msg += L"  - Language YAML\n";
+          msg += L"\nOpen a new pack root without saving?";
+
+          int res = MessageBoxW(hWnd, msg.c_str(), L"Unsaved Changes", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+          if (res != IDYES) {
+            return 0; // User cancelled.
+          }
+        }
         std::wstring folder;
         if (pickFolder(hWnd, L"Select the folder that contains 'packs'", folder)) {
           loadPackRoot(app, folder);
@@ -1404,8 +1545,16 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         onSavePhonemes(app);
         return 0;
       }
+      if (id == IDM_FILE_RELOAD_LANGUAGE) {
+        onReloadLanguage(app);
+        return 0;
+      }
+      if (id == IDM_FILE_RELOAD_PHONEMES) {
+        onReloadPhonemes(app);
+        return 0;
+      }
       if (id == IDM_FILE_EXIT) {
-        DestroyWindow(hWnd);
+        SendMessageW(hWnd, WM_CLOSE, 0, 0);
         return 0;
       }
 
@@ -1498,8 +1647,11 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         msgBox(hWnd,
                L"NV Speech Player Phoneme Editor (Win32)\n\n"
                L"Keyboard shortcuts:\n"
-               L"  Ctrl+O  Open pack root\n"
-               L"  Ctrl+S  Save language YAML\n\n"
+               L"  Ctrl+O       Open pack root\n"
+               L"  Ctrl+S       Save language YAML\n"
+               L"  Ctrl+P       Save phonemes YAML\n"
+               L"  F5           Reload language YAML\n"
+               L"  Shift+F5     Reload phonemes YAML\n\n"
                L"Notes:\n"
                L"  - This editor rewrites YAML (comments are not preserved).\n"
                L"  - Preview audio uses speechPlayer.dll.\n"
@@ -1517,6 +1669,18 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       }
 
       if (id == IDC_COMBO_LANGUAGE && code == CBN_SELCHANGE) {
+        // Check for unsaved language changes before switching.
+        if (app.languageDirty) {
+          int res = MessageBoxW(hWnd, 
+            L"You have unsaved changes to the current language YAML.\n\nSwitch to a different language without saving?",
+            L"Unsaved Changes", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+          if (res != IDYES) {
+            // Revert combo selection to current language.
+            // Note: We don't track the previous index, so just leave as-is.
+            // The user should save or the change won't persist anyway.
+            return 0;
+          }
+        }
         int sel = static_cast<int>(SendMessageW(app.comboLang, CB_GETCURSEL, 0, 0));
         if (sel >= 0 && sel < static_cast<int>(app.languageFiles.size())) {
           loadLanguage(app, app.languageFiles[static_cast<size_t>(sel)]);
@@ -1594,9 +1758,22 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       return 0;
     }
 
-    case WM_CLOSE:
+    case WM_CLOSE: {
+      // Check for unsaved changes.
+      if (app.phonemesDirty || app.languageDirty) {
+        std::wstring msg = L"You have unsaved changes:\n";
+        if (app.phonemesDirty) msg += L"  - Phonemes YAML\n";
+        if (app.languageDirty) msg += L"  - Language YAML\n";
+        msg += L"\nDo you want to quit without saving?";
+
+        int res = MessageBoxW(hWnd, msg.c_str(), L"Unsaved Changes", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+        if (res != IDYES) {
+          return 0; // User cancelled, don't close.
+        }
+      }
       DestroyWindow(hWnd);
       return 0;
+    }
 
     case WM_DESTROY:
       PostQuitMessage(0);

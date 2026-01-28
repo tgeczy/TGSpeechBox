@@ -4,6 +4,7 @@
 // Menus
 // -----------------
 #define IDR_MAINMENU 101
+#define IDR_ACCEL    102
 
 // -----------------
 // Dialogs
@@ -23,6 +24,8 @@
 #define IDM_FILE_OPEN_PACKROOT    40001
 #define IDM_FILE_SAVE_LANGUAGE    40002
 #define IDM_FILE_SAVE_PHONEMES    40003
+#define IDM_FILE_RELOAD_LANGUAGE  40005
+#define IDM_FILE_RELOAD_PHONEMES  40006
 #define IDM_FILE_EXIT             40004
 
 #define IDM_SETTINGS_ESPEAK_DIR   40101
