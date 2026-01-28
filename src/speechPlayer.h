@@ -15,12 +15,12 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 #ifndef SPEECHPLAYER_H
 #define SPEECHPLAYER_H
 
+#include "frame.h"
+#include "sample.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "frame.h"
-#include "sample.h"
 
 typedef void* speechPlayer_handle_t;
 

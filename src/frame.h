@@ -50,7 +50,12 @@ class FrameManager {
 	virtual void queueFrame(speechPlayer_frame_t* frame, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue)=0;
 	virtual const speechPlayer_frame_t* const getCurrentFrame()=0;
 	virtual const int getLastIndex()=0; 
-	virtual ~FrameManager()=0 {};
+	// Pure virtual, but still needs a definition.
+	virtual ~FrameManager()=0;
 };
+
+// MSVC accepts `=0 {}` in-class, but GCC/Clang reject it.
+// Keep the same ABI/intent while staying standard-compliant.
+inline FrameManager::~FrameManager() {}
 
 #endif
