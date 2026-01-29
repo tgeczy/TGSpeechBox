@@ -44,6 +44,7 @@ settings:
   microprosodyEnabled: true
   microprosodyVoicelessF0RaiseEnabled: false
   microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: -8.0
   nasalizationAnticipatoryEnabled: false
   positionalAllophonesGlottalReinforcementEnabled: false
   autoTieDiphthongs: false
@@ -72,8 +73,13 @@ normalization:
     
     - from: "ɒ"
       to: "ᴒ"
-    # Hungarian "ny" (/ɲ/) can get lost in consonant clusters (e.g. "könyvtár").
-    # Nudge it slightly toward a palatalized nasal variant with a touch more mid energy.
+    # Hungarian "ny" is /ɲ/ (palatal nasal). Some eSpeak tables emit it as nʲ or n͡ʲ.
+    # Collapse those to /ɲ/ so the palatal quality doesn't disappear.
+    - from: "n͡ʲ"
+      to: "ɲ"
+    - from: "nʲ"
+      to: "ɲ"
+    # Use the Hungarian-tuned palatal nasal variant.
     - from: "ɲ"
       to: "ɲ"
 
@@ -81,21 +87,27 @@ normalization:
     - from: "ʲ"
       to: ""
 
+    # If the palatal marker is already converted (n), fold it too.
+    - from: "n͡"
+      to: "ɲ"
+    - from: "n"
+      to: "ɲ"
+
     
 
-    # Hungarian "gy" (/ɟ/) needs a true palatal stop quality (not an Englishy affricate).
-    - from: "ɟ"
-      to: "ɟ"
+    # Hungarian "gy" (/ɟ/) is word-initially stressed.
+    # The frontend skips inserting stop-closure gaps for stressed consonants, which can make initial /ɟ/ vanish ("György" -> "örgy").
+    # Move the stress mark AFTER the consonant so /ɟ/ still gets a stop-closure gap, but the following vowel carries the stress.
+    - from: "ˈɟ"
+      to:   "ɟˈ"
+      when:
+        atWordStart: true
+    - from: "ˈd͡ʑ"
+      to:   "d͡ʑˈ"
+      when:
+        atWordStart: true
 
-    # Hungarian "ty" (/c/) should keep its palatal quality (often like a soft "ty").
-    - from: "c"
-      to: "c"
-
-    # Hungarian geminates come from eSpeak as a length mark (tː, kː, etc.).
-    # Keep the length mark so the frontend renders a *single* long consonant
-    # (rather than two separated consonants).
-
-    # Remove secondary stress marks to avoid English-like stressing of later syllables.
+    # Hungarian doesn't meaningfully use secondary stress in this pipeline; strip it.
     - from: "ˌ"
       to: ""
   replacements:
@@ -105,3 +117,15 @@ normalization:
       to: "jˌɛl"
       when:
         atWordEnd: true
+
+intonation:
+  ".":
+    # Hungarian declaratives: make the final fall clearer (helps even when stress marks are sparse).
+    preHeadStart: 70
+    preHeadEnd: 30
+    nucleus0Start: 68
+    nucleus0End: 0
+    nucleusStart: 72
+    nucleusEnd: 14
+    tailStart: 22
+    tailEnd: 0
