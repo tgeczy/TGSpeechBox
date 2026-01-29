@@ -97,3 +97,54 @@ def findDllDir(baseDir: str) -> Optional[str]:
             continue
 
     return None
+
+
+def freeDll(dllObj) -> bool:
+    """Unload a ctypes DLL object using FreeLibrary.
+    
+    This releases the DLL file so it can be deleted or replaced.
+    Must only be called after all handles/resources from the DLL are released.
+    
+    Args:
+        dllObj: A ctypes CDLL or WinDLL object
+        
+    Returns:
+        True if FreeLibrary succeeded, False otherwise
+        
+    Compatibility:
+        Works on Python 3.7+ (NVDA 2023.2+) on Windows.
+        On non-Windows or if FreeLibrary fails, returns False gracefully.
+    """
+    if dllObj is None:
+        return False
+    
+    try:
+        # Get the native handle from the ctypes DLL object
+        dllHandle = getattr(dllObj, "_handle", None)
+        if not dllHandle:
+            return False
+        
+        # Import kernel32 FreeLibrary
+        # Use windll.kernel32 which is always available on Windows
+        kernel32 = ctypes.windll.kernel32
+        
+        # Set up FreeLibrary prototype
+        # BOOL FreeLibrary(HMODULE hLibModule);
+        # HMODULE is HANDLE which is void* - use c_void_p for maximum compatibility
+        FreeLibrary = kernel32.FreeLibrary
+        FreeLibrary.argtypes = [ctypes.c_void_p]
+        FreeLibrary.restype = ctypes.c_int  # BOOL, but c_int is safer across versions
+        
+        result = FreeLibrary(dllHandle)
+        return bool(result)
+    except AttributeError:
+        # windll not available (non-Windows)
+        return False
+    except OSError:
+        # FreeLibrary call failed
+        log.debug("nvSpeechPlayer: FreeLibrary OSError", exc_info=True)
+        return False
+    except Exception:
+        # Unexpected error - log but don't crash
+        log.debug("nvSpeechPlayer: freeDll unexpected error", exc_info=True)
+        return False

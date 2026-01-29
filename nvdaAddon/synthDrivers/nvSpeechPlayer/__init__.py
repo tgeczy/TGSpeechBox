@@ -141,6 +141,9 @@ class SynthDriver(SynthDriver):
                 # --- Trajectory limit settings ---
                 BooleanDriverSetting("trajectoryLimitEnabled", "Enable formant trajectory rate limiting"),  # type: ignore
                 BooleanDriverSetting("trajectoryLimitApplyAcrossWordBoundary", "Apply trajectory limit across word boundaries"),  # type: ignore
+                # --- Single-word tuning settings ---
+                BooleanDriverSetting("singleWordTuningEnabled", "Enable single-word prosody tuning"),  # type: ignore
+                BooleanDriverSetting("singleWordClauseTypeOverrideCommaOnly", "Override clause type for comma only"),  # type: ignore
                 BooleanDriverSetting("legacyPitchMode", "Use classic pitch and intonation style"),  # type: ignore
                 BooleanDriverSetting("tonal", "Enable tonal language behavior"),  # type: ignore
                 BooleanDriverSetting("toneDigitsEnabled", "Interpret tone numbers in text"),  # type: ignore
@@ -462,11 +465,15 @@ class SynthDriver(SynthDriver):
             # Create new audio thread
             self._audio = AudioThread(self, self._player, self._sampleRate)
             
-            # Reapply voicing tone to the new player (if using a voice profile)
-            if getattr(self, "_usingVoiceProfile", False):
-                profileName = getattr(self, "_activeProfileName", "")
-                if profileName:
-                    self._applyVoicingTone(profileName)
+            # Reapply voicing tone to the new player
+            # This must be done for ALL voices (profiles and Python presets)
+            # to restore the user's tilt slider setting
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
             
         except Exception:
             log.error("nvSpeechPlayer: failed to reinitialize audio", exc_info=True)
@@ -937,6 +944,9 @@ class SynthDriver(SynthDriver):
         # --- Trajectory limit settings ---
         ("trajectoryLimitEnabled", "trajectoryLimit.enabled", "bool", False, None),
         ("trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit.applyAcrossWordBoundary", "bool", False, None),
+        # --- Single-word tuning settings ---
+        ("singleWordTuningEnabled", "singleWordTuningEnabled", "bool", True, None),
+        ("singleWordClauseTypeOverrideCommaOnly", "singleWordClauseTypeOverrideCommaOnly", "bool", True, None),
         ("legacyPitchMode", "legacyPitchMode", "bool", False, None),
         ("tonal", "tonal", "bool", False, None),
         ("toneDigitsEnabled", "toneDigitsEnabled", "bool", False, None),
@@ -1347,43 +1357,62 @@ class SynthDriver(SynthDriver):
 
     def terminate(self):
         try:
+            # Cancel any ongoing speech first
             self.cancel()
             
+            # Signal the background thread to stop
             if hasattr(self, "_bgStop"):
                 self._bgStop.set()
             if hasattr(self, "_bgQueue"):
-                self._bgQueue.put(None)
-            
-            # Join the background thread with compatibility for different Python versions
-            if hasattr(self, "_bgThread") and self._bgThread is not None:
+                # Put None to wake up the queue.get() if it's blocking
                 try:
-                    self._bgThread.join(timeout=2.0)
-                except (TypeError, AttributeError, Exception):
-                    # Fallback for Python versions with different threading internals
-                    # Just wait a fixed time and let it die naturally
-                    import time
-                    time.sleep(0.5)
-                self._bgThread = None
+                    self._bgQueue.put_nowait(None)
+                except Exception:
+                    pass
             
-            # Terminate audio thread first (it uses the player)
+            # Terminate audio thread FIRST (it uses the player)
+            # Do this before waiting on bgThread since audio thread is higher priority
             if hasattr(self, "_audio") and self._audio:
-                self._audio.terminate()
+                try:
+                    self._audio.terminate()
+                except Exception:
+                    log.debug("nvSpeechPlayer: audio terminate failed", exc_info=True)
                 self._audio = None
             
-            # Terminate frontend (unloads nvspFrontend.dll)
-            try:
-                if getattr(self, "_frontend", None):
-                    self._frontend.terminate()
-                    self._frontend = None
-            except Exception:
-                log.debug("nvSpeechPlayer: frontend terminate failed", exc_info=True)
+            # Now join the background thread with a SHORT timeout
+            # It should exit quickly since _bgStop is set
+            if hasattr(self, "_bgThread") and self._bgThread is not None:
+                try:
+                    self._bgThread.join(timeout=0.3)
+                except (TypeError, AttributeError):
+                    # Very old Python without timeout parameter
+                    pass
+                except Exception:
+                    log.debug("nvSpeechPlayer: bgThread join failed", exc_info=True)
+                self._bgThread = None
             
-            # Terminate player (unloads speechPlayer.dll)
+            # Terminate frontend (unloads nvspFrontend.dll)
+            # Do this BEFORE terminating player since frontend may reference player resources
+            if getattr(self, "_frontend", None):
+                try:
+                    self._frontend.terminate()
+                except Exception:
+                    log.debug("nvSpeechPlayer: frontend terminate failed", exc_info=True)
+                self._frontend = None
+            
+            # Terminate player last (unloads speechPlayer.dll)
             if hasattr(self, "_player") and self._player:
-                self._player.terminate()
+                try:
+                    self._player.terminate()
+                except Exception:
+                    log.debug("nvSpeechPlayer: player terminate failed", exc_info=True)
                 self._player = None
             
-            _espeak.terminate()
+            # Finally terminate espeak
+            try:
+                _espeak.terminate()
+            except Exception:
+                log.debug("nvSpeechPlayer: espeak terminate failed", exc_info=True)
         except Exception:
             log.debug("nvSpeechPlayer: terminate failed", exc_info=True)
 

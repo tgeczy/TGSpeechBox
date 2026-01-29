@@ -385,6 +385,34 @@ def _getPanelClass():
                 key="phraseFinalLengtheningQuestionScale",
             )
 
+            # --- Single-word tuning settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Single-word tuning:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Enabled (singleWordTuningEnabled):"),
+                key="singleWordTuningEnabled",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Final hold ms (singleWordFinalHoldMs):"),
+                key="singleWordFinalHoldMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Final fade ms (singleWordFinalFadeMs):"),
+                key="singleWordFinalFadeMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Clause type override (singleWordClauseTypeOverride):"),
+                key="singleWordClauseTypeOverride",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Override comma only (singleWordClauseTypeOverrideCommaOnly):"),
+                key="singleWordClauseTypeOverrideCommaOnly",
+            )
+
             # --- Microprosody settings ---
             sHelper.addItem(wx.StaticText(self, label=_("Microprosody:")))
             self._addQuickTextField(
@@ -682,6 +710,12 @@ def _getPanelClass():
                 "trajectoryLimit.maxHzPerMs.cf3",
                 "trajectoryLimit.windowMs",
                 "trajectoryLimit.applyAcrossWordBoundary",
+                # --- Single-word tuning settings ---
+                "singleWordTuningEnabled",
+                "singleWordFinalHoldMs",
+                "singleWordFinalFadeMs",
+                "singleWordClauseTypeOverride",
+                "singleWordClauseTypeOverrideCommaOnly",
             ]
             for k in _extraKeys:
                 if k not in self._knownKeys:

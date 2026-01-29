@@ -32,14 +32,23 @@ class BgThread(threading.Thread):
     def run(self):
         while not self._stop.is_set():
             try:
-                item = self._q.get(timeout=0.2)
+                item = self._q.get(timeout=0.1)  # Reduced from 0.2 for faster shutdown
             except queue.Empty:
                 continue
             try:
                 if item is None:
+                    # Drain any remaining items to prevent blocking
+                    while True:
+                        try:
+                            self._q.get_nowait()
+                            self._q.task_done()
+                        except queue.Empty:
+                            break
                     return
                 func, args, kwargs = item
-                func(*args, **kwargs)
+                # Check stop flag before executing - skip work if shutting down
+                if not self._stop.is_set():
+                    func(*args, **kwargs)
             except Exception:
                 log.error("nvSpeechPlayer: error in background thread", exc_info=True)
             finally:
@@ -162,21 +171,40 @@ class AudioThread(threading.Thread):
         """Stop the audio thread and clean up resources."""
         self._keepAlive = False
         self.isSpeaking = False
+        
+        # Stop the WavePlayer FIRST to unblock any pending audio operations
+        # This must happen before we try to join the thread
+        wp = self._wavePlayer
+        if wp:
+            try:
+                wp.stop()
+            except Exception:
+                log.debug("nvSpeechPlayer: WavePlayer.stop failed during terminate", exc_info=True)
+        
+        # Now wake up the thread so it can exit
         self._wake.set()
         
-        # Join with compatibility for different Python versions
+        # Join with a short timeout - thread should exit quickly now
+        # that _keepAlive is False and WavePlayer is stopped
         try:
-            self.join(timeout=2.0)
-        except (TypeError, AttributeError, Exception):
-            # Fallback for Python versions with different threading internals
-            # Just wait a fixed time and let it die naturally
-            time.sleep(0.5)
-        
-        try:
-            if self._wavePlayer:
-                self._wavePlayer.stop()
+            self.join(timeout=0.5)
+        except (TypeError, AttributeError):
+            # Very old Python - just give it a moment
+            time.sleep(0.1)
         except Exception:
-            log.debug("nvSpeechPlayer: WavePlayer.stop failed during terminate", exc_info=True)
+            # Any other error during join - log but continue
+            log.debug("nvSpeechPlayer: audio thread join failed", exc_info=True)
+        
+        # Close the WavePlayer to release audio device resources
+        if wp:
+            try:
+                # Try to close/release the WavePlayer if the method exists
+                if hasattr(wp, 'close'):
+                    wp.close()
+            except Exception:
+                log.debug("nvSpeechPlayer: WavePlayer.close failed", exc_info=True)
+        
+        self._wavePlayer = None
 
     def kick(self):
         """Wake up the audio thread to start processing."""
@@ -227,8 +255,14 @@ class AudioThread(threading.Thread):
         synthRef = self._synthRef
         
         while self._keepAlive:
-            wake.wait()
+            # Use timeout so we can check _keepAlive periodically
+            # This allows fast termination even if nothing wakes us
+            wake.wait(timeout=0.2)
             wake.clear()
+            
+            # Check again after waking - we might be terminating
+            if not self._keepAlive:
+                break
 
             lastIndex = None
             isFirstChunk = True
