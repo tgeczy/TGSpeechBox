@@ -72,6 +72,27 @@ typedef struct {
      */
     double highShelfQ;
 
+    /**
+     * Spectral tilt applied to voiced signal, in dB per octave.
+     * 
+     * This provides a natural-sounding gradual roll-off that increases with
+     * frequency, mimicking the natural harmonic decay of real glottal sources.
+     * Unlike a lowpass filter (which has a sharp "knee"), tilt is smoother
+     * and more voice-like.
+     * 
+     * Typical values:
+     *   - Adult male:  -4 to -6 dB/oct (brighter, buzzier)
+     *   - Female:      -7 to -10 dB/oct (smoother)
+     *   - Child/soft:  -9 to -12 dB/oct (very smooth/muffled)
+     *   - 0 dB/oct:    No tilt (brightest, most synthetic)
+     * 
+     * Negative values = darker/smoother (normal for speech)
+     * Positive values = brighter (unusual, may sound harsh)
+     * 
+     * Default: 0.0 (no additional tilt, preserves original DSP behavior)
+     */
+    double voicedTiltDbPerOct;
+
 } speechPlayer_voicingTone_t;
 
 /**
@@ -84,7 +105,8 @@ typedef struct {
     0.35,   /* voicedPreEmphMix */ \
     4.0,    /* highShelfGainDb */ \
     2000.0, /* highShelfFcHz */ \
-    0.7     /* highShelfQ */ \
+    0.7,    /* highShelfQ */ \
+    0.0     /* voicedTiltDbPerOct (no tilt by default) */ \
 }
 
 /**
