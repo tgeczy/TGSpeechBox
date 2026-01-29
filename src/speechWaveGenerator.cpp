@@ -50,6 +50,33 @@ const double kBypassVoicedDuck = 0.20;
 const double kVoicedFricDuck = 0.18;
 const double kVoicedFricDuckPower = 1.0;
 
+// ------------------------------------------------------------
+// Adaptive frication lowpass (targets stop bursts, preserves sustained fricatives)
+// ------------------------------------------------------------
+// For bursts (fast rise in fricationAmplitude): use a lower cutoff (more lowpass)
+// to stop "everything turns into /t/".
+// For sustained fricatives (stable frication): use a higher cutoff so /s/ stays crisp.
+// This helps distinguish /k/ (more mid-weighted) from /t/ (sharper) by taking
+// the top edge off only at the burst onset.
+
+// Sample-rate-aware cutoff frequencies for frication
+const double kFricBurstFc_16k   = 5200.0;
+const double kFricSustainFc_16k = 7200.0;
+const double kFricBurstFc_22k   = 6500.0;
+const double kFricSustainFc_22k = 9500.0;
+const double kFricBurstFc_44k   = 9000.0;
+const double kFricSustainFc_44k = 14000.0;
+
+// Sample-rate-aware cutoff frequencies for aspiration burst LP
+// More aggressive than frication since aspiration through cascade is often
+// the real culprit for "sharp" stop releases
+const double kAspBurstFc_16k = 3200.0;
+const double kAspBurstFc_22k = 3800.0;
+const double kAspBurstFc_44k = 4500.0;
+
+// Burstiness detection sensitivity (higher = more sensitive to fast rises)
+const double kBurstinessScale = 18.0;
+
 class NoiseGenerator {
 private:
     double lastValue;
@@ -86,6 +113,33 @@ public:
     }
 };
 
+// ------------------------------------------------------------
+// One-pole lowpass filter for adaptive frication filtering
+// ------------------------------------------------------------
+class OnePoleLowpass {
+private:
+    int sampleRate;
+    double alpha;
+    double z;
+
+public:
+    OnePoleLowpass(int sr): sampleRate(sr), alpha(0.0), z(0.0) {}
+
+    void setCutoffHz(double fcHz) {
+        if (fcHz < 10.0) fcHz = 10.0;
+        double nyq = 0.5 * (double)sampleRate;
+        if (fcHz > nyq * 0.95) fcHz = nyq * 0.95;
+        alpha = exp(-PITWO * fcHz / (double)sampleRate);
+    }
+
+    double process(double x) {
+        z = (1.0 - alpha) * x + alpha * z;
+        return z;
+    }
+
+    void reset() { z = 0.0; }
+};
+
 class VoiceGenerator {
 private:
     int sampleRate;
@@ -96,6 +150,7 @@ private:
     double lastVoicedIn;
     double lastVoicedOut;
     double lastVoicedSrc;
+    double lastAspOut;  // for exposing aspiration to caller
 
     double voicingPeakPos;
     double voicedPreEmphA;
@@ -147,8 +202,17 @@ private:
             double sqrtDisc = sqrt(disc);
             double denom = 2.0 * A;
             if (fabs(denom) < 1e-18) return 0.0;
-            double a = (-B + sqrtDisc) / denom;
-            return clampDouble(a, 0.0, 0.9999);
+
+            double a1 = (-B + sqrtDisc) / denom;
+            double a2 = (-B - sqrtDisc) / denom;
+            double a = 0.0;
+            bool ok1 = (a1 >= 0.0 && a1 < 1.0);
+            bool ok2 = (a2 >= 0.0 && a2 < 1.0);
+              if (ok1 && ok2) a = (a1 < a2) ? a1 : a2;
+              else if (ok1) a = a1;
+              else if (ok2) a = a2;
+            else a = a1; // fallback
+return clampDouble(a, 0.0, 0.9999);
         }
         // NEGATIVE TILT (Brighten): Solve for boost at Nyquist
         else {
@@ -194,7 +258,7 @@ public:
     bool glottisOpen;
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
-        lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), glottisOpen(false),
+        lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0), glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
         tiltTargetTlDb(0.0), tiltTlDb(0.0),
         tiltPole(0.0), tiltPoleTarget(0.0), tiltState(0.0),
@@ -236,6 +300,7 @@ public:
         lastVoicedIn=0.0;
         lastVoicedOut=0.0;
         lastVoicedSrc=0.0;
+        lastAspOut=0.0;
         glottisOpen=false;
     }
 
@@ -345,8 +410,11 @@ public:
         lastVoicedOut = voiced;
 
         double aspOut = aspiration * frame->aspirationAmplitude;
+        lastAspOut = aspOut;
         return aspOut + voiced;
     }
+
+    double getLastAspOut() const { return lastAspOut; }
 };
 // ... Resonator, Cascade, Parallel, SpeechWaveGeneratorImpl ...
 // (These classes are unchanged from your last stable version)
@@ -485,6 +553,36 @@ private:
     // Current voicing tone parameters (for high-shelf recalculation)
     speechPlayer_voicingTone_t currentTone;
 
+    // ------------------------------------------------------------
+    // Adaptive frication filtering (burst vs sustained)
+    // ------------------------------------------------------------
+    // Uses two parallel lowpass paths: one for burst (lower cutoff),
+    // one for sustained frication (higher cutoff). We crossfade based
+    // on "burstiness" (rate of change of fricationAmplitude).
+    OnePoleLowpass fricBurstLp1, fricBurstLp2;
+    OnePoleLowpass fricSustainLp1, fricSustainLp2;
+    double lastTargetFricAmp;  // for transient (burst) detection - uses RAW target, not smoothed
+    double lastTargetAspAmp;   // for aspiration burst detection (stops often use asp, not fric)
+    double fricBurstFc;        // sample-rate-aware burst cutoff
+    double fricSustainFc;      // sample-rate-aware sustain cutoff
+    double burstEnv;           // 0..1, holds burstiness for a few ms
+    double burstEnvDecayMul;   // per-sample decay multiplier
+
+    // Aspiration lowpass: filters the aspiration noise that goes through the cascade
+    // This is often the real culprit for "sharp" stop releases, not the frication path
+    OnePoleLowpass aspLp1, aspLp2;
+    double aspBurstFc;         // sample-rate-aware aspiration burst cutoff
+
+    // Shelf ducking: reduce high-shelf boost during bursts to tame stop sharpness
+    // without affecting voiced brightness baseline
+    double shelfMix;           // 0..1, smoothed crossfade between unshelved and shelved
+    double shelfMixAlpha;      // smoothing coefficient
+
+    // Stop fade-out: when frames stop (interrupt), fade out over ~4ms to avoid click
+    double lastBrightOut;      // store last post-shelf sample for fade tail
+    int stopFadeRemaining;     // samples left in fade-out
+    int stopFadeTotal;         // total fade-out length
+
     void initHighShelf(double fc, double gainDb, double Q) {
         double A = pow(10.0, gainDb / 40.0);
         double w0 = PITWO * fc / sampleRate;
@@ -510,7 +608,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -522,11 +620,69 @@ public:
         fricAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (fricAttackMs * 0.001)));
         fricReleaseAlpha = 1.0 - exp(-1.0 / (sampleRate * (fricReleaseMs * 0.001)));
 
+        // Hold burstiness for ~6 ms so the burst LP actually affects stop releases
+        const double burstHoldMs = 6.0;
+        burstEnvDecayMul = exp(-1.0 / (sampleRate * (burstHoldMs * 0.001)));
+
+        // Smooth shelf mix changes to avoid clicks (fast-ish)
+        const double shelfMixMs = 4.0;
+        shelfMixAlpha = 1.0 - exp(-1.0 / (sampleRate * (shelfMixMs * 0.001)));
+
         // Initialize with default voicing tone
         currentTone = speechPlayer_getDefaultVoicingTone();
 
         // High shelf: use defaults from voicing tone
         initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
+
+        // ------------------------------------------------------------
+        // Adaptive frication lowpass: select cutoffs based on sample rate
+        // ------------------------------------------------------------
+        // Interpolate between known sample rates for smooth behavior
+        if (sampleRate <= 16000) {
+            fricBurstFc = kFricBurstFc_16k;
+            fricSustainFc = kFricSustainFc_16k;
+        } else if (sampleRate <= 22050) {
+            // Interpolate between 16k and 22k
+            double t = (double)(sampleRate - 16000) / (22050.0 - 16000.0);
+            fricBurstFc = kFricBurstFc_16k + t * (kFricBurstFc_22k - kFricBurstFc_16k);
+            fricSustainFc = kFricSustainFc_16k + t * (kFricSustainFc_22k - kFricSustainFc_16k);
+        } else if (sampleRate <= 44100) {
+            // Interpolate between 22k and 44k
+            double t = (double)(sampleRate - 22050) / (44100.0 - 22050.0);
+            fricBurstFc = kFricBurstFc_22k + t * (kFricBurstFc_44k - kFricBurstFc_22k);
+            fricSustainFc = kFricSustainFc_22k + t * (kFricSustainFc_44k - kFricSustainFc_22k);
+        } else {
+            // Above 44100: scale proportionally from 44k values
+            double scale = (double)sampleRate / 44100.0;
+            fricBurstFc = kFricBurstFc_44k * scale;
+            fricSustainFc = kFricSustainFc_44k * scale;
+        }
+
+        // Set cutoff frequencies for the frication lowpass filters
+        fricBurstLp1.setCutoffHz(fricBurstFc);
+        fricBurstLp2.setCutoffHz(fricBurstFc);
+        fricSustainLp1.setCutoffHz(fricSustainFc);
+        fricSustainLp2.setCutoffHz(fricSustainFc);
+
+        // ------------------------------------------------------------
+        // Aspiration lowpass: this is often the real culprit for sharp stops
+        // Use more aggressive cutoffs than frication since this is the "too sharp" path
+        // Interpolate between known sample rates for smooth behavior
+        // ------------------------------------------------------------
+        if (sampleRate <= 16000) {
+            aspBurstFc = kAspBurstFc_16k;
+        } else if (sampleRate <= 22050) {
+            double t = (double)(sampleRate - 16000) / (22050.0 - 16000.0);
+            aspBurstFc = kAspBurstFc_16k + t * (kAspBurstFc_22k - kAspBurstFc_16k);
+        } else if (sampleRate <= 44100) {
+            double t = (double)(sampleRate - 22050) / (44100.0 - 22050.0);
+            aspBurstFc = kAspBurstFc_22k + t * (kAspBurstFc_44k - kAspBurstFc_22k);
+        } else {
+            double scale = (double)sampleRate / 44100.0;
+            aspBurstFc = kAspBurstFc_44k * scale;
+        }
+        aspLp1.setCutoffHz(aspBurstFc);
+        aspLp2.setCutoffHz(aspBurstFc);
     }
 
     unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
@@ -543,6 +699,17 @@ public:
                     lastOutput=0.0;
                     smoothPreGain=0.0;
                     smoothFricAmp=0.0;
+                    // Reset adaptive frication/aspiration burst state on silence boundaries
+                    lastTargetFricAmp=0.0;
+                    lastTargetAspAmp=0.0;
+                    burstEnv=0.0;
+                    fricBurstLp1.reset(); fricBurstLp2.reset();
+                    fricSustainLp1.reset(); fricSustainLp2.reset();
+                    aspLp1.reset(); aspLp2.reset();
+                    shelfMix = 1.0;
+                    // Reset stop fade-out state
+                    stopFadeTotal = 0;
+                    stopFadeRemaining = 0;
                     // NOTE: Do NOT reset hsIn1/hsIn2/hsOut1/hsOut2 here!
                     wasSilence=false;
                 }
@@ -553,7 +720,13 @@ public:
 
                 double voice=voiceGenerator.getNext(frame);
 
-                double cascadeOut=cascade.getNext(frame,voiceGenerator.glottisOpen,voice*smoothPreGain);
+                // ------------------------------------------------------------
+                // Split voice into voiced + aspiration for separate filtering
+                // The aspiration path through cascade is often the real culprit
+                // for "sharp" stop releases (not the frication path)
+                // ------------------------------------------------------------
+                double asp = voiceGenerator.getLastAspOut();
+                double voicedOnly = voice - asp;
 
                 // Smooth frication amplitude
                 double targetFricAmp = frame->fricationAmplitude;
@@ -587,7 +760,79 @@ public:
                     if (voicedFricScale < 0.0) voicedFricScale = 0.0;
                 }
 
-                double fric=fricGenerator.getNext()*kFricNoiseScale*fricAmp*bypassGain*bypassVoicedDuck*voicedFricScale;
+                // ------------------------------------------------------------
+                // Adaptive frication filtering (burst vs sustained)
+                // ------------------------------------------------------------
+                // Detect burst onset from RAW target (not smoothed!) so we catch
+                // the actual transient. Using smoothFricAmp would make dFric tiny
+                // per-sample and burstiness would stay near 0.
+                
+                // Frication burst
+                double dFric = targetFricAmp - lastTargetFricAmp;
+                lastTargetFricAmp = targetFricAmp;
+                double instFric = 0.0;
+                if (dFric > 0.0) {
+                    // Scale by sample rate so behavior is similar across SRs
+                    double srScale = (double)sampleRate / 22050.0;
+                    instFric = dFric * kBurstinessScale * srScale;
+                    if (instFric > 1.0) instFric = 1.0;
+                }
+
+                // Aspiration burst (frame param)
+                // Stop releases often use aspirationAmplitude, not fricationAmplitude,
+                // so we need to detect bursts from aspiration changes too.
+                double dAsp = frame->aspirationAmplitude - lastTargetAspAmp;
+                lastTargetAspAmp = frame->aspirationAmplitude;
+                double instAsp = 0.0;
+                if (dAsp > 0.0) {
+                    // Separate scale; aspirationAmplitude often changes more subtly than fricationAmplitude
+                    double srScale = (double)sampleRate / 22050.0;
+                    instAsp = dAsp * 40.0 * srScale;   // higher scale since asp changes are subtler
+                    if (instAsp > 1.0) instAsp = 1.0;
+                }
+
+                // Take the max of frication and aspiration burst
+                double inst = instFric;
+                if (instAsp > inst) inst = instAsp;
+
+                // Prefer burst filtering when voicing is low (classic stop burst)
+                // This helps /k/, /t/, /p/ bursts get more lowpass while leaving
+                // voiced fricatives like /z/ or /v/ less affected
+                inst *= (1.0 - va);
+
+                // Hold/decay envelope: this is critical!
+                // Without this, burstiness only fires for 1 sample (when frame changes),
+                // which is inaudible. The envelope sustains it for ~6ms (where stop
+                // releases actually live).
+                burstEnv *= burstEnvDecayMul;
+                if (inst > burstEnv) burstEnv = inst;
+                double burstiness = burstEnv;
+
+                // ------------------------------------------------------------
+                // Filter aspiration noise using the same burst envelope
+                // This is the key fix: aspiration through the cascade is often
+                // the real source of "sharp" stop releases
+                // ------------------------------------------------------------
+                double aspFilt = aspLp2.process(aspLp1.process(asp));
+                // Crossfade: during bursts, use filtered aspiration; otherwise use original
+                asp = asp + burstiness * (aspFilt - asp);
+                double voiceForCascade = voicedOnly + asp;
+
+                double cascadeOut = cascade.getNext(frame, voiceGenerator.glottisOpen, voiceForCascade * smoothPreGain);
+
+                // Generate raw frication noise
+                double fricNoise = fricGenerator.getNext() * kFricNoiseScale * fricAmp * bypassGain * bypassVoicedDuck * voicedFricScale;
+
+                // Apply adaptive lowpass filtering:
+                // - Burst path (2-pole cascade at lower cutoff): removes harsh highs from stops
+                // - Sustain path (2-pole cascade at higher cutoff): preserves sibilant crispness
+                double fricBurst = fricBurstLp2.process(fricBurstLp1.process(fricNoise));
+                double fricSustain = fricSustainLp2.process(fricSustainLp1.process(fricNoise));
+
+                // Crossfade based on burstiness: 
+                // burstiness=1 -> use burst (darker), burstiness=0 -> use sustain (brighter)
+                double fric = fricSustain + burstiness * (fricBurst - fricSustain);
+
                 double parallelOut=parallel.getNext(frame,voiceGenerator.glottisOpen,fric*smoothPreGain);
                 double out=(cascadeOut+parallelOut)*frame->outputGain;
 
@@ -596,8 +841,31 @@ public:
                 lastInput=out;
                 lastOutput=filteredOut;
 
-                // Apply high-shelf EQ
-                double bright = applyHighShelf(filteredOut);
+                // Apply high-shelf EQ with burst-aware ducking
+                // Full shelf output (what we already had)
+                double shelved = applyHighShelf(filteredOut);
+
+                // Duck the shelf only during bursts.
+                // burstEnv is already 0..1, and holds ~6ms.
+                // kShelfDuckMax: 0.0 = no change, 0.7 means at burstEnv=1 you keep 30% of the shelf.
+                const double kShelfDuckMax = 0.70;
+
+                // Also respect voicing amount so vowels keep full shelf.
+                // This keeps shelf strong when va is high even if burstEnv flickers.
+                double vaGate = va;              // va already clamped 0..1 above
+                double burstGate = burstEnv;     // 0..1
+
+                // Target mix: mostly 1.0, dips during bursts when voicing is low.
+                double targetShelfMix = 1.0 - kShelfDuckMax * burstGate * (1.0 - vaGate);
+
+                // Smooth it to avoid clicks
+                shelfMix += (targetShelfMix - shelfMix) * shelfMixAlpha;
+
+                // Crossfade between unshelved and shelved
+                double bright = filteredOut + shelfMix * (shelved - filteredOut);
+
+                // Store for fade-out tail on interrupt
+                lastBrightOut = bright;
 
                 double scaled = bright * 6000.0;
                 const double limit = 32767.0;
@@ -605,7 +873,32 @@ public:
                 if(scaled < -limit) scaled = -limit;
                 sampleBuf[i].value = (int)scaled;
             } else {
-                wasSilence=true;
+                // No frame available - handle stop/interrupt with fade-out to avoid click
+                
+                // If we were mid-speech, fade out for a few ms to avoid click on interrupt
+                if (!wasSilence) {
+                    if (stopFadeTotal == 0) {
+                        stopFadeTotal = (int)(sampleRate * 0.004); // 4 ms
+                        if (stopFadeTotal < 16) stopFadeTotal = 16;
+                        stopFadeRemaining = stopFadeTotal;
+                    }
+                    if (stopFadeRemaining > 0) {
+                        double t = (double)stopFadeRemaining / (double)stopFadeTotal; // 1..0
+                        double tail = lastBrightOut * t;
+                        double scaled = tail * 6000.0;
+                        const double limit = 32767.0;
+                        if (scaled > limit) scaled = limit;
+                        if (scaled < -limit) scaled = -limit;
+                        sampleBuf[i].value = (int)scaled;
+                        stopFadeRemaining--;
+                        // Keep going; we might fill the rest of the buffer with the tail
+                        continue;
+                    }
+                }
+                // Fade finished (or we were already silent)
+                wasSilence = true;
+                stopFadeTotal = 0;
+                stopFadeRemaining = 0;
                 return i;
             }
         }
