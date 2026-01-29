@@ -27,6 +27,11 @@ settings:
   # (e.g. "tools", "smooth").
   lengthenedVowelFinalCodaScale: 0.90
 
+  # Allow length marks to apply to consonants too (for word-final R lengthening)
+  applyLengthenedScaleToVowelsOnly: false
+  # Make length marks more effective (default is only 1.05)
+  lengthenedScale: 1.05
+
   # Use the US/CA GOOSE vowel variant.
   englishLongUShortenEnabled: true
   englishLongUWordFinalScale: 0.95
@@ -51,7 +56,12 @@ settings:
   microprosodyVoicedF0LowerEnabled: false
   nasalizationAnticipatoryEnabled: false
   liquidDynamics:
-    enabled: false
+    enabled: true
+    # American-style rhotic quality - creates movement in the R
+    rhoticF3Dip:
+      enabled: true
+      f3Minimum: 1300
+      dipDurationPct: 0.55
   lengthContrast:
     enabled: false
   positionalAllophones:
@@ -265,6 +275,12 @@ normalization:
 
     - from: "ɹ"
       to:   "ɻ"
+
+    # Word-final R: lengthen it so it doesn't sound clipped or "waiting for next word"
+    - from: "ɻ"
+      to:   "ɻː"
+      when:
+        atWordEnd: true
 
     # Undo the UK THOUGHT tweak from en.yaml (en.yaml maps ɔː -> ᴏː).
     - from: "ᴏ"

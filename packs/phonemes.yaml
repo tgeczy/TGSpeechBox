@@ -4316,6 +4316,8 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ɻ":
+    # US retroflex R - tuned for clearer R vs W distinction
+    # Key change: F3 lowered from 1750 to 1400 Hz (low F3 is THE signature of American R)
     _isLiquid: true
     _isNasal: false
     _isStop: false
@@ -4323,17 +4325,17 @@ phonemes:
     _isVowel: false
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 77
-    cb2: 80
-    cb3: 135
+    cb1: 85
+    cb2: 90
+    cb3: 160
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 250
-    cf2: 1200
-    cf3: 1750
+    cf1: 310
+    cf2: 1050
+    cf3: 1400
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -4347,15 +4349,15 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 70
+    pb1: 80
     pb2: 100
-    pb3: 150
+    pb3: 170
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 250
-    pf2: 1100
-    pf3: 2100
+    pf1: 310
+    pf2: 1000
+    pf3: 1450
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -6043,6 +6045,7 @@ phonemes:
 # - Major identity shift comes from per-vowel CF/PF (F1..F3) overrides + pitch contour scaling.
 voiceProfiles:
   Beth:
+    voicingTone:
     classScales:
       vowel:
         voicePitch_mul: 1.25
