@@ -103,14 +103,24 @@ class _YamlParser:
     def _parse_map(self, min_indent: int) -> Dict[str, Any]:
         """Parse a map at the given indentation level."""
         result = {}
+        expected_indent = None  # Track the actual indent level of this map's keys
         
         while True:
             indent = self._peek_indent()
             if indent < 0 or indent < min_indent:
                 break
             
-            if indent > min_indent and min_indent > 0:
-                # This line is more indented but we're not expecting it
+            # Set expected indent on first key, then enforce consistency
+            if expected_indent is None:
+                expected_indent = indent
+            elif indent != expected_indent:
+                # This line has different indentation than our map's keys
+                # If it's less indented, we're done with this map
+                # If it's more indented, it belongs to a nested structure (shouldn't happen here)
+                if indent < expected_indent:
+                    break
+                # More indented lines are handled by nested parsing, skip for now
+                # This shouldn't normally be reached, but be lenient
                 break
             
             line_indent, content = self._consume_line()
@@ -184,12 +194,20 @@ class _YamlParser:
     def _parse_list(self, min_indent: int) -> List[Any]:
         """Parse a list at the given indentation level."""
         result = []
+        expected_indent = None
         
         while True:
             indent = self._peek_indent()
             if indent < 0 or indent < min_indent:
                 break
-            if indent > min_indent:
+            
+            # Set expected indent on first item
+            if expected_indent is None:
+                expected_indent = indent
+            elif indent != expected_indent:
+                if indent < expected_indent:
+                    break
+                # More indented - belongs to nested structure, shouldn't happen here
                 break
             
             line = self._current_line()
@@ -234,19 +252,17 @@ class _YamlParser:
                             else:
                                 item_map[key] = None
                         
-                        # Check for more keys at same level
+                        # Check for more keys at same level (be lenient about exact indent)
                         while True:
                             next_indent = self._peek_indent()
                             if next_indent < 0 or next_indent <= line_indent:
-                                break
-                            # Must be at the nested level for this list item
-                            if next_indent != line_indent + 2:
                                 break
                             
                             next_line = self._current_line()
                             if not next_line or next_line.lstrip().startswith("- "):
                                 break
                             
+                            # Accept any indent greater than the list item's dash
                             _, next_content = self._consume_line()
                             k, v = self._parse_key_value(next_content, next_indent)
                             if k is not None:
@@ -463,6 +479,17 @@ replacements:
 
 inlineList: [one, two, three]
 inlineMap: {a: 1, b: 2}
+
+# Test mixed flat/nested at root level
+flatKey1: value1
+nestedKey:
+  child1: a
+  child2: b
+flatKey2: value2
+anotherNested:
+  deep:
+    deeper: found
+flatKey3: value3
 '''
     
     data = load_yaml(test_yaml)
@@ -477,3 +504,11 @@ inlineMap: {a: 1, b: 2}
     print(f"settings/trajectoryLimit/enabled: {get_nested(data, 'settings', 'trajectoryLimit', 'enabled')}")
     print(f"settings/trajectoryLimit/applyTo: {get_nested(data, 'settings', 'trajectoryLimit', 'applyTo')}")
     print(f"replacements[0]/from: {data.get('replacements', [{}])[0].get('from')}")
+    
+    # Test the fix for mixed flat/nested keys
+    print("\n--- Mixed flat/nested key tests ---")
+    print(f"flatKey1: {data.get('flatKey1')}")
+    print(f"flatKey2: {data.get('flatKey2')}")
+    print(f"flatKey3: {data.get('flatKey3')}")
+    print(f"nestedKey/child1: {get_nested(data, 'nestedKey', 'child1')}")
+    print(f"anotherNested/deep/deeper: {get_nested(data, 'anotherNested', 'deep', 'deeper')}")
