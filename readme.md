@@ -85,6 +85,79 @@ The DSP pipeline lives in `speechWaveGenerator.cpp` and is executed once per out
 
 This structure keeps the time-domain synthesis logic entirely in C++: callers provide timed frame tracks, while the engine interpolates and renders them into audio.
 
+## New Speech Player exports (voicing tone control)
+
+The `speechPlayer.dll` now exports additional functions for real-time control of the voice source characteristics. These allow callers to adjust the "voicing tone" — the spectral shape and character of the glottal pulse — without modifying individual frames.
+
+### New API functions
+
+- `speechPlayer_setVoicingTone(handle, VoicingTone*)` — Apply a new voicing tone configuration.
+- `speechPlayer_getVoicingTone(handle, VoicingTone*)` — Retrieve the current voicing tone settings.
+- `speechPlayer_hasVoicingToneSupport(handle)` — Check if the DLL supports voicing tone control (for backward compatibility).
+
+### VoicingTone struct parameters
+
+The `VoicingTone` struct contains 7 parameters that shape the voiced sound source:
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `voicingPeakPos` | double | 0.91 | 0.85–0.95 | Glottal pulse peak position. Lower values create a more pressed/tense voice quality; higher values sound more breathy/relaxed. |
+| `voicedPreEmphA` | double | 0.92 | 0.0–0.97 | Pre-emphasis filter coefficient. Higher values boost high frequencies before formant filtering. |
+| `voicedPreEmphMix` | double | 0.35 | 0.0–1.0 | Mix between original and pre-emphasized signal. 0.0 = no pre-emphasis, 1.0 = full pre-emphasis. |
+| `highShelfGainDb` | double | 4.0 | -12 to +12 | High-shelf EQ gain in dB. Positive values brighten the output; negative values darken it. |
+| `highShelfFcHz` | double | 2000.0 | 500–8000 | High-shelf corner frequency in Hz. Controls where the shelf boost/cut begins. |
+| `highShelfQ` | double | 0.7 | 0.3–2.0 | High-shelf Q factor. Higher values create a more resonant shelf transition. |
+| `voicedTiltDbPerOct` | double | 0.0 | -24 to +24 | Spectral tilt in dB/octave. Negative values create a brighter sound (less natural roll-off); positive values create a darker, more muffled sound. |
+
+### Usage example (Python/ctypes)
+
+```python
+from ctypes import Structure, c_double, c_void_p, POINTER, byref
+
+class VoicingTone(Structure):
+    _fields_ = [
+        ("voicingPeakPos", c_double),
+        ("voicedPreEmphA", c_double),
+        ("voicedPreEmphMix", c_double),
+        ("highShelfGainDb", c_double),
+        ("highShelfFcHz", c_double),
+        ("highShelfQ", c_double),
+        ("voicedTiltDbPerOct", c_double),
+    ]
+
+# Set up function prototypes
+dll.speechPlayer_setVoicingTone.argtypes = [c_void_p, POINTER(VoicingTone)]
+dll.speechPlayer_setVoicingTone.restype = None
+
+# Create and configure tone
+tone = VoicingTone()
+tone.voicingPeakPos = 0.91
+tone.voicedPreEmphA = 0.92
+tone.voicedPreEmphMix = 0.35
+tone.highShelfGainDb = 2.0      # Slightly brighter
+tone.highShelfFcHz = 2800.0
+tone.highShelfQ = 0.7
+tone.voicedTiltDbPerOct = -6.0  # Brighter tilt (Eloquence-like)
+
+# Apply to running synthesizer
+dll.speechPlayer_setVoicingTone(handle, byref(tone))
+```
+
+### Voice profile integration
+
+The NVDA driver uses these parameters in voice profiles defined in `phonemes.yaml`. Under the `voicingTone` key, profiles can specify any of these parameters to create distinct voice characters:
+
+```yaml
+voiceProfiles:
+  Beth:
+    voicingTone:
+      voicedTiltDbPerOct: -6.0
+      highShelfGainDb: 2.0
+      highShelfFcHz: 2800.0
+```
+
+The driver also exposes a "Voice Tilt" slider (0–100) that applies an offset to the base `voicedTiltDbPerOct` value, allowing users to fine-tune brightness per voice.
+
 ## The new frontend model (nvspFrontend.dll + YAML packs)
 The new frontend replaces the Python IPA runtime pipeline. It is designed so that language changes can happen as data (YAML) rather than code.
 
