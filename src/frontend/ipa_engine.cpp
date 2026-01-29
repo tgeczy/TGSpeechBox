@@ -1934,6 +1934,24 @@ bool convertIpaToTokens(
     return true;
   }
 
+  // Word count for optional single-word tuning.
+  int wordCount = 0;
+  for (const Token& t : outTokens) {
+    if (!t.def || t.silence) continue;
+    if (t.wordStart) ++wordCount;
+  }
+  const bool isSingleWordUtterance = (wordCount == 1);
+
+  // Optional: override intonation clause type for single-word utterances.
+  // This is useful when callers pass clauseType=',' for "continuation"; for
+  // isolated words/letters this often sounds like an odd rising comma.
+  char effectiveClauseType = clauseType;
+  if (isSingleWordUtterance && pack.lang.singleWordClauseTypeOverride != 0) {
+    if (!pack.lang.singleWordClauseTypeOverrideCommaOnly || clauseType == ',') {
+      effectiveClauseType = pack.lang.singleWordClauseTypeOverride;
+    }
+  }
+
   // Optional: auto-tie diphthongs when IPA does not include an explicit tie-bar.
   autoTieDiphthongs(pack, outTokens);
 
@@ -1953,7 +1971,7 @@ bool convertIpaToTokens(
   }
 
   // Frontend passes: modular token-level rules (coarticulation, prosody, etc.).
-  PassContext passCtx(pack, speed, basePitch, inflection, clauseType);
+  PassContext passCtx(pack, speed, basePitch, inflection, effectiveClauseType);
   if (!runPasses(passCtx, PassStage::PreTiming, outTokens, outError)) {
     return false;
   }
@@ -1966,7 +1984,7 @@ bool convertIpaToTokens(
   }
 
   // Pitch.
-  calculatePitches(outTokens, pack, speed, basePitch, inflection, clauseType);
+  calculatePitches(outTokens, pack, speed, basePitch, inflection, effectiveClauseType);
 
   // Tone overlay (optional).
   applyToneContours(outTokens, pack, basePitch, inflection);
@@ -1983,6 +2001,44 @@ bool convertIpaToTokens(
 
   if (!runPasses(passCtx, PassStage::PostPitch, outTokens, outError)) {
     return false;
+  }
+
+  // Optional single-word tail tuning.
+  //
+  // The frame engine cuts to silence abruptly when the queue becomes empty.
+  // For isolated words/letters this can make the final voiced phoneme sound
+  // clipped. We fix this by adding a tiny extra hold to the final voiced
+  // vowel/liquid/nasal and (optionally) appending a NULL frame to fade out.
+  if (isSingleWordUtterance && pack.lang.singleWordTuningEnabled) {
+    int lastReal = -1;
+    for (int i = static_cast<int>(outTokens.size()) - 1; i >= 0; --i) {
+      if (outTokens[i].def && !outTokens[i].silence) { lastReal = i; break; }
+    }
+
+    if (lastReal >= 0) {
+      const Token& lt = outTokens[static_cast<size_t>(lastReal)];
+      const bool voiced = tokenIsVoiced(lt);
+      const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) || tokenIsLiquid(lt) || tokenIsTap(lt) || tokenIsTrill(lt) || tokenIsNasal(lt);
+
+      if (voiced && tailSensitive) {
+        const double sp = (speed > 0.0) ? speed : 1.0;
+
+        if (pack.lang.singleWordFinalHoldMs > 0.0) {
+          outTokens[static_cast<size_t>(lastReal)].durationMs += (pack.lang.singleWordFinalHoldMs / sp);
+        }
+
+        if (pack.lang.singleWordFinalFadeMs > 0.0) {
+          Token s;
+          s.def = nullptr;
+          s.silence = true;
+          s.durationMs = 0.0;
+          s.fadeMs = pack.lang.singleWordFinalFadeMs / sp;
+          // Avoid a zero-sample fade at extreme speeds.
+          if (s.fadeMs < 0.1) s.fadeMs = 0.1;
+          outTokens.push_back(s);
+        }
+      }
+    }
   }
 
   return true;

@@ -227,6 +227,34 @@ struct LanguagePack {
   // Disabled by default to preserve existing behavior.
   bool segmentBoundarySkipVowelToLiquid = false;
 
+  // Single-word utterance tuning (key echo / word-by-word reading).
+  //
+  // The NVDA driver often speaks "echo" items (individual letters/words) as
+  // isolated one-word utterances. The Klatt engine needs an explicit NULL
+  // frame to fade to silence; without it, the last voiced phoneme can sound
+  // clipped (especially on /r/ and /uː/ in "R" / "are" / "you").
+
+  // Enable the single-word tuning block below.
+  bool singleWordTuningEnabled = false;
+
+  // Extra hold added to the final voiced vowel/liquid/nasal (ms at speed=1.0).
+  // This is in addition to any prosody / phrase lengthening.
+  double singleWordFinalHoldMs = 0.0;
+
+  // If >0, append a final silence frame with this fade time (ms at speed=1.0)
+  // to avoid abrupt cutoffs at the end of single-word utterances.
+  double singleWordFinalFadeMs = 0.0;
+
+  // Optional: override the clause type used for intonation when the utterance
+  // is a single word. This is useful when callers pass clauseType=',' to keep
+  // phrases sounding "ongoing"; for isolated words this can sound like an
+  // odd rising comma. Use 0 to disable.
+  char singleWordClauseTypeOverride = 0;
+
+  // If true (default), only apply singleWordClauseTypeOverride when the caller
+  // provided clauseType=','.
+  bool singleWordClauseTypeOverrideCommaOnly = true;
+
   // Automatic diphthong handling (optional).
   //
   // eSpeak usually encodes diphthongs as a sequence of two vowel qualities,

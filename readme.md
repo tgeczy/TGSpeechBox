@@ -935,6 +935,34 @@ settings:
       durationMs: 18
 ```
 
+### Single-word tuning
+
+When speaking isolated words or letters (e.g. spelling mode, single-word responses), the default prosody can sound abrupt or produce an odd rising "comma contour." Single-word tuning addresses this with special handling:
+
+```yaml
+settings:
+  singleWordTuningEnabled: true
+
+  # Extra hold to add to the final voiced vowel/liquid/nasal (ms at speed=1.0).
+  singleWordFinalHoldMs: 45
+
+  # Fade to silence to append after single-word utterances (ms at speed=1.0).
+  singleWordFinalFadeMs: 18
+
+  # If the caller uses clauseType ',' for continuation, use a statement contour
+  # for isolated words/letters to avoid the odd "comma rise".
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `singleWordTuningEnabled` | `true` | Enables single-word specific prosody adjustments |
+| `singleWordFinalHoldMs` | `45` | Extra hold added to the final voiced vowel/liquid/nasal (ms at speed=1.0) |
+| `singleWordFinalFadeMs` | `18` | Fade-to-silence appended after single-word utterances (ms at speed=1.0) |
+| `singleWordClauseTypeOverride` | `"."` | Override clause type for isolated words/letters |
+| `singleWordClauseTypeOverrideCommaOnly` | `true` | Only apply the override when caller uses clauseType `','` (avoids the odd "comma rise" on continuations) |
+
 ## Legacy Python files (kept for reference)
 `ipa.py` and `data.py` still live alongside the repo for now, but they are no longer the runtime path for NVDA.
 
