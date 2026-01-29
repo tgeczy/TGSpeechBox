@@ -1,5 +1,5 @@
 /*
-This file is a part of the NV Speech Player project. 
+This file is a part of the NV Speech Player project.
 URL: https://bitbucket.org/nvaccess/speechplayer
 Copyright 2014 NV Access Limited.
 This program is free software: you can redistribute it and/or modify
@@ -16,6 +16,21 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 #define NVDAHELPER_LOCK_H
 
 #include <cassert>
+
+// This project originally used Win32 CRITICAL_SECTION + Interlocked*
+// for a small re-entrant lock + refcount helper.
+//
+// For Linux/Android builds we provide an equivalent implementation based on
+// std::recursive_mutex and std::atomic. This keeps the public DSP/Frontend ABI
+// unchanged (these classes are internal implementation details).
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+
+// Prevent windows.h from defining min/max macros (they break std::min/std::max).
+#ifndef NOMINMAX
+  #define NOMINMAX
+#endif
+
 #include <windows.h>
 
 /**
@@ -40,8 +55,8 @@ class LockableObject {
  * Acquires access (possibly waighting until its free).
  */
 	void acquire() {
-	EnterCriticalSection(&_cs);
-}
+		EnterCriticalSection(&_cs);
+	}
 
 /**
  * Releases exclusive access of the object.
@@ -62,7 +77,7 @@ class LockableAutoFreeObject: private LockableObject {
 
 	protected:
 
-long incRef() {
+	long incRef() {
 		return InterlockedIncrement(&_refCount);
 	}
 
@@ -101,5 +116,78 @@ long incRef() {
 	}
 
 };
+
+#else  // Non-Windows (Linux / Android / etc.)
+
+#include <atomic>
+#include <mutex>
+
+/**
+ * A small re-entrant lock.
+ *
+ * CRITICAL_SECTION is re-entrant for the same thread, so on POSIX we use
+ * std::recursive_mutex to preserve behaviour.
+ */
+class LockableObject {
+	private:
+	std::recursive_mutex _mtx;
+
+	public:
+	LockableObject() = default;
+	virtual ~LockableObject() = default;
+
+	void acquire() {
+		_mtx.lock();
+	}
+
+	void release() {
+		_mtx.unlock();
+	}
+
+};
+
+/**
+ * Exclusive locking + reference counting with auto-deletion.
+ * Do not use this in multiple inheritance.
+ */
+class LockableAutoFreeObject: private LockableObject {
+	private:
+	std::atomic<long> _refCount;
+
+	protected:
+	long incRef() {
+		// seq_cst matches the "strong" behaviour of Interlocked*.
+		return ++_refCount;
+	}
+
+	long decRef() {
+		long refCount = --_refCount;
+		if(refCount == 0) {
+			delete this;
+		}
+		assert(refCount >= 0);
+		return refCount;
+	}
+
+	public:
+	LockableAutoFreeObject(): _refCount(1) {}
+
+	void acquire() {
+		incRef();
+		LockableObject::acquire();
+	}
+
+	void release() {
+		LockableObject::release();
+		decRef();
+	}
+
+	void requestDelete() {
+		decRef();
+	}
+
+};
+
+#endif
 
 #endif

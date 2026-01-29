@@ -470,7 +470,7 @@ public:
 				// Apply high-shelf EQ for brightness
 				double bright = applyHighShelf(filteredOut);
 
-				double scaled = bright * 5000.0;
+				double scaled = bright * 6000.0;
 				const double limit = 32767.0;
 				if(scaled > limit) scaled = limit;
 				if(scaled < -limit) scaled = -limit;

@@ -1,0 +1,141 @@
+# Makefile for NV Speech Player (Linux)
+# Builds: libspeechPlayer.so, libnvspFrontend.so, and nvspRender
+
+CXX = g++
+CXXFLAGS = -std=c++17 -O2 -Wall -fPIC
+LDFLAGS = -shared
+LIBS = -lpthread
+
+# Directories
+SRCDIR = src
+FRONTENDDIR = src/frontend
+PASSESDIR = src/frontend/passes
+TOOLSDIR = tools
+BUILDDIR = build
+
+# speechPlayer.so sources (DSP engine)
+SPEECHPLAYER_SRCS = \
+	$(SRCDIR)/frame.cpp \
+	$(SRCDIR)/speechPlayer.cpp \
+	$(SRCDIR)/speechWaveGenerator.cpp
+
+# nvspFrontend.so sources (IPA -> Frames)
+FRONTEND_SRCS = \
+	$(FRONTENDDIR)/ipa_engine.cpp \
+	$(FRONTENDDIR)/nvspFrontend.cpp \
+	$(FRONTENDDIR)/pack.cpp \
+	$(FRONTENDDIR)/utf8.cpp \
+	$(FRONTENDDIR)/yaml_min.cpp \
+	$(PASSESDIR)/allophones.cpp \
+	$(PASSESDIR)/boundary_smoothing.cpp \
+	$(PASSESDIR)/coarticulation.cpp \
+	$(PASSESDIR)/length_contrast.cpp \
+	$(PASSESDIR)/liquid_dynamics.cpp \
+	$(PASSESDIR)/microprosody.cpp \
+	$(PASSESDIR)/nasalization.cpp \
+	$(PASSESDIR)/pass_pipeline.cpp \
+	$(PASSESDIR)/prosody.cpp \
+	$(PASSESDIR)/reduction.cpp \
+	$(PASSESDIR)/trajectory_limit.cpp
+
+# nvspRender sources
+RENDER_SRCS = $(TOOLSDIR)/nvspRender.cpp
+
+# Include paths
+INCLUDES = -I$(SRCDIR) -I$(FRONTENDDIR)
+
+# Object files
+SPEECHPLAYER_OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SPEECHPLAYER_SRCS)))
+FRONTEND_OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(FRONTEND_SRCS)))
+
+# Output files
+SPEECHPLAYER_LIB = $(BUILDDIR)/libspeechPlayer.so
+FRONTEND_LIB = $(BUILDDIR)/libnvspFrontend.so
+RENDER_BIN = $(BUILDDIR)/nvspRender
+
+# Targets
+.PHONY: all clean dirs
+
+all: dirs $(SPEECHPLAYER_LIB) $(FRONTEND_LIB) $(RENDER_BIN)
+
+dirs:
+	@mkdir -p $(BUILDDIR)
+
+# Build speechPlayer shared library
+$(SPEECHPLAYER_LIB): $(SPEECHPLAYER_OBJS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+# Build nvspFrontend shared library
+$(FRONTEND_LIB): $(FRONTEND_OBJS)
+	$(CXX) $(LDFLAGS) -o $@ $^ -DNVSP_FRONTEND_EXPORTS=1
+
+# Build nvspRender executable
+$(RENDER_BIN): $(TOOLSDIR)/nvspRender.cpp $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(TOOLSDIR)/nvspRender.cpp \
+		-L$(BUILDDIR) -lspeechPlayer -lnvspFrontend \
+		-Wl,-rpath,'$$ORIGIN'
+
+# Pattern rules for object files
+
+# speechPlayer sources
+$(BUILDDIR)/frame.o: $(SRCDIR)/frame.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILDDIR)/speechPlayer.o: $(SRCDIR)/speechPlayer.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILDDIR)/speechWaveGenerator.o: $(SRCDIR)/speechWaveGenerator.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+# Frontend sources
+$(BUILDDIR)/ipa_engine.o: $(FRONTENDDIR)/ipa_engine.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/nvspFrontend.o: $(FRONTENDDIR)/nvspFrontend.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/pack.o: $(FRONTENDDIR)/pack.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/utf8.o: $(FRONTENDDIR)/utf8.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/yaml_min.o: $(FRONTENDDIR)/yaml_min.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+# Passes sources
+$(BUILDDIR)/allophones.o: $(PASSESDIR)/allophones.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/boundary_smoothing.o: $(PASSESDIR)/boundary_smoothing.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/coarticulation.o: $(PASSESDIR)/coarticulation.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/length_contrast.o: $(PASSESDIR)/length_contrast.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/liquid_dynamics.o: $(PASSESDIR)/liquid_dynamics.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/microprosody.o: $(PASSESDIR)/microprosody.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/nasalization.o: $(PASSESDIR)/nasalization.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/pass_pipeline.o: $(PASSESDIR)/pass_pipeline.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/prosody.o: $(PASSESDIR)/prosody.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/reduction.o: $(PASSESDIR)/reduction.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+clean:
+	rm -rf $(BUILDDIR)
