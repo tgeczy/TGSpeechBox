@@ -17,6 +17,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
 #include "frame.h"
 #include "sample.h"
+#include "voicingTone.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,11 +25,43 @@ extern "C" {
 
 typedef void* speechPlayer_handle_t;
 
+/* ============================================================================
+ * Core API (unchanged for ABI compatibility)
+ * ============================================================================ */
+
 speechPlayer_handle_t speechPlayer_initialize(int sampleRate);
 void speechPlayer_queueFrame(speechPlayer_handle_t playerHandle, speechPlayer_frame_t* framePtr, unsigned int minFrameDuration, unsigned int fadeDuration, int userIndex, bool purgeQueue);
 int speechPlayer_synthesize(speechPlayer_handle_t playerHandle, unsigned int sampleCount, sample* sampleBuf); 
 int speechPlayer_getLastIndex(speechPlayer_handle_t playerHandle);
 void speechPlayer_terminate(speechPlayer_handle_t playerHandle);
+
+/* ============================================================================
+ * Extended API (safe ABI extension - old drivers won't call these)
+ * ============================================================================ */
+
+/**
+ * Set voicing tone parameters for DSP-level voice quality adjustments.
+ * 
+ * This is an optional API extension. Old drivers that never call this function
+ * will get identical behavior to before (defaults are used).
+ * 
+ * New frontends/tools can call this to adjust:
+ *   - Glottal pulse shape (crispness)
+ *   - Voiced pre-emphasis (clarity)
+ *   - High-shelf EQ (brightness)
+ * 
+ * @param playerHandle  Handle returned by speechPlayer_initialize()
+ * @param tone          Pointer to voicing tone parameters, or NULL to reset to defaults
+ */
+void speechPlayer_setVoicingTone(speechPlayer_handle_t playerHandle, const speechPlayer_voicingTone_t* tone);
+
+/**
+ * Get current voicing tone parameters.
+ * 
+ * @param playerHandle  Handle returned by speechPlayer_initialize()
+ * @param tone          Output pointer to receive current parameters
+ */
+void speechPlayer_getVoicingTone(speechPlayer_handle_t playerHandle, speechPlayer_voicingTone_t* tone);
 
 #ifdef __cplusplus
 }

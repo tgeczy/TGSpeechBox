@@ -53,4 +53,21 @@ void speechPlayer_terminate(speechPlayer_handle_t playerHandle) {
 	delete playerHandleInfo->frameManager;
 	delete playerHandleInfo;
 }
-  
+
+/* ============================================================================
+ * Extended API implementations
+ * ============================================================================ */
+
+void speechPlayer_setVoicingTone(speechPlayer_handle_t playerHandle, const speechPlayer_voicingTone_t* tone) {
+	speechPlayer_handleInfo_t* playerHandleInfo=(speechPlayer_handleInfo_t*)playerHandle;
+	if (playerHandleInfo && playerHandleInfo->waveGenerator) {
+		playerHandleInfo->waveGenerator->setVoicingTone(tone);
+	}
+}
+
+void speechPlayer_getVoicingTone(speechPlayer_handle_t playerHandle, speechPlayer_voicingTone_t* tone) {
+	speechPlayer_handleInfo_t* playerHandleInfo=(speechPlayer_handleInfo_t*)playerHandle;
+	if (playerHandleInfo && playerHandleInfo->waveGenerator) {
+		playerHandleInfo->waveGenerator->getVoicingTone(tone);
+	}
+}

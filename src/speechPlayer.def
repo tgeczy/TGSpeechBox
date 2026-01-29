@@ -4,3 +4,6 @@ EXPORTS
 	speechPlayer_synthesize
 	speechPlayer_getLastIndex
 	speechPlayer_terminate
+	; Extended API (safe ABI extension - old drivers won't call these)
+	speechPlayer_setVoicingTone
+	speechPlayer_getVoicingTone

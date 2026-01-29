@@ -1,4 +1,4 @@
-	/*
+/*
 This file is a part of the NV Speech Player project. 
 URL: https://bitbucket.org/nvaccess/speechplayer
 Copyright 2014 NV Access Limited.
@@ -35,18 +35,12 @@ const double PITWO=M_PI*2;
 // where consonants (and some vowel onsets) jump out in loudness.
 // ------------------------------------------------------------
 
-// Glottal pulse shape:
-// Higher peak pos => faster closing portion => more high-frequency harmonic energy ("crisper").
-// Try 0.91 (smoother) .. 0.93 (crisper). 0.92 is a good middle.
-const double kBasePeakPos = 0.91;
+// NOTE: voicingPeakPos, voicedPreEmphA, voicedPreEmphMix, and high-shelf params
+// are now runtime-configurable via setVoicingTone(). The constants below are
+// for OTHER parameters that remain hardcoded.
 
 // Radiation / lip-model emphasis (derivative term). 1.0 matches current behavior.
 const double kRadiationMix = 1.0;
-
-// Voiced-only pre-emphasis (high-pass) blended into the voiced excitation.
-// Lower mix => smoother, less "edgy". Higher => crisper, but can sound sharp.
-const double kVoicedPreEmphA = 0.92;
-const double kVoicedPreEmphMix = 0.35;
 
 // Turbulence gating curvature when glottis is open.
 // Higher power => less turbulence near closure (cleaner, less "grain").
@@ -117,11 +111,22 @@ private:
 	double lastVoicedIn;
 	double lastVoicedOut;
 	double lastVoicedSrc;
+	
+	// Voicing tone parameters (set from outside)
+	double voicingPeakPos;
+	double voicedPreEmphA;
+	double voicedPreEmphMix;
 
 public:
 	bool glottisOpen;
 	
-	VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(), lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), glottisOpen(false) {}
+	VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(), lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), glottisOpen(false) {
+		// Initialize with defaults
+		speechPlayer_voicingTone_t defaults = SPEECHPLAYER_VOICINGTONE_DEFAULTS;
+		voicingPeakPos = defaults.voicingPeakPos;
+		voicedPreEmphA = defaults.voicedPreEmphA;
+		voicedPreEmphMix = defaults.voicedPreEmphMix;
+	}
 
 	void reset() {
 		pitchGen.reset();
@@ -132,6 +137,18 @@ public:
 		lastVoicedOut=0.0;
 		lastVoicedSrc=0.0;
 		glottisOpen=false;
+	}
+	
+	void setVoicingParams(double peakPos, double preEmphA, double preEmphMix) {
+		voicingPeakPos = peakPos;
+		voicedPreEmphA = preEmphA;
+		voicedPreEmphMix = preEmphMix;
+	}
+	
+	void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix) const {
+		if (peakPos) *peakPos = voicingPeakPos;
+		if (preEmphA) *preEmphA = voicedPreEmphA;
+		if (preEmphMix) *preEmphMix = voicedPreEmphMix;
 	}
 
 	double getNext(const speechPlayer_frame_t* frame) {
@@ -153,8 +170,8 @@ public:
 			double openLen = 1.0 - effectiveOQ;
 			if (openLen < 0.0001) openLen = 0.0001;
 
-			const double basePeakPos = kBasePeakPos;
-			double peakPos = basePeakPos;
+			// Use runtime-configurable peak position
+			double peakPos = voicingPeakPos;
 
 			double dt = 0.0;
 			if (pitchHz > 0.0) dt = pitchHz / (double)sampleRate;
@@ -193,11 +210,7 @@ public:
 		
 
 		// ---- Voiced-only pre-emphasis (adds crispness without brightening frication) ----
-		// voicedPreEmphA: 0.0..0.97-ish. Higher = more HF boost. Start around 0.92.
-		// voicedPreEmphMix: 0..1. 0 disables it. Start around 0.35.
-		const double voicedPreEmphA = kVoicedPreEmphA;
-		const double voicedPreEmphMix = kVoicedPreEmphMix;
-
+		// Now using runtime-configurable parameters
 		double pre = voicedSrc - (voicedPreEmphA * lastVoicedSrc);
 		lastVoicedSrc = voicedSrc;
 		voicedSrc = (1.0 - voicedPreEmphMix) * voicedSrc + voicedPreEmphMix * pre;
@@ -353,6 +366,9 @@ private:
 	// High-shelf EQ state for brightness
 	double hsIn1, hsIn2, hsOut1, hsOut2;
 	double hsB0, hsB1, hsB2, hsA1, hsA2;
+	
+	// Current voicing tone parameters (for high-shelf recalculation)
+	speechPlayer_voicingTone_t currentTone;
 
 	void initHighShelf(double fc, double gainDb, double Q) {
 		double A = pow(10.0, gainDb / 40.0);
@@ -391,8 +407,11 @@ public:
 		fricAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (fricAttackMs * 0.001)));
 		fricReleaseAlpha = 1.0 - exp(-1.0 / (sampleRate * (fricReleaseMs * 0.001)));
 		
-		// High shelf: gentle boost above 2kHz (post-radiation brightness)
-		initHighShelf(2000.0, 4.0, 0.7);
+		// Initialize with default voicing tone
+		currentTone = speechPlayer_getDefaultVoicingTone();
+		
+		// High shelf: use defaults from voicing tone
+		initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
 	}
 
 	unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
@@ -485,6 +504,34 @@ public:
 
 	void setFrameManager(FrameManager* frameManager) {
 		this->frameManager=frameManager;
+	}
+	
+	void setVoicingTone(const speechPlayer_voicingTone_t* tone) {
+		if (tone) {
+			currentTone = *tone;
+		} else {
+			// Reset to defaults
+			currentTone = speechPlayer_getDefaultVoicingTone();
+		}
+		
+		// Update voice generator parameters
+		voiceGenerator.setVoicingParams(
+			currentTone.voicingPeakPos,
+			currentTone.voicedPreEmphA,
+			currentTone.voicedPreEmphMix
+		);
+		
+		// Recalculate high-shelf filter coefficients
+		initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
+		
+		// Reset filter state to avoid transients (optional, but cleaner)
+		hsIn1 = hsIn2 = hsOut1 = hsOut2 = 0.0;
+	}
+	
+	void getVoicingTone(speechPlayer_voicingTone_t* tone) {
+		if (tone) {
+			*tone = currentTone;
+		}
 	}
 };
 
