@@ -259,6 +259,80 @@ for _voiceName, _voiceMap in voices.items():
 del _frameFieldNames, _voiceName, _voiceMap, _absOps, _mulOps, _k, _v
 
 
+# Voice profile support: profiles defined in phonemes.yaml are discovered at runtime
+# and merged into the voice combobox alongside Python presets.
+# Profile voice IDs use this prefix to distinguish them from Python presets.
+VOICE_PROFILE_PREFIX = "profile:"
+
+
+def _discoverVoiceProfiles(packsDir: str) -> list:
+    """Discover voice profile names from phonemes.yaml.
+    
+    This is a minimal, tolerant parser that extracts profile names from
+    the voiceProfiles: section. Unknown keys are ignored.
+    
+    Supports both nested format and dotted-key format:
+      Nested:  female:
+                 classScales:
+      Dotted:  female.classScales.vowel.cf_mul: [...]
+    """
+    profiles = []
+    seenProfiles = set()  # Avoid duplicates from dotted keys
+    yamlPath = os.path.join(packsDir, "phonemes.yaml")
+    
+    try:
+        if not os.path.isfile(yamlPath):
+            return profiles
+            
+        with open(yamlPath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        
+        inVoiceProfiles = False
+        baseIndent = None
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            if not stripped or stripped.startswith("#"):
+                continue
+            
+            # Check for voiceProfiles: at column 0
+            if line and not line[0].isspace() and stripped.startswith("voiceProfiles:"):
+                inVoiceProfiles = True
+                baseIndent = None
+                continue
+            
+            if inVoiceProfiles:
+                # Left the section (back to column 0)
+                if line and not line[0].isspace():
+                    inVoiceProfiles = False
+                    continue
+                
+                indent = len(line) - len(line.lstrip())
+                
+                if baseIndent is None:
+                    baseIndent = indent
+                
+                # Profile names are at base indent level and end with ':'
+                if indent == baseIndent and ":" in stripped:
+                    key = stripped.split(":")[0].strip()
+                    if key and not key.startswith("#"):
+                        # For dotted keys like "female.classScales.vowel.cf_mul",
+                        # extract just the first part "female" as the profile name
+                        if "." in key:
+                            key = key.split(".")[0]
+                        
+                        # Only add if we haven't seen this profile yet
+                        if key and key not in seenProfiles:
+                            seenProfiles.add(key)
+                            profiles.append(key)
+        
+    except Exception:
+        log.debug("nvSpeechPlayer: _discoverVoiceProfiles failed", exc_info=True)
+    
+    return profiles
+
+
 def applyVoiceToFrame(frame: speechPlayer.Frame, voiceName: str) -> None:
     absOps, mulOps = _voiceOps.get(voiceName) or _voiceOps.get("Adam", ((), ()))
 
@@ -708,6 +782,17 @@ class SynthDriver(SynthDriver):
                 "nvSpeechPlayer: could not load default pack: %s" % (self._frontend.getLastError() or "unknown error")
             )
 
+        # Discover voice profiles from phonemes.yaml
+        self._voiceProfiles = _discoverVoiceProfiles(packsDir)
+        if self._voiceProfiles:
+            log.info(f"nvSpeechPlayer: discovered voice profiles: {self._voiceProfiles}")
+        
+        # Check for pack warnings (helps debug profile issues)
+        if self._frontend.hasVoiceProfileSupport():
+            warnings = self._frontend.getPackWarnings()
+            if warnings:
+                log.warning(f"nvSpeechPlayer: pack warnings: {warnings}")
+
         # Preload language-specific packs you said you ship right now.
         # This doesn't lock you in: calling setLanguage() later will reload/merge packs.
         for tag in ("bg", "zh", "hu", "pt", "pl", "es"):
@@ -734,6 +819,10 @@ class SynthDriver(SynthDriver):
         self._curInflection = 0.5
         self._curVolume = 1.0
         self._curRate = 1.0
+        
+        # Voice profile state (for C++ profiles vs Python presets)
+        self._usingVoiceProfile = False
+        self._activeProfileName = ""
 
         # Punctuation pause mode:
         # - off: do not insert extra pauses
@@ -756,6 +845,24 @@ class SynthDriver(SynthDriver):
         self._bgStop = threading.Event()
         self._bgThread = _BgThread(self._bgQueue, self._bgStop)
         self._bgThread.start()
+        
+        # NVDA will restore saved settings (including voice) after __init__ completes.
+        # However, we need to ensure that if a voice profile was saved, it gets applied
+        # to the frontend. Schedule a deferred re-application of the voice setting.
+        try:
+            import wx
+            wx.CallAfter(self._reapplyVoiceProfile)
+        except Exception:
+            # If wx isn't available yet, try a threaded approach
+            def _deferred_reapply():
+                import time
+                time.sleep(0.1)  # Brief delay to let NVDA finish restoring settings
+                try:
+                    self._reapplyVoiceProfile()
+                except Exception:
+                    pass
+            t = threading.Thread(target=_deferred_reapply, daemon=True)
+            t.start()
     @classmethod
     def check(cls):
         # Ensure DLLs exist for this NVDA / Python architecture (x86 vs x64).
@@ -1490,7 +1597,7 @@ class SynthDriver(SynthDriver):
             if punctToken in (".", "!", "?", "...", ":", ";"):
                 return 60.0 if pauseMode == "long" else 35.0
             if punctToken == ",":
-                return 10.0 if pauseMode == "long" else 5.0
+                return 50.0 if pauseMode == "long" else 25.0
             return 0.0
 
         for (text, indexesAfter, blockPitchOffset) in blocks:
@@ -1608,7 +1715,10 @@ class SynthDriver(SynthDriver):
                         frame = speechPlayer.Frame()
                         ctypes.memmove(ctypes.byref(frame), framePtr, ctypes.sizeof(speechPlayer.Frame))
 
-                        applyVoiceToFrame(frame, self._curVoice)
+                        # Only apply Python voice preset if NOT using a C++ voice profile.
+                        # When using a profile, the formant transforms are already applied by the frontend.
+                        if not getattr(self, "_usingVoiceProfile", False):
+                            applyVoiceToFrame(frame, self._curVoice)
 
                         if extraParamMultipliers:
                             for paramName, ratio in extraParamMultipliers:
@@ -1738,6 +1848,24 @@ class SynthDriver(SynthDriver):
     def _set_inflection(self, val):
         self._curInflection = float(val) * 0.01
 
+    def _reapplyVoiceProfile(self):
+        """Re-apply the current voice setting to ensure the frontend profile is in sync.
+        
+        This is called after __init__ completes to handle the case where NVDA restores
+        the saved voice setting but the frontend profile wasn't properly applied.
+        """
+        try:
+            voice = getattr(self, "_curVoice", "Adam")
+            if voice and voice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = voice[len(VOICE_PROFILE_PREFIX):]
+                if hasattr(self, "_frontend") and self._frontend:
+                    self._frontend.setVoiceProfile(profileName)
+                    self._usingVoiceProfile = True
+                    self._activeProfileName = profileName
+                    log.debug(f"nvSpeechPlayer: reapplied voice profile '{profileName}'")
+        except Exception:
+            log.debug("nvSpeechPlayer: _reapplyVoiceProfile failed", exc_info=True)
+
     def _get_voice(self):
         return self._curVoice
 
@@ -1745,12 +1873,34 @@ class SynthDriver(SynthDriver):
         if voice not in self.availableVoices:
             voice = "Adam"
         self._curVoice = voice
+        
+        # Handle voice profile vs Python preset
+        if voice.startswith(VOICE_PROFILE_PREFIX):
+            # It's a C++ voice profile
+            profileName = voice[len(VOICE_PROFILE_PREFIX):]
+            self._usingVoiceProfile = True
+            self._activeProfileName = profileName
+            if hasattr(self, "_frontend") and self._frontend:
+                self._frontend.setVoiceProfile(profileName)
+        else:
+            # It's a Python preset - clear any active profile
+            self._usingVoiceProfile = False
+            self._activeProfileName = ""
+            if hasattr(self, "_frontend") and self._frontend:
+                self._frontend.setVoiceProfile("")
+        
         if self.exposeExtraParams:
             for paramName in self._extraParamNames:
                 setattr(self, f"speechPlayer_{paramName}", 50)
 
     def _getAvailableVoices(self):
         d = OrderedDict()
+        # Python presets first
         for name in sorted(voices):
             d[name] = VoiceInfo(name, name)
+        # Voice profiles from phonemes.yaml (if any)
+        for profileName in sorted(getattr(self, "_voiceProfiles", []) or []):
+            voiceId = f"{VOICE_PROFILE_PREFIX}{profileName}"
+            # Display name includes profile name, description notes it's a profile
+            d[voiceId] = VoiceInfo(voiceId, f"{profileName} (profile)")
         return d
