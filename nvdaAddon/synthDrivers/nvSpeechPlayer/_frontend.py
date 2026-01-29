@@ -106,6 +106,26 @@ class NvspFrontend(object):
         ]
         self._dll.nvspFrontend_queueIPA.restype = ctypes.c_int
 
+        # Voice profile API (optional - may not exist in older DLLs)
+        self._hasVoiceProfileApi = False
+        try:
+            self._dll.nvspFrontend_setVoiceProfile.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+            self._dll.nvspFrontend_setVoiceProfile.restype = ctypes.c_int
+            self._dll.nvspFrontend_getVoiceProfile.argtypes = [ctypes.c_void_p]
+            self._dll.nvspFrontend_getVoiceProfile.restype = ctypes.c_char_p
+            self._hasVoiceProfileApi = True
+        except AttributeError:
+            pass
+
+        # Pack warnings API (optional - may not exist in older DLLs)
+        self._hasPackWarningsApi = False
+        try:
+            self._dll.nvspFrontend_getPackWarnings.argtypes = [ctypes.c_void_p]
+            self._dll.nvspFrontend_getPackWarnings.restype = ctypes.c_char_p
+            self._hasPackWarningsApi = True
+        except AttributeError:
+            pass
+
     def terminate(self) -> None:
         if self._dll and self._h:
             try:
@@ -140,6 +160,61 @@ class NvspFrontend(object):
         tag = (langTag or "").strip().lower().replace("_", "-")
         ok = int(self._dll.nvspFrontend_setLanguage(self._h, tag.encode("utf-8")))
         return bool(ok)
+
+    def setVoiceProfile(self, profileName: str) -> bool:
+        """Set the voice profile for parameter transformation.
+        
+        Args:
+            profileName: Name of the profile (e.g., "female"). Empty string disables.
+            
+        Returns:
+            True on success, False if API not available or call failed.
+        """
+        if not self._dll or not self._h:
+            return False
+        if not getattr(self, "_hasVoiceProfileApi", False):
+            return False
+        try:
+            name = (profileName or "").encode("utf-8")
+            ok = int(self._dll.nvspFrontend_setVoiceProfile(self._h, name))
+            return bool(ok)
+        except Exception:
+            log.debug("nvSpeechPlayer: setVoiceProfile failed", exc_info=True)
+            return False
+
+    def getVoiceProfile(self) -> str:
+        """Get the currently active voice profile name."""
+        if not self._dll or not self._h:
+            return ""
+        if not getattr(self, "_hasVoiceProfileApi", False):
+            return ""
+        try:
+            result = self._dll.nvspFrontend_getVoiceProfile(self._h)
+            if not result:
+                return ""
+            return result.decode("utf-8", errors="replace")
+        except Exception:
+            log.debug("nvSpeechPlayer: getVoiceProfile failed", exc_info=True)
+            return ""
+
+    def getPackWarnings(self) -> str:
+        """Get non-fatal warnings from pack loading."""
+        if not self._dll or not self._h:
+            return ""
+        if not getattr(self, "_hasPackWarningsApi", False):
+            return ""
+        try:
+            result = self._dll.nvspFrontend_getPackWarnings(self._h)
+            if not result:
+                return ""
+            return result.decode("utf-8", errors="replace")
+        except Exception:
+            log.debug("nvSpeechPlayer: getPackWarnings failed", exc_info=True)
+            return ""
+
+    def hasVoiceProfileSupport(self) -> bool:
+        """Check if the DLL supports voice profiles."""
+        return getattr(self, "_hasVoiceProfileApi", False)
 
     def queueIPA(
         self,

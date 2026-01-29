@@ -17,6 +17,14 @@ settings:
 
 normalization:
   replacements:
+    # Palatal nasal: some tables emit ñ as nʲ (or n͡ʲ). Map it to /ɲ/ so it doesn't collapse to plain /n/.
+    - from: "n͡ʲ"
+      to:   "ɲ"
+    - from: "nʲ"
+      to:   "ɲ"
+    - from: "ɲʲ"
+      to:   "ɲ"
+
     # eSpeak Spanish often emits "ʝ" for initial <y> (e.g. "yo").
     # Our base phoneme table doesn't include ʝ, so map it to the glide /j/ to keep the consonant audible.
     - from: "ʝ"

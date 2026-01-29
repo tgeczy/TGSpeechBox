@@ -53,14 +53,30 @@ struct ClassScales {
   // Parallel formant bandwidth multipliers (pb1..pb6).
   std::array<double, kFormantCount> pb_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   
-  // Scalar amplitude multipliers (optional).
+  // Pitch multipliers (for shifting fundamental frequency).
+  double voicePitch_mul = 1.0;
+  double endVoicePitch_mul = 1.0;
+  bool voicePitch_mul_set = false;
+  bool endVoicePitch_mul_set = false;
+  
+  // Vibrato multipliers.
+  double vibratoPitchOffset_mul = 1.0;
+  double vibratoSpeed_mul = 1.0;
+  bool vibratoPitchOffset_mul_set = false;
+  bool vibratoSpeed_mul_set = false;
+  
+  // Voice quality multipliers.
+  double voiceTurbulenceAmplitude_mul = 1.0;
+  double glottalOpenQuotient_mul = 1.0;
+  bool voiceTurbulenceAmplitude_mul_set = false;
+  bool glottalOpenQuotient_mul_set = false;
+  
+  // Scalar amplitude multipliers.
   double voiceAmplitude_mul = 1.0;
   double aspirationAmplitude_mul = 1.0;
   double fricationAmplitude_mul = 1.0;
   double preFormantGain_mul = 1.0;
   double outputGain_mul = 1.0;
-  
-  // Scalar amplitude flags (true if explicitly set in YAML).
   bool voiceAmplitude_mul_set = false;
   bool aspirationAmplitude_mul_set = false;
   bool fricationAmplitude_mul_set = false;

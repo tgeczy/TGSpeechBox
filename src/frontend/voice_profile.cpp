@@ -3,7 +3,7 @@ Voice Profile System for NV Speech Player Frontend
 
 Implementation of voice profile loading and application.
 
-Copyright 2014-2024 NV Access Limited.
+Copyright 2014-2026 Tamas Geczy
 Licensed under GNU General Public License version 2.0.
 */
 
@@ -90,6 +90,18 @@ static bool parseClassScales(const yaml_min::Node& node, ClassScales& out, std::
   parseScalarMul("preFormantGain_mul", out.preFormantGain_mul, out.preFormantGain_mul_set);
   parseScalarMul("outputGain_mul", out.outputGain_mul, out.outputGain_mul_set);
   
+  // Pitch multipliers.
+  parseScalarMul("voicePitch_mul", out.voicePitch_mul, out.voicePitch_mul_set);
+  parseScalarMul("endVoicePitch_mul", out.endVoicePitch_mul, out.endVoicePitch_mul_set);
+  
+  // Vibrato multipliers.
+  parseScalarMul("vibratoPitchOffset_mul", out.vibratoPitchOffset_mul, out.vibratoPitchOffset_mul_set);
+  parseScalarMul("vibratoSpeed_mul", out.vibratoSpeed_mul, out.vibratoSpeed_mul_set);
+  
+  // Voice quality multipliers.
+  parseScalarMul("voiceTurbulenceAmplitude_mul", out.voiceTurbulenceAmplitude_mul, out.voiceTurbulenceAmplitude_mul_set);
+  parseScalarMul("glottalOpenQuotient_mul", out.glottalOpenQuotient_mul, out.glottalOpenQuotient_mul_set);
+  
   return true;
 }
 
@@ -117,6 +129,10 @@ static bool parsePhonemeOverride(const yaml_min::Node& node, PhonemeOverride& ou
 }
 
 // Parse a single VoiceProfile from a YAML map node.
+// Supports both nested and dotted-key formats for classScales:
+//   Nested:  classScales: { vowel: { cf_mul: [...] } }
+//   Dotted:  classScales: { vowel.cf_mul: [...], vowel.voicePitch_mul: 1.4 }
+// Both can be mixed in the same profile.
 static bool parseVoiceProfile(const std::string& name, const yaml_min::Node& node, VoiceProfile& out, std::string& outError) {
   if (!node.isMap()) {
     outError = "Voice profile '" + name + "' must be a map";
@@ -125,20 +141,95 @@ static bool parseVoiceProfile(const std::string& name, const yaml_min::Node& nod
   
   out.name = name;
   
-  // Parse classScales.
+  // Parse classScales with dotted-key expansion.
   const yaml_min::Node* classScalesNode = node.get("classScales");
   if (classScalesNode && classScalesNode->isMap()) {
+    // First pass: collect all class names (from both nested and dotted keys).
+    // For dotted keys like "vowel.cf_mul", extract "vowel" as the class name.
+    // For nested keys like "vowel", use as-is.
+    
     for (const auto& kv : classScalesNode->map) {
-      const std::string& className = kv.first;
-      ClassScales scales;
-      if (!parseClassScales(kv.second, scales, outError)) {
-        return false;
+      const std::string& key = kv.first;
+      
+      // Check if this is a dotted key (e.g., "vowel.cf_mul")
+      size_t dotPos = key.find('.');
+      if (dotPos != std::string::npos) {
+        // Dotted key: "className.fieldName"
+        std::string className = key.substr(0, dotPos);
+        std::string fieldName = key.substr(dotPos + 1);
+        
+        // Ensure the class exists in our map
+        if (out.classScales.find(className) == out.classScales.end()) {
+          out.classScales[className] = ClassScales{};
+        }
+        ClassScales& scales = out.classScales[className];
+        
+        // Parse the field value into the appropriate ClassScales member.
+        // This is a bit repetitive but keeps it simple and explicit.
+        const yaml_min::Node& val = kv.second;
+        
+        // Formant array multipliers
+        auto tryParseMulArray = [&](const char* fname, std::array<double, kFormantCount>& arr) -> bool {
+          if (fieldName != fname) return false;
+          double vals[kFormantCount];
+          int count = parseDoubleArray(val, vals, kFormantCount, /*replicateScalar=*/true);
+          for (int i = 0; i < count && i < kFormantCount; ++i) {
+            arr[static_cast<size_t>(i)] = vals[i];
+          }
+          return true;
+        };
+        
+        if (tryParseMulArray("cf_mul", scales.cf_mul)) continue;
+        if (tryParseMulArray("pf_mul", scales.pf_mul)) continue;
+        if (tryParseMulArray("cb_mul", scales.cb_mul)) continue;
+        if (tryParseMulArray("pb_mul", scales.pb_mul)) continue;
+        
+        // Scalar multipliers
+        auto tryParseScalarMul = [&](const char* fname, double& v, bool& flag) -> bool {
+          if (fieldName != fname) return false;
+          double num;
+          if (val.asNumber(num)) {
+            v = num;
+            flag = true;
+          }
+          return true;
+        };
+        
+        if (tryParseScalarMul("voiceAmplitude_mul", scales.voiceAmplitude_mul, scales.voiceAmplitude_mul_set)) continue;
+        if (tryParseScalarMul("aspirationAmplitude_mul", scales.aspirationAmplitude_mul, scales.aspirationAmplitude_mul_set)) continue;
+        if (tryParseScalarMul("fricationAmplitude_mul", scales.fricationAmplitude_mul, scales.fricationAmplitude_mul_set)) continue;
+        if (tryParseScalarMul("preFormantGain_mul", scales.preFormantGain_mul, scales.preFormantGain_mul_set)) continue;
+        if (tryParseScalarMul("outputGain_mul", scales.outputGain_mul, scales.outputGain_mul_set)) continue;
+        if (tryParseScalarMul("voicePitch_mul", scales.voicePitch_mul, scales.voicePitch_mul_set)) continue;
+        if (tryParseScalarMul("endVoicePitch_mul", scales.endVoicePitch_mul, scales.endVoicePitch_mul_set)) continue;
+        if (tryParseScalarMul("vibratoPitchOffset_mul", scales.vibratoPitchOffset_mul, scales.vibratoPitchOffset_mul_set)) continue;
+        if (tryParseScalarMul("vibratoSpeed_mul", scales.vibratoSpeed_mul, scales.vibratoSpeed_mul_set)) continue;
+        if (tryParseScalarMul("voiceTurbulenceAmplitude_mul", scales.voiceTurbulenceAmplitude_mul, scales.voiceTurbulenceAmplitude_mul_set)) continue;
+        if (tryParseScalarMul("glottalOpenQuotient_mul", scales.glottalOpenQuotient_mul, scales.glottalOpenQuotient_mul_set)) continue;
+        
+        // Unknown dotted field - ignore silently for forward compatibility
+      } else {
+        // Nested key: "className" with a map value
+        if (!kv.second.isMap()) {
+          // Could be an error, but let's be lenient
+          continue;
+        }
+        const std::string& className = key;
+        ClassScales scales;
+        // If we already have some values from dotted keys, start with those
+        auto existingIt = out.classScales.find(className);
+        if (existingIt != out.classScales.end()) {
+          scales = existingIt->second;
+        }
+        if (!parseClassScales(kv.second, scales, outError)) {
+          return false;
+        }
+        out.classScales[className] = scales;
       }
-      out.classScales[className] = scales;
     }
   }
   
-  // Parse phonemeOverrides.
+  // Parse phonemeOverrides (no dotted-key expansion needed here, it's already flat).
   const yaml_min::Node* overridesNode = node.get("phonemeOverrides");
   if (overridesNode && overridesNode->isMap()) {
     for (const auto& kv : overridesNode->map) {
@@ -306,6 +397,18 @@ void applyVoiceProfileToFields(
     applyScalarMul(FieldId::fricationAmplitude, scales.fricationAmplitude_mul, scales.fricationAmplitude_mul_set);
     applyScalarMul(FieldId::preFormantGain, scales.preFormantGain_mul, scales.preFormantGain_mul_set);
     applyScalarMul(FieldId::outputGain, scales.outputGain_mul, scales.outputGain_mul_set);
+    
+    // Apply pitch multipliers.
+    applyScalarMul(FieldId::voicePitch, scales.voicePitch_mul, scales.voicePitch_mul_set);
+    applyScalarMul(FieldId::endVoicePitch, scales.endVoicePitch_mul, scales.endVoicePitch_mul_set);
+    
+    // Apply vibrato multipliers.
+    applyScalarMul(FieldId::vibratoPitchOffset, scales.vibratoPitchOffset_mul, scales.vibratoPitchOffset_mul_set);
+    applyScalarMul(FieldId::vibratoSpeed, scales.vibratoSpeed_mul, scales.vibratoSpeed_mul_set);
+    
+    // Apply voice quality multipliers.
+    applyScalarMul(FieldId::voiceTurbulenceAmplitude, scales.voiceTurbulenceAmplitude_mul, scales.voiceTurbulenceAmplitude_mul_set);
+    applyScalarMul(FieldId::glottalOpenQuotient, scales.glottalOpenQuotient_mul, scales.glottalOpenQuotient_mul_set);
   }
   
   // Step 2: Apply per-phoneme overrides.

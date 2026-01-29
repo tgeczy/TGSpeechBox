@@ -68,6 +68,10 @@ normalization:
     - from: "r"
       to: "ɾ"
 
+    # Voiced x variant (used for BR Portuguese rules)
+    - from: "x"
+      to: "X"
+
     # Insert a non-syllabic schwa-like separator before the tap in consonant+R clusters
     # (bra, tra, cra, fra, ...). This improves intelligibility without creating a full extra syllable.
     - from: "ɾˈ"
