@@ -9,6 +9,7 @@
 # - terminate() method so NVDA can clean up deterministically.
 # - queueFrame() accepts durations in milliseconds, converts to samples (DLL expects samples).
 # - Supports both 32-bit and 64-bit NVDA by loading DLLs from ./x86 or ./x64.
+# - setVoicingTone() for DSP-level voice quality adjustments.
 ###
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ from ctypes import (
 )
 import os
 from typing import Optional
+
+from logHandler import log
 
 speechPlayer_frameParam_t = c_double
 
@@ -54,6 +57,38 @@ class Frame(Structure):
         "outputGain",
         "endVoicePitch",
     ]]
+
+
+class VoicingTone(Structure):
+    """DSP-level voice quality parameters.
+    
+    These affect the wave generator's glottal pulse shape, voiced pre-emphasis,
+    spectral tilt, and high-shelf EQ. Set once per voice change, not per-frame.
+    
+    This struct matches speechPlayer_voicingTone_t in voicingTone.h.
+    """
+    _fields_ = [
+        ("voicingPeakPos", c_double),     # Glottal pulse peak position (0.85-0.95, default 0.91)
+        ("voicedPreEmphA", c_double),     # Pre-emphasis coefficient (0.0-0.97, default 0.92)
+        ("voicedPreEmphMix", c_double),   # Pre-emphasis mix (0.0-1.0, default 0.35)
+        ("highShelfGainDb", c_double),    # High-shelf EQ gain in dB (default 4.0)
+        ("highShelfFcHz", c_double),      # High-shelf corner frequency (default 2000.0)
+        ("highShelfQ", c_double),         # High-shelf Q factor (default 0.7)
+        ("voicedTiltDbPerOct", c_double), # Spectral tilt in dB/octave (default 0.0, negative = darker)
+    ]
+    
+    @classmethod
+    def defaults(cls) -> "VoicingTone":
+        """Return a VoicingTone with default values matching the original DSP constants."""
+        tone = cls()
+        tone.voicingPeakPos = 0.91
+        tone.voicedPreEmphA = 0.92
+        tone.voicedPreEmphMix = 0.35
+        tone.highShelfGainDb = 4.0
+        tone.highShelfFcHz = 2000.0
+        tone.highShelfQ = 0.7
+        tone.voicedTiltDbPerOct = 0.0
+        return tone
 
 
 def _archFolderName() -> Optional[str]:
@@ -140,6 +175,28 @@ class SpeechPlayer(object):
         self._dll.speechPlayer_terminate.argtypes = (c_void_p,)
         self._dll.speechPlayer_terminate.restype = None
 
+        # Voicing tone API (optional - may not exist in older DLLs)
+        self._hasVoicingToneApi = False
+        try:
+            # Check if the function exists by getting it explicitly
+            # ctypes won't throw until you try to access a non-existent function
+            _setTone = getattr(self._dll, "speechPlayer_setVoicingTone", None)
+            _getTone = getattr(self._dll, "speechPlayer_getVoicingTone", None)
+            
+            if _setTone is not None and _getTone is not None:
+                # void speechPlayer_setVoicingTone(void* handle, const VoicingTone* tone);
+                self._dll.speechPlayer_setVoicingTone.argtypes = (c_void_p, POINTER(VoicingTone))
+                self._dll.speechPlayer_setVoicingTone.restype = None
+                
+                # void speechPlayer_getVoicingTone(void* handle, VoicingTone* tone);
+                self._dll.speechPlayer_getVoicingTone.argtypes = (c_void_p, POINTER(VoicingTone))
+                self._dll.speechPlayer_getVoicingTone.restype = None
+                
+                self._hasVoicingToneApi = True
+        except (AttributeError, OSError):
+            # Older DLL without voicing tone support - that's fine
+            pass
+
     def queueFrame(self, frame, minFrameDuration, fadeDuration, userIndex: int = -1, purgeQueue: bool = False) -> None:
         framePtr = byref(frame) if frame else None
 
@@ -175,7 +232,54 @@ class SpeechPlayer(object):
     def getLastIndex(self) -> int:
         return int(self._dll.speechPlayer_getLastIndex(self._speechHandle))
 
+    def hasVoicingToneSupport(self) -> bool:
+        """Check if the DLL supports voicing tone adjustments."""
+        return getattr(self, "_hasVoicingToneApi", False)
+
+    def setVoicingTone(self, tone: Optional[VoicingTone]) -> bool:
+        """Set DSP-level voice quality parameters.
+        
+        This affects the wave generator's glottal pulse shape, voiced pre-emphasis,
+        and high-shelf EQ. Call this once when switching voices, not per-frame.
+        
+        Args:
+            tone: VoicingTone struct with parameters, or None to reset to defaults.
+            
+        Returns:
+            True on success, False if API not available.
+        """
+        if not getattr(self, "_hasVoicingToneApi", False):
+            return False
+        if not self._speechHandle:
+            return False
+        try:
+            tonePtr = byref(tone) if tone else None
+            self._dll.speechPlayer_setVoicingTone(self._speechHandle, tonePtr)
+            return True
+        except Exception:
+            log.debug("nvSpeechPlayer: setVoicingTone failed", exc_info=True)
+            return False
+
+    def getVoicingTone(self) -> Optional[VoicingTone]:
+        """Get current DSP-level voice quality parameters.
+        
+        Returns:
+            VoicingTone struct with current values, or None if API not available.
+        """
+        if not getattr(self, "_hasVoicingToneApi", False):
+            return None
+        if not self._speechHandle:
+            return None
+        try:
+            tone = VoicingTone()
+            self._dll.speechPlayer_getVoicingTone(self._speechHandle, byref(tone))
+            return tone
+        except Exception:
+            log.debug("nvSpeechPlayer: getVoicingTone failed", exc_info=True)
+            return None
+
     def terminate(self) -> None:
+        # First terminate the speech handle
         if getattr(self, "_speechHandle", None):
             try:
                 self._dll.speechPlayer_terminate(self._speechHandle)
@@ -183,12 +287,18 @@ class SpeechPlayer(object):
                 pass
             self._speechHandle = None
 
+        # Close the DLL directory cookie (Python 3.8+)
         if getattr(self, "_dllDirCookie", None):
             try:
                 self._dllDirCookie.close()
             except Exception:
                 pass
             self._dllDirCookie = None
+
+        # Note: We intentionally do NOT call FreeLibrary to unload the DLL.
+        # On some NVDA/Python versions, this causes memory corruption that affects
+        # other DLLs (like espeak). The DLL will be unloaded when NVDA exits.
+        self._dll = None
 
     def __del__(self):
         try:

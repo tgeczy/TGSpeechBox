@@ -127,6 +127,7 @@ class NvspFrontend(object):
             pass
 
     def terminate(self) -> None:
+        # First destroy the frontend handle
         if self._dll and self._h:
             try:
                 self._dll.nvspFrontend_destroy(self._h)
@@ -135,12 +136,18 @@ class NvspFrontend(object):
                 log.debug("nvSpeechPlayer: nvspFrontend_destroy failed", exc_info=True)
         self._h = None
 
+        # Close the DLL directory cookie (Python 3.8+)
         if getattr(self, "_dllDirCookie", None):
             try:
                 self._dllDirCookie.close()
             except Exception:
                 log.debug("nvSpeechPlayer: failed closing dll directory cookie", exc_info=True)
             self._dllDirCookie = None
+
+        # Note: We intentionally do NOT call FreeLibrary to unload the DLL.
+        # On some NVDA/Python versions, this causes memory corruption that affects
+        # other DLLs (like espeak). The DLL will be unloaded when NVDA exits.
+        self._dll = None
 
     def getLastError(self) -> str:
         try:
