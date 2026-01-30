@@ -406,27 +406,37 @@ public:
                 if (peakPos < 0.50) peakPos = 0.50;
             }
 
-            // LF-inspired glottal waveform with asymmetric opening/closing
-            // Opening phase: smooth polynomial rise (natural)
-            // Closing phase: sharper exponential-like fall (more harmonics)
-            // 
-            // This gives more "chest voice" and "body" compared to symmetric cosine.
-            // Reference: Klatt 1990 "KLGLOTT88", Fant 1985 LF model
+            // Hybrid glottal source based on sample rate:
+            // - At 11025 Hz: Use classic symmetric cosine (sounds fuller at low SR)
+            // - At 16000+ Hz: Use LF-inspired asymmetric waveform (more harmonics)
+            // This preserves the "full" sound at low sample rates while getting
+            // the improved quality at higher rates.
             
-            if (phase < peakPos) {
-                // Opening: polynomial rise (a*t^2 for smooth onset)
-                double t = phase / peakPos;
-                // Use t^2 for gentler start, then accelerate
-                flow = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
+            if (sampleRate <= 11025) {
+                // Classic symmetric cosine glottal waveform (original SpeechPlayer)
+                if (phase < peakPos) {
+                    flow = 0.5 * (1.0 - cos(phase * M_PI / peakPos));
+                } else {
+                    flow = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
+                }
             } else {
-                // Closing: sharper fall with "return phase" character
-                // The faster this falls, the more high harmonics we get
-                double t = (phase - peakPos) / (1.0 - peakPos);
+                // LF-inspired glottal waveform with asymmetric opening/closing
+                // Opening phase: smooth polynomial rise (natural)
+                // Closing phase: sharper exponential-like fall (more harmonics)
+                // 
+                // This gives more "chest voice" and "body" compared to symmetric cosine.
+                // Reference: Klatt 1990 "KLGLOTT88", Fant 1985 LF model
                 
-                // Exponential-ish decay for more abrupt closure
-                // This is key for "chest voice" quality
-                double sharpness = 2.5;  // Higher = sharper closure = more harmonics
-                flow = pow(1.0 - t, sharpness);
+                if (phase < peakPos) {
+                    // Opening: polynomial rise
+                    double t = phase / peakPos;
+                    flow = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
+                } else {
+                    // Closing: sharper fall with "return phase" character
+                    double t = (phase - peakPos) / (1.0 - peakPos);
+                    double sharpness = 2.5;  // Higher = sharper closure = more harmonics
+                    flow = pow(1.0 - t, sharpness);
+                }
             }
         }
 
