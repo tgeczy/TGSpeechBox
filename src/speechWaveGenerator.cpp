@@ -60,22 +60,26 @@ const double kVoicedFricDuckPower = 1.0;
 // the top edge off only at the burst onset.
 
 // Sample-rate-aware cutoff frequencies for frication
-const double kFricBurstFc_16k   = 5200.0;
+// At 11025 Hz, Nyquist is ~5512 Hz so we need lower cutoffs
+const double kFricBurstFc_11k   = 3800.0;   // 11025 Hz (Nyquist ~5512) - more aggressive
+const double kFricSustainFc_11k = 5000.0;
+const double kFricBurstFc_16k   = 5200.0;   // 16000 Hz (Nyquist 8000)
 const double kFricSustainFc_16k = 7200.0;
-const double kFricBurstFc_22k   = 6500.0;
+const double kFricBurstFc_22k   = 3600.0;   // 22050 Hz (Nyquist ~11025)
 const double kFricSustainFc_22k = 9500.0;
-const double kFricBurstFc_44k   = 9000.0;
+const double kFricBurstFc_44k   = 4200.0;   // 44100 Hz (Nyquist ~22050)
 const double kFricSustainFc_44k = 14000.0;
 
 // Sample-rate-aware cutoff frequencies for aspiration burst LP
 // More aggressive than frication since aspiration through cascade is often
 // the real culprit for "sharp" stop releases
-const double kAspBurstFc_16k = 3200.0;
-const double kAspBurstFc_22k = 3800.0;
-const double kAspBurstFc_44k = 4500.0;
+const double kAspBurstFc_11k = 2400.0;   // 11025 Hz - more aggressive
+const double kAspBurstFc_16k = 3200.0;   // 16000 Hz
+const double kAspBurstFc_22k = 2200.0;   // 22050 Hz
+const double kAspBurstFc_44k = 2500.0;   // 44100 Hz
 
 // Burstiness detection sensitivity (higher = more sensitive to fast rises)
-const double kBurstinessScale = 18.0;
+const double kBurstinessScale = 25.0;
 
 class NoiseGenerator {
 private:
@@ -638,9 +642,14 @@ public:
         // Adaptive frication lowpass: select cutoffs based on sample rate
         // ------------------------------------------------------------
         // Interpolate between known sample rates for smooth behavior
-        if (sampleRate <= 16000) {
-            fricBurstFc = kFricBurstFc_16k;
-            fricSustainFc = kFricSustainFc_16k;
+        if (sampleRate <= 11025) {
+            fricBurstFc = kFricBurstFc_11k;
+            fricSustainFc = kFricSustainFc_11k;
+        } else if (sampleRate <= 16000) {
+            // Interpolate between 11k and 16k
+            double t = (double)(sampleRate - 11025) / (16000.0 - 11025.0);
+            fricBurstFc = kFricBurstFc_11k + t * (kFricBurstFc_16k - kFricBurstFc_11k);
+            fricSustainFc = kFricSustainFc_11k + t * (kFricSustainFc_16k - kFricSustainFc_11k);
         } else if (sampleRate <= 22050) {
             // Interpolate between 16k and 22k
             double t = (double)(sampleRate - 16000) / (22050.0 - 16000.0);
@@ -669,8 +678,11 @@ public:
         // Use more aggressive cutoffs than frication since this is the "too sharp" path
         // Interpolate between known sample rates for smooth behavior
         // ------------------------------------------------------------
-        if (sampleRate <= 16000) {
-            aspBurstFc = kAspBurstFc_16k;
+        if (sampleRate <= 11025) {
+            aspBurstFc = kAspBurstFc_11k;
+        } else if (sampleRate <= 16000) {
+            double t = (double)(sampleRate - 11025) / (16000.0 - 11025.0);
+            aspBurstFc = kAspBurstFc_11k + t * (kAspBurstFc_16k - kAspBurstFc_11k);
         } else if (sampleRate <= 22050) {
             double t = (double)(sampleRate - 16000) / (22050.0 - 16000.0);
             aspBurstFc = kAspBurstFc_16k + t * (kAspBurstFc_22k - kAspBurstFc_16k);
@@ -848,7 +860,7 @@ public:
                 // Duck the shelf only during bursts.
                 // burstEnv is already 0..1, and holds ~6ms.
                 // kShelfDuckMax: 0.0 = no change, 0.7 means at burstEnv=1 you keep 30% of the shelf.
-                const double kShelfDuckMax = 0.70;
+                const double kShelfDuckMax = 0.90;
 
                 // Also respect voicing amount so vowels keep full shelf.
                 // This keeps shelf strong when va is high even if burstEnv flickers.
