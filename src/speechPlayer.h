@@ -63,6 +63,15 @@ void speechPlayer_setVoicingTone(speechPlayer_handle_t playerHandle, const speec
  */
 void speechPlayer_getVoicingTone(speechPlayer_handle_t playerHandle, speechPlayer_voicingTone_t* tone);
 
+/**
+ * Get the DSP version implemented by this DLL.
+ *
+ * This is intended for frontends/drivers that want to detect whether a newer
+ * DSP feature-set is available (or avoid calling APIs that would misbehave on
+ * an older build).
+ */
+unsigned int speechPlayer_getDspVersion(void);
+
 #ifdef __cplusplus
 }
 #endif

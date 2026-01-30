@@ -21,6 +21,7 @@ Based on klsyn-88, found at http://linguistics.berkeley.edu/phonlab/resources/
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include "debug.h"
 #include "utils.h"
 #include "speechWaveGenerator.h"
@@ -156,6 +157,10 @@ private:
     double lastVoicedSrc;
     double lastAspOut;  // for exposing aspiration to caller
 
+    // Optional noise AM on the glottal cycle (aspiration + frication).
+    double noiseGlottalModDepth;
+    double lastNoiseMod;
+
     double voicingPeakPos;
     double voicedPreEmphA;
     double voicedPreEmphMix;
@@ -262,7 +267,8 @@ public:
     bool glottisOpen;
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
-        lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0), glottisOpen(false),
+        lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
+        noiseGlottalModDepth(0.0), lastNoiseMod(1.0), glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
         tiltTargetTlDb(0.0), tiltTlDb(0.0),
         tiltPole(0.0), tiltPoleTarget(0.0), tiltState(0.0),
@@ -288,6 +294,7 @@ public:
         voicingPeakPos = defaults.voicingPeakPos;
         voicedPreEmphA = defaults.voicedPreEmphA;
         voicedPreEmphMix = defaults.voicedPreEmphMix;
+        noiseGlottalModDepth = clampDouble(defaults.noiseGlottalModDepth, 0.0, 1.0);
         setTiltDbPerOct(defaults.voicedTiltDbPerOct);
 
         tiltTlDb = tiltTargetTlDb;
@@ -305,6 +312,7 @@ public:
         lastVoicedOut=0.0;
         lastVoicedSrc=0.0;
         lastAspOut=0.0;
+        lastNoiseMod=1.0;
         glottisOpen=false;
     }
 
@@ -312,26 +320,43 @@ public:
         tiltTargetTlDb = clampDouble(tiltVal, -24.0, 24.0);
     }
 
-    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb) {
+    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth) {
         voicingPeakPos = peakPos;
         voicedPreEmphA = preEmphA;
         voicedPreEmphMix = preEmphMix;
+        noiseGlottalModDepth = clampDouble(noiseModDepth, 0.0, 1.0);
         setTiltDbPerOct(tiltDb);
     }
 
-    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb) const {
+    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth) const {
         if (peakPos) *peakPos = voicingPeakPos;
         if (preEmphA) *preEmphA = voicedPreEmphA;
         if (preEmphMix) *preEmphMix = voicedPreEmphMix;
         if (tiltDb) *tiltDb = tiltTargetTlDb;
+        if (noiseModDepth) *noiseModDepth = noiseGlottalModDepth;
     }
+
+    double getLastNoiseMod() const { return lastNoiseMod; }
 
     double getNext(const speechPlayer_frame_t* frame) {
         double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
         double pitchHz = frame->voicePitch * vibrato;
         double cyclePos = pitchGen.getNext(pitchHz > 0.0 ? pitchHz : 0.0);
 
-        double aspiration=aspirationGen.getNext()*0.1;
+        // Optional Klatt-style glottal-cycle AM for noise sources.
+        // When enabled, the second half of the cycle is attenuated.
+        // We normalize mean gain to 1.0 so existing amplitude tuning stays sane.
+        double noiseMod = 1.0;
+        if (noiseGlottalModDepth > 0.0 && pitchHz > 0.0) {
+            const double halfCycleAtten = 0.5 * noiseGlottalModDepth; // depth 1.0 => 0.5 attenuation
+            noiseMod = (cyclePos < 0.5) ? 1.0 : (1.0 - halfCycleAtten);
+            double meanGain = 1.0 - 0.25 * noiseGlottalModDepth;
+            if (meanGain < 0.001) meanGain = 0.001;
+            noiseMod /= meanGain;
+        }
+        lastNoiseMod = noiseMod;
+
+        double aspiration=aspirationGen.getNext()*0.1*noiseMod;
 
         double effectiveOQ = frame->glottalOpenQuotient;
         if (effectiveOQ <= 0.0) effectiveOQ = 0.4;
@@ -420,8 +445,8 @@ public:
 
     double getLastAspOut() const { return lastAspOut; }
 };
-// ... Resonator, Cascade, Parallel, SpeechWaveGeneratorImpl ...
-// (These classes are unchanged from your last stable version)
+// Resonator + formant path helpers (based on the classic klsyn-style 2-pole
+// sections, with a few safety/ordering fixes borrowed from other Klatt ports.)
 class Resonator {
 private:
     int sampleRate;
@@ -446,16 +471,39 @@ public:
             this->frequency=frequency;
             this->bandwidth=bandwidth;
 
-            double effectiveBandwidth = bandwidth;
+            const double nyquist = 0.5 * (double)sampleRate;
+            const bool invalid = (!std::isfinite(frequency) || !std::isfinite(bandwidth));
+            const bool disabled = (frequency <= 0.0 || bandwidth <= 0.0 || frequency >= nyquist);
 
-            double r=exp(-M_PI/sampleRate*effectiveBandwidth);
-            c=-(r*r);
-            b=r*cos(PITWO/sampleRate*-frequency)*2.0;
-            a=1.0-b-c;
-            if(anti&&frequency!=0) {
-                a=1.0/a;
-                c*=-a;
-                b*=-a;
+            // Treat invalid/disabled sections as a straight passthrough.
+            // This is important because many "unused" formants are represented
+            // by zeroed params in frame data.
+            if (invalid || disabled) {
+                a = 1.0;
+                b = 0.0;
+                c = 0.0;
+                setOnce = true;
+                return;
+            }
+
+            double r = exp(-M_PI/sampleRate*bandwidth);
+            c = -(r*r);
+            b = r*cos(PITWO*frequency/(double)sampleRate)*2.0;
+            a = 1.0-b-c;
+
+            if(anti) {
+                // Antiresonator is implemented as an inverted resonator transfer.
+                // Avoid division by ~0 for extreme parameter values.
+                if (!std::isfinite(a) || fabs(a) < 1e-12) {
+                    a = 1.0;
+                    b = 0.0;
+                    c = 0.0;
+                } else {
+                    double invA = 1.0 / a;
+                    a = invA;
+                    b *= -invA;
+                    c *= -invA;
+                }
             }
         }
         this->setOnce=true;
@@ -491,14 +539,29 @@ public:
     double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
         input/=2.0;
         (void)glottisOpen;
+        // Klatt cascade: N0 (antiresonator) -> NP (resonator) -> F1..F6.
+        // Order matters when params are time-varying, so we follow the classic
+        // low-to-high cascade ordering.
+        // "Nasal strength" (caNP) is also used as a transition shaper:
+        // when caNP is near 0, we gently pull NP toward N0 so the NZ/NP pair
+        // tends to cancel (Klatt80-style). This reduces "early" nasal bleed
+        // during cross-fades without adding any new frame params.
+        double caNP = frame->caNP;
+        if (caNP < 0.0) caNP = 0.0;
+        else if (caNP > 1.0) caNP = 1.0;
+        const double cancelMix = 1.0 - caNP;
+        const double npFreq = calculateValueAtFadePosition(frame->cfNP, frame->cfN0, cancelMix);
+        const double npBw   = calculateValueAtFadePosition(frame->cbNP, frame->cbN0, cancelMix);
+
         double n0Output=rN0.resonate(input,frame->cfN0,frame->cbN0);
-        double output=calculateValueAtFadePosition(input,rNP.resonate(n0Output,frame->cfNP,frame->cbNP),frame->caNP);
-        output=r6.resonate(output,frame->cf6,frame->cb6);
-        output=r5.resonate(output,frame->cf5,frame->cb5);
-        output=r4.resonate(output,frame->cf4,frame->cb4);
-        output=r3.resonate(output,frame->cf3,frame->cb3);
-        output=r2.resonate(output,frame->cf2,frame->cb2);
+        double npOutput=rNP.resonate(n0Output,npFreq,npBw);
+        double output=calculateValueAtFadePosition(input,npOutput,caNP);
         output=r1.resonate(output,frame->cf1,frame->cb1);
+        output=r2.resonate(output,frame->cf2,frame->cb2);
+        output=r3.resonate(output,frame->cf3,frame->cb3);
+        output=r4.resonate(output,frame->cf4,frame->cb4);
+        output=r5.resonate(output,frame->cf5,frame->cb5);
+        output=r6.resonate(output,frame->cf6,frame->cb6);
         return output;
     }
 };
@@ -835,6 +898,11 @@ public:
                 // Generate raw frication noise
                 double fricNoise = fricGenerator.getNext() * kFricNoiseScale * fricAmp * bypassGain * bypassVoicedDuck * voicedFricScale;
 
+                // Optional Klatt-style glottal-cycle AM for noise sources.
+                // This is driven by the voiced pitch cycle and will be 1.0
+                // when disabled/unvoiced.
+                fricNoise *= voiceGenerator.getLastNoiseMod();
+
                 // Apply adaptive lowpass filtering:
                 // - Burst path (2-pole cascade at lower cutoff): removes harsh highs from stops
                 // - Sustain path (2-pole cascade at higher cutoff): preserves sibilant crispness
@@ -922,17 +990,65 @@ public:
     }
 
     void setVoicingTone(const speechPlayer_voicingTone_t* tone) {
+        // Legacy ABI: the original voicingTone struct was just 7 doubles.
+        // We still accept that layout when the magic header doesn't match.
+        struct speechPlayer_voicingTone_v1_t {
+            double voicingPeakPos;
+            double voicedPreEmphA;
+            double voicedPreEmphMix;
+            double highShelfGainDb;
+            double highShelfFcHz;
+            double highShelfQ;
+            double voicedTiltDbPerOct;
+        };
+
+        speechPlayer_voicingTone_t merged = speechPlayer_getDefaultVoicingTone();
+
         if (tone) {
-            currentTone = *tone;
-        } else {
-            currentTone = speechPlayer_getDefaultVoicingTone();
+            const bool looksLikeV2 = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
+                                      tone->structVersion == SPEECHPLAYER_VOICINGTONE_VERSION);
+
+            if (looksLikeV2) {
+                // Caller is providing the v2 struct layout (or claims to).
+                size_t copySize = (size_t)tone->structSize;
+
+                // If the caller forgot to set structSize, but did set the header,
+                // assume they're passing the full struct.
+                if (copySize < sizeof(uint32_t) * 4) copySize = sizeof(speechPlayer_voicingTone_t);
+
+                // Basic sanity clamps in case a mismatched caller passes garbage.
+                if (copySize > sizeof(speechPlayer_voicingTone_t)) copySize = sizeof(speechPlayer_voicingTone_t);
+
+                // Start from defaults so missing tail fields get sane values.
+                memcpy(&merged, tone, copySize);
+            } else {
+                // Legacy (v1) layout: 7 doubles, no header.
+                const speechPlayer_voicingTone_v1_t* v1 = (const speechPlayer_voicingTone_v1_t*)tone;
+                merged.voicingPeakPos = v1->voicingPeakPos;
+                merged.voicedPreEmphA = v1->voicedPreEmphA;
+                merged.voicedPreEmphMix = v1->voicedPreEmphMix;
+                merged.highShelfGainDb = v1->highShelfGainDb;
+                merged.highShelfFcHz = v1->highShelfFcHz;
+                merged.highShelfQ = v1->highShelfQ;
+                merged.voicedTiltDbPerOct = v1->voicedTiltDbPerOct;
+                // merged.noiseGlottalModDepth stays at default.
+            }
         }
+
+        // Always normalize the header values to what this build implements.
+        merged.magic = SPEECHPLAYER_VOICINGTONE_MAGIC;
+        merged.structSize = (uint32_t)sizeof(speechPlayer_voicingTone_t);
+        merged.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION;
+        merged.dspVersion = SPEECHPLAYER_DSP_VERSION;
+
+        currentTone = merged;
 
         voiceGenerator.setVoicingParams(
             currentTone.voicingPeakPos,
             currentTone.voicedPreEmphA,
             currentTone.voicedPreEmphMix,
-            currentTone.voicedTiltDbPerOct
+            currentTone.voicedTiltDbPerOct,
+            currentTone.noiseGlottalModDepth
         );
 
         // Update high-shelf coefficients (do not reset state)
@@ -940,9 +1056,47 @@ public:
     }
 
     void getVoicingTone(speechPlayer_voicingTone_t* tone) {
-        if (tone) {
-            *tone = currentTone;
+        if (!tone) return;
+
+        // Legacy ABI: if the caller didn't set magic, assume they're using
+        // the old 7-double layout and only write those fields.
+        struct speechPlayer_voicingTone_v1_t {
+            double voicingPeakPos;
+            double voicedPreEmphA;
+            double voicedPreEmphMix;
+            double highShelfGainDb;
+            double highShelfFcHz;
+            double highShelfQ;
+            double voicedTiltDbPerOct;
+        };
+
+        const bool callerWantsV2 = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
+                                    tone->structVersion == SPEECHPLAYER_VOICINGTONE_VERSION);
+
+        if (!callerWantsV2) {
+            speechPlayer_voicingTone_v1_t* v1 = (speechPlayer_voicingTone_v1_t*)tone;
+            v1->voicingPeakPos = currentTone.voicingPeakPos;
+            v1->voicedPreEmphA = currentTone.voicedPreEmphA;
+            v1->voicedPreEmphMix = currentTone.voicedPreEmphMix;
+            v1->highShelfGainDb = currentTone.highShelfGainDb;
+            v1->highShelfFcHz = currentTone.highShelfFcHz;
+            v1->highShelfQ = currentTone.highShelfQ;
+            v1->voicedTiltDbPerOct = currentTone.voicedTiltDbPerOct;
+            return;
         }
+
+        // V2: respect the caller-provided buffer size.
+        speechPlayer_voicingTone_t tmp = currentTone;
+        tmp.magic = SPEECHPLAYER_VOICINGTONE_MAGIC;
+        tmp.structSize = (uint32_t)sizeof(speechPlayer_voicingTone_t);
+        tmp.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION;
+        tmp.dspVersion = SPEECHPLAYER_DSP_VERSION;
+
+        size_t writeSize = sizeof(speechPlayer_voicingTone_t);
+        if (tone->structSize >= sizeof(uint32_t) * 4 && tone->structSize < writeSize) {
+            writeSize = (size_t)tone->structSize;
+        }
+        memcpy(tone, &tmp, writeSize);
     }
 };
 

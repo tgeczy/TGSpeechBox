@@ -71,3 +71,7 @@ void speechPlayer_getVoicingTone(speechPlayer_handle_t playerHandle, speechPlaye
 		playerHandleInfo->waveGenerator->getVoicingTone(tone);
 	}
 }
+
+unsigned int speechPlayer_getDspVersion(void) {
+	return SPEECHPLAYER_DSP_VERSION;
+}

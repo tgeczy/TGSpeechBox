@@ -128,19 +128,6 @@ static void setScaleField(VPClassScales& scales, const std::string& field, const
   else if (field == "outputGain_mul") { scales.outputGain_mul = v; scales.outputGain_mul_set = true; }
 }
 
-static void setVoicingToneField(VPVoicingTone& tone, const std::string& field, const std::string& value) {
-  double v;
-  if (!parseDouble(value, v)) return;
-  
-  if (field == "voicingPeakPos") { tone.voicingPeakPos = v; tone.voicingPeakPos_set = true; }
-  else if (field == "voicedPreEmphA") { tone.voicedPreEmphA = v; tone.voicedPreEmphA_set = true; }
-  else if (field == "voicedPreEmphMix") { tone.voicedPreEmphMix = v; tone.voicedPreEmphMix_set = true; }
-  else if (field == "highShelfGainDb") { tone.highShelfGainDb = v; tone.highShelfGainDb_set = true; }
-  else if (field == "highShelfFcHz") { tone.highShelfFcHz = v; tone.highShelfFcHz_set = true; }
-  else if (field == "highShelfQ") { tone.highShelfQ = v; tone.highShelfQ_set = true; }
-  else if (field == "voicedTiltDbPerOct") { tone.voicedTiltDbPerOct = v; tone.voicedTiltDbPerOct_set = true; }
-}
-
 // Parse inline map like {cf1: 648, cf2: 1856, cf3: 2820}
 static std::map<std::string, double> parseInlineMap(const std::string& s) {
   std::map<std::string, double> result;
@@ -257,7 +244,7 @@ bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath, std::vector<VPVoice
     
     if (!currentProfile) continue;
     
-    // Detect classScales:, phonemeOverrides:, or voicingTone:
+    // Detect classScales: or phonemeOverrides:
     if (indent > profileIndent && classScalesIndent < 0 && overridesIndent < 0) {
       if (stripped == "classScales:") {
         inClassScales = true;
@@ -271,31 +258,6 @@ bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath, std::vector<VPVoice
         inClassScales = false;
         overridesIndent = indent;
         overrideIndent = -1;
-        continue;
-      }
-      if (stripped == "voicingTone:") {
-        // Parse voicingTone fields on subsequent lines
-        int vtIndent = -1;
-        for (int j = i + 1; j < vpEnd; j++) {
-          const std::string& vtLine = lines[j];
-          std::string vtStripped = trim(vtLine);
-          if (vtStripped.empty() || vtStripped[0] == '#') continue;
-          
-          int vtLineIndent = countIndent(vtLine);
-          if (vtLineIndent <= indent) break;  // Left voicingTone section
-          
-          if (vtIndent < 0) vtIndent = vtLineIndent;
-          if (vtLineIndent == vtIndent) {
-            size_t colon = vtStripped.find(':');
-            if (colon != std::string::npos) {
-              std::string field = trim(vtStripped.substr(0, colon));
-              std::string value = trim(vtStripped.substr(colon + 1));
-              if (!field.empty() && !value.empty()) {
-                setVoicingToneField(currentProfile->voicingTone, field, value);
-              }
-            }
-          }
-        }
         continue;
       }
     }
@@ -516,26 +478,6 @@ bool saveVoiceProfilesToYaml(const std::wstring& yamlPath, const std::vector<VPV
           vpLines.push_back(ss.str());
         }
       }
-      
-      // Voicing tone (DSP-level parameters)
-      if (profile.voicingTone.hasAnySet()) {
-        vpLines.push_back("    voicingTone:");
-        const auto& vt = profile.voicingTone;
-        if (vt.voicingPeakPos_set)
-          vpLines.push_back("      voicingPeakPos: " + formatDouble(vt.voicingPeakPos));
-        if (vt.voicedPreEmphA_set)
-          vpLines.push_back("      voicedPreEmphA: " + formatDouble(vt.voicedPreEmphA));
-        if (vt.voicedPreEmphMix_set)
-          vpLines.push_back("      voicedPreEmphMix: " + formatDouble(vt.voicedPreEmphMix));
-        if (vt.highShelfGainDb_set)
-          vpLines.push_back("      highShelfGainDb: " + formatDouble(vt.highShelfGainDb));
-        if (vt.highShelfFcHz_set)
-          vpLines.push_back("      highShelfFcHz: " + formatDouble(vt.highShelfFcHz));
-        if (vt.highShelfQ_set)
-          vpLines.push_back("      highShelfQ: " + formatDouble(vt.highShelfQ));
-        if (vt.voicedTiltDbPerOct_set)
-          vpLines.push_back("      voicedTiltDbPerOct: " + formatDouble(vt.voicedTiltDbPerOct));
-      }
     }
   }
   
@@ -733,25 +675,6 @@ static void populateOverridesList(HWND hList, const std::vector<VPPhonemeOverrid
   }
 }
 
-static void populateVoicingToneFields(HWND hDlg, const VPVoicingTone& vt) {
-  // Helper to set edit text only if value is set
-  auto setField = [&](int ctrlId, double val, bool isSet) {
-    if (isSet) {
-      SetDlgItemTextW(hDlg, ctrlId, utf8ToWide(formatDouble(val)).c_str());
-    } else {
-      SetDlgItemTextW(hDlg, ctrlId, L"");
-    }
-  };
-  
-  setField(IDC_EVP_VT_PEAKPOS, vt.voicingPeakPos, vt.voicingPeakPos_set);
-  setField(IDC_EVP_VT_PREEMPHA, vt.voicedPreEmphA, vt.voicedPreEmphA_set);
-  setField(IDC_EVP_VT_PREEMPHMIX, vt.voicedPreEmphMix, vt.voicedPreEmphMix_set);
-  setField(IDC_EVP_VT_SHELFGAIN, vt.highShelfGainDb, vt.highShelfGainDb_set);
-  setField(IDC_EVP_VT_SHELFFC, vt.highShelfFcHz, vt.highShelfFcHz_set);
-  setField(IDC_EVP_VT_SHELFQ, vt.highShelfQ, vt.highShelfQ_set);
-  setField(IDC_EVP_VT_TILT, vt.voicedTiltDbPerOct, vt.voicedTiltDbPerOct_set);
-}
-
 static INT_PTR CALLBACK EditVoiceProfileDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
   auto* st = reinterpret_cast<EditVoiceProfileDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
   
@@ -779,9 +702,6 @@ static INT_PTR CALLBACK EditVoiceProfileDlgProc(HWND hDlg, UINT msg, WPARAM wPar
       
       // Overrides list
       populateOverridesList(GetDlgItem(hDlg, IDC_EVP_OVERRIDES_LIST), st->profile.phonemeOverrides);
-      
-      // Voicing tone fields
-      populateVoicingToneFields(hDlg, st->profile.voicingTone);
       
       return TRUE;
     }
@@ -884,57 +804,6 @@ static INT_PTR CALLBACK EditVoiceProfileDlgProc(HWND hDlg, UINT msg, WPARAM wPar
           st->profile.phonemeOverrides.erase(st->profile.phonemeOverrides.begin() + sel);
           populateOverridesList(hList, st->profile.phonemeOverrides);
         }
-        return TRUE;
-      }
-      
-      // --- Voicing tone Set buttons ---
-      {
-        auto handleVtSet = [&](int setCtrlId, int editCtrlId, double& target, bool& targetSet) -> bool {
-          if (id == setCtrlId) {
-            wchar_t buf[64];
-            GetDlgItemTextW(hDlg, editCtrlId, buf, 64);
-            double v;
-            if (parseDouble(wideToUtf8(buf), v)) {
-              target = v;
-              targetSet = true;
-            } else if (wcslen(buf) == 0) {
-              // Empty = clear
-              targetSet = false;
-            } else {
-              msgBox(hDlg, L"Invalid number.", L"Voicing Tone", MB_ICONERROR);
-            }
-            return true;
-          }
-          return false;
-        };
-        
-        if (handleVtSet(IDC_EVP_VT_PEAKPOS_SET, IDC_EVP_VT_PEAKPOS, 
-                        st->profile.voicingTone.voicingPeakPos, st->profile.voicingTone.voicingPeakPos_set))
-          return TRUE;
-        if (handleVtSet(IDC_EVP_VT_PREEMPHA_SET, IDC_EVP_VT_PREEMPHA,
-                        st->profile.voicingTone.voicedPreEmphA, st->profile.voicingTone.voicedPreEmphA_set))
-          return TRUE;
-        if (handleVtSet(IDC_EVP_VT_PREEMPHMIX_SET, IDC_EVP_VT_PREEMPHMIX,
-                        st->profile.voicingTone.voicedPreEmphMix, st->profile.voicingTone.voicedPreEmphMix_set))
-          return TRUE;
-        if (handleVtSet(IDC_EVP_VT_SHELFGAIN_SET, IDC_EVP_VT_SHELFGAIN,
-                        st->profile.voicingTone.highShelfGainDb, st->profile.voicingTone.highShelfGainDb_set))
-          return TRUE;
-        if (handleVtSet(IDC_EVP_VT_SHELFFC_SET, IDC_EVP_VT_SHELFFC,
-                        st->profile.voicingTone.highShelfFcHz, st->profile.voicingTone.highShelfFcHz_set))
-          return TRUE;
-        if (handleVtSet(IDC_EVP_VT_SHELFQ_SET, IDC_EVP_VT_SHELFQ,
-                        st->profile.voicingTone.highShelfQ, st->profile.voicingTone.highShelfQ_set))
-          return TRUE;
-        if (handleVtSet(IDC_EVP_VT_TILT_SET, IDC_EVP_VT_TILT,
-                        st->profile.voicingTone.voicedTiltDbPerOct, st->profile.voicingTone.voicedTiltDbPerOct_set))
-          return TRUE;
-      }
-      
-      // Clear all voicing tone
-      if (id == IDC_EVP_VT_CLEAR_ALL) {
-        st->profile.voicingTone = VPVoicingTone{};  // Reset to defaults
-        populateVoicingToneFields(hDlg, st->profile.voicingTone);
         return TRUE;
       }
       
@@ -1085,27 +954,6 @@ bool ShowEditPhonemeOverrideDialog(HINSTANCE hInst, HWND parent, EditPhonemeOver
   st.ok = false;
   DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_EDIT_PHONEME_OVERRIDE), parent, EditPhonemeOverrideDlgProc, reinterpret_cast<LPARAM>(&st));
   return st.ok;
-}
-
-bool getVoicingToneForProfile(const std::wstring& yamlPath, const std::string& profileName, VPVoicingTone& outTone) {
-  outTone = VPVoicingTone{};  // Reset to defaults
-  
-  if (profileName.empty()) return false;
-  
-  std::vector<VPVoiceProfile> profiles;
-  std::string err;
-  if (!loadVoiceProfilesFromYaml(yamlPath, profiles, err)) {
-    return false;
-  }
-  
-  for (const auto& profile : profiles) {
-    if (profile.name == profileName) {
-      outTone = profile.voicingTone;
-      return true;
-    }
-  }
-  
-  return false;
 }
 
 } // namespace nvsp_editor

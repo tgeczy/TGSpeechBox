@@ -462,15 +462,11 @@ class SynthDriver(SynthDriver):
             # Create new audio thread
             self._audio = AudioThread(self, self._player, self._sampleRate)
             
-            # Reapply voicing tone to the new player
-            # This must be done for ALL voices (profiles and Python presets)
-            # to restore the user's tilt slider setting
-            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
-            if curVoice.startswith(VOICE_PROFILE_PREFIX):
-                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
-            else:
-                profileName = ""
-            self._applyVoicingTone(profileName)
+            # Reapply voicing tone to the new player (if using a voice profile)
+            if getattr(self, "_usingVoiceProfile", False):
+                profileName = getattr(self, "_activeProfileName", "")
+                if profileName:
+                    self._applyVoicingTone(profileName)
             
         except Exception:
             log.error("nvSpeechPlayer: failed to reinitialize audio", exc_info=True)
@@ -1351,122 +1347,45 @@ class SynthDriver(SynthDriver):
 
     def terminate(self):
         try:
-            # Cancel any ongoing speech first
             self.cancel()
             
-            # Signal the background thread to stop
             if hasattr(self, "_bgStop"):
                 self._bgStop.set()
             if hasattr(self, "_bgQueue"):
-                # Put None to wake up the queue.get() if it's blocking
-                try:
-                    self._bgQueue.put_nowait(None)
-                except Exception:
-                    pass
+                self._bgQueue.put(None)
             
-            # Terminate audio thread FIRST (it uses the player)
-            # Do this before waiting on bgThread since audio thread is higher priority
-            if hasattr(self, "_audio") and self._audio:
-                try:
-                    self._audio.terminate()
-                except Exception:
-                    log.debug("nvSpeechPlayer: audio terminate failed", exc_info=True)
-                self._audio = None
-            
-            # Now join the background thread with a SHORT timeout
-            # It should exit quickly since _bgStop is set
+            # Join the background thread with compatibility for different Python versions
             if hasattr(self, "_bgThread") and self._bgThread is not None:
                 try:
-                    self._bgThread.join(timeout=0.3)
-                except (TypeError, AttributeError):
-                    # Very old Python without timeout parameter
-                    pass
-                except Exception:
-                    log.debug("nvSpeechPlayer: bgThread join failed", exc_info=True)
+                    self._bgThread.join(timeout=2.0)
+                except (TypeError, AttributeError, Exception):
+                    # Fallback for Python versions with different threading internals
+                    # Just wait a fixed time and let it die naturally
+                    import time
+                    time.sleep(0.5)
                 self._bgThread = None
             
-            # Terminate frontend (unloads nvspFrontend.dll)
-            # Do this BEFORE terminating player since frontend may reference player resources
-            if getattr(self, "_frontend", None):
-                try:
-                    self._frontend.terminate()
-                except Exception:
-                    log.debug("nvSpeechPlayer: frontend terminate failed", exc_info=True)
-                self._frontend = None
+            # Terminate audio thread first (it uses the player)
+            if hasattr(self, "_audio") and self._audio:
+                self._audio.terminate()
+                self._audio = None
             
-            # Terminate player last (unloads speechPlayer.dll)
+            # Terminate frontend (unloads nvspFrontend.dll)
+            try:
+                if getattr(self, "_frontend", None):
+                    self._frontend.terminate()
+                    self._frontend = None
+            except Exception:
+                log.debug("nvSpeechPlayer: frontend terminate failed", exc_info=True)
+            
+            # Terminate player (unloads speechPlayer.dll)
             if hasattr(self, "_player") and self._player:
-                try:
-                    self._player.terminate()
-                except Exception:
-                    log.debug("nvSpeechPlayer: player terminate failed", exc_info=True)
+                self._player.terminate()
                 self._player = None
             
-            # Finally terminate espeak
-            try:
-                _espeak.terminate()
-            except Exception:
-                log.debug("nvSpeechPlayer: espeak terminate failed", exc_info=True)
+            _espeak.terminate()
         except Exception:
             log.debug("nvSpeechPlayer: terminate failed", exc_info=True)
-
-    def loadSettings(self, onlyChanged=False):
-        """Override loadSettings to ensure frontend profile is always properly restored.
-        
-        This fixes the Escape key bug where:
-        1. User selects a voice profile (e.g., profile:Beth)
-        2. User opens settings, modifies tilt/rate, then hits Escape
-        3. NVDA calls loadSettings() to restore saved settings
-        4. If anything goes wrong (exception in changeVoice, etc.), the frontend
-           profile could be left in an inconsistent state
-        
-        Our fix: After the parent loadSettings() completes (successfully or not),
-        we always re-sync the frontend with the current voice profile state.
-        """
-        # Capture the voice BEFORE loadSettings runs, in case something corrupts it
-        voiceBeforeLoad = getattr(self, "_curVoice", None)
-        
-        try:
-            # Call parent implementation
-            super().loadSettings(onlyChanged)
-        except Exception:
-            log.debug("nvSpeechPlayer: parent loadSettings failed", exc_info=True)
-            # Don't re-raise - we'll try to recover below
-        
-        # CRITICAL: Always re-sync frontend profile after loadSettings completes.
-        # This ensures the frontend has the correct phonetic transformations applied,
-        # even if NVDA's loadSettings hit an exception and tried to "recover".
-        try:
-            curVoice = getattr(self, "_curVoice", None)
-            
-            # If voice got corrupted (changed unexpectedly), restore it
-            if voiceBeforeLoad and curVoice != voiceBeforeLoad:
-                # Check if the "new" voice is just a fallback to Adam
-                # when we actually had a valid profile before
-                if voiceBeforeLoad.startswith(VOICE_PROFILE_PREFIX) and curVoice == "Adam":
-                    log.debug(f"nvSpeechPlayer: loadSettings corrupted voice from {voiceBeforeLoad} to {curVoice}, restoring")
-                    self._curVoice = voiceBeforeLoad
-                    curVoice = voiceBeforeLoad
-            
-            # Re-apply frontend profile to ensure phonetic transformations are active
-            if curVoice and curVoice.startswith(VOICE_PROFILE_PREFIX):
-                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
-                if hasattr(self, "_frontend") and self._frontend:
-                    self._frontend.setVoiceProfile(profileName)
-                    self._usingVoiceProfile = True
-                    self._activeProfileName = profileName
-                    # Re-apply voicing tone as well
-                    self._applyVoicingTone(profileName)
-                    log.debug(f"nvSpeechPlayer: loadSettings re-synced frontend profile '{profileName}'")
-            else:
-                # Python preset or no voice - ensure frontend profile is cleared
-                if hasattr(self, "_frontend") and self._frontend:
-                    self._frontend.setVoiceProfile("")
-                    self._usingVoiceProfile = False
-                    self._activeProfileName = ""
-                    self._applyVoicingTone("")
-        except Exception:
-            log.debug("nvSpeechPlayer: loadSettings frontend re-sync failed", exc_info=True)
 
     def _get_rate(self):
         try:
@@ -1708,22 +1627,6 @@ class SynthDriver(SynthDriver):
                 voiceId = f"{VOICE_PROFILE_PREFIX}{profileName}"
                 # Display name includes profile name, description notes it's a profile
                 d[voiceId] = VoiceInfo(voiceId, f"{profileName} (profile)")
-            
-            # CRITICAL: Ensure the current voice is always in availableVoices.
-            # This prevents KeyError in speechDictHandler.loadVoiceDict() when
-            # NVDA calls loadSettings() on Escape (onDiscard), which does:
-            #   synth.availableVoices[synth.voice].displayName
-            # If current voice isn't in the dict, that line throws KeyError,
-            # which causes loadSettings() to fall back to "Adam".
-            curVoice = getattr(self, "_curVoice", None)
-            if curVoice and curVoice not in d:
-                if curVoice.startswith(VOICE_PROFILE_PREFIX):
-                    profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
-                    d[curVoice] = VoiceInfo(curVoice, f"{profileName} (profile)")
-                else:
-                    # Unknown Python preset - add it anyway
-                    d[curVoice] = VoiceInfo(curVoice, curVoice)
-            
             return d
         except Exception:
             # Return at least the default voice

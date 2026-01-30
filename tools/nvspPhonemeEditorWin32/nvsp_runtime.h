@@ -59,19 +59,6 @@ using fe_setVoiceProfile_fn = int(*)(nvspFrontend_handle_t, const char*);
 using fe_getVoiceProfile_fn = const char*(*)(nvspFrontend_handle_t);
 using fe_getPackWarnings_fn = const char*(*)(nvspFrontend_handle_t);
 
-// speechPlayer.dll voicing tone API
-struct speechPlayer_voicingTone_t {
-  double voicingPeakPos;
-  double voicedPreEmphA;
-  double voicedPreEmphMix;
-  double highShelfGainDb;
-  double highShelfFcHz;
-  double highShelfQ;
-  double voicedTiltDbPerOct;
-};
-using sp_setVoicingTone_fn = void(*)(speechPlayer_handle_t, const speechPlayer_voicingTone_t*);
-using sp_getVoicingTone_fn = void(*)(speechPlayer_handle_t, speechPlayer_voicingTone_t*);
-
 class NvspRuntime {
 public:
   NvspRuntime();
@@ -136,15 +123,6 @@ public:
   // Apply voice preset + per-field multipliers + volume scaling.
   // Exposed so the free callback helper can reuse the same logic.
   void applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const;
-  
-  // Set voicing tone parameters for DSP-level voice quality
-  void setVoicingTone(const speechPlayer_voicingTone_t* tone);
-  
-  // Get current voicing tone
-  speechPlayer_voicingTone_t getVoicingTone() const { return m_voicingTone; }
-  
-  // Check if voicing tone API is available
-  bool hasVoicingToneSupport() const { return m_spSetVoicingTone != nullptr; }
 
 private:
   void unload();
@@ -157,8 +135,6 @@ private:
   sp_queueFrame_fn m_spQueueFrame = nullptr;
   sp_synthesize_fn m_spSynthesize = nullptr;
   sp_terminate_fn m_spTerminate = nullptr;
-  sp_setVoicingTone_fn m_spSetVoicingTone = nullptr;
-  sp_getVoicingTone_fn m_spGetVoicingTone = nullptr;
 
   fe_create_fn m_feCreate = nullptr;
   fe_destroy_fn m_feDestroy = nullptr;
@@ -176,7 +152,6 @@ private:
   std::string m_langTag;
 
   SpeechSettings m_speech;
-  speechPlayer_voicingTone_t m_voicingTone = {0.91, 0.92, 0.35, 4.0, 2000.0, 0.7, 0.0};  // Defaults
 };
 
 } // namespace nvsp_editor
