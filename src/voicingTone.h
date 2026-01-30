@@ -81,13 +81,13 @@ typedef struct {
      * and more voice-like.
      * 
      * Typical values:
-     *   - Adult male:  -4 to -6 dB/oct (brighter, buzzier)
+     *   - Adult male:  +4 to +6 dB/oct (brighter, buzzier)
      *   - Female:      -7 to -10 dB/oct (smoother)
-     *   - Child/soft:  -9 to -12 dB/oct (very smooth/muffled)
+     *   - Child/soft:  -9 to -12 dB/oct (very smooth/bright)
      *   - 0 dB/oct:    No tilt (brightest, most synthetic)
      * 
-     * Negative values = darker/smoother (normal for speech)
-     * Positive values = brighter (unusual, may sound harsh)
+     * Negative values = brighter/smoother (normal for speech)
+     * Positive values = Buzzier and more bass  (unusual, may sound harsh)
      * 
      * Default: 0.0 (no additional tilt, preserves original DSP behavior)
      */
