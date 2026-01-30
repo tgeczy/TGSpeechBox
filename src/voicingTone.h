@@ -218,8 +218,8 @@ typedef struct {
     0.7,    /* highShelfQ */ \
     0.0,    /* voicedTiltDbPerOct (no tilt by default) */ \
     0.0,    /* noiseGlottalModDepth */ \
-    -30.0,  /* pitchSyncF1DeltaHz - TESTING: LOWER F1 during open phase for warmth */ \
-    60.0    /* pitchSyncB1DeltaHz - TESTING: widen B1 more for breathiness */ \
+    0.0,    /* pitchSyncF1DeltaHz (off by default) */ \
+    0.0     /* pitchSyncB1DeltaHz (off by default) */ \
 }
 
 /**
