@@ -1077,24 +1077,24 @@ phonemes:
     cfNP: 200
     fricationAmplitude: 1
     pa1: 0
-    pa2: 0.8
-    pa3: 0.6333333333
-    pa4: 0.3666666667
-    pa5: 0.3833333333
-    pa6: 0.3833333333
+    pa2: 1.0
+    pa3: 0.85
+    pa4: 0.25
+    pa5: 0.12
+    pa6: 0.05
     parallelBypass: 0
     pb1: 250
     pb2: 130
     pb3: 200
     pb4: 250
-    pb5: 200
-    pb6: 1000
+    pb5: 260
+    pb6: 1400
     pf1: 300
     pf2: 1990
     pf3: 2650
     pf4: 3300
-    pf5: 3750
-    pf6: 4900
+    pf5: 3200
+    pf6: 4200
     voiceAmplitude: 0
   l:
     _isLiquid: true
@@ -6046,6 +6046,7 @@ phonemes:
 voiceProfiles:
   Beth:
     voicingTone:
+      highShelfQ: 0.7
     classScales:
       vowel:
         voicePitch_mul: 1.25
@@ -6057,7 +6058,7 @@ voiceProfiles:
         voiceAmplitude_mul: 0.78
         aspirationAmplitude_mul: 1.05
         preFormantGain_mul: 0.78
-        outputGain_mul: 0.7
+        outputGain_mul: 0.76
         cf_mul: [1, 1, 1, 0.92, 0.86, 0.8]
         pf_mul: [1, 1, 1, 0.92, 0.86, 0.8]
         cb_mul: [1.2, 1.25, 1.25, 1.35, 1.45, 1.6]
@@ -6071,29 +6072,29 @@ voiceProfiles:
         glottalOpenQuotient_mul: 0.74
         voiceAmplitude_mul: 0.82
         preFormantGain_mul: 0.8
-        outputGain_mul: 0.75
+        outputGain_mul: 0.81
       unvoicedFricative:
         pf_mul: [1, 1, 1, 0.92, 0.8, 0.68]
         pb_mul: [1, 1, 1, 1.15, 1.35, 1.55]
         fricationAmplitude_mul: 0.65
         aspirationAmplitude_mul: 0.75
         preFormantGain_mul: 0.72
-        outputGain_mul: 0.65
+        outputGain_mul: 0.7
       voicedFricative:
         pf_mul: [1, 1, 1, 0.93, 0.82, 0.7]
         pb_mul: [1, 1, 1, 1.15, 1.35, 1.55]
         fricationAmplitude_mul: 0.68
         aspirationAmplitude_mul: 0.8
         preFormantGain_mul: 0.74
-        outputGain_mul: 0.67
+        outputGain_mul: 0.72
       stop:
         preFormantGain_mul: 0.78
-        outputGain_mul: 0.72
+        outputGain_mul: 0.78
       affricate:
         fricationAmplitude_mul: 0.62
         aspirationAmplitude_mul: 0.72
         preFormantGain_mul: 0.7
-        outputGain_mul: 0.64
+        outputGain_mul: 0.69
     phonemeOverrides:
       0: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
       3: {cf1: 379, cf2: 1718, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
@@ -6182,7 +6183,10 @@ voiceProfiles:
       t͡ɕ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
       t͡ʂ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
       t͡ʃ: {pf5: 3300, pf6: 3528, pb5: 400, pb6: 1914}
-  bobby:
+  Bobby:
+    voicingTone:
+      highShelfGainDb: 1.5
+      highShelfQ: 0.7
     classScales:
       vowel:
         voicePitch_mul: 1.6
@@ -6194,7 +6198,7 @@ voiceProfiles:
         voiceAmplitude_mul: 0.7
         aspirationAmplitude_mul: 1
         preFormantGain_mul: 0.68
-        outputGain_mul: 0.6
+        outputGain_mul: 0.65
         cf_mul: [1, 1, 1, 0.9, 0.84, 0.78]
         pf_mul: [1, 1, 1, 0.9, 0.84, 0.78]
         cb_mul: [1.25, 1.3, 1.3, 1.4, 1.55, 1.7]
@@ -6208,7 +6212,7 @@ voiceProfiles:
         glottalOpenQuotient_mul: 0.82
         voiceAmplitude_mul: 0.72
         preFormantGain_mul: 0.7
-        outputGain_mul: 0.62
+        outputGain_mul: 0.7
       unvoicedFricative:
         pf_mul: [1, 1, 1, 0.9, 0.78, 0.65]
         pb_mul: [1, 1, 1, 1.2, 1.4, 1.6]
@@ -6225,12 +6229,12 @@ voiceProfiles:
         outputGain_mul: 0.62
       stop:
         preFormantGain_mul: 0.7
-        outputGain_mul: 0.64
+        outputGain_mul: 0.7
       affricate:
         fricationAmplitude_mul: 0.56
         aspirationAmplitude_mul: 0.68
         preFormantGain_mul: 0.62
-        outputGain_mul: 0.58
+        outputGain_mul: 0.6
     phonemeOverrides:
       0: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
       3: {cf1: 433, cf2: 1955, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}

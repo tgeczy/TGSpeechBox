@@ -49,6 +49,13 @@ settings:
   positionalAllophonesGlottalReinforcementEnabled: false
   autoTieDiphthongs: false
   liquidDynamicsEnabled: false
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+
 normalization:
   preReplacements:
     - from: "aː"

@@ -20,3 +20,25 @@ settings:
   lengthContrastGeminateClosureScale: 2.0
   lengthContrastGeminateReleaseScale: 0.9
   lengthContrastPreGeminateVowelScale: 0.85
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+
+normalization:
+  preReplacements:
+    # Finnish /a/ comes through from eSpeak as plain 'a', which in our global phoneme table
+    # is a bit too front. Route it to the Hungarian-style open back vowel for a clearer 'ah'.
+    - from: "a"
+      to:   "ᴒ"
+    - from: "ɑ"
+      to:   "ᴒ"
+    - from: "ɒ"
+      to:   "ᴒ"
+
+    # eSpeak fi often uses ɪ where Finnish speakers expect a cleaner /i/.
+    - from: "ɪ"
+      to:   "i"
+

@@ -12,6 +12,13 @@ settings:
   # This relies on the frontend option you added.
   segmentBoundarySkipVowelToVowel: true
 
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+
 normalization:
   classes:
     # eSpeak Portuguese often uses "ŋ" as a generic *coda nasal marker*

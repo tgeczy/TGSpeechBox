@@ -47,29 +47,8 @@ normalization:
     VOWELS: ["a", "e", "i", "o", "u", "ɐ", "ə", "ɜ", "ɝ", "ɑ", "ɒ", "ɔ", "ɛ", "æ", "ʊ", "ɪ", "ᵾ", "ᵿ", "ᴏ", "ᴐ", "ᴒ", "ã", "ẽ", "ĩ", "õ", "ũ", "ᴜ"]
 
   replacements:
-    # Letter name "A" can sound too much like a strong "ay" when FACE is rewritten
-    # to a vowel+glide (eɪ -> ej). For the *standalone* letter token only, keep it
-    # as a long monophthong.
-    - from: "ˈeɪ"
-      to:   "ˈeː"
-      when:
-        atWordStart: true
-        atWordEnd: true
-    - from: "ˈe͡ɪ"
-      to:   "ˈeː"
-      when:
-        atWordStart: true
-        atWordEnd: true
-    - from: "eɪ"
-      to:   "eː"
-      when:
-        atWordStart: true
-        atWordEnd: true
-    - from: "e͡ɪ"
-      to:   "eː"
-      when:
-        atWordStart: true
-        atWordEnd: true
+
+
 
     # Acronyms like "NVDA" / "GPDA" end in ...diːˈeɪ. If we rewrite eɪ -> ej,
     # the final letter "A" can sound like "dee-yay". Keep that final A as a

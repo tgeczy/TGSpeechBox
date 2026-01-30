@@ -15,3 +15,10 @@ settings:
   lengthContrastGeminateClosureScale: 1.9
   lengthContrastGeminateReleaseScale: 0.9
   lengthContrastPreGeminateVowelScale: 0.88
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+

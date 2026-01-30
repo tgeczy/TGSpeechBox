@@ -107,28 +107,7 @@ normalization:
     - from: "iːˌe͡ɪ"
       to:   "iːˌeː"
 
-    # Standalone letter name "A": keep it as a long monophthong so it doesn't have
-    # an overly strong "ay" glide by itself.
-    - from: "ˈeɪ"
-      to:   "ˈeː"
-      when:
-        atWordStart: true
-        atWordEnd: true
-    - from: "ˈe͡ɪ"
-      to:   "ˈeː"
-      when:
-        atWordStart: true
-        atWordEnd: true
-    - from: "eɪ"
-      to:   "eː"
-      when:
-        atWordStart: true
-        atWordEnd: true
-    - from: "e͡ɪ"
-      to:   "eː"
-      when:
-        atWordStart: true
-        atWordEnd: true
+
 
     # Make FACE (eɪ) sound like a real diphthong instead of a flat "e".
     # Using a semivowel offglide gives a clearer movement in our formant table.
@@ -250,29 +229,6 @@ normalization:
       to:   "ɪɻ"
       when:
         atWordEnd: true
-
-
-    # Word-final /ɔɹ/ and /oɹ/ (four, pour, more, door, etc.):
-    # In a formant synth the vowel can get pulled into /r/ too quickly, making it feel clipped.
-    # Add a very short schwa-like tail (ᵊ) before /r/ only at word end to keep the "oh" audible.
-    - from: "ᴐːɹ"
-      to:   "ᴐːᵊɹ"
-      when:
-        atWordEnd: true
-    - from: "ᴐɹ"
-      to:   "ᴐᵊɹ"
-      when:
-        atWordEnd: true
-    - from: "ᵒːɹ"
-      to:   "ᵒːᵊɹ"
-      when:
-        atWordEnd: true
-    - from: "ᵒɹ"
-      to:   "ᵒᵊɹ"
-      when:
-        atWordEnd: true
-
-
     - from: "ɹ"
       to:   "ɻ"
 

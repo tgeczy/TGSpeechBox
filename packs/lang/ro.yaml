@@ -8,6 +8,13 @@ settings:
   trillModulationMs: 50
   trillModulationFadeMs: 2
 
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+
 normalization:
   # eSpeak (classic) Romanian IPA frequently uses plain two-character sequences
   # for affricates (ts/tʃ/dʒ) rather than tie-bar forms. We map them to the

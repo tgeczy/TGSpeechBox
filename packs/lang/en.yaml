@@ -36,6 +36,19 @@ settings:
   # Tune per-language if needed.
   lengthenedVowelFinalCodaScale: 0.90
 
+  # Single-word utterances (key echo / word-by-word reading) are often queued as
+  # separate chunks. Without an explicit fade-to-silence frame, the final voiced
+  # phoneme can sound clipped (notably on /ɹ/ and /uː/).
+  singleWordTuningEnabled: true
+  # Extra hold to add to the final voiced vowel/liquid/nasal (ms at speed=1.0).
+  singleWordFinalHoldMs: 45
+  # Fade to silence to append after single-word utterances (ms at speed=1.0).
+  singleWordFinalFadeMs: 18
+  # If the caller uses clauseType ',' for continuation, use a statement contour
+  # for isolated words/letters to avoid the odd "comma rise".
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+
 
   # Keep length scaling close to the global default.
   # Over-lengthening can make clusters (like "-dcast") sound overly separated.

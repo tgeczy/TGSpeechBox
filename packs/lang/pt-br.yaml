@@ -11,6 +11,13 @@ settings:
   stopClosureWordBoundaryClusterFadeMs: 3.0
   lengthenedScale: 2.44
 
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+
 normalization:
   classes:
     # Broad list of consonants for cluster rules.

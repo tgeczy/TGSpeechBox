@@ -4,6 +4,13 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
+
 normalization:
   replacements:
     # Safety fallback: if an upstream voice emits alveolar r, route to uvular ʁ.

@@ -12,8 +12,15 @@ settings:
   segmentBoundaryFadeMs: 4
 
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
-  trillModulationMs: 60
+  trillModulationMs: 52
   trillModulationFadeMs: 2
+
+  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  singleWordClauseTypeOverride: "."
+  singleWordClauseTypeOverrideCommaOnly: true
 
 normalization:
   replacements:
@@ -25,10 +32,8 @@ normalization:
     - from: "ɲʲ"
       to:   "ɲ"
 
-    # eSpeak Spanish often emits "ʝ" for initial <y> (e.g. "yo").
-    # Our base phoneme table doesn't include ʝ, so map it to the glide /j/ to keep the consonant audible.
-    - from: "ʝ"
-      to:   "j"
-    # Some voices use the affricate ɟʝ; map it to /j/ as well.
+    # eSpeak Spanish often emits "ʝ" for initial <y>/<ll> (e.g. "yo").
+    # We have a dedicated ʝ phoneme; keep it.
+    # If a voice uses the affricate ɟʝ, collapse it to ʝ to avoid an overly "hard" onset.
     - from: "ɟʝ"
-      to:   "j"
+      to:   "ʝ"
