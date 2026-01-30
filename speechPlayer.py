@@ -10,6 +10,7 @@
 # - queueFrame() accepts durations in milliseconds, converts to samples (DLL expects samples).
 # - Supports both 32-bit and 64-bit NVDA by loading DLLs from ./x86 or ./x64.
 # - setVoicingTone() for DSP-level voice quality adjustments.
+# - VoicingTone v2 struct with version detection and new pitch-sync params.
 ###
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from ctypes import (
     c_int,
     c_short,
     c_uint,
+    c_uint32,
     c_void_p,
     cdll,
 )
@@ -32,6 +34,10 @@ from typing import Optional
 from logHandler import log
 
 speechPlayer_frameParam_t = c_double
+
+# VoicingTone struct versioning constants (must match voicingTone.h)
+SPEECHPLAYER_VOICINGTONE_MAGIC = 0x32544F56  # "VOT2" in little-endian
+SPEECHPLAYER_VOICINGTONE_VERSION = 2
 
 
 class Frame(Structure):
@@ -60,44 +66,49 @@ class Frame(Structure):
 
 
 class VoicingTone(Structure):
-    """DSP-level voice quality parameters.
+    """DSP-level voice quality parameters (v2 struct with version detection).
     
     These affect the wave generator's glottal pulse shape, voiced pre-emphasis,
-    spectral tilt, and high-shelf EQ. Set once per voice change, not per-frame.
+    spectral tilt, high-shelf EQ, and pitch-synchronous F1 modulation.
+    Set once per voice change, not per-frame.
     
-    This struct matches speechPlayer_voicingTone_t in voicingTone.h.
+    This struct matches speechPlayer_voicingTone_t in voicingTone.h (v2 layout).
+    The magic/structSize/structVersion header enables backward compatibility
+    with older DLLs that only know the original 7-field layout.
     """
-    # Must match speechPlayer_voicingTone_t in voicingTone.h.
-    #
-    # Header fields exist so the DLL can safely detect the struct layout and
-    # avoid crashes if a mismatched driver passes an older struct.
-    VOICING_TONE_MAGIC = 0x32544F56  # 'VOT2'
-    VOICING_TONE_VERSION = 2
-    DSP_VERSION = 2
-
     _fields_ = [
-        ("magic", ctypes.c_uint32),
-        ("structSize", ctypes.c_uint32),
-        ("structVersion", ctypes.c_uint32),
-        ("dspVersion", ctypes.c_uint32),
-        ("voicingPeakPos", c_double),
-        ("voicedPreEmphA", c_double),
-        ("voicedPreEmphMix", c_double),
-        ("highShelfGainDb", c_double),
-        ("highShelfFcHz", c_double),
-        ("highShelfQ", c_double),
-        ("voicedTiltDbPerOct", c_double),
-        ("noiseGlottalModDepth", c_double),
+        # Version detection header
+        ("magic", c_uint32),              # Must be SPEECHPLAYER_VOICINGTONE_MAGIC
+        ("structSize", c_uint32),         # sizeof(VoicingTone)
+        ("structVersion", c_uint32),      # Must be SPEECHPLAYER_VOICINGTONE_VERSION
+        ("dspVersion", c_uint32),         # DSP version (informational)
+        
+        # Original v1 parameters
+        ("voicingPeakPos", c_double),     # Glottal pulse peak position (0.85-0.95, default 0.91)
+        ("voicedPreEmphA", c_double),     # Pre-emphasis coefficient (0.0-0.97, default 0.92)
+        ("voicedPreEmphMix", c_double),   # Pre-emphasis mix (0.0-1.0, default 0.35)
+        ("highShelfGainDb", c_double),    # High-shelf EQ gain in dB (default 4.0)
+        ("highShelfFcHz", c_double),      # High-shelf corner frequency (default 2000.0)
+        ("highShelfQ", c_double),         # High-shelf Q factor (default 0.7)
+        ("voicedTiltDbPerOct", c_double), # Spectral tilt in dB/octave (default 0.0)
+        
+        # New v2 parameters
+        ("noiseGlottalModDepth", c_double),  # Noise modulation by glottal cycle (0.0-1.0, default 0.0)
+        ("pitchSyncF1DeltaHz", c_double),    # F1 delta during glottal open phase (default 60.0)
+        ("pitchSyncB1DeltaHz", c_double),    # B1 delta during glottal open phase (default 50.0)
     ]
     
     @classmethod
     def defaults(cls) -> "VoicingTone":
-        """Return a VoicingTone with default values matching the original DSP constants."""
+        """Return a VoicingTone with default values matching voicingTone.h."""
         tone = cls()
-        tone.magic = cls.VOICING_TONE_MAGIC
+        # Version header
+        tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC
         tone.structSize = ctypes.sizeof(cls)
-        tone.structVersion = cls.VOICING_TONE_VERSION
-        tone.dspVersion = cls.DSP_VERSION
+        tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION
+        tone.dspVersion = 4  # Current DSP version
+        
+        # Original parameters
         tone.voicingPeakPos = 0.91
         tone.voicedPreEmphA = 0.92
         tone.voicedPreEmphMix = 0.35
@@ -105,7 +116,11 @@ class VoicingTone(Structure):
         tone.highShelfFcHz = 2000.0
         tone.highShelfQ = 0.7
         tone.voicedTiltDbPerOct = 0.0
+        
+        # New v2 parameters
         tone.noiseGlottalModDepth = 0.0
+        tone.pitchSyncF1DeltaHz = 0.0   # Slider 50 = neutral (0 Hz)
+        tone.pitchSyncB1DeltaHz = 0.0   # Slider 50 = neutral (0 Hz)
         return tone
 
 
@@ -215,17 +230,6 @@ class SpeechPlayer(object):
             # Older DLL without voicing tone support - that's fine
             pass
 
-        # DSP version API (optional)
-        self._hasDspVersionApi = False
-        try:
-            _getDspVersion = getattr(self._dll, "speechPlayer_getDspVersion", None)
-            if _getDspVersion is not None:
-                self._dll.speechPlayer_getDspVersion.argtypes = ()
-                self._dll.speechPlayer_getDspVersion.restype = c_uint
-                self._hasDspVersionApi = True
-        except (AttributeError, OSError):
-            pass
-
     def queueFrame(self, frame, minFrameDuration, fadeDuration, userIndex: int = -1, purgeQueue: bool = False) -> None:
         framePtr = byref(frame) if frame else None
 
@@ -265,20 +269,12 @@ class SpeechPlayer(object):
         """Check if the DLL supports voicing tone adjustments."""
         return getattr(self, "_hasVoicingToneApi", False)
 
-    def getDspVersion(self) -> Optional[int]:
-        """Get the synthesizer DSP version implemented by the loaded DLL."""
-        if not getattr(self, "_hasDspVersionApi", False):
-            return None
-        try:
-            return int(self._dll.speechPlayer_getDspVersion())
-        except Exception:
-            return None
-
     def setVoicingTone(self, tone: Optional[VoicingTone]) -> bool:
         """Set DSP-level voice quality parameters.
         
         This affects the wave generator's glottal pulse shape, voiced pre-emphasis,
-        and high-shelf EQ. Call this once when switching voices, not per-frame.
+        high-shelf EQ, and pitch-synchronous F1 modulation. Call this once when 
+        switching voices, not per-frame.
         
         Args:
             tone: VoicingTone struct with parameters, or None to reset to defaults.
@@ -291,12 +287,6 @@ class SpeechPlayer(object):
         if not self._speechHandle:
             return False
         try:
-            # Ensure header fields are set so the DLL detects the v2 layout.
-            if tone is not None:
-                tone.magic = VoicingTone.VOICING_TONE_MAGIC
-                tone.structSize = ctypes.sizeof(VoicingTone)
-                tone.structVersion = VoicingTone.VOICING_TONE_VERSION
-                tone.dspVersion = VoicingTone.DSP_VERSION
             tonePtr = byref(tone) if tone else None
             self._dll.speechPlayer_setVoicingTone(self._speechHandle, tonePtr)
             return True
@@ -315,7 +305,7 @@ class SpeechPlayer(object):
         if not self._speechHandle:
             return None
         try:
-            tone = VoicingTone.defaults()  # pre-fill header so DLL knows the layout
+            tone = VoicingTone()
             self._dll.speechPlayer_getVoicingTone(self._speechHandle, byref(tone))
             return tone
         except Exception:
@@ -339,9 +329,15 @@ class SpeechPlayer(object):
                 pass
             self._dllDirCookie = None
 
-        # Note: We intentionally do NOT call FreeLibrary to unload the DLL.
-        # On some NVDA/Python versions, this causes memory corruption that affects
-        # other DLLs (like espeak). The DLL will be unloaded when NVDA exits.
+        # Unload the DLL so the file can be replaced/deleted
+        # Import here to avoid circular import issues
+        if self._dll:
+            try:
+                from ._dll_utils import freeDll
+                freeDll(self._dll)
+            except Exception:
+                # Non-fatal - DLL will be unloaded when NVDA exits
+                log.debug("nvSpeechPlayer: freeDll failed for speechPlayer.dll", exc_info=True)
         self._dll = None
 
     def __del__(self):

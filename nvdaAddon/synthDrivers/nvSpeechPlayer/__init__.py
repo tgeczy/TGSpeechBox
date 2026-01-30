@@ -84,6 +84,9 @@ class SynthDriver(SynthDriver):
         SynthDriver.InflectionSetting(),
         SynthDriver.VolumeSetting(),
         NumericDriverSetting("voiceTilt", "Voice tilt (brightness)", defaultVal=50),
+        NumericDriverSetting("noiseGlottalMod", "Noise glottal modulation", defaultVal=0),
+        NumericDriverSetting("pitchSyncF1", "Pitch-sync F1 delta", defaultVal=50),
+        NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
         DriverSetting("pauseMode", "Pause mode"),
         DriverSetting("sampleRate", "Sample rate"),
         DriverSetting("language", "Language"),
@@ -121,6 +124,9 @@ class SynthDriver(SynthDriver):
                 # --- Phrase-final lengthening settings ---
                 BooleanDriverSetting("phraseFinalLengtheningEnabled", "Enable phrase-final lengthening"),  # type: ignore
                 BooleanDriverSetting("phraseFinalLengtheningNucleusOnlyMode", "Apply phrase-final lengthening to nucleus only"),  # type: ignore
+                # --- Single-word tuning settings ---
+                BooleanDriverSetting("singleWordTuningEnabled", "Enable single-word prosody tuning"),  # type: ignore
+                BooleanDriverSetting("singleWordClauseTypeOverrideCommaOnly", "Override clause type for comma only"),  # type: ignore
                 # --- Microprosody settings ---
                 BooleanDriverSetting("microprosodyEnabled", "Enable microprosody adjustments"),  # type: ignore
                 BooleanDriverSetting("microprosodyVoicelessF0RaiseEnabled", "Raise F0 for voiceless consonants"),  # type: ignore
@@ -180,6 +186,9 @@ class SynthDriver(SynthDriver):
         self._curVolume = 1.0
         self._curRate = 1.0
         self._curVoiceTilt = 50
+        self._curNoiseGlottalMod = 0
+        self._curPitchSyncF1 = 50
+        self._curPitchSyncB1 = 50
         self._perVoiceTilt = {}  # Per-voice tilt storage: {voiceName: tiltValue}
         self._usingVoiceProfile = False
         self._activeProfileName = ""
@@ -462,11 +471,15 @@ class SynthDriver(SynthDriver):
             # Create new audio thread
             self._audio = AudioThread(self, self._player, self._sampleRate)
             
-            # Reapply voicing tone to the new player (if using a voice profile)
-            if getattr(self, "_usingVoiceProfile", False):
-                profileName = getattr(self, "_activeProfileName", "")
-                if profileName:
-                    self._applyVoicingTone(profileName)
+            # Reapply voicing tone to the new player
+            # This must be done for ALL voices (profiles and Python presets)
+            # to restore the user's tilt slider setting
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
             
         except Exception:
             log.error("nvSpeechPlayer: failed to reinitialize audio", exc_info=True)
@@ -475,66 +488,74 @@ class SynthDriver(SynthDriver):
         return getattr(self, "_language", "en-us")
 
     def _set_language(self, langCode):
-        code = str(langCode or "").strip().lower()
-        if code not in languages:
-            code = "en-us"
+        # Normalize to pack-style language tag: lowercase with hyphens.
+        requested = str(langCode or "").strip().lower().replace("_", "-")
+
+        # Backward compatibility: older builds used "en" for UK.
+        if requested == "en" and "en-gb" in languages:
+            requested = "en-gb"
+
+        # Validate against the exposed language list.
+        if requested not in languages:
+            requested = "en-us"
 
         try:
             self.cancel()
         except Exception:
             log.debug("nvSpeechPlayer: cancel failed while changing language", exc_info=True)
 
-        applied = False
-        for tryCode in (code, code.replace("_", "-"), code.replace("-", "_")):
+        # Configure eSpeak for text->phonemes. This can fall back to a base language.
+        espeakApplied = None
+
+        # Candidate order:
+        #   1) exact requested tag (e.g. en-gb)
+        #   2) underscore variant (en_gb) for older eSpeak builds
+        #   3) base language (en) if region tag isn't supported
+        #   4) final safety fallback: English
+        candidates = []
+        for c in (requested, requested.replace("-", "_")):
+            if c and c not in candidates:
+                candidates.append(c)
+
+        if "-" in requested:
+            base = requested.split("-", 1)[0]
+            for c in (base, base.replace("-", "_")):
+                if c and c not in candidates:
+                    candidates.append(c)
+
+        if "en" not in candidates:
+            candidates.append("en")
+
+        for tryCode in candidates:
             try:
                 ok = _espeak.setVoiceByLanguage(tryCode)
                 if ok is None or ok:
-                    applied = True
-                    code = tryCode.lower()
+                    espeakApplied = tryCode
                     break
             except Exception:
                 continue
 
-        if not applied:
-            try:
-                _espeak.setVoiceByLanguage("en")
-                code = "en"
-                applied = True
-            except Exception:
-                log.error("nvSpeechPlayer: could not set language", exc_info=True)
+        # Store the requested language tag even if eSpeak fell back.
+        # Packs need the region tag (en-gb) even when eSpeak only supports "en".
+        self._language = requested
+        self._espeakLang = (espeakApplied or "").strip().lower().replace("_", "-")
 
-        self._language = code
+        if espeakApplied is None:
+            log.error(
+                "nvSpeechPlayer: could not set eSpeak language for %r (tried %s)",
+                requested,
+                candidates,
+                exc_info=True,
+            )
 
-        # Keep frontend pack selection in sync with the driver language.
+        # Keep frontend pack selection in sync with the requested language tag.
         try:
             if getattr(self, "_frontend", None):
-                # Packs are stored by language tag. Region variants (e.g. "es-mx")
-                # may not exist even when the base language ("es") does.
-                tag = str(code or "").strip().lower().replace("_", "-")
-                candidates = [tag]
-                if "-" in tag:
-                    candidates.append(tag.split("-", 1)[0])
-                candidates.append("default")
-
-                loaded = False
-                for cand in candidates:
-                    try:
-                        if self._frontend.setLanguage(cand):
-                            loaded = True
-                            break
-                    except Exception:
-                        log.debug(
-                            "nvSpeechPlayer: frontend.setLanguage failed for %r", cand, exc_info=True
-                        )
-                        continue
-
-                if not loaded:
-                    log.error(
-                        f"nvSpeechPlayer: frontend could not load pack for '{code}' (tried {candidates}): {self._frontend.getLastError()}"
-                    )
+                self._applyFrontendLangTag(requested)
         except Exception:
             log.error("nvSpeechPlayer: error setting frontend language", exc_info=True)
 
+        log.debug("nvSpeechPlayer: language requested=%r; eSpeak=%r; packs=%r", requested, self._espeakLang or None, getattr(self, "_frontendLangTag", None))
         # Refresh cached language-pack settings for the (possibly) new language.
         try:
             self._refreshLangPackSettingsCache()
@@ -917,6 +938,9 @@ class SynthDriver(SynthDriver):
         # --- Phrase-final lengthening settings ---
         ("phraseFinalLengtheningEnabled", "phraseFinalLengtheningEnabled", "bool", False, None),
         ("phraseFinalLengtheningNucleusOnlyMode", "phraseFinalLengtheningNucleusOnlyMode", "bool", False, None),
+        # --- Single-word tuning settings ---
+        ("singleWordTuningEnabled", "singleWordTuningEnabled", "bool", True, None),
+        ("singleWordClauseTypeOverrideCommaOnly", "singleWordClauseTypeOverrideCommaOnly", "bool", True, None),
         # --- Microprosody settings ---
         ("microprosodyEnabled", "microprosodyEnabled", "bool", False, None),
         ("microprosodyVoicelessF0RaiseEnabled", "microprosodyVoicelessF0RaiseEnabled", "bool", False, None),
@@ -1347,45 +1371,122 @@ class SynthDriver(SynthDriver):
 
     def terminate(self):
         try:
+            # Cancel any ongoing speech first
             self.cancel()
             
+            # Signal the background thread to stop
             if hasattr(self, "_bgStop"):
                 self._bgStop.set()
             if hasattr(self, "_bgQueue"):
-                self._bgQueue.put(None)
-            
-            # Join the background thread with compatibility for different Python versions
-            if hasattr(self, "_bgThread") and self._bgThread is not None:
+                # Put None to wake up the queue.get() if it's blocking
                 try:
-                    self._bgThread.join(timeout=2.0)
-                except (TypeError, AttributeError, Exception):
-                    # Fallback for Python versions with different threading internals
-                    # Just wait a fixed time and let it die naturally
-                    import time
-                    time.sleep(0.5)
-                self._bgThread = None
+                    self._bgQueue.put_nowait(None)
+                except Exception:
+                    pass
             
-            # Terminate audio thread first (it uses the player)
+            # Terminate audio thread FIRST (it uses the player)
+            # Do this before waiting on bgThread since audio thread is higher priority
             if hasattr(self, "_audio") and self._audio:
-                self._audio.terminate()
+                try:
+                    self._audio.terminate()
+                except Exception:
+                    log.debug("nvSpeechPlayer: audio terminate failed", exc_info=True)
                 self._audio = None
             
-            # Terminate frontend (unloads nvspFrontend.dll)
-            try:
-                if getattr(self, "_frontend", None):
-                    self._frontend.terminate()
-                    self._frontend = None
-            except Exception:
-                log.debug("nvSpeechPlayer: frontend terminate failed", exc_info=True)
+            # Now join the background thread with a SHORT timeout
+            # It should exit quickly since _bgStop is set
+            if hasattr(self, "_bgThread") and self._bgThread is not None:
+                try:
+                    self._bgThread.join(timeout=0.3)
+                except (TypeError, AttributeError):
+                    # Very old Python without timeout parameter
+                    pass
+                except Exception:
+                    log.debug("nvSpeechPlayer: bgThread join failed", exc_info=True)
+                self._bgThread = None
             
-            # Terminate player (unloads speechPlayer.dll)
+            # Terminate frontend (unloads nvspFrontend.dll)
+            # Do this BEFORE terminating player since frontend may reference player resources
+            if getattr(self, "_frontend", None):
+                try:
+                    self._frontend.terminate()
+                except Exception:
+                    log.debug("nvSpeechPlayer: frontend terminate failed", exc_info=True)
+                self._frontend = None
+            
+            # Terminate player last (unloads speechPlayer.dll)
             if hasattr(self, "_player") and self._player:
-                self._player.terminate()
+                try:
+                    self._player.terminate()
+                except Exception:
+                    log.debug("nvSpeechPlayer: player terminate failed", exc_info=True)
                 self._player = None
             
-            _espeak.terminate()
+            # Finally terminate espeak
+            try:
+                _espeak.terminate()
+            except Exception:
+                log.debug("nvSpeechPlayer: espeak terminate failed", exc_info=True)
         except Exception:
             log.debug("nvSpeechPlayer: terminate failed", exc_info=True)
+
+    def loadSettings(self, onlyChanged=False):
+        """Override loadSettings to ensure frontend profile is always properly restored.
+        
+        This fixes the Escape key bug where:
+        1. User selects a voice profile (e.g., profile:Beth)
+        2. User opens settings, modifies tilt/rate, then hits Escape
+        3. NVDA calls loadSettings() to restore saved settings
+        4. If anything goes wrong (exception in changeVoice, etc.), the frontend
+           profile could be left in an inconsistent state
+        
+        Our fix: After the parent loadSettings() completes (successfully or not),
+        we always re-sync the frontend with the current voice profile state.
+        """
+        # Capture the voice BEFORE loadSettings runs, in case something corrupts it
+        voiceBeforeLoad = getattr(self, "_curVoice", None)
+        
+        try:
+            # Call parent implementation
+            super().loadSettings(onlyChanged)
+        except Exception:
+            log.debug("nvSpeechPlayer: parent loadSettings failed", exc_info=True)
+            # Don't re-raise - we'll try to recover below
+        
+        # CRITICAL: Always re-sync frontend profile after loadSettings completes.
+        # This ensures the frontend has the correct phonetic transformations applied,
+        # even if NVDA's loadSettings hit an exception and tried to "recover".
+        try:
+            curVoice = getattr(self, "_curVoice", None)
+            
+            # If voice got corrupted (changed unexpectedly), restore it
+            if voiceBeforeLoad and curVoice != voiceBeforeLoad:
+                # Check if the "new" voice is just a fallback to Adam
+                # when we actually had a valid profile before
+                if voiceBeforeLoad.startswith(VOICE_PROFILE_PREFIX) and curVoice == "Adam":
+                    log.debug(f"nvSpeechPlayer: loadSettings corrupted voice from {voiceBeforeLoad} to {curVoice}, restoring")
+                    self._curVoice = voiceBeforeLoad
+                    curVoice = voiceBeforeLoad
+            
+            # Re-apply frontend profile to ensure phonetic transformations are active
+            if curVoice and curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+                if hasattr(self, "_frontend") and self._frontend:
+                    self._frontend.setVoiceProfile(profileName)
+                    self._usingVoiceProfile = True
+                    self._activeProfileName = profileName
+                    # Re-apply voicing tone as well
+                    self._applyVoicingTone(profileName)
+                    log.debug(f"nvSpeechPlayer: loadSettings re-synced frontend profile '{profileName}'")
+            else:
+                # Python preset or no voice - ensure frontend profile is cleared
+                if hasattr(self, "_frontend") and self._frontend:
+                    self._frontend.setVoiceProfile("")
+                    self._usingVoiceProfile = False
+                    self._activeProfileName = ""
+                    self._applyVoicingTone("")
+        except Exception:
+            log.debug("nvSpeechPlayer: loadSettings frontend re-sync failed", exc_info=True)
 
     def _get_rate(self):
         try:
@@ -1449,6 +1550,63 @@ class SynthDriver(SynthDriver):
             self._applyVoicingTone(profileName)
         except Exception:
             # Never crash during settings application
+            pass
+
+    # --- Noise Glottal Modulation slider (0-100, maps to 0.0-1.0) ---
+    def _get_noiseGlottalMod(self):
+        return int(getattr(self, "_curNoiseGlottalMod", 0))
+
+    def _set_noiseGlottalMod(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curNoiseGlottalMod", 0):
+                return
+            self._curNoiseGlottalMod = newVal
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
+            pass
+
+    # --- Pitch-sync F1 slider (0-100, maps to 0-120 Hz delta) ---
+    def _get_pitchSyncF1(self):
+        return int(getattr(self, "_curPitchSyncF1", 50))
+
+    def _set_pitchSyncF1(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curPitchSyncF1", 50):
+                return
+            self._curPitchSyncF1 = newVal
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
+            pass
+
+    # --- Pitch-sync B1 slider (0-100, maps to 0-100 Hz delta) ---
+    def _get_pitchSyncB1(self):
+        return int(getattr(self, "_curPitchSyncB1", 50))
+
+    def _set_pitchSyncB1(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curPitchSyncB1", 50):
+                return
+            self._curPitchSyncB1 = newVal
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
             pass
 
     def _applyVoicingTone(self, profileName: str) -> None:
@@ -1524,6 +1682,13 @@ class SynthDriver(SynthDriver):
                     tone.highShelfQ = safe_float(toneParams["highShelfQ"], 0.7)
                 if "voicedTiltDbPerOct" in toneParams:
                     tone.voicedTiltDbPerOct = safe_float(toneParams["voicedTiltDbPerOct"], 0.0)
+                # New v2 params from YAML (if present)
+                if "noiseGlottalModDepth" in toneParams:
+                    tone.noiseGlottalModDepth = safe_float(toneParams["noiseGlottalModDepth"], 0.0)
+                if "pitchSyncF1DeltaHz" in toneParams:
+                    tone.pitchSyncF1DeltaHz = safe_float(toneParams["pitchSyncF1DeltaHz"], 60.0)
+                if "pitchSyncB1DeltaHz" in toneParams:
+                    tone.pitchSyncB1DeltaHz = safe_float(toneParams["pitchSyncB1DeltaHz"], 50.0)
             
             # Apply voice tilt OFFSET from the slider
             tiltSlider = safe_float(getattr(self, "_curVoiceTilt", 50), 50.0)
@@ -1532,6 +1697,18 @@ class SynthDriver(SynthDriver):
             
             # Clamp to valid range
             tone.voicedTiltDbPerOct = max(-24.0, min(24.0, tone.voicedTiltDbPerOct))
+            
+            # Apply noise glottal modulation from slider (0-100 maps to 0.0-1.0)
+            noiseModSlider = safe_float(getattr(self, "_curNoiseGlottalMod", 0), 0.0)
+            tone.noiseGlottalModDepth = noiseModSlider / 100.0
+            
+            # Apply pitch-sync F1 from slider (0-100 maps to -60 to +60 Hz, centered at 50 = 0)
+            f1Slider = safe_float(getattr(self, "_curPitchSyncF1", 50), 50.0)
+            tone.pitchSyncF1DeltaHz = (f1Slider - 50.0) * 1.2  # 0=-60, 50=0, 100=+60 Hz
+            
+            # Apply pitch-sync B1 from slider (0-100 maps to -50 to +50 Hz, centered at 50 = 0)
+            b1Slider = safe_float(getattr(self, "_curPitchSyncB1", 50), 50.0)
+            tone.pitchSyncB1DeltaHz = (b1Slider - 50.0) * 1.0  # 0=-50, 50=0, 100=+50 Hz
             
             # Apply to player
             self._player.setVoicingTone(tone)
@@ -1627,6 +1804,22 @@ class SynthDriver(SynthDriver):
                 voiceId = f"{VOICE_PROFILE_PREFIX}{profileName}"
                 # Display name includes profile name, description notes it's a profile
                 d[voiceId] = VoiceInfo(voiceId, f"{profileName} (profile)")
+            
+            # CRITICAL: Ensure the current voice is always in availableVoices.
+            # This prevents KeyError in speechDictHandler.loadVoiceDict() when
+            # NVDA calls loadSettings() on Escape (onDiscard), which does:
+            #   synth.availableVoices[synth.voice].displayName
+            # If current voice isn't in the dict, that line throws KeyError,
+            # which causes loadSettings() to fall back to "Adam".
+            curVoice = getattr(self, "_curVoice", None)
+            if curVoice and curVoice not in d:
+                if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                    profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+                    d[curVoice] = VoiceInfo(curVoice, f"{profileName} (profile)")
+                else:
+                    # Unknown Python preset - add it anyway
+                    d[curVoice] = VoiceInfo(curVoice, curVoice)
+            
             return d
         except Exception:
             # Return at least the default voice
