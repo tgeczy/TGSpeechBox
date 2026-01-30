@@ -179,3 +179,22 @@
 // Menu command: Edit Voices
 // -----------------
 #define IDM_SETTINGS_EDIT_VOICES     40105
+
+// -----------------
+// Voicing Tone controls (in Edit Voice Profile dialog)
+// -----------------
+#define IDC_EVP_VT_PEAKPOS           3201
+#define IDC_EVP_VT_PEAKPOS_SET       3202
+#define IDC_EVP_VT_PREEMPHA          3203
+#define IDC_EVP_VT_PREEMPHA_SET      3204
+#define IDC_EVP_VT_PREEMPHMIX        3205
+#define IDC_EVP_VT_PREEMPHMIX_SET    3206
+#define IDC_EVP_VT_SHELFGAIN         3207
+#define IDC_EVP_VT_SHELFGAIN_SET     3208
+#define IDC_EVP_VT_SHELFFC           3209
+#define IDC_EVP_VT_SHELFFC_SET       3210
+#define IDC_EVP_VT_SHELFQ            3211
+#define IDC_EVP_VT_SHELFQ_SET        3212
+#define IDC_EVP_VT_TILT              3213
+#define IDC_EVP_VT_TILT_SET          3214
+#define IDC_EVP_VT_CLEAR_ALL         3215

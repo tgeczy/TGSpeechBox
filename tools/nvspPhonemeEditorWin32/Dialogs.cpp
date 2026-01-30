@@ -4,6 +4,7 @@
 #include "Dialogs.h"
 
 #include "AccessibilityUtils.h"
+#include "VoiceProfileEditor.h"
 #include "WinUtils.h"
 
 #include "resource.h"
@@ -1014,6 +1015,27 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
       HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
       populateParamList(lb, st->paramNames, st->settings.frameParams);
       syncSelectedParamToUi();
+      
+      // Load voicing tone for the initially selected voice profile (if any)
+      if (st->runtime && !st->phonemesYamlPath.empty()) {
+        const std::string& voiceName = st->settings.voiceName;
+        if (nvsp_editor::NvspRuntime::isVoiceProfile(voiceName)) {
+          std::string profileName = nvsp_editor::NvspRuntime::getProfileNameFromVoice(voiceName);
+          nvsp_editor::VPVoicingTone vt;
+          if (nvsp_editor::getVoicingToneForProfile(st->phonemesYamlPath, profileName, vt)) {
+            nvsp_editor::speechPlayer_voicingTone_t tone;
+            tone.voicingPeakPos = vt.voicingPeakPos_set ? vt.voicingPeakPos : 0.91;
+            tone.voicedPreEmphA = vt.voicedPreEmphA_set ? vt.voicedPreEmphA : 0.92;
+            tone.voicedPreEmphMix = vt.voicedPreEmphMix_set ? vt.voicedPreEmphMix : 0.35;
+            tone.highShelfGainDb = vt.highShelfGainDb_set ? vt.highShelfGainDb : 4.0;
+            tone.highShelfFcHz = vt.highShelfFcHz_set ? vt.highShelfFcHz : 2000.0;
+            tone.highShelfQ = vt.highShelfQ_set ? vt.highShelfQ : 0.7;
+            tone.voicedTiltDbPerOct = vt.voicedTiltDbPerOct_set ? vt.voicedTiltDbPerOct : 0.0;
+            st->runtime->setVoicingTone(&tone);
+          }
+        }
+      }
+      
       return TRUE;
     }
 
@@ -1086,15 +1108,36 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
             if (st->runtime) {
               std::string err;
               st->runtime->setVoiceProfile(profileName, err);
+              
+              // Load and apply voicing tone for this profile
+              if (!st->phonemesYamlPath.empty()) {
+                nvsp_editor::VPVoicingTone vt;
+                if (nvsp_editor::getVoicingToneForProfile(st->phonemesYamlPath, profileName, vt)) {
+                  // Convert VPVoicingTone to speechPlayer_voicingTone_t
+                  nvsp_editor::speechPlayer_voicingTone_t tone;
+                  tone.voicingPeakPos = vt.voicingPeakPos_set ? vt.voicingPeakPos : 0.91;
+                  tone.voicedPreEmphA = vt.voicedPreEmphA_set ? vt.voicedPreEmphA : 0.92;
+                  tone.voicedPreEmphMix = vt.voicedPreEmphMix_set ? vt.voicedPreEmphMix : 0.35;
+                  tone.highShelfGainDb = vt.highShelfGainDb_set ? vt.highShelfGainDb : 4.0;
+                  tone.highShelfFcHz = vt.highShelfFcHz_set ? vt.highShelfFcHz : 2000.0;
+                  tone.highShelfQ = vt.highShelfQ_set ? vt.highShelfQ : 0.7;
+                  tone.voicedTiltDbPerOct = vt.voicedTiltDbPerOct_set ? vt.voicedTiltDbPerOct : 0.0;
+                  st->runtime->setVoicingTone(&tone);
+                } else {
+                  // Profile has no voicing tone, use defaults
+                  st->runtime->setVoicingTone(nullptr);
+                }
+              }
             }
           } else {
             // Regular Python preset
             st->settings.voiceName = displayName;
             
-            // Clear any active voice profile
+            // Clear any active voice profile and reset voicing tone to defaults
             if (st->runtime) {
               std::string err;
               st->runtime->setVoiceProfile("", err);
+              st->runtime->setVoicingTone(nullptr);  // Reset to defaults
             }
           }
         }

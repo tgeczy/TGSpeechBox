@@ -741,6 +741,11 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "segmentBoundarySkipVowelToLiquid",
     "segmentBoundarySkipVowelToVowel",
     "semivowelOffglideScale",
+    "singleWordClauseTypeOverride",
+    "singleWordClauseTypeOverrideCommaOnly",
+    "singleWordFinalFadeMs",
+    "singleWordFinalHoldMs",
+    "singleWordTuningEnabled",
     "spellingDiphthongMode",
     "stopClosureAfterNasalsEnabled",
     "stopClosureClusterFadeMs",
@@ -1638,6 +1643,16 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         
         // Discover voice profiles from phonemes.yaml
         st.voiceProfiles = app.runtime.discoverVoiceProfiles();
+        
+        // Set phonemes.yaml path for voicing tone loading
+        if (!app.packsDir.empty()) {
+          std::wstring yamlPath = app.packsDir;
+          if (!yamlPath.empty() && yamlPath.back() != L'\\' && yamlPath.back() != L'/') {
+            yamlPath += L'\\';
+          }
+          yamlPath += L"phonemes.yaml";
+          st.phonemesYamlPath = yamlPath;
+        }
 
         ShowSpeechSettingsDialog(app.hInst, hWnd, st);
         if (st.ok) {
