@@ -23,7 +23,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * Increments when the synthesizer DSP changes in a way that callers may want
  * to detect (even if the core ABI stays stable).
  */
-#define SPEECHPLAYER_DSP_VERSION 2u
+#define SPEECHPLAYER_DSP_VERSION 4u
 
 /*
  * VoicingTone struct versioning
@@ -156,6 +156,49 @@ typedef struct {
      */
     double noiseGlottalModDepth;
 
+    /* ================================================================
+     * V3 additions: Pitch-synchronous F1 modulation (Eloquence-like)
+     * ================================================================
+     * 
+     * These parameters enable pitch-synchronous modulation of the first
+     * formant (F1) and its bandwidth (B1), which is a key characteristic
+     * of the ETI-Eloquence "buzzy clarity" sound.
+     * 
+     * During each glottal cycle:
+     *   - OPEN phase: F1 is raised by pitchSyncF1DeltaHz, B1 widened by pitchSyncB1DeltaHz
+     *   - CLOSED phase: F1/B1 return to base values
+     * 
+     * This models the acoustic coupling between the glottal source and
+     * the vocal tract that occurs during the open phase of voicing.
+     * 
+     * Reference: Klatt 1980, Qlatt pitch-sync-mod crate
+     */
+
+    /**
+     * F1 frequency delta during glottal open phase (Hz).
+     * Positive values raise F1 during open phase (typical: 0-100 Hz).
+     * 
+     * 0.0 = off (no pitch-sync modulation)
+     * 50.0 = moderate Eloquence-like effect
+     * 100.0 = strong effect
+     * 
+     * Default: 0.0 (off, preserves original behavior)
+     */
+    double pitchSyncF1DeltaHz;
+
+    /**
+     * B1 bandwidth delta during glottal open phase (Hz).
+     * Positive values widen B1 during open phase (typical: 0-80 Hz).
+     * Wider B1 during open phase simulates increased glottal losses.
+     * 
+     * 0.0 = off
+     * 40.0 = moderate effect
+     * 80.0 = strong effect
+     * 
+     * Default: 0.0 (off, preserves original behavior)
+     */
+    double pitchSyncB1DeltaHz;
+
 } speechPlayer_voicingTone_t;
 
 /**
@@ -174,7 +217,9 @@ typedef struct {
     2000.0, /* highShelfFcHz */ \
     0.7,    /* highShelfQ */ \
     0.0,    /* voicedTiltDbPerOct (no tilt by default) */ \
-    0.0     /* noiseGlottalModDepth */ \
+    0.0,    /* noiseGlottalModDepth */ \
+    -30.0,  /* pitchSyncF1DeltaHz - TESTING: LOWER F1 during open phase for warmth */ \
+    60.0    /* pitchSyncB1DeltaHz - TESTING: widen B1 more for breathiness */ \
 }
 
 /**

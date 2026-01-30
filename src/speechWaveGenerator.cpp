@@ -161,6 +161,12 @@ private:
     double noiseGlottalModDepth;
     double lastNoiseMod;
 
+    // Smooth aspiration gain to avoid clicks when aspirationAmplitude changes quickly.
+    double smoothAspAmp;
+    bool smoothAspAmpInit;
+    double aspAttackCoeff;
+    double aspReleaseCoeff;
+
     double voicingPeakPos;
     double voicedPreEmphA;
     double voicedPreEmphMix;
@@ -268,7 +274,10 @@ public:
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
         lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
-        noiseGlottalModDepth(0.0), lastNoiseMod(1.0), glottisOpen(false),
+        noiseGlottalModDepth(0.0), lastNoiseMod(1.0),
+        smoothAspAmp(0.0), smoothAspAmpInit(false),
+        aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
+        glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
         tiltTargetTlDb(0.0), tiltTlDb(0.0),
         tiltPole(0.0), tiltPoleTarget(0.0), tiltState(0.0),
@@ -283,6 +292,13 @@ public:
 
         tiltTlAlpha = 1.0 - exp(-1.0 / (sampleRate * (tlSmoothMs * 0.001)));
         tiltPoleAlpha = 1.0 - exp(-1.0 / (sampleRate * (poleSmoothMs * 0.001)));
+
+        // Aspiration gain smoothing (attack/release in ms).
+        // This helps avoid random clicks when aspirationAmplitude changes quickly.
+        const double kAspAmpAttackMs = 1.0;
+        const double kAspAmpReleaseMs = 3.0;
+        aspAttackCoeff = 1.0 - exp(-1.0 / (0.001 * kAspAmpAttackMs * sampleRate));
+        aspReleaseCoeff = 1.0 - exp(-1.0 / (0.001 * kAspAmpReleaseMs * sampleRate));
 
         double nyq = 0.5 * (double)sampleRate;
         if (tiltRefHz > nyq * 0.95) tiltRefHz = nyq * 0.95;
@@ -313,6 +329,8 @@ public:
         lastVoicedSrc=0.0;
         lastAspOut=0.0;
         lastNoiseMod=1.0;
+        smoothAspAmp = 0.0;
+        smoothAspAmpInit = false;
         glottisOpen=false;
     }
 
@@ -388,10 +406,27 @@ public:
                 if (peakPos < 0.50) peakPos = 0.50;
             }
 
+            // LF-inspired glottal waveform with asymmetric opening/closing
+            // Opening phase: smooth polynomial rise (natural)
+            // Closing phase: sharper exponential-like fall (more harmonics)
+            // 
+            // This gives more "chest voice" and "body" compared to symmetric cosine.
+            // Reference: Klatt 1990 "KLGLOTT88", Fant 1985 LF model
+            
             if (phase < peakPos) {
-                flow = 0.5 * (1.0 - cos(phase * M_PI / peakPos));
+                // Opening: polynomial rise (a*t^2 for smooth onset)
+                double t = phase / peakPos;
+                // Use t^2 for gentler start, then accelerate
+                flow = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
             } else {
-                flow = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
+                // Closing: sharper fall with "return phase" character
+                // The faster this falls, the more high harmonics we get
+                double t = (phase - peakPos) / (1.0 - peakPos);
+                
+                // Exponential-ish decay for more abrupt closure
+                // This is key for "chest voice" quality
+                double sharpness = 2.5;  // Higher = sharper closure = more harmonics
+                flow = pow(1.0 - t, sharpness);
             }
         }
 
@@ -438,7 +473,21 @@ public:
         lastVoicedIn = voicedIn;
         lastVoicedOut = voiced;
 
-        double aspOut = aspiration * frame->aspirationAmplitude;
+        // Smooth aspirationAmplitude (fast attack, slower release) to avoid clicks.
+        double targetAspAmp = frame->aspirationAmplitude;
+        if (!std::isfinite(targetAspAmp)) targetAspAmp = 0.0;
+        if (targetAspAmp < 0.0) targetAspAmp = 0.0;
+        if (targetAspAmp > 1.0) targetAspAmp = 1.0;
+
+        if (!smoothAspAmpInit) {
+            smoothAspAmp = targetAspAmp;
+            smoothAspAmpInit = true;
+        } else {
+            const double coeff = (targetAspAmp > smoothAspAmp) ? aspAttackCoeff : aspReleaseCoeff;
+            smoothAspAmp += (targetAspAmp - smoothAspAmp) * coeff;
+        }
+
+        double aspOut = aspiration * smoothAspAmp;
         lastAspOut = aspOut;
         return aspOut + voiced;
     }
@@ -524,44 +573,158 @@ public:
     }
 };
 
+// Pitch-synchronous F1 resonator
+// Based on Qlatt pitch-sync-mod crate and Klatt 1980
+// This models the acoustic coupling between glottal source and vocal tract
+// that occurs during the open phase of voicing.
+// 
+// NOTE: We intentionally do NOT use Fujisaki state scaling here.
+// While Qlatt does this, it requires very precise pitch-synchronous timing
+// that we don't have. Doing it naively causes clicks.
+class PitchSyncResonator {
+private:
+    int sampleRate;
+    double a, b, c;
+    double p1, p2;
+    double frequency, bandwidth;
+    bool setOnce;
+    
+    // Pitch-sync state
+    double deltaFreq, deltaBw;    // Deltas to apply during open phase
+    double lastTargetFreq, lastTargetBw;
+    
+    // Smoothing to prevent clicks at glottal boundaries
+    double smoothFreq, smoothBw;
+    double smoothAlpha;
+
+    void computeCoeffs(double freq, double bw) {
+        const double nyquist = 0.5 * (double)sampleRate;
+        if (!std::isfinite(freq) || !std::isfinite(bw) ||
+            freq <= 0.0 || bw <= 0.0 || freq >= nyquist) {
+            a = 1.0; b = 0.0; c = 0.0;
+            return;
+        }
+        double r = exp(-M_PI / sampleRate * bw);
+        c = -(r * r);
+        b = r * cos(PITWO * freq / (double)sampleRate) * 2.0;
+        a = 1.0 - b - c;
+    }
+
+public:
+    PitchSyncResonator(int sr) : sampleRate(sr), a(1.0), b(0.0), c(0.0),
+        p1(0.0), p2(0.0), frequency(0.0), bandwidth(0.0), setOnce(false),
+        deltaFreq(0.0), deltaBw(0.0), lastTargetFreq(0.0), lastTargetBw(0.0),
+        smoothFreq(0.0), smoothBw(0.0), smoothAlpha(0.0) {
+        // Smooth over ~2ms to prevent clicks at glottal transitions
+        double smoothMs = 2.0;
+        smoothAlpha = 1.0 - exp(-1.0 / (sampleRate * smoothMs * 0.001));
+    }
+
+    void reset() {
+        p1 = 0.0;
+        p2 = 0.0;
+        setOnce = false;
+        smoothFreq = 0.0;
+        smoothBw = 0.0;
+    }
+
+    void setPitchSyncParams(double dF1, double dB1) {
+        deltaFreq = dF1;
+        deltaBw = dB1;
+    }
+
+    double resonate(double in, double freq, double bw, bool glottisOpen) {
+        // Determine target F1/B1 based on glottal phase
+        double targetFreq, targetBw;
+        if (deltaFreq != 0.0 || deltaBw != 0.0) {
+            // Pitch-sync modulation enabled
+            if (glottisOpen) {
+                // Open phase: apply deltas (raises F1, widens B1)
+                targetFreq = freq + deltaFreq;
+                targetBw = bw + deltaBw;
+            } else {
+                // Closed phase: use base values
+                targetFreq = freq;
+                targetBw = bw;
+            }
+            
+            // Smooth the transitions to prevent clicks
+            if (smoothFreq == 0.0) smoothFreq = targetFreq;
+            if (smoothBw == 0.0) smoothBw = targetBw;
+            smoothFreq += (targetFreq - smoothFreq) * smoothAlpha;
+            smoothBw += (targetBw - smoothBw) * smoothAlpha;
+            
+            targetFreq = smoothFreq;
+            targetBw = smoothBw;
+        } else {
+            // No pitch-sync modulation - use params directly
+            targetFreq = freq;
+            targetBw = bw;
+        }
+        
+        // Only update coefficients if params changed
+        if (!setOnce || targetFreq != lastTargetFreq || targetBw != lastTargetBw) {
+            lastTargetFreq = targetFreq;
+            lastTargetBw = targetBw;
+            computeCoeffs(targetFreq, targetBw);
+            setOnce = true;
+        }
+        
+        // Standard resonator difference equation
+        double out = a * in + b * p1 + c * p2;
+        p2 = p1;
+        p1 = out;
+        return out;
+    }
+};
+
 class CascadeFormantGenerator { 
 private:
     int sampleRate;
-    Resonator r1, r2, r3, r4, r5, r6, rN0, rNP;
+    PitchSyncResonator r1;  // F1 gets pitch-sync treatment
+    Resonator r2, r3, r4, r5, r6, rN0, rNP;
+    
+    // Pitch-sync params from voicingTone
+    double pitchSyncF1Delta;
+    double pitchSyncB1Delta;
 
 public:
-    CascadeFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), rN0(sr,true), rNP(sr) {}
+    CascadeFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), rN0(sr,true), rNP(sr),
+        pitchSyncF1Delta(0.0), pitchSyncB1Delta(0.0) {}
 
     void reset() {
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset(); rN0.reset(); rNP.reset();
     }
+    
+    void setPitchSyncParams(double f1DeltaHz, double b1DeltaHz) {
+        pitchSyncF1Delta = f1DeltaHz;
+        pitchSyncB1Delta = b1DeltaHz;
+        r1.setPitchSyncParams(f1DeltaHz, b1DeltaHz);
+    }
 
     double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
         input/=2.0;
-        (void)glottisOpen;
-        // Klatt cascade: N0 (antiresonator) -> NP (resonator) -> F1..F6.
-        // Order matters when params are time-varying, so we follow the classic
-        // low-to-high cascade ordering.
-        // "Nasal strength" (caNP) is also used as a transition shaper:
-        // when caNP is near 0, we gently pull NP toward N0 so the NZ/NP pair
-        // tends to cancel (Klatt80-style). This reduces "early" nasal bleed
-        // during cross-fades without adding any new frame params.
-        double caNP = frame->caNP;
-        if (caNP < 0.0) caNP = 0.0;
-        else if (caNP > 1.0) caNP = 1.0;
-        const double cancelMix = 1.0 - caNP;
-        const double npFreq = calculateValueAtFadePosition(frame->cfNP, frame->cfN0, cancelMix);
-        const double npBw   = calculateValueAtFadePosition(frame->cbNP, frame->cbN0, cancelMix);
+        // Klatt cascade: N0 (antiresonator) -> NP (resonator), then cascade formants.
+        // NOTE: Our phoneme tables were tuned with the classic high-to-low cascade order
+        // (F6 -> F1). Even though Klatt 1980 notes some flexibility, changing the order
+        // can audibly affect transitions (and can introduce clicks). So we preserve it.
 
-        double n0Output=rN0.resonate(input,frame->cfN0,frame->cbN0);
-        double npOutput=rNP.resonate(n0Output,npFreq,npBw);
-        double output=calculateValueAtFadePosition(input,npOutput,caNP);
-        output=r1.resonate(output,frame->cf1,frame->cb1);
-        output=r2.resonate(output,frame->cf2,frame->cb2);
-        output=r3.resonate(output,frame->cf3,frame->cb3);
-        output=r4.resonate(output,frame->cf4,frame->cb4);
-        output=r5.resonate(output,frame->cf5,frame->cb5);
-        output=r6.resonate(output,frame->cf6,frame->cb6);
+        // Simple nasal fade: caNP crossfades between direct path and the NZ/NP path.
+        // This keeps behavior consistent with the original SpeechPlayer tuning.
+        const double n0Output = rN0.resonate(input, frame->cfN0, frame->cbN0);
+        double output = calculateValueAtFadePosition(
+            input,
+            rNP.resonate(n0Output, frame->cfNP, frame->cbNP),
+            frame->caNP
+        );
+
+        output = r6.resonate(output, frame->cf6, frame->cb6);
+        output = r5.resonate(output, frame->cf5, frame->cb5);
+        output = r4.resonate(output, frame->cf4, frame->cb4);
+        output = r3.resonate(output, frame->cf3, frame->cb3);
+        output = r2.resonate(output, frame->cf2, frame->cb2);
+        // F1 uses pitch-synchronous resonator with Fujisaki compensation
+        output = r1.resonate(output, frame->cf1, frame->cb1, glottisOpen);
         return output;
     }
 };
@@ -1005,11 +1168,12 @@ public:
         speechPlayer_voicingTone_t merged = speechPlayer_getDefaultVoicingTone();
 
         if (tone) {
+            // Accept v2 structs (check magic and version)
             const bool looksLikeV2 = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
                                       tone->structVersion == SPEECHPLAYER_VOICINGTONE_VERSION);
 
             if (looksLikeV2) {
-                // Caller is providing the v2 struct layout (or claims to).
+                // Caller is providing the v2 struct layout.
                 size_t copySize = (size_t)tone->structSize;
 
                 // If the caller forgot to set structSize, but did set the header,
@@ -1031,7 +1195,7 @@ public:
                 merged.highShelfFcHz = v1->highShelfFcHz;
                 merged.highShelfQ = v1->highShelfQ;
                 merged.voicedTiltDbPerOct = v1->voicedTiltDbPerOct;
-                // merged.noiseGlottalModDepth stays at default.
+                // newer fields stay at default (0.0)
             }
         }
 
@@ -1053,6 +1217,9 @@ public:
 
         // Update high-shelf coefficients (do not reset state)
         initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
+        
+        // Update pitch-sync F1 modulation params
+        cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz, currentTone.pitchSyncB1DeltaHz);
     }
 
     void getVoicingTone(speechPlayer_voicingTone_t* tone) {
@@ -1070,6 +1237,7 @@ public:
             double voicedTiltDbPerOct;
         };
 
+        // Accept v2 callers
         const bool callerWantsV2 = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
                                     tone->structVersion == SPEECHPLAYER_VOICINGTONE_VERSION);
 
@@ -1085,7 +1253,7 @@ public:
             return;
         }
 
-        // V2: respect the caller-provided buffer size.
+        // V2/V3: respect the caller-provided buffer size.
         speechPlayer_voicingTone_t tmp = currentTone;
         tmp.magic = SPEECHPLAYER_VOICINGTONE_MAGIC;
         tmp.structSize = (uint32_t)sizeof(speechPlayer_voicingTone_t);
