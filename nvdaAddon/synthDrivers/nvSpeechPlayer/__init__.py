@@ -141,9 +141,6 @@ class SynthDriver(SynthDriver):
                 # --- Trajectory limit settings ---
                 BooleanDriverSetting("trajectoryLimitEnabled", "Enable formant trajectory rate limiting"),  # type: ignore
                 BooleanDriverSetting("trajectoryLimitApplyAcrossWordBoundary", "Apply trajectory limit across word boundaries"),  # type: ignore
-                # --- Single-word tuning settings ---
-                BooleanDriverSetting("singleWordTuningEnabled", "Enable single-word prosody tuning"),  # type: ignore
-                BooleanDriverSetting("singleWordClauseTypeOverrideCommaOnly", "Override clause type for comma only"),  # type: ignore
                 BooleanDriverSetting("legacyPitchMode", "Use classic pitch and intonation style"),  # type: ignore
                 BooleanDriverSetting("tonal", "Enable tonal language behavior"),  # type: ignore
                 BooleanDriverSetting("toneDigitsEnabled", "Interpret tone numbers in text"),  # type: ignore
@@ -944,9 +941,6 @@ class SynthDriver(SynthDriver):
         # --- Trajectory limit settings ---
         ("trajectoryLimitEnabled", "trajectoryLimit.enabled", "bool", False, None),
         ("trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit.applyAcrossWordBoundary", "bool", False, None),
-        # --- Single-word tuning settings ---
-        ("singleWordTuningEnabled", "singleWordTuningEnabled", "bool", True, None),
-        ("singleWordClauseTypeOverrideCommaOnly", "singleWordClauseTypeOverrideCommaOnly", "bool", True, None),
         ("legacyPitchMode", "legacyPitchMode", "bool", False, None),
         ("tonal", "tonal", "bool", False, None),
         ("toneDigitsEnabled", "toneDigitsEnabled", "bool", False, None),
@@ -1416,6 +1410,64 @@ class SynthDriver(SynthDriver):
         except Exception:
             log.debug("nvSpeechPlayer: terminate failed", exc_info=True)
 
+    def loadSettings(self, onlyChanged=False):
+        """Override loadSettings to ensure frontend profile is always properly restored.
+        
+        This fixes the Escape key bug where:
+        1. User selects a voice profile (e.g., profile:Beth)
+        2. User opens settings, modifies tilt/rate, then hits Escape
+        3. NVDA calls loadSettings() to restore saved settings
+        4. If anything goes wrong (exception in changeVoice, etc.), the frontend
+           profile could be left in an inconsistent state
+        
+        Our fix: After the parent loadSettings() completes (successfully or not),
+        we always re-sync the frontend with the current voice profile state.
+        """
+        # Capture the voice BEFORE loadSettings runs, in case something corrupts it
+        voiceBeforeLoad = getattr(self, "_curVoice", None)
+        
+        try:
+            # Call parent implementation
+            super().loadSettings(onlyChanged)
+        except Exception:
+            log.debug("nvSpeechPlayer: parent loadSettings failed", exc_info=True)
+            # Don't re-raise - we'll try to recover below
+        
+        # CRITICAL: Always re-sync frontend profile after loadSettings completes.
+        # This ensures the frontend has the correct phonetic transformations applied,
+        # even if NVDA's loadSettings hit an exception and tried to "recover".
+        try:
+            curVoice = getattr(self, "_curVoice", None)
+            
+            # If voice got corrupted (changed unexpectedly), restore it
+            if voiceBeforeLoad and curVoice != voiceBeforeLoad:
+                # Check if the "new" voice is just a fallback to Adam
+                # when we actually had a valid profile before
+                if voiceBeforeLoad.startswith(VOICE_PROFILE_PREFIX) and curVoice == "Adam":
+                    log.debug(f"nvSpeechPlayer: loadSettings corrupted voice from {voiceBeforeLoad} to {curVoice}, restoring")
+                    self._curVoice = voiceBeforeLoad
+                    curVoice = voiceBeforeLoad
+            
+            # Re-apply frontend profile to ensure phonetic transformations are active
+            if curVoice and curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+                if hasattr(self, "_frontend") and self._frontend:
+                    self._frontend.setVoiceProfile(profileName)
+                    self._usingVoiceProfile = True
+                    self._activeProfileName = profileName
+                    # Re-apply voicing tone as well
+                    self._applyVoicingTone(profileName)
+                    log.debug(f"nvSpeechPlayer: loadSettings re-synced frontend profile '{profileName}'")
+            else:
+                # Python preset or no voice - ensure frontend profile is cleared
+                if hasattr(self, "_frontend") and self._frontend:
+                    self._frontend.setVoiceProfile("")
+                    self._usingVoiceProfile = False
+                    self._activeProfileName = ""
+                    self._applyVoicingTone("")
+        except Exception:
+            log.debug("nvSpeechPlayer: loadSettings frontend re-sync failed", exc_info=True)
+
     def _get_rate(self):
         try:
             return int(math.log(getattr(self, "_curRate", 1.0) / 0.25, 2) * 25.0)
@@ -1656,6 +1708,22 @@ class SynthDriver(SynthDriver):
                 voiceId = f"{VOICE_PROFILE_PREFIX}{profileName}"
                 # Display name includes profile name, description notes it's a profile
                 d[voiceId] = VoiceInfo(voiceId, f"{profileName} (profile)")
+            
+            # CRITICAL: Ensure the current voice is always in availableVoices.
+            # This prevents KeyError in speechDictHandler.loadVoiceDict() when
+            # NVDA calls loadSettings() on Escape (onDiscard), which does:
+            #   synth.availableVoices[synth.voice].displayName
+            # If current voice isn't in the dict, that line throws KeyError,
+            # which causes loadSettings() to fall back to "Adam".
+            curVoice = getattr(self, "_curVoice", None)
+            if curVoice and curVoice not in d:
+                if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                    profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+                    d[curVoice] = VoiceInfo(curVoice, f"{profileName} (profile)")
+                else:
+                    # Unknown Python preset - add it anyway
+                    d[curVoice] = VoiceInfo(curVoice, curVoice)
+            
             return d
         except Exception:
             # Return at least the default voice
