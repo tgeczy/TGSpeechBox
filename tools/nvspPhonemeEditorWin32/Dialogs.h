@@ -65,13 +65,15 @@ struct SpeechSettingsDialogState {
 
   // Discovered voice profiles from phonemes.yaml
   std::vector<std::string> voiceProfiles;
-  
-  // Path to phonemes.yaml for loading voicing tone
-  std::wstring phonemesYamlPath;
 
-  // Param UI
+  // Frame param UI
   std::vector<std::string> paramNames;
   int selectedParam = 0;
+  
+  // Voicing param UI
+  std::vector<std::string> voicingParamNames;
+  int selectedVoicingParam = 0;
+  
   bool ok = false;
 };
 

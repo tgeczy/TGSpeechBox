@@ -16,6 +16,10 @@ class NvspRuntime;
 
 // Multiplier field types for class scales
 struct VPClassScales {
+  // Generic map for storing all scale fields
+  // This allows flexible read/write of any scale field without hardcoding
+  std::map<std::string, double> scales;
+  
   // Formant frequency multipliers (cf1-cf6, pf1-pf6)
   std::array<double, 6> cf_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   std::array<double, 6> pf_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
@@ -54,30 +58,17 @@ struct VPPhonemeOverride {
   std::map<std::string, double> fields;  // field name -> value
 };
 
-// Voicing tone parameters (DSP-level voice quality)
-// These are applied to the speechPlayer's wave generator, not per-frame
-struct VPVoicingTone {
-  double voicingPeakPos = 0.91;           bool voicingPeakPos_set = false;
-  double voicedPreEmphA = 0.92;           bool voicedPreEmphA_set = false;
-  double voicedPreEmphMix = 0.35;         bool voicedPreEmphMix_set = false;
-  double highShelfGainDb = 4.0;           bool highShelfGainDb_set = false;
-  double highShelfFcHz = 2000.0;          bool highShelfFcHz_set = false;
-  double highShelfQ = 0.7;                bool highShelfQ_set = false;
-  double voicedTiltDbPerOct = 0.0;        bool voicedTiltDbPerOct_set = false;
-  
-  bool hasAnySet() const {
-    return voicingPeakPos_set || voicedPreEmphA_set || voicedPreEmphMix_set ||
-           highShelfGainDb_set || highShelfFcHz_set || highShelfQ_set ||
-           voicedTiltDbPerOct_set;
-  }
-};
-
 // A complete voice profile
 struct VPVoiceProfile {
   std::string name;
   std::map<std::string, VPClassScales> classScales;  // class name -> scales
   std::vector<VPPhonemeOverride> phonemeOverrides;
-  VPVoicingTone voicingTone;  // DSP-level voice quality parameters
+
+  // Optional voicingTone section from phonemes.yaml.
+  // The editor UI doesn't expose these yet, but we parse + write them back so
+  // users don't lose manual edits.
+  bool hasVoicingTone = false;
+  std::map<std::string, std::string> voicingTone;
 };
 
 // Dialog state for voice profile list
@@ -152,18 +143,6 @@ const char* const kOverrideFieldNames[] = {
 };
 constexpr int kOverrideFieldCount = sizeof(kOverrideFieldNames) / sizeof(kOverrideFieldNames[0]);
 
-// Voicing tone field names (DSP-level parameters)
-const char* const kVoicingToneFieldNames[] = {
-  "voicingPeakPos",
-  "voicedPreEmphA",
-  "voicedPreEmphMix",
-  "highShelfGainDb",
-  "highShelfFcHz",
-  "highShelfQ",
-  "voicedTiltDbPerOct"
-};
-constexpr int kVoicingToneFieldCount = sizeof(kVoicingToneFieldNames) / sizeof(kVoicingToneFieldNames[0]);
-
 // Load voice profiles from phonemes.yaml
 bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath, std::vector<VPVoiceProfile>& outProfiles, std::string& outError);
 
@@ -174,8 +153,5 @@ bool saveVoiceProfilesToYaml(const std::wstring& yamlPath, const std::vector<VPV
 bool ShowVoiceProfilesDialog(HINSTANCE hInst, HWND parent, VoiceProfilesDialogState& st);
 bool ShowEditVoiceProfileDialog(HINSTANCE hInst, HWND parent, EditVoiceProfileDialogState& st);
 bool ShowEditPhonemeOverrideDialog(HINSTANCE hInst, HWND parent, EditPhonemeOverrideDialogState& st);
-
-// Get voicing tone for a specific profile by name (returns false if not found)
-bool getVoicingToneForProfile(const std::wstring& yamlPath, const std::string& profileName, VPVoicingTone& outTone);
 
 } // namespace nvsp_editor

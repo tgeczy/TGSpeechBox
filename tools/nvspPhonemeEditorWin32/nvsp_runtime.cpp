@@ -127,6 +127,25 @@ const std::vector<std::string>& NvspRuntime::frameParamNames() {
   return names;
 }
 
+const std::vector<std::string>& NvspRuntime::voicingParamNames() {
+  static std::vector<std::string> names;
+  if (names.empty()) {
+    names = {
+      "voicingPeakPos",
+      "voicedPreEmphA",
+      "voicedPreEmphMix",
+      "highShelfGainDb",
+      "highShelfFcHz",
+      "highShelfQ",
+      "voicedTiltDbPerOct",
+      "noiseGlottalModDepth",
+      "pitchSyncF1DeltaHz",
+      "pitchSyncB1DeltaHz"
+    };
+  }
+  return names;
+}
+
 static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t& frame, bool& outIsVowel) {
   outIsVowel = false;
 
@@ -157,6 +176,7 @@ static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t&
 NvspRuntime::NvspRuntime() {
   // No static layout assumptions: we convert frames field-by-field in the callback.
   m_speech.frameParams.assign(frameParamNames().size(), 50);
+  m_speech.voicingParams.assign(voicingParamNames().size(), 50);
 }
 
 NvspRuntime::~NvspRuntime() {
@@ -175,6 +195,9 @@ void NvspRuntime::setSpeechSettings(const SpeechSettings& s) {
   }
   if (m_speech.frameParams.size() != frameParamNames().size()) {
     m_speech.frameParams.assign(frameParamNames().size(), 50);
+  }
+  if (m_speech.voicingParams.size() != voicingParamNames().size()) {
+    m_speech.voicingParams.assign(voicingParamNames().size(), 50);
   }
 }
 
@@ -322,8 +345,6 @@ void NvspRuntime::unload() {
   m_spQueueFrame = nullptr;
   m_spSynthesize = nullptr;
   m_spTerminate = nullptr;
-  m_spSetVoicingTone = nullptr;
-  m_spGetVoicingTone = nullptr;
 
   m_feCreate = nullptr;
   m_feDestroy = nullptr;
@@ -377,10 +398,6 @@ bool NvspRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
   m_spQueueFrame = reinterpret_cast<sp_queueFrame_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_queueFrame"));
   m_spSynthesize = reinterpret_cast<sp_synthesize_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_synthesize"));
   m_spTerminate = reinterpret_cast<sp_terminate_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_terminate"));
-  
-  // Voicing tone API (optional - may not be present in older DLLs)
-  m_spSetVoicingTone = reinterpret_cast<sp_setVoicingTone_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_setVoicingTone"));
-  m_spGetVoicingTone = reinterpret_cast<sp_getVoicingTone_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_getVoicingTone"));
 
   if (!m_spInitialize || !m_spQueueFrame || !m_spSynthesize || !m_spTerminate) {
     outError = "speechPlayer.dll is missing expected exports";
@@ -497,13 +514,8 @@ bool NvspRuntime::synthPreviewPhoneme(
     outError = "speechPlayer_initialize failed";
     return false;
   }
-  
-  // Apply voicing tone if the API is available
-  if (m_spSetVoicingTone) {
-    m_spSetVoicingTone(player, &m_voicingTone);
-  }
 
-  speechPlayer_frame_t frame{};;
+  speechPlayer_frame_t frame{};
   bool isVowel = false;
   applyPhonemeMapToFrame(phonemeMap, frame, isVowel);
   applySpeechSettingsToFrame(frame);
@@ -796,13 +808,8 @@ bool NvspRuntime::synthIpa(
     outError = "speechPlayer_initialize failed";
     return false;
   }
-  
-  // Apply voicing tone if the API is available
-  if (m_spSetVoicingTone) {
-    m_spSetVoicingTone(player, &m_voicingTone);
-  }
 
-  QueueCtx ctx{};;
+  QueueCtx ctx{};
   ctx.queueFrame = m_spQueueFrame;
   ctx.player = player;
   ctx.sampleRate = sampleRate;
@@ -1024,15 +1031,6 @@ std::string NvspRuntime::getVoiceProfile() const {
   
   const char* name = m_feGetVoiceProfile(m_feHandle);
   return name ? name : "";
-}
-
-void NvspRuntime::setVoicingTone(const speechPlayer_voicingTone_t* tone) {
-  if (tone) {
-    m_voicingTone = *tone;
-  } else {
-    // Reset to defaults
-    m_voicingTone = {0.91, 0.92, 0.35, 4.0, 2000.0, 0.7, 0.0};
-  }
 }
 
 } // namespace nvsp_editor

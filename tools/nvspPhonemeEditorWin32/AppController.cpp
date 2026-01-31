@@ -741,11 +741,6 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "segmentBoundarySkipVowelToLiquid",
     "segmentBoundarySkipVowelToVowel",
     "semivowelOffglideScale",
-    "singleWordClauseTypeOverride",
-    "singleWordClauseTypeOverrideCommaOnly",
-    "singleWordFinalFadeMs",
-    "singleWordFinalHoldMs",
-    "singleWordTuningEnabled",
     "spellingDiphthongMode",
     "stopClosureAfterNasalsEnabled",
     "stopClosureClusterFadeMs",
@@ -1636,23 +1631,17 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         SpeechSettingsDialogState st;
         st.settings = app.runtime.getSpeechSettings();
         st.paramNames = std::vector<std::string>(NvspRuntime::frameParamNames().begin(), NvspRuntime::frameParamNames().end());
+        st.voicingParamNames = std::vector<std::string>(NvspRuntime::voicingParamNames().begin(), NvspRuntime::voicingParamNames().end());
         if (st.settings.frameParams.size() != st.paramNames.size()) {
           st.settings.frameParams.assign(st.paramNames.size(), 50);
+        }
+        if (st.settings.voicingParams.size() != st.voicingParamNames.size()) {
+          st.settings.voicingParams.assign(st.voicingParamNames.size(), 50);
         }
         st.runtime = &app.runtime;
         
         // Discover voice profiles from phonemes.yaml
         st.voiceProfiles = app.runtime.discoverVoiceProfiles();
-        
-        // Set phonemes.yaml path for voicing tone loading
-        if (!app.packsDir.empty()) {
-          std::wstring yamlPath = app.packsDir;
-          if (!yamlPath.empty() && yamlPath.back() != L'\\' && yamlPath.back() != L'/') {
-            yamlPath += L'\\';
-          }
-          yamlPath += L"phonemes.yaml";
-          st.phonemesYamlPath = yamlPath;
-        }
 
         ShowSpeechSettingsDialog(app.hInst, hWnd, st);
         if (st.ok) {

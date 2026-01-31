@@ -4,7 +4,6 @@
 #include "Dialogs.h"
 
 #include "AccessibilityUtils.h"
-#include "VoiceProfileEditor.h"
 #include "WinUtils.h"
 
 #include "resource.h"
@@ -890,6 +889,13 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
     std::wstring key = L"frame_" + utf8ToWide(names[i]);
     s.frameParams[i] = readIniInt(L"speech", key.c_str(), 50);
   }
+  
+  const auto& voicingNames = NvspRuntime::voicingParamNames();
+  s.voicingParams.assign(voicingNames.size(), 50);
+  for (size_t i = 0; i < voicingNames.size(); ++i) {
+    std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
+    s.voicingParams[i] = readIniInt(L"speech", key.c_str(), 50);
+  }
   return s;
 }
 
@@ -905,6 +911,12 @@ void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s) {
   for (size_t i = 0; i < names.size() && i < s.frameParams.size(); ++i) {
     std::wstring key = L"frame_" + utf8ToWide(names[i]);
     writeIniInt(L"speech", key.c_str(), s.frameParams[i]);
+  }
+  
+  const auto& voicingNames = NvspRuntime::voicingParamNames();
+  for (size_t i = 0; i < voicingNames.size() && i < s.voicingParams.size(); ++i) {
+    std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
+    writeIniInt(L"speech", key.c_str(), s.voicingParams[i]);
   }
 }
 
@@ -990,6 +1002,18 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
     setDlgIntText(hDlg, IDC_SPEECH_PARAM_VAL, v);
   };
 
+  auto syncSelectedVoicingParamToUi = [&]() {
+    if (!st) return;
+    HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+    int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+    if (sel < 0) sel = 0;
+    if (sel >= static_cast<int>(st->voicingParamNames.size())) return;
+    int v = (sel < static_cast<int>(st->settings.voicingParams.size())) ? st->settings.voicingParams[static_cast<size_t>(sel)] : 50;
+    HWND tb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_SLIDER);
+    setTrackbarRangeAndPos(tb, v);
+    setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
+  };
+
   switch (msg) {
     case WM_INITDIALOG: {
       st = reinterpret_cast<SpeechSettingsDialogState*>(lParam);
@@ -1011,30 +1035,15 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
       setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_INFLECTION_SLIDER), st->settings.inflection);
       setDlgIntText(hDlg, IDC_SPEECH_INFLECTION_VAL, st->settings.inflection);
 
-      // Param list
+      // Frame param list
       HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
       populateParamList(lb, st->paramNames, st->settings.frameParams);
       syncSelectedParamToUi();
       
-      // Load voicing tone for the initially selected voice profile (if any)
-      if (st->runtime && !st->phonemesYamlPath.empty()) {
-        const std::string& voiceName = st->settings.voiceName;
-        if (nvsp_editor::NvspRuntime::isVoiceProfile(voiceName)) {
-          std::string profileName = nvsp_editor::NvspRuntime::getProfileNameFromVoice(voiceName);
-          nvsp_editor::VPVoicingTone vt;
-          if (nvsp_editor::getVoicingToneForProfile(st->phonemesYamlPath, profileName, vt)) {
-            nvsp_editor::speechPlayer_voicingTone_t tone;
-            tone.voicingPeakPos = vt.voicingPeakPos_set ? vt.voicingPeakPos : 0.91;
-            tone.voicedPreEmphA = vt.voicedPreEmphA_set ? vt.voicedPreEmphA : 0.92;
-            tone.voicedPreEmphMix = vt.voicedPreEmphMix_set ? vt.voicedPreEmphMix : 0.35;
-            tone.highShelfGainDb = vt.highShelfGainDb_set ? vt.highShelfGainDb : 4.0;
-            tone.highShelfFcHz = vt.highShelfFcHz_set ? vt.highShelfFcHz : 2000.0;
-            tone.highShelfQ = vt.highShelfQ_set ? vt.highShelfQ : 0.7;
-            tone.voicedTiltDbPerOct = vt.voicedTiltDbPerOct_set ? vt.voicedTiltDbPerOct : 0.0;
-            st->runtime->setVoicingTone(&tone);
-          }
-        }
-      }
+      // Voicing param list
+      HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+      populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
+      syncSelectedVoicingParamToUi();
       
       return TRUE;
     }
@@ -1080,6 +1089,21 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         }
         return TRUE;
       }
+      if (id == IDC_SPEECH_VOICING_SLIDER) {
+        int v = getTrackbarPos(src);
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.voicingParams.size())) {
+          st->settings.voicingParams[static_cast<size_t>(sel)] = v;
+          setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
+          if (sel < static_cast<int>(st->voicingParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], v);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
       break;
     }
 
@@ -1108,36 +1132,15 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
             if (st->runtime) {
               std::string err;
               st->runtime->setVoiceProfile(profileName, err);
-              
-              // Load and apply voicing tone for this profile
-              if (!st->phonemesYamlPath.empty()) {
-                nvsp_editor::VPVoicingTone vt;
-                if (nvsp_editor::getVoicingToneForProfile(st->phonemesYamlPath, profileName, vt)) {
-                  // Convert VPVoicingTone to speechPlayer_voicingTone_t
-                  nvsp_editor::speechPlayer_voicingTone_t tone;
-                  tone.voicingPeakPos = vt.voicingPeakPos_set ? vt.voicingPeakPos : 0.91;
-                  tone.voicedPreEmphA = vt.voicedPreEmphA_set ? vt.voicedPreEmphA : 0.92;
-                  tone.voicedPreEmphMix = vt.voicedPreEmphMix_set ? vt.voicedPreEmphMix : 0.35;
-                  tone.highShelfGainDb = vt.highShelfGainDb_set ? vt.highShelfGainDb : 4.0;
-                  tone.highShelfFcHz = vt.highShelfFcHz_set ? vt.highShelfFcHz : 2000.0;
-                  tone.highShelfQ = vt.highShelfQ_set ? vt.highShelfQ : 0.7;
-                  tone.voicedTiltDbPerOct = vt.voicedTiltDbPerOct_set ? vt.voicedTiltDbPerOct : 0.0;
-                  st->runtime->setVoicingTone(&tone);
-                } else {
-                  // Profile has no voicing tone, use defaults
-                  st->runtime->setVoicingTone(nullptr);
-                }
-              }
             }
           } else {
             // Regular Python preset
             st->settings.voiceName = displayName;
             
-            // Clear any active voice profile and reset voicing tone to defaults
+            // Clear any active voice profile
             if (st->runtime) {
               std::string err;
               st->runtime->setVoiceProfile("", err);
-              st->runtime->setVoicingTone(nullptr);  // Reset to defaults
             }
           }
         }
@@ -1146,6 +1149,11 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
 
       if (id == IDC_SPEECH_PARAM_LIST && code == LBN_SELCHANGE) {
         syncSelectedParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_VOICING_LIST && code == LBN_SELCHANGE) {
+        syncSelectedVoicingParamToUi();
         return TRUE;
       }
 
@@ -1165,12 +1173,36 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         return TRUE;
       }
 
+      if (id == IDC_SPEECH_VOICING_RESET) {
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.voicingParams.size())) {
+          st->settings.voicingParams[static_cast<size_t>(sel)] = 50;
+          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_VOICING_SLIDER), 50);
+          setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, 50);
+          if (sel < static_cast<int>(st->voicingParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], 50);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+
       if (id == IDC_SPEECH_RESET_ALL) {
         st->settings.frameParams.assign(st->paramNames.size(), 50);
         st->settings.voiceName = st->settings.voiceName.empty() ? "Adam" : st->settings.voiceName;
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
         populateParamList(lb, st->paramNames, st->settings.frameParams);
         syncSelectedParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_VOICING_RESET_ALL) {
+        st->settings.voicingParams.assign(st->voicingParamNames.size(), 50);
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+        populateParamList(lb, st->voicingParamNames, st->settings.voicingParams);
+        syncSelectedVoicingParamToUi();
         return TRUE;
       }
 
