@@ -1,7 +1,7 @@
 /*
 This file is a part of the NV Speech Player project. 
 URL: https://bitbucket.org/nvaccess/speechplayer
-Copyright 2014-2025 NV Access Limited.
+Copyright 2014 NV Access Limited, 2026 Tamas Geczy.
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 2.0, as published by
 the Free Software Foundation.
@@ -133,9 +133,9 @@ typedef struct {
      * and more voice-like.
      * 
      * Typical values:
-     *   - Adult male:  -4 to -6 dB/oct (brighter, buzzier)
-     *   - Female:      -7 to -10 dB/oct (smoother)
-     *   - Child/soft:  -9 to -12 dB/oct (very smooth/muffled)
+     *   - Adult male:  -4 to -6 dB/oct (brighter,) +4 to +6 (buzzier)
+     *   - Female:      +7 to +10 dB/oct (smoother)
+     *   - Child/soft:  +9 to +12 dB/oct (very smooth/muffled)
      *   - 0 dB/oct:    No tilt (brightest, most synthetic)
      * 
      * Negative values = darker/smoother (normal for speech)
