@@ -756,7 +756,7 @@ public:
         output = r4.resonate(output, frame->cf4, frame->cb4);
         output = r3.resonate(output, frame->cf3, frame->cb3);
         output = r2.resonate(output, frame->cf2, frame->cb2);
-        // F1 uses pitch-synchronous resonator with Fujisaki compensation
+        // F1 uses pitch-synchronous resonator without Fujisaki compensation (dropped as we don't have F1 spikes it worked with.)
         output = r1.resonate(output, frame->cf1, frame->cb1, glottisOpen);
         return output;
     }
