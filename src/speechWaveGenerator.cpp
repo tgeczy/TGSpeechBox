@@ -407,37 +407,49 @@ public:
             }
 
             // Hybrid glottal source based on sample rate:
-            // - At 11025 Hz: Use classic symmetric cosine (sounds fuller at low SR)
-            // - At 16000+ Hz: Use LF-inspired asymmetric waveform (more harmonics)
-            // This preserves the "full" sound at low sample rates while getting
-            // the improved quality at higher rates.
+            // - At 11025 Hz: Blend favoring symmetric cosine (fuller, less aliasing)
+            // - At 16000+ Hz: Full LF-inspired asymmetric waveform (more harmonics)
+            // - Between: Smooth blend for gradual transition
+            // 
+            // The blend preserves fricative clarity (from LF edge) while
+            // reducing aliasing artifacts (from cosine smoothness).
             
-            if (sampleRate <= 11025) {
-                // Classic symmetric cosine glottal waveform (original SpeechPlayer)
-                if (phase < peakPos) {
-                    flow = 0.5 * (1.0 - cos(phase * M_PI / peakPos));
-                } else {
-                    flow = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
-                }
+            // Compute symmetric cosine flow (original SpeechPlayer)
+            double flowCosine;
+            if (phase < peakPos) {
+                flowCosine = 0.5 * (1.0 - cos(phase * M_PI / peakPos));
             } else {
-                // LF-inspired glottal waveform with asymmetric opening/closing
-                // Opening phase: smooth polynomial rise (natural)
-                // Closing phase: sharper exponential-like fall (more harmonics)
-                // 
-                // This gives more "chest voice" and "body" compared to symmetric cosine.
-                // Reference: Klatt 1990 "KLGLOTT88", Fant 1985 LF model
-                
-                if (phase < peakPos) {
-                    // Opening: polynomial rise
-                    double t = phase / peakPos;
-                    flow = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
-                } else {
-                    // Closing: sharper fall with "return phase" character
-                    double t = (phase - peakPos) / (1.0 - peakPos);
-                    double sharpness = 2.5;  // Higher = sharper closure = more harmonics
-                    flow = pow(1.0 - t, sharpness);
-                }
+                flowCosine = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
             }
+            
+            // Compute LF-inspired flow (asymmetric, more harmonics)
+            double flowLF;
+            if (phase < peakPos) {
+                // Opening: polynomial rise
+                double t = phase / peakPos;
+                flowLF = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
+            } else {
+                // Closing: sharper fall with "return phase" character
+                double t = (phase - peakPos) / (1.0 - peakPos);
+                double sharpness = 2.5;  // Higher = sharper closure = more harmonics
+                flowLF = pow(1.0 - t, sharpness);
+            }
+            
+            // Blend based on sample rate:
+            // - 11025 Hz: 70% cosine, 30% LF (enough edge for fricatives)
+            // - 14000 Hz: 50/50 blend
+            // - 16000+ Hz: 100% LF
+            double lfBlend;
+            if (sampleRate <= 11025) {
+                lfBlend = 0.30;  // 30% LF at low rates - keeps some edge for consonants
+            } else if (sampleRate >= 16000) {
+                lfBlend = 1.0;   // 100% LF at high rates
+            } else {
+                // Linear interpolation between 11025 and 16000
+                lfBlend = 0.30 + 0.70 * (double)(sampleRate - 11025) / (16000.0 - 11025.0);
+            }
+            
+            flow = (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
         }
 
         const double flowScale = 1.6;
@@ -824,6 +836,18 @@ private:
     int stopFadeTotal;         // total fade-out length
 
     void initHighShelf(double fc, double gainDb, double Q) {
+        // Clamp inputs to prevent NaNs and weird filter behavior from bad UI values
+        double nyq = 0.5 * (double)sampleRate;
+        if (!std::isfinite(fc)) fc = 2000.0;
+        if (!std::isfinite(gainDb)) gainDb = 0.0;
+        if (!std::isfinite(Q)) Q = 0.7;
+        if (fc < 20.0) fc = 20.0;
+        if (fc > nyq * 0.95) fc = nyq * 0.95;
+        if (Q < 0.1) Q = 0.1;
+        if (Q > 4.0) Q = 4.0;
+        if (gainDb < -24.0) gainDb = -24.0;
+        if (gainDb > 24.0) gainDb = 24.0;
+
         double A = pow(10.0, gainDb / 40.0);
         double w0 = PITWO * fc / sampleRate;
         double cosw0 = cos(w0);
@@ -1178,11 +1202,13 @@ public:
         speechPlayer_voicingTone_t merged = speechPlayer_getDefaultVoicingTone();
 
         if (tone) {
-            // Accept v2 structs (check magic and version)
-            const bool looksLikeV2 = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
-                                      tone->structVersion == SPEECHPLAYER_VOICINGTONE_VERSION);
+            // Accept v2+ structs: check magic and that structSize at least covers the header.
+            // This allows future v3/v4 structs (with appended fields) to work without
+            // falling back to the legacy 7-double path.
+            const bool looksLikeHeader = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
+                                          tone->structSize >= sizeof(uint32_t) * 4);
 
-            if (looksLikeV2) {
+            if (looksLikeHeader) {
                 // Caller is providing the v2 struct layout.
                 size_t copySize = (size_t)tone->structSize;
 
@@ -1247,11 +1273,11 @@ public:
             double voicedTiltDbPerOct;
         };
 
-        // Accept v2 callers
-        const bool callerWantsV2 = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
-                                    tone->structVersion == SPEECHPLAYER_VOICINGTONE_VERSION);
+        // Accept v2+ callers: check magic and that structSize at least covers the header
+        const bool callerWantsHeader = (tone->magic == SPEECHPLAYER_VOICINGTONE_MAGIC &&
+                                        tone->structSize >= sizeof(uint32_t) * 4);
 
-        if (!callerWantsV2) {
+        if (!callerWantsHeader) {
             speechPlayer_voicingTone_v1_t* v1 = (speechPlayer_voicingTone_v1_t*)tone;
             v1->voicingPeakPos = currentTone.voicingPeakPos;
             v1->voicedPreEmphA = currentTone.voicedPreEmphA;
