@@ -6,24 +6,35 @@ settings:
   # Keep word-final long /uː/ (do/two/you) from sounding too clipped.
   englishLongUWordFinalScale: 1.00
 
+  stopClosureAfterNasalsEnabled: false
+  segmentBoundarySkipVowelToLiquid: false
+  coarticulationEnabled: false
+  coarticulationFadeIntoConsonants: false
+  coarticulationVelarPinchEnabled: false
+  coarticulationGraduated: false
+  coarticulationAdjacencyMaxConsonants: 2
+  phraseFinalLengtheningEnabled: false
+  phraseFinalLengtheningNucleusOnlyMode: false
+  microprosodyEnabled: false
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicedF0LowerEnabled: false
+  rateReductionEnabled: false
+  nasalizationAnticipatoryEnabled: false
+  liquidDynamics:
+    enabled: false
+  lengthContrast:
+    enabled: false
+  positionalAllophones:
+    enabled: false
+    glottalReinforcement:
+      enabled: false
+  boundarySmoothing:
+    enabled: false
+  trajectoryLimit:
+    enabled: false
+    applyAcrossWordBoundary: false
 normalization:
   preReplacements:
-    # PRICE/MOUTH (five/nine/out): UK starts this diphthong a bit more open.
-    # Use an English-UK specific internal "a" variant so US tuning doesn't leak into en-gb.
-    - from: "aɪ"
-      to:   "ᵃɪ"
-    - from: "a͡ɪ"
-      to:   "ᵃ͡ɪ"
-    - from: "aʊ"
-      to:   "ᵃʊ"
-    - from: "a͡ʊ"
-      to:   "ᵃ͡ʊ"
-
-    # In eSpeak en-gb, "paren" comes out as "per-EN" (pəɹˈɛn), which sounds very US.
-    # In UK speech (especially in programming contexts) "PAR-en" is more common.
-    - from: "pəɹˈɛn"
-      to:   "pˈæɹən"
-
   classes:
     BATH_FOLLOW: ["s", "f", "θ"]
 
@@ -168,11 +179,23 @@ normalization:
       - "ᵊᵉ"
 
   replacements:
-    # Broad BATH (bath/cast/fast): æ -> ɑː before s/f/θ
+    # TRAP/BATH (eSpeak en-gb uses 'a' for both): map only the BATH set.
+    #
+    # Important: leave the remaining 'a' alone (TRAP) so words like "app", "application"
+    # don't drift to an "ah" quality.
+    - from: "a"
+      to: "ɑː"
+      when:
+        beforeClass: BATH_FOLLOW
+
+    # Safety: if 'æ' shows up (from other normalizers), treat it as TRAP 'a' unless it
+    # is in the BATH environment.
     - from: "æ"
       to: "ɑː"
       when:
         beforeClass: BATH_FOLLOW
+    - from: "æ"
+      to:   "a"
 
     # UK THOUGHT rounding: use the internal UK-ish variant.
     - from: "ɔː"
@@ -199,25 +222,6 @@ normalization:
       to:   "ˈɪ͡ə"
     - from: "ˌi͡ə"
       to:   "ˌɪ͡ə"
-
-    # NEAR smoothing before consonants (beard/weird/fierce): in RP, NEAR often "smooths" to a shorter diphthong before a consonant.
-    # Treat stressed /ɪə/ before consonants similarly to word-final smoothing so it doesn't drift toward "wee(d)".
-    - from: "ˈɪə"
-      to:   "ˈɪᵊ"
-      when:
-        beforeClass: CONSONANTS
-    - from: "ˌɪə"
-      to:   "ˌɪᵊ"
-      when:
-        beforeClass: CONSONANTS
-    - from: "ˈɪ͡ə"
-      to:   "ˈɪᵊ"
-      when:
-        beforeClass: CONSONANTS
-    - from: "ˌɪ͡ə"
-      to:   "ˌɪᵊ"
-      when:
-        beforeClass: CONSONANTS
 
     # NEAR vowel (fear, hear, dear): collapse word-final iə/ɪə to a single vowel with a short tail
     # so it doesn't sound over-held.

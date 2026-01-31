@@ -60,8 +60,8 @@ settings:
     # American-style rhotic quality - creates movement in the R
     rhoticF3Dip:
       enabled: true
-      f3Minimum: 1300
-      dipDurationPct: 0.55
+      f3Minimum: 1450
+      dipDurationPct: 0.45
   lengthContrast:
     enabled: false
   positionalAllophones:
@@ -231,6 +231,14 @@ normalization:
         atWordEnd: true
     - from: "ɹ"
       to:   "ɻ"
+
+    # In onsets (before a vowel), use the lighter alveolar approximant /ɹ/.
+    # Keep the heavier ɻ for codas (word-final or before consonants).
+    - from: "ɻ"
+      to:   "ɹ"
+      when:
+        beforeClass: VOWELS
+
 
     # Word-final R: lengthen it so it doesn't sound clipped or "waiting for next word"
     - from: "ɻ"
