@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include <windows.h>
 
@@ -19,6 +20,7 @@ namespace nvsp_editor {
 // - Rate/Pitch/Volume/Inflection: passed to nvspFrontend.dll (and/or applied to frames).
 // - frameParams: 0..100 sliders that act as multipliers on each speechPlayer frame field,
 //   with 50 meaning "neutral" (x1.0).
+// - voicingParams: 0..100 sliders for VoicingTone parameters.
 struct SpeechSettings {
   std::string voiceName = "Adam";
   int rate = 50;       // 0..100
@@ -26,18 +28,45 @@ struct SpeechSettings {
   int volume = 90;     // 0..100
   int inflection = 60; // 0..100
   std::string pauseMode = "short"; // off | short | long
-  std::vector<int> frameParams; // size == frameParamNames().size()
+  std::vector<int> frameParams;   // size == frameParamNames().size()
+  std::vector<int> voicingParams; // size == voicingParamNames().size()
 };
 
 // -------------------------
 // Dynamic DLL function types
 // -------------------------
 
+// VoicingTone v2 struct - must match voicingTone.h in speechPlayer
+#define SPEECHPLAYER_VOICINGTONE_MAGIC 0x32544F56u   // "VOT2"
+#define SPEECHPLAYER_VOICINGTONE_VERSION 2u
+#define SPEECHPLAYER_DSP_VERSION 4u
+
+struct EditorVoicingTone {
+  // ABI header
+  uint32_t magic;
+  uint32_t structSize;
+  uint32_t structVersion;
+  uint32_t dspVersion;
+  // Parameters
+  double voicingPeakPos;
+  double voicedPreEmphA;
+  double voicedPreEmphMix;
+  double highShelfGainDb;
+  double highShelfFcHz;
+  double highShelfQ;
+  double voicedTiltDbPerOct;
+  double noiseGlottalModDepth;
+  double pitchSyncF1DeltaHz;
+  double pitchSyncB1DeltaHz;
+};
+
 // speechPlayer.dll API
 using sp_initialize_fn = speechPlayer_handle_t(*)(int);
 using sp_queueFrame_fn = void(*)(speechPlayer_handle_t, speechPlayer_frame_t*, unsigned int, unsigned int, int, bool);
 using sp_synthesize_fn = int(*)(speechPlayer_handle_t, unsigned int, sample*);
 using sp_terminate_fn = void(*)(speechPlayer_handle_t);
+using sp_setVoicingTone_fn = void(*)(speechPlayer_handle_t, const EditorVoicingTone*);
+using sp_hasVoicingToneSupport_fn = int(*)(speechPlayer_handle_t);
 
 // nvspFrontend.dll API
 using fe_create_fn = nvspFrontend_handle_t(*)(const char*);
@@ -70,6 +99,9 @@ public:
 
   // Names of the 47 frame parameters exposed in the NVDA driver.
   static const std::vector<std::string>& frameParamNames();
+  
+  // Names of the 10 voicing tone parameters.
+  static const std::vector<std::string>& voicingParamNames();
 
   // Directory containing speechPlayer.dll and nvspFrontend.dll.
   bool setDllDirectory(const std::wstring& dllDir, std::string& outError);
@@ -135,6 +167,8 @@ private:
   sp_queueFrame_fn m_spQueueFrame = nullptr;
   sp_synthesize_fn m_spSynthesize = nullptr;
   sp_terminate_fn m_spTerminate = nullptr;
+  sp_setVoicingTone_fn m_spSetVoicingTone = nullptr;
+  sp_hasVoicingToneSupport_fn m_spHasVoicingToneSupport = nullptr;
 
   fe_create_fn m_feCreate = nullptr;
   fe_destroy_fn m_feDestroy = nullptr;

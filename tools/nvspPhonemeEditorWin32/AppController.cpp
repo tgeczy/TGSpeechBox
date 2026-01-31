@@ -1631,8 +1631,12 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         SpeechSettingsDialogState st;
         st.settings = app.runtime.getSpeechSettings();
         st.paramNames = std::vector<std::string>(NvspRuntime::frameParamNames().begin(), NvspRuntime::frameParamNames().end());
+        st.voicingParamNames = std::vector<std::string>(NvspRuntime::voicingParamNames().begin(), NvspRuntime::voicingParamNames().end());
         if (st.settings.frameParams.size() != st.paramNames.size()) {
           st.settings.frameParams.assign(st.paramNames.size(), 50);
+        }
+        if (st.settings.voicingParams.size() != st.voicingParamNames.size()) {
+          st.settings.voicingParams.assign(st.voicingParamNames.size(), 50);
         }
         st.runtime = &app.runtime;
         

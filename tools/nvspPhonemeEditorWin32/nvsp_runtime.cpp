@@ -127,6 +127,25 @@ const std::vector<std::string>& NvspRuntime::frameParamNames() {
   return names;
 }
 
+const std::vector<std::string>& NvspRuntime::voicingParamNames() {
+  static std::vector<std::string> names;
+  if (names.empty()) {
+    names = {
+      "voicingPeakPos",
+      "voicedPreEmphA",
+      "voicedPreEmphMix",
+      "highShelfGainDb",
+      "highShelfFcHz",
+      "highShelfQ",
+      "voicedTiltDbPerOct",
+      "noiseGlottalModDepth",
+      "pitchSyncF1DeltaHz",
+      "pitchSyncB1DeltaHz"
+    };
+  }
+  return names;
+}
+
 static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t& frame, bool& outIsVowel) {
   outIsVowel = false;
 
@@ -157,6 +176,7 @@ static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t&
 NvspRuntime::NvspRuntime() {
   // No static layout assumptions: we convert frames field-by-field in the callback.
   m_speech.frameParams.assign(frameParamNames().size(), 50);
+  m_speech.voicingParams.assign(voicingParamNames().size(), 50);
 }
 
 NvspRuntime::~NvspRuntime() {
@@ -176,6 +196,9 @@ void NvspRuntime::setSpeechSettings(const SpeechSettings& s) {
   if (m_speech.frameParams.size() != frameParamNames().size()) {
     m_speech.frameParams.assign(frameParamNames().size(), 50);
   }
+  if (m_speech.voicingParams.size() != voicingParamNames().size()) {
+    m_speech.voicingParams.assign(voicingParamNames().size(), 50);
+  }
 }
 
 SpeechSettings NvspRuntime::getSpeechSettings() const {
@@ -186,6 +209,62 @@ static int clampInt(int v, int lo, int hi) {
   if (v < lo) return lo;
   if (v > hi) return hi;
   return v;
+}
+
+// Map slider value (0-100) to actual VoicingTone parameter value
+// Each parameter has different ranges, with 50 being "neutral/default"
+static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
+  double sv = static_cast<double>(clampInt(sliderValue, 0, 100));
+  
+  switch (paramIndex) {
+    case 0: // voicingPeakPos: 0.85-0.95, default 0.91 at 50
+      return 0.85 + (sv / 100.0) * 0.10;
+    case 1: // voicedPreEmphA: 0.0-0.97, default 0.92 at 50
+      return (sv / 100.0) * 0.97;
+    case 2: // voicedPreEmphMix: 0.0-1.0, default 0.35 at 50
+      return sv / 100.0;
+    case 3: // highShelfGainDb: -12 to +12, default 4.0 at 50
+      return -12.0 + (sv / 100.0) * 24.0;
+    case 4: // highShelfFcHz: 500-8000, default 2000 at 50
+      return 500.0 + (sv / 100.0) * 7500.0;
+    case 5: // highShelfQ: 0.3-2.0, default 0.7 at 50
+      return 0.3 + (sv / 100.0) * 1.7;
+    case 6: // voicedTiltDbPerOct: -24 to +24, default 0.0 at 50
+      return -24.0 + (sv / 100.0) * 48.0;
+    case 7: // noiseGlottalModDepth: 0.0-1.0, default 0.0 at 0
+      return sv / 100.0;
+    case 8: // pitchSyncF1DeltaHz: -60 to +60, default 0.0 at 50
+      return -60.0 + (sv / 100.0) * 120.0;
+    case 9: // pitchSyncB1DeltaHz: -50 to +50, default 0.0 at 50
+      return -50.0 + (sv / 100.0) * 100.0;
+    default:
+      return 0.0;
+  }
+}
+
+// Build a VoicingTone struct from slider values
+static EditorVoicingTone buildVoicingTone(const std::vector<int>& sliders) {
+  EditorVoicingTone tone{};
+  
+  // Set v2 header
+  tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC;
+  tone.structSize = sizeof(EditorVoicingTone);
+  tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION;
+  tone.dspVersion = SPEECHPLAYER_DSP_VERSION;
+  
+  // Map sliders to values (use defaults if sliders vector is wrong size)
+  tone.voicingPeakPos = (sliders.size() > 0) ? mapVoicingSliderToValue(0, sliders[0]) : 0.91;
+  tone.voicedPreEmphA = (sliders.size() > 1) ? mapVoicingSliderToValue(1, sliders[1]) : 0.92;
+  tone.voicedPreEmphMix = (sliders.size() > 2) ? mapVoicingSliderToValue(2, sliders[2]) : 0.35;
+  tone.highShelfGainDb = (sliders.size() > 3) ? mapVoicingSliderToValue(3, sliders[3]) : 4.0;
+  tone.highShelfFcHz = (sliders.size() > 4) ? mapVoicingSliderToValue(4, sliders[4]) : 2000.0;
+  tone.highShelfQ = (sliders.size() > 5) ? mapVoicingSliderToValue(5, sliders[5]) : 0.7;
+  tone.voicedTiltDbPerOct = (sliders.size() > 6) ? mapVoicingSliderToValue(6, sliders[6]) : 0.0;
+  tone.noiseGlottalModDepth = (sliders.size() > 7) ? mapVoicingSliderToValue(7, sliders[7]) : 0.0;
+  tone.pitchSyncF1DeltaHz = (sliders.size() > 8) ? mapVoicingSliderToValue(8, sliders[8]) : 0.0;
+  tone.pitchSyncB1DeltaHz = (sliders.size() > 9) ? mapVoicingSliderToValue(9, sliders[9]) : 0.0;
+  
+  return tone;
 }
 
 static void applyMul(speechPlayer_frame_t& frame, speechPlayer_frameParam_t speechPlayer_frame_t::* member, double mul) {
@@ -322,6 +401,8 @@ void NvspRuntime::unload() {
   m_spQueueFrame = nullptr;
   m_spSynthesize = nullptr;
   m_spTerminate = nullptr;
+  m_spSetVoicingTone = nullptr;
+  m_spHasVoicingToneSupport = nullptr;
 
   m_feCreate = nullptr;
   m_feDestroy = nullptr;
@@ -375,6 +456,10 @@ bool NvspRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
   m_spQueueFrame = reinterpret_cast<sp_queueFrame_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_queueFrame"));
   m_spSynthesize = reinterpret_cast<sp_synthesize_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_synthesize"));
   m_spTerminate = reinterpret_cast<sp_terminate_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_terminate"));
+  
+  // VoicingTone API (optional - may not be present in older DLLs)
+  m_spSetVoicingTone = reinterpret_cast<sp_setVoicingTone_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_setVoicingTone"));
+  m_spHasVoicingToneSupport = reinterpret_cast<sp_hasVoicingToneSupport_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_hasVoicingToneSupport"));
 
   if (!m_spInitialize || !m_spQueueFrame || !m_spSynthesize || !m_spTerminate) {
     outError = "speechPlayer.dll is missing expected exports";
@@ -490,6 +575,12 @@ bool NvspRuntime::synthPreviewPhoneme(
   if (!player) {
     outError = "speechPlayer_initialize failed";
     return false;
+  }
+
+  // Apply VoicingTone if DLL supports it
+  if (m_spSetVoicingTone && !m_speech.voicingParams.empty()) {
+    EditorVoicingTone tone = buildVoicingTone(m_speech.voicingParams);
+    m_spSetVoicingTone(player, &tone);
   }
 
   speechPlayer_frame_t frame{};
@@ -784,6 +875,12 @@ bool NvspRuntime::synthIpa(
   if (!player) {
     outError = "speechPlayer_initialize failed";
     return false;
+  }
+
+  // Apply VoicingTone if DLL supports it
+  if (m_spSetVoicingTone && !m_speech.voicingParams.empty()) {
+    EditorVoicingTone tone = buildVoicingTone(m_speech.voicingParams);
+    m_spSetVoicingTone(player, &tone);
   }
 
   QueueCtx ctx{};

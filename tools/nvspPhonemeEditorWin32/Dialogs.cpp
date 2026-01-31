@@ -889,6 +889,28 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
     std::wstring key = L"frame_" + utf8ToWide(names[i]);
     s.frameParams[i] = readIniInt(L"speech", key.c_str(), 50);
   }
+  
+  // Load voicing params from per-voice section if available, else from [speech]
+  const auto& voicingNames = NvspRuntime::voicingParamNames();
+  s.voicingParams.assign(voicingNames.size(), 50);
+  
+  // Determine which INI section to use for voicing params
+  // For Python presets: [voice_Adam], [voice_Benjamin], etc.
+  // For profiles: use [speech] defaults (profiles get voicingTone from YAML)
+  std::wstring voiceSection = L"speech";
+  if (!NvspRuntime::isVoiceProfile(s.voiceName)) {
+    voiceSection = L"voice_" + utf8ToWide(s.voiceName);
+  }
+  
+  for (size_t i = 0; i < voicingNames.size(); ++i) {
+    std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
+    // Try voice-specific section first, fallback to [speech] defaults
+    int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
+    if (val < 0) {
+      val = readIniInt(L"speech", key.c_str(), 50);
+    }
+    s.voicingParams[i] = val;
+  }
   return s;
 }
 
@@ -904,6 +926,20 @@ void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s) {
   for (size_t i = 0; i < names.size() && i < s.frameParams.size(); ++i) {
     std::wstring key = L"frame_" + utf8ToWide(names[i]);
     writeIniInt(L"speech", key.c_str(), s.frameParams[i]);
+  }
+  
+  // Save voicing params to per-voice section for Python presets
+  // For profiles, voicingTone is stored in YAML, so we still save to [speech] as fallback
+  const auto& voicingNames = NvspRuntime::voicingParamNames();
+  
+  std::wstring voiceSection = L"speech";
+  if (!NvspRuntime::isVoiceProfile(s.voiceName)) {
+    voiceSection = L"voice_" + utf8ToWide(s.voiceName);
+  }
+  
+  for (size_t i = 0; i < voicingNames.size() && i < s.voicingParams.size(); ++i) {
+    std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
+    writeIniInt(voiceSection.c_str(), key.c_str(), s.voicingParams[i]);
   }
 }
 
@@ -989,6 +1025,18 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
     setDlgIntText(hDlg, IDC_SPEECH_PARAM_VAL, v);
   };
 
+  auto syncSelectedVoicingParamToUi = [&]() {
+    if (!st) return;
+    HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+    int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+    if (sel < 0) sel = 0;
+    if (sel >= static_cast<int>(st->voicingParamNames.size())) return;
+    int v = (sel < static_cast<int>(st->settings.voicingParams.size())) ? st->settings.voicingParams[static_cast<size_t>(sel)] : 50;
+    HWND tb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_SLIDER);
+    setTrackbarRangeAndPos(tb, v);
+    setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
+  };
+
   switch (msg) {
     case WM_INITDIALOG: {
       st = reinterpret_cast<SpeechSettingsDialogState*>(lParam);
@@ -1010,10 +1058,16 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
       setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_INFLECTION_SLIDER), st->settings.inflection);
       setDlgIntText(hDlg, IDC_SPEECH_INFLECTION_VAL, st->settings.inflection);
 
-      // Param list
+      // Frame param list
       HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
       populateParamList(lb, st->paramNames, st->settings.frameParams);
       syncSelectedParamToUi();
+      
+      // Voicing param list
+      HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+      populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
+      syncSelectedVoicingParamToUi();
+      
       return TRUE;
     }
 
@@ -1058,6 +1112,21 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         }
         return TRUE;
       }
+      if (id == IDC_SPEECH_VOICING_SLIDER) {
+        int v = getTrackbarPos(src);
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.voicingParams.size())) {
+          st->settings.voicingParams[static_cast<size_t>(sel)] = v;
+          setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
+          if (sel < static_cast<int>(st->voicingParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], v);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
       break;
     }
 
@@ -1074,13 +1143,15 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
           SendMessageW(combo, CB_GETLBTEXT, sel, reinterpret_cast<LPARAM>(buf));
           std::string displayName = wideToUtf8(buf);
           
+          std::string newVoiceName;
+          
           // Check if this is a profile (ends with " (profile)")
           const std::string suffix = " (profile)";
           if (displayName.size() > suffix.size() &&
               displayName.substr(displayName.size() - suffix.size()) == suffix) {
             // Extract profile name and add prefix
             std::string profileName = displayName.substr(0, displayName.size() - suffix.size());
-            st->settings.voiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
+            newVoiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
             
             // Set the voice profile on the frontend
             if (st->runtime) {
@@ -1089,7 +1160,7 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
             }
           } else {
             // Regular Python preset
-            st->settings.voiceName = displayName;
+            newVoiceName = displayName;
             
             // Clear any active voice profile
             if (st->runtime) {
@@ -1097,12 +1168,40 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
               st->runtime->setVoiceProfile("", err);
             }
           }
+          
+          // Load voicing params for this voice from INI
+          st->settings.voiceName = newVoiceName;
+          
+          std::wstring voiceSection = L"speech";
+          if (!nvsp_editor::NvspRuntime::isVoiceProfile(newVoiceName)) {
+            voiceSection = L"voice_" + utf8ToWide(newVoiceName);
+          }
+          
+          const auto& voicingNames = nvsp_editor::NvspRuntime::voicingParamNames();
+          for (size_t i = 0; i < voicingNames.size() && i < st->settings.voicingParams.size(); ++i) {
+            std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
+            int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
+            if (val < 0) {
+              val = readIniInt(L"speech", key.c_str(), 50);
+            }
+            st->settings.voicingParams[i] = val;
+          }
+          
+          // Refresh voicing params list UI
+          HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+          populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
+          syncSelectedVoicingParamToUi();
         }
         return TRUE;
       }
 
       if (id == IDC_SPEECH_PARAM_LIST && code == LBN_SELCHANGE) {
         syncSelectedParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_VOICING_LIST && code == LBN_SELCHANGE) {
+        syncSelectedVoicingParamToUi();
         return TRUE;
       }
 
@@ -1122,12 +1221,36 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         return TRUE;
       }
 
+      if (id == IDC_SPEECH_VOICING_RESET) {
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.voicingParams.size())) {
+          st->settings.voicingParams[static_cast<size_t>(sel)] = 50;
+          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_VOICING_SLIDER), 50);
+          setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, 50);
+          if (sel < static_cast<int>(st->voicingParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], 50);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+
       if (id == IDC_SPEECH_RESET_ALL) {
         st->settings.frameParams.assign(st->paramNames.size(), 50);
         st->settings.voiceName = st->settings.voiceName.empty() ? "Adam" : st->settings.voiceName;
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
         populateParamList(lb, st->paramNames, st->settings.frameParams);
         syncSelectedParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_VOICING_RESET_ALL) {
+        st->settings.voicingParams.assign(st->voicingParamNames.size(), 50);
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+        populateParamList(lb, st->voicingParamNames, st->settings.voicingParams);
+        syncSelectedVoicingParamToUi();
         return TRUE;
       }
 
