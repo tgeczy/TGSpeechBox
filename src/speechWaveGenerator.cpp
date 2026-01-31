@@ -431,7 +431,18 @@ public:
             } else {
                 // Closing: sharper fall with "return phase" character
                 double t = (phase - peakPos) / (1.0 - peakPos);
-                double sharpness = 2.5;  // Higher = sharper closure = more harmonics
+                // Sample-rate-dependent sharpness:
+                // At high sample rates, we need MORE aggressive closure to create
+                // a fuller harmonic spectrum. Real glottal closures are sharp!
+                // This gives voice more body at 44100 instead of sounding thin/whispery.
+                double sharpness;
+                if (sampleRate >= 44100) {
+                    sharpness = 10.0;  // Aggressive at very high rates
+                } else if (sampleRate >= 32000) {
+                    sharpness = 3.0;  // Intermediate
+                } else {
+                    sharpness = 2.5;  // Normal at standard rates
+                }
                 flowLF = pow(1.0 - t, sharpness);
             }
             
