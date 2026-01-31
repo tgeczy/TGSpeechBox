@@ -35,6 +35,11 @@ static int countIndent(const std::string& line) {
   return n;
 }
 
+// Alias for compatibility
+static int getIndentLevel(const std::string& line) {
+  return countIndent(line);
+}
+
 static bool parseDouble(const std::string& s, double& out) {
   try {
     size_t pos;
@@ -156,192 +161,270 @@ static std::map<std::string, double> parseInlineMap(const std::string& s) {
   return result;
 }
 
-bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath, std::vector<VPVoiceProfile>& outProfiles, std::string& outError) {
+bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath,
+                           std::vector<VPVoiceProfile>& outProfiles,
+                           std::string& outError) {
   outProfiles.clear();
   outError.clear();
-  
+
   std::ifstream f(yamlPath);
   if (!f.is_open()) {
-    outError = "Could not open file";
+    outError = "Failed to open phonemes.yaml for reading.";
     return false;
   }
-  
-  std::vector<std::string> lines;
+
   std::string line;
-  while (std::getline(f, line)) {
-    if (!line.empty() && line.back() == '\r') line.pop_back();
-    lines.push_back(line);
-  }
-  
-  // Find voiceProfiles: section
-  int vpStart = -1;
-  int vpEnd = -1;
-  int vpBaseIndent = -1;
-  
-  for (size_t i = 0; i < lines.size(); i++) {
-    std::string stripped = trim(lines[i]);
-    if (stripped.empty() || stripped[0] == '#') continue;
-    
-    if (lines[i][0] != ' ' && lines[i][0] != '\t') {
-      if (stripped.rfind("voiceProfiles:", 0) == 0) {
-        vpStart = static_cast<int>(i);
-        vpBaseIndent = -1;
-      } else if (vpStart >= 0 && vpEnd < 0) {
-        vpEnd = static_cast<int>(i);
-      }
-    }
-  }
-  if (vpStart >= 0 && vpEnd < 0) vpEnd = static_cast<int>(lines.size());
-  
-  if (vpStart < 0) {
-    // No voiceProfiles section - that's OK, just return empty
-    return true;
-  }
-  
-  // Parse profiles
+  bool inVoiceProfiles = false;
+  int voiceProfilesIndent = -1;
+
   VPVoiceProfile* currentProfile = nullptr;
-  std::string currentClass;
   VPPhonemeOverride* currentOverride = nullptr;
+
   int profileIndent = -1;
+
+  // classScales state
   int classScalesIndent = -1;
   int classIndent = -1;
   int fieldIndent = -1;
+  bool inClassScales = false;
+  std::string currentClass;
+
+  // phonemeOverrides state
   int overridesIndent = -1;
   int overrideIndent = -1;
-  bool inClassScales = false;
   bool inPhonemeOverrides = false;
-  
-  for (int i = vpStart + 1; i < vpEnd; i++) {
-    const std::string& ln = lines[i];
-    std::string stripped = trim(ln);
-    if (stripped.empty() || stripped[0] == '#') continue;
-    
-    int indent = countIndent(ln);
-    
-    // Detect base indent for profiles
+
+  // voicingTone state (optional)
+  int voicingToneIndent = -1;
+  int voicingToneFieldIndent = -1;
+  bool inVoicingTone = false;
+
+  while (std::getline(f, line)) {
+    std::string trimmedLine = trim(line);
+    if (trimmedLine.empty() || trimmedLine[0] == '#') {
+      continue;
+    }
+
+    if (!inVoiceProfiles) {
+      if (trimmedLine == "voiceProfiles:") {
+        inVoiceProfiles = true;
+        voiceProfilesIndent = getIndentLevel(line);
+      }
+      continue;
+    }
+
+    int indent = getIndentLevel(line);
+    std::string stripped = trimmedLine;
+
+    // Exit voiceProfiles section if we hit another key at same or lower indent.
+    if (indent <= voiceProfilesIndent && stripped.back() == ':' &&
+        stripped != "voiceProfiles:") {
+      inVoiceProfiles = false;
+      break;
+    }
+
     if (profileIndent < 0) {
       profileIndent = indent;
     }
-    
-    // Profile name (at profile indent level, ends with :)
+
+    // New profile header line.
     if (indent == profileIndent) {
-      size_t colon = stripped.find(':');
-      if (colon != std::string::npos) {
-        std::string name = trim(stripped.substr(0, colon));
-        if (!name.empty() && name.find('.') == std::string::npos) {
-          outProfiles.push_back(VPVoiceProfile{});
-          currentProfile = &outProfiles.back();
-          currentProfile->name = name;
-          currentClass.clear();
-          inClassScales = false;
-          inPhonemeOverrides = false;
-          classScalesIndent = -1;
-          overridesIndent = -1;
-        }
+      auto pos = stripped.find(':');
+      if (pos != std::string::npos) {
+        std::string profileName = trim(stripped.substr(0, pos));
+
+        outProfiles.emplace_back();
+        outProfiles.back().name = profileName;
+        currentProfile = &outProfiles.back();
+        currentOverride = nullptr;
+
+        // Reset all section state.
+        classScalesIndent = -1;
+        classIndent = -1;
+        fieldIndent = -1;
+        inClassScales = false;
+        currentClass.clear();
+
+        overridesIndent = -1;
+        overrideIndent = -1;
+        inPhonemeOverrides = false;
+
+        voicingToneIndent = -1;
+        voicingToneFieldIndent = -1;
+        inVoicingTone = false;
       }
       continue;
     }
-    
-    if (!currentProfile) continue;
-    
-    // Detect classScales: or phonemeOverrides:
-    if (indent > profileIndent && classScalesIndent < 0 && overridesIndent < 0) {
+
+    if (!currentProfile) {
+      continue;
+    }
+
+    // If indentation stepped back to (or above) a section header, we left it.
+    if (inClassScales && indent <= classScalesIndent) {
+      inClassScales = false;
+      classScalesIndent = -1;
+      classIndent = -1;
+      fieldIndent = -1;
+      currentClass.clear();
+    }
+    if (inPhonemeOverrides && indent <= overridesIndent) {
+      inPhonemeOverrides = false;
+      overridesIndent = -1;
+      overrideIndent = -1;
+      currentOverride = nullptr;
+    }
+    if (inVoicingTone && indent <= voicingToneIndent) {
+      inVoicingTone = false;
+      voicingToneIndent = -1;
+      voicingToneFieldIndent = -1;
+    }
+
+    // Section headers at first level under the profile.
+    if (indent > profileIndent) {
       if (stripped == "classScales:") {
         inClassScales = true;
-        inPhonemeOverrides = false;
         classScalesIndent = indent;
         classIndent = -1;
+        fieldIndent = -1;
+        currentClass.clear();
+
+        inPhonemeOverrides = false;
+        inVoicingTone = false;
         continue;
       }
+
       if (stripped == "phonemeOverrides:") {
         inPhonemeOverrides = true;
-        inClassScales = false;
         overridesIndent = indent;
         overrideIndent = -1;
+        currentOverride = nullptr;
+
+        inClassScales = false;
+        inVoicingTone = false;
         continue;
       }
-    }
-    
-    // Inside classScales
-    if (inClassScales && indent > classScalesIndent) {
-      if (classIndent < 0) classIndent = indent;
-      
-      // Class name
-      if (indent == classIndent) {
-        size_t colon = stripped.find(':');
-        if (colon != std::string::npos) {
-          currentClass = trim(stripped.substr(0, colon));
-          std::string val = trim(stripped.substr(colon + 1));
-          if (val.empty()) {
-            // Nested class definition
-            if (currentProfile->classScales.find(currentClass) == currentProfile->classScales.end()) {
-              currentProfile->classScales[currentClass] = VPClassScales{};
-            }
-            fieldIndent = -1;
+
+      if (stripped.rfind("voicingTone:", 0) == 0) {
+        currentProfile->hasVoicingTone = true;
+
+        inVoicingTone = true;
+        voicingToneIndent = indent;
+        voicingToneFieldIndent = -1;
+
+        inClassScales = false;
+        inPhonemeOverrides = false;
+
+        // Inline map form: voicingTone: {a: 1.0, b: 2.0}
+        auto colonPos = stripped.find(':');
+        std::string rest =
+            (colonPos != std::string::npos) ? trim(stripped.substr(colonPos + 1))
+                                            : std::string();
+        if (!rest.empty() && rest[0] == '{') {
+          auto kvs = parseInlineMap(rest);
+          for (const auto& kv : kvs) {
+            // Convert double to string for storage
+            std::ostringstream oss;
+            oss << kv.second;
+            currentProfile->voicingTone[kv.first] = oss.str();
           }
+
+          // No nested lines expected for inline form.
+          inVoicingTone = false;
+          voicingToneIndent = -1;
+          voicingToneFieldIndent = -1;
         }
         continue;
       }
-      
-      // Field inside class
-      if (!currentClass.empty() && indent > classIndent) {
-        if (fieldIndent < 0) fieldIndent = indent;
+    }
+
+    // Parse classScales section.
+    if (inClassScales && indent > classScalesIndent) {
+      if (classIndent < 0) {
+        classIndent = indent;
+      }
+
+      if (indent == classIndent) {
+        // Class name line: "vowels:" etc
+        auto pos = stripped.find(':');
+        if (pos != std::string::npos) {
+          currentClass = trim(stripped.substr(0, pos));
+          currentProfile->classScales[currentClass] = VPClassScales();
+          fieldIndent = -1;
+        }
+      } else if (!currentClass.empty()) {
+        if (fieldIndent < 0) {
+          fieldIndent = indent;
+        }
+
         if (indent == fieldIndent) {
-          size_t colon = stripped.find(':');
-          if (colon != std::string::npos) {
-            std::string field = trim(stripped.substr(0, colon));
-            std::string value = trim(stripped.substr(colon + 1));
-            if (!field.empty() && !value.empty()) {
-              setScaleField(currentProfile->classScales[currentClass], field, value);
+          auto pos = stripped.find(':');
+          if (pos != std::string::npos) {
+            std::string field = trim(stripped.substr(0, pos));
+            std::string valueStr = trim(stripped.substr(pos + 1));
+            try {
+              double value = std::stod(valueStr);
+              currentProfile->classScales[currentClass].scales[field] = value;
+            } catch (...) {
+              // Ignore parse errors.
             }
           }
         }
       }
       continue;
     }
-    
-    // Inside phonemeOverrides
+
+    // Parse phonemeOverrides section (inline map form only, like before).
     if (inPhonemeOverrides && indent > overridesIndent) {
-      if (overrideIndent < 0) overrideIndent = indent;
-      
+      if (overrideIndent < 0) {
+        overrideIndent = indent;
+      }
+
       if (indent == overrideIndent) {
-        size_t colon = stripped.find(':');
-        if (colon != std::string::npos) {
-          std::string phoneme = trim(stripped.substr(0, colon));
-          std::string value = trim(stripped.substr(colon + 1));
+        auto pos = stripped.find(':');
+        if (pos != std::string::npos) {
+          std::string overrideName = trim(stripped.substr(0, pos));
+          std::string mapPart = trim(stripped.substr(pos + 1));
+
+          VPPhonemeOverride newOverride;
+          newOverride.phoneme = overrideName;
           
-          // Remove quotes from phoneme
-          if (phoneme.size() >= 2 && 
-              ((phoneme.front() == '"' && phoneme.back() == '"') ||
-               (phoneme.front() == '\'' && phoneme.back() == '\''))) {
-            phoneme = phoneme.substr(1, phoneme.size() - 2);
+          auto parsedMap = parseInlineMap(mapPart);
+          for (const auto& kv : parsedMap) {
+            // kv.second is already a double from parseInlineMap
+            newOverride.fields[kv.first] = kv.second;
           }
           
-          VPPhonemeOverride ovr;
-          ovr.phoneme = phoneme;
-          
-          // Check for inline map
-          if (!value.empty() && value.front() == '{') {
-            ovr.fields = parseInlineMap(value);
-          }
-          
-          currentProfile->phonemeOverrides.push_back(ovr);
+          currentProfile->phonemeOverrides.push_back(newOverride);
           currentOverride = &currentProfile->phonemeOverrides.back();
         }
       }
+      continue;
     }
-    
-    // Reset section tracking when we go back to profile level
-    if (indent <= profileIndent) {
-      inClassScales = false;
-      inPhonemeOverrides = false;
-      classScalesIndent = -1;
-      overridesIndent = -1;
+
+    // Parse voicingTone section (simple key: value pairs).
+    if (inVoicingTone && indent > voicingToneIndent) {
+      if (voicingToneFieldIndent < 0) {
+        voicingToneFieldIndent = indent;
+      }
+
+      if (indent == voicingToneFieldIndent) {
+        auto pos = stripped.find(':');
+        if (pos != std::string::npos) {
+          std::string field = trim(stripped.substr(0, pos));
+          std::string value = trim(stripped.substr(pos + 1));
+          if (!field.empty()) {
+            currentProfile->voicingTone[field] = value;
+          }
+        }
+      }
+      continue;
     }
   }
-  
+
   return true;
 }
+
 
 // Format a double array as YAML [1.0, 1.1, 1.2]
 static std::string formatArray(const std::array<double, 6>& arr, const std::array<bool, 6>& set) {
@@ -366,138 +449,141 @@ static std::string formatDouble(double v) {
   return ss.str();
 }
 
-bool saveVoiceProfilesToYaml(const std::wstring& yamlPath, const std::vector<VPVoiceProfile>& profiles, std::string& outError) {
+bool saveVoiceProfilesToYaml(const std::wstring& yamlPath,
+                           const std::vector<VPVoiceProfile>& profiles,
+                           std::string& outError) {
   outError.clear();
-  
-  // Read existing file
-  std::vector<std::string> lines;
-  {
-    std::ifstream f(yamlPath);
-    if (f.is_open()) {
-      std::string line;
-      while (std::getline(f, line)) {
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        lines.push_back(line);
-      }
-    }
-  }
-  
-  // Find and remove existing voiceProfiles section
-  int vpStart = -1;
-  int vpEnd = -1;
-  
-  for (size_t i = 0; i < lines.size(); i++) {
-    std::string stripped = trim(lines[i]);
-    if (stripped.empty() || stripped[0] == '#') continue;
-    
-    if (lines[i][0] != ' ' && lines[i][0] != '\t') {
-      if (stripped.rfind("voiceProfiles:", 0) == 0) {
-        vpStart = static_cast<int>(i);
-      } else if (vpStart >= 0 && vpEnd < 0) {
-        vpEnd = static_cast<int>(i);
-      }
-    }
-  }
-  if (vpStart >= 0 && vpEnd < 0) vpEnd = static_cast<int>(lines.size());
-  
-  // Remove old section
-  if (vpStart >= 0) {
-    lines.erase(lines.begin() + vpStart, lines.begin() + vpEnd);
-  }
-  
-  // Build new voiceProfiles section
-  std::vector<std::string> vpLines;
-  if (!profiles.empty()) {
-    vpLines.push_back("voiceProfiles:");
-    
-    for (const auto& profile : profiles) {
-      vpLines.push_back("  " + profile.name + ":");
-      
-      // Class scales
-      if (!profile.classScales.empty()) {
-        vpLines.push_back("    classScales:");
-        
-        for (const auto& [className, scales] : profile.classScales) {
-          vpLines.push_back("      " + className + ":");
-          
-          // Scalar fields
-          if (scales.voicePitch_mul_set)
-            vpLines.push_back("        voicePitch_mul: " + formatDouble(scales.voicePitch_mul));
-          if (scales.endVoicePitch_mul_set)
-            vpLines.push_back("        endVoicePitch_mul: " + formatDouble(scales.endVoicePitch_mul));
-          if (scales.vibratoPitchOffset_mul_set)
-            vpLines.push_back("        vibratoPitchOffset_mul: " + formatDouble(scales.vibratoPitchOffset_mul));
-          if (scales.vibratoSpeed_mul_set)
-            vpLines.push_back("        vibratoSpeed_mul: " + formatDouble(scales.vibratoSpeed_mul));
-          if (scales.voiceTurbulenceAmplitude_mul_set)
-            vpLines.push_back("        voiceTurbulenceAmplitude_mul: " + formatDouble(scales.voiceTurbulenceAmplitude_mul));
-          if (scales.glottalOpenQuotient_mul_set)
-            vpLines.push_back("        glottalOpenQuotient_mul: " + formatDouble(scales.glottalOpenQuotient_mul));
-          if (scales.voiceAmplitude_mul_set)
-            vpLines.push_back("        voiceAmplitude_mul: " + formatDouble(scales.voiceAmplitude_mul));
-          if (scales.aspirationAmplitude_mul_set)
-            vpLines.push_back("        aspirationAmplitude_mul: " + formatDouble(scales.aspirationAmplitude_mul));
-          if (scales.fricationAmplitude_mul_set)
-            vpLines.push_back("        fricationAmplitude_mul: " + formatDouble(scales.fricationAmplitude_mul));
-          if (scales.preFormantGain_mul_set)
-            vpLines.push_back("        preFormantGain_mul: " + formatDouble(scales.preFormantGain_mul));
-          if (scales.outputGain_mul_set)
-            vpLines.push_back("        outputGain_mul: " + formatDouble(scales.outputGain_mul));
-          
-          // Array fields
-          std::string arr;
-          arr = formatArray(scales.cf_mul, scales.cf_mul_set);
-          if (!arr.empty()) vpLines.push_back("        cf_mul: " + arr);
-          arr = formatArray(scales.pf_mul, scales.pf_mul_set);
-          if (!arr.empty()) vpLines.push_back("        pf_mul: " + arr);
-          arr = formatArray(scales.cb_mul, scales.cb_mul_set);
-          if (!arr.empty()) vpLines.push_back("        cb_mul: " + arr);
-          arr = formatArray(scales.pb_mul, scales.pb_mul_set);
-          if (!arr.empty()) vpLines.push_back("        pb_mul: " + arr);
-          arr = formatArray(scales.pa_mul, scales.pa_mul_set);
-          if (!arr.empty()) vpLines.push_back("        pa_mul: " + arr);
-        }
-      }
-      
-      // Phoneme overrides
-      if (!profile.phonemeOverrides.empty()) {
-        vpLines.push_back("    phonemeOverrides:");
-        
-        for (const auto& ovr : profile.phonemeOverrides) {
-          if (ovr.fields.empty()) continue;
-          
-          std::ostringstream ss;
-          ss << "      " << ovr.phoneme << ": {";
-          bool first = true;
-          for (const auto& [field, val] : ovr.fields) {
-            if (!first) ss << ", ";
-            ss << field << ": " << val;
-            first = false;
-          }
-          ss << "}";
-          vpLines.push_back(ss.str());
-        }
-      }
-    }
-  }
-  
-  // Insert new section at the end (or where old one was)
-  int insertPos = (vpStart >= 0) ? vpStart : static_cast<int>(lines.size());
-  lines.insert(lines.begin() + insertPos, vpLines.begin(), vpLines.end());
-  
-  // Write back
-  std::ofstream out(yamlPath);
-  if (!out.is_open()) {
-    outError = "Could not write file";
+
+  // Read original file into memory.
+  std::ifstream inFile(yamlPath);
+  if (!inFile.is_open()) {
+    outError = "Failed to open phonemes.yaml for reading.";
     return false;
   }
-  
-  for (const auto& ln : lines) {
-    out << ln << "\n";
+
+  std::vector<std::string> originalLines;
+  std::string line;
+  while (std::getline(inFile, line)) {
+    originalLines.push_back(line);
   }
-  
+  inFile.close();
+
+  // Locate the voiceProfiles: block.
+  int vpStart = -1;
+  int vpIndent = -1;
+  int vpEnd = (int)originalLines.size();
+
+  for (int i = 0; i < (int)originalLines.size(); ++i) {
+    std::string t = trim(originalLines[i]);
+    if (t == "voiceProfiles:") {
+      vpStart = i;
+      vpIndent = getIndentLevel(originalLines[i]);
+      break;
+    }
+  }
+
+  if (vpStart < 0) {
+    outError = "phonemes.yaml does not contain a voiceProfiles: section.";
+    return false;
+  }
+
+  for (int i = vpStart + 1; i < (int)originalLines.size(); ++i) {
+    std::string t = trim(originalLines[i]);
+    if (t.empty() || t[0] == '#') {
+      continue;
+    }
+
+    int indent = getIndentLevel(originalLines[i]);
+    if (indent <= vpIndent && t.back() == ':' && t != "voiceProfiles:") {
+      vpEnd = i;
+      break;
+    }
+  }
+
+  // Build new voiceProfiles: block.
+  std::vector<std::string> newVP;
+  newVP.push_back(std::string(vpIndent, ' ') + "voiceProfiles:");
+
+  for (const auto& profile : profiles) {
+    newVP.push_back(std::string(vpIndent + 2, ' ') + profile.name + ":");
+
+    // voicingTone section (optional). Always write it back if it existed, so the
+    // editor doesn't destroy manual edits.
+    if (profile.hasVoicingTone || !profile.voicingTone.empty()) {
+      if (profile.voicingTone.empty()) {
+        newVP.push_back(std::string(vpIndent + 4, ' ') + "voicingTone:");
+      } else {
+        std::ostringstream ss;
+        ss << std::string(vpIndent + 4, ' ') << "voicingTone: {";
+        bool first = true;
+        for (const auto& kv : profile.voicingTone) {
+          if (!first)
+            ss << ", ";
+          first = false;
+          ss << kv.first << ": " << kv.second;
+        }
+        ss << "}";
+        newVP.push_back(ss.str());
+      }
+    }
+
+    // classScales
+    if (!profile.classScales.empty()) {
+      newVP.push_back(std::string(vpIndent + 4, ' ') + "classScales:");
+      for (const auto& cls : profile.classScales) {
+        newVP.push_back(std::string(vpIndent + 6, ' ') + cls.first + ":");
+        for (const auto& kv : cls.second.scales) {
+          std::ostringstream ss;
+          ss << std::string(vpIndent + 8, ' ') << kv.first << ": " << kv.second;
+          newVP.push_back(ss.str());
+        }
+      }
+    }
+
+    // phonemeOverrides (inline map form, like before)
+    if (!profile.phonemeOverrides.empty()) {
+      newVP.push_back(std::string(vpIndent + 4, ' ') + "phonemeOverrides:");
+      for (const auto& ov : profile.phonemeOverrides) {
+        std::ostringstream ss;
+        ss << std::string(vpIndent + 6, ' ') << ov.phoneme << ": {";
+        bool first = true;
+        for (const auto& kv : ov.fields) {
+          if (!first)
+            ss << ", ";
+          first = false;
+          ss << kv.first << ": " << kv.second;
+        }
+        ss << "}";
+        newVP.push_back(ss.str());
+      }
+    }
+  }
+
+  // Assemble final output lines.
+  std::vector<std::string> outLines;
+  outLines.insert(outLines.end(), originalLines.begin(),
+                  originalLines.begin() + vpStart);
+  outLines.insert(outLines.end(), newVP.begin(), newVP.end());
+  outLines.insert(outLines.end(), originalLines.begin() + vpEnd,
+                  originalLines.end());
+
+  // Write file back.
+  std::ofstream outFile(yamlPath, std::ios::trunc);
+  if (!outFile.is_open()) {
+    outError = "Failed to open phonemes.yaml for writing.";
+    return false;
+  }
+
+  for (size_t i = 0; i < outLines.size(); ++i) {
+    outFile << outLines[i];
+    if (i + 1 < outLines.size())
+      outFile << "\n";
+  }
+
+  outFile.close();
   return true;
 }
+
 
 // =============================================================================
 // Dialog Procedures

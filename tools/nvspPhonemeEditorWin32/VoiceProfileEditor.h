@@ -16,6 +16,10 @@ class NvspRuntime;
 
 // Multiplier field types for class scales
 struct VPClassScales {
+  // Generic map for storing all scale fields
+  // This allows flexible read/write of any scale field without hardcoding
+  std::map<std::string, double> scales;
+  
   // Formant frequency multipliers (cf1-cf6, pf1-pf6)
   std::array<double, 6> cf_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   std::array<double, 6> pf_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
@@ -59,6 +63,12 @@ struct VPVoiceProfile {
   std::string name;
   std::map<std::string, VPClassScales> classScales;  // class name -> scales
   std::vector<VPPhonemeOverride> phonemeOverrides;
+
+  // Optional voicingTone section from phonemes.yaml.
+  // The editor UI doesn't expose these yet, but we parse + write them back so
+  // users don't lose manual edits.
+  bool hasVoicingTone = false;
+  std::map<std::string, std::string> voicingTone;
 };
 
 // Dialog state for voice profile list
