@@ -432,16 +432,19 @@ public:
                 // Closing: sharper fall with "return phase" character
                 double t = (phase - peakPos) / (1.0 - peakPos);
                 // Sample-rate-dependent sharpness:
-                // At high sample rates, we need MORE aggressive closure to create
-                // a fuller harmonic spectrum. Real glottal closures are sharp!
-                // This gives voice more body at 44100 instead of sounding thin/whispery.
+                // Higher sample rates need sharper closure for fuller harmonics.
+                // Note: Below 16000 Hz, lfBlend is < 1.0 so cosine dominates anyway.
                 double sharpness;
                 if (sampleRate >= 44100) {
-                    sharpness = 10.0;  // Aggressive at very high rates
+                    sharpness = 10.0;  // Very aggressive at high rates
                 } else if (sampleRate >= 32000) {
-                    sharpness = 3.0;  // Intermediate
+                    sharpness = 8.0;   // Still quite sharp
+                } else if (sampleRate >= 22050) {
+                    sharpness = 4.0;   // Balanced for 22050
+                } else if (sampleRate >= 16000) {
+                    sharpness = 3.0;   // Gentler at 16000
                 } else {
-                    sharpness = 2.5;  // Normal at standard rates
+                    sharpness = 2.5;   // Doesn't matter much - cosine dominates at low rates
                 }
                 flowLF = pow(1.0 - t, sharpness);
             }
