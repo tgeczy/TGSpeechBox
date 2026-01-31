@@ -890,11 +890,26 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
     s.frameParams[i] = readIniInt(L"speech", key.c_str(), 50);
   }
   
+  // Load voicing params from per-voice section if available, else from [speech]
   const auto& voicingNames = NvspRuntime::voicingParamNames();
   s.voicingParams.assign(voicingNames.size(), 50);
+  
+  // Determine which INI section to use for voicing params
+  // For Python presets: [voice_Adam], [voice_Benjamin], etc.
+  // For profiles: use [speech] defaults (profiles get voicingTone from YAML)
+  std::wstring voiceSection = L"speech";
+  if (!NvspRuntime::isVoiceProfile(s.voiceName)) {
+    voiceSection = L"voice_" + utf8ToWide(s.voiceName);
+  }
+  
   for (size_t i = 0; i < voicingNames.size(); ++i) {
     std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
-    s.voicingParams[i] = readIniInt(L"speech", key.c_str(), 50);
+    // Try voice-specific section first, fallback to [speech] defaults
+    int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
+    if (val < 0) {
+      val = readIniInt(L"speech", key.c_str(), 50);
+    }
+    s.voicingParams[i] = val;
   }
   return s;
 }
@@ -913,10 +928,18 @@ void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s) {
     writeIniInt(L"speech", key.c_str(), s.frameParams[i]);
   }
   
+  // Save voicing params to per-voice section for Python presets
+  // For profiles, voicingTone is stored in YAML, so we still save to [speech] as fallback
   const auto& voicingNames = NvspRuntime::voicingParamNames();
+  
+  std::wstring voiceSection = L"speech";
+  if (!NvspRuntime::isVoiceProfile(s.voiceName)) {
+    voiceSection = L"voice_" + utf8ToWide(s.voiceName);
+  }
+  
   for (size_t i = 0; i < voicingNames.size() && i < s.voicingParams.size(); ++i) {
     std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
-    writeIniInt(L"speech", key.c_str(), s.voicingParams[i]);
+    writeIniInt(voiceSection.c_str(), key.c_str(), s.voicingParams[i]);
   }
 }
 
@@ -1120,13 +1143,15 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
           SendMessageW(combo, CB_GETLBTEXT, sel, reinterpret_cast<LPARAM>(buf));
           std::string displayName = wideToUtf8(buf);
           
+          std::string newVoiceName;
+          
           // Check if this is a profile (ends with " (profile)")
           const std::string suffix = " (profile)";
           if (displayName.size() > suffix.size() &&
               displayName.substr(displayName.size() - suffix.size()) == suffix) {
             // Extract profile name and add prefix
             std::string profileName = displayName.substr(0, displayName.size() - suffix.size());
-            st->settings.voiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
+            newVoiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
             
             // Set the voice profile on the frontend
             if (st->runtime) {
@@ -1135,7 +1160,7 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
             }
           } else {
             // Regular Python preset
-            st->settings.voiceName = displayName;
+            newVoiceName = displayName;
             
             // Clear any active voice profile
             if (st->runtime) {
@@ -1143,6 +1168,29 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
               st->runtime->setVoiceProfile("", err);
             }
           }
+          
+          // Load voicing params for this voice from INI
+          st->settings.voiceName = newVoiceName;
+          
+          std::wstring voiceSection = L"speech";
+          if (!nvsp_editor::NvspRuntime::isVoiceProfile(newVoiceName)) {
+            voiceSection = L"voice_" + utf8ToWide(newVoiceName);
+          }
+          
+          const auto& voicingNames = nvsp_editor::NvspRuntime::voicingParamNames();
+          for (size_t i = 0; i < voicingNames.size() && i < st->settings.voicingParams.size(); ++i) {
+            std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
+            int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
+            if (val < 0) {
+              val = readIniInt(L"speech", key.c_str(), 50);
+            }
+            st->settings.voicingParams[i] = val;
+          }
+          
+          // Refresh voicing params list UI
+          HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
+          populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
+          syncSelectedVoicingParamToUi();
         }
         return TRUE;
       }

@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include <windows.h>
 
@@ -35,11 +36,37 @@ struct SpeechSettings {
 // Dynamic DLL function types
 // -------------------------
 
+// VoicingTone v2 struct - must match voicingTone.h in speechPlayer
+#define SPEECHPLAYER_VOICINGTONE_MAGIC 0x32544F56u   // "VOT2"
+#define SPEECHPLAYER_VOICINGTONE_VERSION 2u
+#define SPEECHPLAYER_DSP_VERSION 4u
+
+struct EditorVoicingTone {
+  // ABI header
+  uint32_t magic;
+  uint32_t structSize;
+  uint32_t structVersion;
+  uint32_t dspVersion;
+  // Parameters
+  double voicingPeakPos;
+  double voicedPreEmphA;
+  double voicedPreEmphMix;
+  double highShelfGainDb;
+  double highShelfFcHz;
+  double highShelfQ;
+  double voicedTiltDbPerOct;
+  double noiseGlottalModDepth;
+  double pitchSyncF1DeltaHz;
+  double pitchSyncB1DeltaHz;
+};
+
 // speechPlayer.dll API
 using sp_initialize_fn = speechPlayer_handle_t(*)(int);
 using sp_queueFrame_fn = void(*)(speechPlayer_handle_t, speechPlayer_frame_t*, unsigned int, unsigned int, int, bool);
 using sp_synthesize_fn = int(*)(speechPlayer_handle_t, unsigned int, sample*);
 using sp_terminate_fn = void(*)(speechPlayer_handle_t);
+using sp_setVoicingTone_fn = void(*)(speechPlayer_handle_t, const EditorVoicingTone*);
+using sp_hasVoicingToneSupport_fn = int(*)(speechPlayer_handle_t);
 
 // nvspFrontend.dll API
 using fe_create_fn = nvspFrontend_handle_t(*)(const char*);
@@ -140,6 +167,8 @@ private:
   sp_queueFrame_fn m_spQueueFrame = nullptr;
   sp_synthesize_fn m_spSynthesize = nullptr;
   sp_terminate_fn m_spTerminate = nullptr;
+  sp_setVoicingTone_fn m_spSetVoicingTone = nullptr;
+  sp_hasVoicingToneSupport_fn m_spHasVoicingToneSupport = nullptr;
 
   fe_create_fn m_feCreate = nullptr;
   fe_destroy_fn m_feDestroy = nullptr;
