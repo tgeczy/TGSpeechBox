@@ -97,7 +97,26 @@ The `speechPlayer.dll` now exports additional functions for real-time control of
 
 ### VoicingTone struct parameters
 
-The `VoicingTone` struct contains 7 parameters that shape the voiced sound source:
+The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 4, there are **10 parameters** plus a version detection header.
+
+#### Version detection (v2 struct)
+
+The v2 struct includes a header for backward compatibility:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `magic` | uint32 | Magic number `0x32544F56` ("VOT2" in little-endian) |
+| `structSize` | uint32 | Size of the struct in bytes |
+| `structVersion` | uint32 | Struct version (currently 2) |
+| `dspVersion` | uint32 | DSP version (currently 4) |
+
+When the DLL receives a `VoicingTone` struct, it checks the magic number:
+- **If magic matches**: Uses the full v2 struct with all 10 parameters
+- **If magic doesn't match**: Assumes legacy v1 layout (7 doubles) and applies defaults for new parameters
+
+This allows older drivers to continue working with newer DLLs, and vice versa.
+
+#### Core parameters (original 7)
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
@@ -109,13 +128,31 @@ The `VoicingTone` struct contains 7 parameters that shape the voiced sound sourc
 | `highShelfQ` | double | 0.7 | 0.3–2.0 | High-shelf Q factor. Higher values create a more resonant shelf transition. |
 | `voicedTiltDbPerOct` | double | 0.0 | -24 to +24 | Spectral tilt in dB/octave. Negative values create a brighter sound (less natural roll-off); positive values create a darker, more muffled sound. |
 
-### Usage example (Python/ctypes)
+#### New parameters (v2, DSP version 4+)
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `noiseGlottalModDepth` | double | 0.0 | 0.0–1.0 | Modulates noise sources (aspiration, frication) by the glottal cycle. Higher values create more "buzzy" noise that pulses with voicing. |
+| `pitchSyncF1DeltaHz` | double | 0.0 | -60 to +60 | Pitch-synchronous F1 modulation. During the glottal open phase, F1 is shifted by this amount. Can add naturalness or remove subtle clicks. |
+| `pitchSyncB1DeltaHz` | double | 0.0 | -50 to +50 | Pitch-synchronous B1 (F1 bandwidth) modulation. During the glottal open phase, B1 is widened by this amount. Works with `pitchSyncF1DeltaHz`. |
+
+### Usage example (Python/ctypes, v2 struct)
 
 ```python
-from ctypes import Structure, c_double, c_void_p, POINTER, byref
+from ctypes import Structure, c_double, c_uint32, c_void_p, POINTER, byref, sizeof
+
+# Constants (must match voicingTone.h)
+SPEECHPLAYER_VOICINGTONE_MAGIC = 0x32544F56  # "VOT2"
+SPEECHPLAYER_VOICINGTONE_VERSION = 2
 
 class VoicingTone(Structure):
     _fields_ = [
+        # Version detection header
+        ("magic", c_uint32),
+        ("structSize", c_uint32),
+        ("structVersion", c_uint32),
+        ("dspVersion", c_uint32),
+        # Original parameters
         ("voicingPeakPos", c_double),
         ("voicedPreEmphA", c_double),
         ("voicedPreEmphMix", c_double),
@@ -123,20 +160,37 @@ class VoicingTone(Structure):
         ("highShelfFcHz", c_double),
         ("highShelfQ", c_double),
         ("voicedTiltDbPerOct", c_double),
+        # New v2 parameters
+        ("noiseGlottalModDepth", c_double),
+        ("pitchSyncF1DeltaHz", c_double),
+        ("pitchSyncB1DeltaHz", c_double),
     ]
+    
+    @classmethod
+    def defaults(cls):
+        tone = cls()
+        tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC
+        tone.structSize = sizeof(cls)
+        tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION
+        tone.dspVersion = 4
+        tone.voicingPeakPos = 0.91
+        tone.voicedPreEmphA = 0.92
+        tone.voicedPreEmphMix = 0.35
+        tone.highShelfGainDb = 4.0
+        tone.highShelfFcHz = 2000.0
+        tone.highShelfQ = 0.7
+        tone.voicedTiltDbPerOct = 0.0
+        tone.noiseGlottalModDepth = 0.0
+        tone.pitchSyncF1DeltaHz = 0.0
+        tone.pitchSyncB1DeltaHz = 0.0
+        return tone
 
 # Set up function prototypes
 dll.speechPlayer_setVoicingTone.argtypes = [c_void_p, POINTER(VoicingTone)]
 dll.speechPlayer_setVoicingTone.restype = None
 
 # Create and configure tone
-tone = VoicingTone()
-tone.voicingPeakPos = 0.91
-tone.voicedPreEmphA = 0.92
-tone.voicedPreEmphMix = 0.35
-tone.highShelfGainDb = 2.0      # Slightly brighter
-tone.highShelfFcHz = 2800.0
-tone.highShelfQ = 0.7
+tone = VoicingTone.defaults()
 tone.voicedTiltDbPerOct = -6.0  # Brighter tilt (Eloquence-like)
 
 # Apply to running synthesizer
@@ -154,9 +208,21 @@ voiceProfiles:
       voicedTiltDbPerOct: -6.0
       highShelfGainDb: 2.0
       highShelfFcHz: 2800.0
+      noiseGlottalModDepth: 0.3
 ```
 
-The driver also exposes a "Voice Tilt" slider (0–100) that applies an offset to the base `voicedTiltDbPerOct` value, allowing users to fine-tune brightness per voice.
+### NVDA driver sliders
+
+The driver exposes 4 sliders for real-time voice tuning:
+
+| Slider | Range | Default | Maps to |
+|--------|-------|---------|---------|
+| Voice tilt (brightness) | 0–100 | 50 | `voicedTiltDbPerOct` (-24 to +24 dB/oct) |
+| Noise glottal modulation | 0–100 | 0 | `noiseGlottalModDepth` (0.0–1.0) |
+| Pitch-sync F1 delta | 0–100 | 50 | `pitchSyncF1DeltaHz` (-60 to +60 Hz) |
+| Pitch-sync B1 delta | 0–100 | 50 | `pitchSyncB1DeltaHz` (-50 to +50 Hz) |
+
+Note: The tilt and pitch-sync sliders are centered at 50 (neutral), while noise glottal modulation starts at 0 (off). This reflects the nature of each parameter—tilt and pitch-sync have meaningful positive and negative values, while noise modulation is an effect amount.
 
 ## The new frontend model (nvspFrontend.dll + YAML packs)
 The new frontend replaces the Python IPA runtime pipeline. It is designed so that language changes can happen as data (YAML) rather than code.

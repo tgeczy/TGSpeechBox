@@ -242,13 +242,13 @@ static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
   }
 }
 
-// Build a VoicingTone struct from slider values
-static EditorVoicingTone buildVoicingTone(const std::vector<int>& sliders) {
-  EditorVoicingTone tone{};
+// Build V2 VoicingTone struct (header + 10 params)
+static EditorVoicingToneV2 buildVoicingToneV2(const std::vector<int>& sliders) {
+  EditorVoicingToneV2 tone{};
   
   // Set v2 header
   tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC;
-  tone.structSize = sizeof(EditorVoicingTone);
+  tone.structSize = sizeof(EditorVoicingToneV2);
   tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION;
   tone.dspVersion = SPEECHPLAYER_DSP_VERSION;
   
@@ -263,6 +263,21 @@ static EditorVoicingTone buildVoicingTone(const std::vector<int>& sliders) {
   tone.noiseGlottalModDepth = (sliders.size() > 7) ? mapVoicingSliderToValue(7, sliders[7]) : 0.0;
   tone.pitchSyncF1DeltaHz = (sliders.size() > 8) ? mapVoicingSliderToValue(8, sliders[8]) : 0.0;
   tone.pitchSyncB1DeltaHz = (sliders.size() > 9) ? mapVoicingSliderToValue(9, sliders[9]) : 0.0;
+  
+  return tone;
+}
+
+// Build V1 VoicingTone struct (7 params, no header)
+static EditorVoicingToneV1 buildVoicingToneV1(const std::vector<int>& sliders) {
+  EditorVoicingToneV1 tone{};
+  
+  tone.voicingPeakPos = (sliders.size() > 0) ? mapVoicingSliderToValue(0, sliders[0]) : 0.91;
+  tone.voicedPreEmphA = (sliders.size() > 1) ? mapVoicingSliderToValue(1, sliders[1]) : 0.92;
+  tone.voicedPreEmphMix = (sliders.size() > 2) ? mapVoicingSliderToValue(2, sliders[2]) : 0.35;
+  tone.highShelfGainDb = (sliders.size() > 3) ? mapVoicingSliderToValue(3, sliders[3]) : 4.0;
+  tone.highShelfFcHz = (sliders.size() > 4) ? mapVoicingSliderToValue(4, sliders[4]) : 2000.0;
+  tone.highShelfQ = (sliders.size() > 5) ? mapVoicingSliderToValue(5, sliders[5]) : 0.7;
+  tone.voicedTiltDbPerOct = (sliders.size() > 6) ? mapVoicingSliderToValue(6, sliders[6]) : 0.0;
   
   return tone;
 }
@@ -402,7 +417,8 @@ void NvspRuntime::unload() {
   m_spSynthesize = nullptr;
   m_spTerminate = nullptr;
   m_spSetVoicingTone = nullptr;
-  m_spHasVoicingToneSupport = nullptr;
+  m_spGetDspVersion = nullptr;
+  m_voicingToneSupport = VoicingToneSupport::None;
 
   m_feCreate = nullptr;
   m_feDestroy = nullptr;
@@ -457,9 +473,25 @@ bool NvspRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
   m_spSynthesize = reinterpret_cast<sp_synthesize_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_synthesize"));
   m_spTerminate = reinterpret_cast<sp_terminate_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_terminate"));
   
-  // VoicingTone API (optional - may not be present in older DLLs)
+  // VoicingTone API (optional - 3-tier fallback)
+  // Tier 1: No support (oldest DLLs)
+  // Tier 2: V1 support (7 params, no header)
+  // Tier 3: V2 support (10 params with header)
   m_spSetVoicingTone = reinterpret_cast<sp_setVoicingTone_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_setVoicingTone"));
-  m_spHasVoicingToneSupport = reinterpret_cast<sp_hasVoicingToneSupport_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_hasVoicingToneSupport"));
+  m_spGetDspVersion = reinterpret_cast<sp_getDspVersion_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_getDspVersion"));
+  
+  // Detect VoicingTone support level
+  m_voicingToneSupport = VoicingToneSupport::None;
+  if (m_spSetVoicingTone) {
+    // DLL has setVoicingTone - check if it's v2 (has getDspVersion) or v1 (legacy)
+    if (m_spGetDspVersion) {
+      // V2 DLL - supports header + 10 params
+      m_voicingToneSupport = VoicingToneSupport::V2;
+    } else {
+      // V1 DLL - legacy 7 params without header
+      m_voicingToneSupport = VoicingToneSupport::V1;
+    }
+  }
 
   if (!m_spInitialize || !m_spQueueFrame || !m_spSynthesize || !m_spTerminate) {
     outError = "speechPlayer.dll is missing expected exports";
@@ -577,10 +609,24 @@ bool NvspRuntime::synthPreviewPhoneme(
     return false;
   }
 
-  // Apply VoicingTone if DLL supports it
-  if (m_spSetVoicingTone && !m_speech.voicingParams.empty()) {
-    EditorVoicingTone tone = buildVoicingTone(m_speech.voicingParams);
-    m_spSetVoicingTone(player, &tone);
+  // Apply VoicingTone if DLL supports it (3-tier fallback)
+  if (!m_speech.voicingParams.empty()) {
+    switch (m_voicingToneSupport) {
+      case VoicingToneSupport::V2: {
+        EditorVoicingToneV2 tone = buildVoicingToneV2(m_speech.voicingParams);
+        m_spSetVoicingTone(player, &tone);
+        break;
+      }
+      case VoicingToneSupport::V1: {
+        EditorVoicingToneV1 tone = buildVoicingToneV1(m_speech.voicingParams);
+        m_spSetVoicingTone(player, &tone);
+        break;
+      }
+      case VoicingToneSupport::None:
+      default:
+        // DLL doesn't support VoicingTone - skip silently
+        break;
+    }
   }
 
   speechPlayer_frame_t frame{};
@@ -877,10 +923,24 @@ bool NvspRuntime::synthIpa(
     return false;
   }
 
-  // Apply VoicingTone if DLL supports it
-  if (m_spSetVoicingTone && !m_speech.voicingParams.empty()) {
-    EditorVoicingTone tone = buildVoicingTone(m_speech.voicingParams);
-    m_spSetVoicingTone(player, &tone);
+  // Apply VoicingTone if DLL supports it (3-tier fallback)
+  if (!m_speech.voicingParams.empty()) {
+    switch (m_voicingToneSupport) {
+      case VoicingToneSupport::V2: {
+        EditorVoicingToneV2 tone = buildVoicingToneV2(m_speech.voicingParams);
+        m_spSetVoicingTone(player, &tone);
+        break;
+      }
+      case VoicingToneSupport::V1: {
+        EditorVoicingToneV1 tone = buildVoicingToneV1(m_speech.voicingParams);
+        m_spSetVoicingTone(player, &tone);
+        break;
+      }
+      case VoicingToneSupport::None:
+      default:
+        // DLL doesn't support VoicingTone - skip silently
+        break;
+    }
   }
 
   QueueCtx ctx{};

@@ -36,12 +36,12 @@ struct SpeechSettings {
 // Dynamic DLL function types
 // -------------------------
 
-// VoicingTone v2 struct - must match voicingTone.h in speechPlayer
+// VoicingTone v2 struct - must match voicingTone.h in speechPlayer (v2+ DLLs)
 #define SPEECHPLAYER_VOICINGTONE_MAGIC 0x32544F56u   // "VOT2"
 #define SPEECHPLAYER_VOICINGTONE_VERSION 2u
 #define SPEECHPLAYER_DSP_VERSION 4u
 
-struct EditorVoicingTone {
+struct EditorVoicingToneV2 {
   // ABI header
   uint32_t magic;
   uint32_t structSize;
@@ -60,13 +60,24 @@ struct EditorVoicingTone {
   double pitchSyncB1DeltaHz;
 };
 
+// VoicingTone v1 struct - legacy 7-double layout (no header)
+struct EditorVoicingToneV1 {
+  double voicingPeakPos;
+  double voicedPreEmphA;
+  double voicedPreEmphMix;
+  double highShelfGainDb;
+  double highShelfFcHz;
+  double highShelfQ;
+  double voicedTiltDbPerOct;
+};
+
 // speechPlayer.dll API
 using sp_initialize_fn = speechPlayer_handle_t(*)(int);
 using sp_queueFrame_fn = void(*)(speechPlayer_handle_t, speechPlayer_frame_t*, unsigned int, unsigned int, int, bool);
 using sp_synthesize_fn = int(*)(speechPlayer_handle_t, unsigned int, sample*);
 using sp_terminate_fn = void(*)(speechPlayer_handle_t);
-using sp_setVoicingTone_fn = void(*)(speechPlayer_handle_t, const EditorVoicingTone*);
-using sp_hasVoicingToneSupport_fn = int(*)(speechPlayer_handle_t);
+using sp_setVoicingTone_fn = void(*)(speechPlayer_handle_t, const void*);  // void* to accept either v1 or v2
+using sp_getDspVersion_fn = unsigned int(*)();  // Returns DSP version if present
 
 // nvspFrontend.dll API
 using fe_create_fn = nvspFrontend_handle_t(*)(const char*);
@@ -158,6 +169,10 @@ public:
 
 private:
   void unload();
+  
+  // VoicingTone version detection
+  enum class VoicingToneSupport { None, V1, V2 };
+  VoicingToneSupport m_voicingToneSupport = VoicingToneSupport::None;
 
   // DLL modules.
   HMODULE m_speechPlayer = NULL;
@@ -168,7 +183,7 @@ private:
   sp_synthesize_fn m_spSynthesize = nullptr;
   sp_terminate_fn m_spTerminate = nullptr;
   sp_setVoicingTone_fn m_spSetVoicingTone = nullptr;
-  sp_hasVoicingToneSupport_fn m_spHasVoicingToneSupport = nullptr;
+  sp_getDspVersion_fn m_spGetDspVersion = nullptr;
 
   fe_create_fn m_feCreate = nullptr;
   fe_destroy_fn m_feDestroy = nullptr;
