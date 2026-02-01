@@ -167,9 +167,17 @@ private:
     double aspAttackCoeff;
     double aspReleaseCoeff;
 
+    // Per-frame voice-quality modulation (DSP v5+)
+    double lastCyclePos;
+    double jitterMul;
+    double shimmerMul;
+
     double voicingPeakPos;
     double voicedPreEmphA;
     double voicedPreEmphMix;
+
+    // Speed quotient: glottal pulse asymmetry (V3 voicingTone)
+    double speedQuotient;
 
     // Spectral tilt (Bipolar)
     double tiltTargetTlDb;
@@ -277,6 +285,7 @@ public:
         noiseGlottalModDepth(0.0), lastNoiseMod(1.0),
         smoothAspAmp(0.0), smoothAspAmpInit(false),
         aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
+        lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0),
         glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
         tiltTargetTlDb(0.0), tiltTlDb(0.0),
@@ -311,6 +320,7 @@ public:
         voicedPreEmphA = defaults.voicedPreEmphA;
         voicedPreEmphMix = defaults.voicedPreEmphMix;
         noiseGlottalModDepth = clampDouble(defaults.noiseGlottalModDepth, 0.0, 1.0);
+        speedQuotient = clampDouble(defaults.speedQuotient, 0.5, 4.0);
         setTiltDbPerOct(defaults.voicedTiltDbPerOct);
 
         tiltTlDb = tiltTargetTlDb;
@@ -331,6 +341,9 @@ public:
         lastNoiseMod=1.0;
         smoothAspAmp = 0.0;
         smoothAspAmpInit = false;
+        lastCyclePos = 0.0;
+        jitterMul = 1.0;
+        shimmerMul = 1.0;
         glottisOpen=false;
     }
 
@@ -338,28 +351,103 @@ public:
         tiltTargetTlDb = clampDouble(tiltVal, -24.0, 24.0);
     }
 
-    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth) {
+    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth, double sq) {
         voicingPeakPos = peakPos;
         voicedPreEmphA = preEmphA;
         voicedPreEmphMix = preEmphMix;
         noiseGlottalModDepth = clampDouble(noiseModDepth, 0.0, 1.0);
+        speedQuotient = clampDouble(sq, 0.5, 4.0);
         setTiltDbPerOct(tiltDb);
     }
 
-    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth) const {
+    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth, double* sq) const {
         if (peakPos) *peakPos = voicingPeakPos;
         if (preEmphA) *preEmphA = voicedPreEmphA;
         if (preEmphMix) *preEmphMix = voicedPreEmphMix;
         if (tiltDb) *tiltDb = tiltTargetTlDb;
         if (noiseModDepth) *noiseModDepth = noiseGlottalModDepth;
+        if (sq) *sq = speedQuotient;
+    }
+
+    void setSpeedQuotient(double sq) {
+        speedQuotient = clampDouble(sq, 0.5, 4.0);
+    }
+
+    double getSpeedQuotient() const {
+        return speedQuotient;
     }
 
     double getLastNoiseMod() const { return lastNoiseMod; }
 
-    double getNext(const speechPlayer_frame_t* frame) {
+    double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx) {
+        // Optional per-frame voice quality (DSP v5+). If frameEx is NULL, all effects are disabled.
+        double creakiness = 0.0;
+        double breathiness = 0.0;
+        double jitter = 0.0;
+        double shimmer = 0.0;
+        if (frameEx) {
+            creakiness = frameEx->creakiness;
+            breathiness = frameEx->breathiness;
+            jitter = frameEx->jitter;
+            shimmer = frameEx->shimmer;
+
+            if (!std::isfinite(creakiness)) creakiness = 0.0;
+            if (!std::isfinite(breathiness)) breathiness = 0.0;
+            if (!std::isfinite(jitter)) jitter = 0.0;
+            if (!std::isfinite(shimmer)) shimmer = 0.0;
+
+            creakiness = clampDouble(creakiness, 0.0, 1.0);
+            breathiness = clampDouble(breathiness, 0.0, 1.0);
+            jitter = clampDouble(jitter, 0.0, 1.0);
+            shimmer = clampDouble(shimmer, 0.0, 1.0);
+        }
+
         double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
         double pitchHz = frame->voicePitch * vibrato;
+        if (!std::isfinite(pitchHz) || pitchHz < 0.0) pitchHz = 0.0;
+
+        // Creaky voice tends to have slightly lower F0 and more irregularity.
+        if (creakiness > 0.0) {
+            pitchHz *= (1.0 - 0.12 * creakiness);
+        }
+
+        // If we are unvoiced, reset per-cycle multipliers so voiced segments restart clean.
+        if (pitchHz <= 0.0) {
+            jitterMul = 1.0;
+            shimmerMul = 1.0;
+        }
+
+        // Apply per-cycle jitter multiplier (updated on cycle wraps).
+        pitchHz *= jitterMul;
+
         double cyclePos = pitchGen.getNext(pitchHz > 0.0 ? pitchHz : 0.0);
+
+        // Detect start of a new glottal cycle.
+        const bool cycleWrapped = (pitchHz > 0.0) && (cyclePos < lastCyclePos);
+        lastCyclePos = cyclePos;
+
+        if (cycleWrapped) {
+            // Map [0..1] to perceptible ranges.
+            // - jitter: relative F0 variation (0.02 = realistic, but inaudible; use 0.15 for testing)
+            // - shimmer: relative amplitude variation
+            double jitterRel = (jitter * 0.15) + (creakiness * 0.05);
+            if (jitterRel > 0.0) {
+                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                jitterMul = 1.0 + (r * jitterRel);
+                if (jitterMul < 0.2) jitterMul = 0.2;
+            } else {
+                jitterMul = 1.0;
+            }
+
+            double shimmerRel = (shimmer * 0.70) + (creakiness * 0.12);
+            if (shimmerRel > 0.0) {
+                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                shimmerMul = 1.0 + (r * shimmerRel);
+                if (shimmerMul < 0.0) shimmerMul = 0.0;
+            } else {
+                shimmerMul = 1.0;
+            }
+        }
 
         // Optional Klatt-style glottal-cycle AM for noise sources.
         // When enabled, the second half of the cycle is attenuated.
@@ -381,13 +469,24 @@ public:
         if (effectiveOQ < 0.10) effectiveOQ = 0.10;
         if (effectiveOQ > 0.95) effectiveOQ = 0.95;
 
+        // Creakiness: shorter open phase (more closed time) in this model.
+        if (creakiness > 0.0) {
+            effectiveOQ += 0.10 * creakiness;
+            if (effectiveOQ > 0.95) effectiveOQ = 0.95;
+        }
+
         glottisOpen = (pitchHz > 0.0) && (cyclePos >= effectiveOQ);
 
         double flow = 0.0;
         if(glottisOpen) {
             double openLen = 1.0 - effectiveOQ;
             if (openLen < 0.0001) openLen = 0.0001;
-            double peakPos = voicingPeakPos;
+
+            // Per-frame voice quality tweaks to pulse shape:
+            // - breathiness nudges the peak later (softer/relaxed)
+            // - creakiness nudges the peak earlier (tenser/pressed)
+            double peakPos = voicingPeakPos + (0.02 * breathiness) - (0.05 * creakiness);
+
             double dt = 0.0;
             if (pitchHz > 0.0) dt = pitchHz / (double)sampleRate;
             double denom = openLen - dt;
@@ -413,7 +512,7 @@ public:
             // 
             // The blend preserves fricative clarity (from LF edge) while
             // reducing aliasing artifacts (from cosine smoothness).
-            
+
             // Compute symmetric cosine flow (original SpeechPlayer)
             double flowCosine;
             if (phase < peakPos) {
@@ -421,34 +520,52 @@ public:
             } else {
                 flowCosine = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
             }
-            
+
             // Compute LF-inspired flow (asymmetric, more harmonics)
+            // Speed quotient affects the asymmetry:
+            //   SQ < 2.0: Slower opening, gentler closing (female-like)
+            //   SQ = 2.0: Default/neutral
+            //   SQ > 2.0: Faster opening, sharper closing (male-like, pressed)
             double flowLF;
             if (phase < peakPos) {
-                // Opening: polynomial rise
+                // Opening phase: polynomial rise
+                // speedQuotient affects the curve steepness
                 double t = phase / peakPos;
-                flowLF = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
+                // Higher SQ = faster opening (steeper curve)
+                // Lower SQ = slower opening (gentler curve)
+                double openPower = 2.0 + (speedQuotient - 2.0) * 0.5;  // Range ~1.25 to ~3.0
+                if (openPower < 1.0) openPower = 1.0;
+                if (openPower > 4.0) openPower = 4.0;
+                double tPow = pow(t, openPower);
+                flowLF = tPow * (3.0 - 2.0 * t);  // Modified smoothstep
             } else {
-                // Closing: sharper fall with "return phase" character
+                // Closing phase: sharper fall with "return phase" character
                 double t = (phase - peakPos) / (1.0 - peakPos);
-                // Sample-rate-dependent sharpness:
+                // Sample-rate-dependent base sharpness:
                 // Higher sample rates need sharper closure for fuller harmonics.
-                // Note: Below 16000 Hz, lfBlend is < 1.0 so cosine dominates anyway.
-                double sharpness;
+                double baseSharpness;
                 if (sampleRate >= 44100) {
-                    sharpness = 10.0;  // Very aggressive at high rates
+                    baseSharpness = 10.0;
                 } else if (sampleRate >= 32000) {
-                    sharpness = 8.0;   // Still quite sharp
+                    baseSharpness = 8.0;
                 } else if (sampleRate >= 22050) {
-                    sharpness = 4.0;   // Balanced for 22050
+                    baseSharpness = 4.0;
                 } else if (sampleRate >= 16000) {
-                    sharpness = 3.0;   // Gentler at 16000
+                    baseSharpness = 3.0;
                 } else {
-                    sharpness = 2.5;   // Doesn't matter much - cosine dominates at low rates
+                    baseSharpness = 2.5;
                 }
+                // Speed quotient modulates the closing sharpness:
+                //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
+                //   SQ=2.0: sharpness * 1.0 (default)
+                //   SQ=4.0: sharpness * 1.6 (very sharp, pressed)
+                double sqFactor = 0.4 + (speedQuotient - 0.5) * (0.6 / 1.5);  // Linear map
+                if (sqFactor < 0.3) sqFactor = 0.3;
+                if (sqFactor > 2.0) sqFactor = 2.0;
+                double sharpness = baseSharpness * sqFactor;
                 flowLF = pow(1.0 - t, sharpness);
             }
-            
+
             // Blend based on sample rate:
             // - 11025 Hz: 70% cosine, 30% LF (enough edge for fricatives)
             // - 14000 Hz: 50/50 blend
@@ -462,7 +579,7 @@ public:
                 // Linear interpolation between 11025 and 16000
                 lfBlend = 0.30 + 0.70 * (double)(sampleRate - 11025) / (16000.0 - 11025.0);
             }
-            
+
             flow = (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
         }
 
@@ -477,10 +594,10 @@ public:
         // ------------------------------------------------------------
         // dFlow (Derivative) is naturally tiny. It needs gain to match flow.
         // Flow (Integral) is naturally loud. It DOES NOT need gain.
-        
+
         double srcDeriv = dFlow * radiationDerivGain;
         // srcFlow is just flow.
-        
+
         // At Tilt 0: Mix is 0.0 -> voicedSrc = flow. (WARM/FAT, no clipping)
         // At Tilt -20: Mix is 1.0 -> voicedSrc = srcDeriv. (BRIGHT/BUZZY)
         double voicedSrc = (1.0 - radiationMix) * flow + (radiationMix * srcDeriv);
@@ -493,7 +610,15 @@ public:
         // Klatt TL (Bipolar)
         voicedSrc = applyTilt(voicedSrc);
 
-        double turbulence = aspiration * frame->voiceTurbulenceAmplitude;
+        // Breathiness adds extra turbulence during the open phase.
+        double voiceTurbAmp = frame->voiceTurbulenceAmplitude;
+        if (!std::isfinite(voiceTurbAmp)) voiceTurbAmp = 0.0;
+        voiceTurbAmp = clampDouble(voiceTurbAmp, 0.0, 1.0);
+        if (breathiness > 0.0) {
+            voiceTurbAmp = clampDouble(voiceTurbAmp + (0.65 * breathiness), 0.0, 1.0);
+        }
+
+        double turbulence = aspiration * voiceTurbAmp;
         if(glottisOpen) {
             double flow01 = flow / flowScale;
             if(flow01 < 0.0) flow01 = 0.0;
@@ -503,7 +628,16 @@ public:
             turbulence = 0.0;
         }
 
-        double voicedIn = (voicedSrc + turbulence) * frame->voiceAmplitude;
+        // Voice amplitude with optional shimmer/creakiness scaling.
+        double voiceAmp = frame->voiceAmplitude;
+        if (!std::isfinite(voiceAmp)) voiceAmp = 0.0;
+        voiceAmp = clampDouble(voiceAmp, 0.0, 1.0);
+        if (creakiness > 0.0) {
+            voiceAmp *= (1.0 - (0.35 * creakiness));
+        }
+        voiceAmp *= shimmerMul;
+
+        double voicedIn = (voicedSrc + turbulence) * voiceAmp;
         const double dcPole = 0.9995;
         double voiced = voicedIn - lastVoicedIn + (dcPole * lastVoicedOut);
         lastVoicedIn = voicedIn;
@@ -514,6 +648,10 @@ public:
         if (!std::isfinite(targetAspAmp)) targetAspAmp = 0.0;
         if (targetAspAmp < 0.0) targetAspAmp = 0.0;
         if (targetAspAmp > 1.0) targetAspAmp = 1.0;
+
+        if (breathiness > 0.0) {
+            targetAspAmp = clampDouble(targetAspAmp + (0.50 * breathiness), 0.0, 1.0);
+        }
 
         if (!smoothAspAmpInit) {
             smoothAspAmp = targetAspAmp;
@@ -974,7 +1112,8 @@ public:
     unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
         if(!frameManager) return 0;
         for(unsigned int i=0;i<sampleCount;++i) {
-            const speechPlayer_frame_t* frame=frameManager->getCurrentFrame();
+            const speechPlayer_frameEx_t* frameEx = NULL;
+            const speechPlayer_frame_t* frame=frameManager->getCurrentFrameWithEx(&frameEx);
             if(frame) {
                 if(wasSilence) {
                     voiceGenerator.reset();
@@ -1004,7 +1143,7 @@ public:
                 double alpha = (targetPreGain > smoothPreGain) ? preGainAttackAlpha : preGainReleaseAlpha;
                 smoothPreGain += (targetPreGain - smoothPreGain) * alpha;
 
-                double voice=voiceGenerator.getNext(frame);
+                double voice=voiceGenerator.getNext(frame, frameEx);
 
                 // ------------------------------------------------------------
                 // Split voice into voiced + aspiration for separate filtering
@@ -1262,7 +1401,8 @@ public:
             currentTone.voicedPreEmphA,
             currentTone.voicedPreEmphMix,
             currentTone.voicedTiltDbPerOct,
-            currentTone.noiseGlottalModDepth
+            currentTone.noiseGlottalModDepth,
+            currentTone.speedQuotient
         );
 
         // Update high-shelf coefficients (do not reset state)

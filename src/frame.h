@@ -44,15 +44,53 @@ typedef struct {
 
 const int speechPlayer_frame_numParams=sizeof(speechPlayer_frame_t)/sizeof(speechPlayer_frameParam_t);
 
+/* ============================================================================
+ * Optional per-frame voice quality extensions (DSP v5+)
+ * ============================================================================
+ *
+ * These parameters are intentionally kept out of speechPlayer_frame_t so the
+ * original 47-parameter ABI stays stable.
+ *
+ * All fields are expected to be in the range [0.0, 1.0] unless documented
+ * otherwise. Values outside that range may be clamped by the DSP.
+ */
+typedef struct {
+	double creakiness;      // laryngealization / creaky voice (e.g. Danish stød)
+	double breathiness;     // breath noise mixed into voicing
+	double jitter;          // pitch period variation (irregular F0)
+	double shimmer;         // amplitude variation (irregular loudness)
+	// room for more...
+} speechPlayer_frameEx_t;
+
+const int speechPlayer_frameEx_numParams=sizeof(speechPlayer_frameEx_t)/sizeof(double);
+
+
 class FrameManager {
 	public:
 	static FrameManager* create(); //factory function
+
+	// Core frame queue (legacy)
 	virtual void queueFrame(speechPlayer_frame_t* frame, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue)=0;
-	virtual const speechPlayer_frame_t* const getCurrentFrame()=0;
-	virtual const int getLastIndex()=0; 
+
+	// Extended frame queue (DSP v5+): optional per-frame voice quality params.
+	// If frameEx is NULL, behavior must match queueFrame() exactly.
+	virtual void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue)=0;
+
+	// Fetch the current frame (and optional extended params) for the next output sample.
+	// The returned pointers are owned by the FrameManager and remain valid until the next call.
+	// If there is no active frame (silence), returns NULL and sets *outFrameEx to NULL.
+	virtual const speechPlayer_frame_t* const getCurrentFrameWithEx(const speechPlayer_frameEx_t** outFrameEx)=0;
+
+	// Back-compat convenience wrapper.
+	virtual const speechPlayer_frame_t* const getCurrentFrame() { return getCurrentFrameWithEx(NULL); }
+
+	virtual const int getLastIndex()=0;
+
 	// Pure virtual, but still needs a definition.
 	virtual ~FrameManager()=0;
 };
+
+
 
 // MSVC accepts `=0 {}` in-class, but GCC/Clang reject it.
 // Keep the same ABI/intent while staying standard-compliant.

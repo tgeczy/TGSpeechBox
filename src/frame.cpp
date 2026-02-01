@@ -23,6 +23,11 @@ struct frameRequest_t {
 	unsigned int minNumSamples;
 	unsigned int numFadeSamples;
 	bool NULLFrame;
+
+	// Optional per-frame voice quality params (DSP v5+)
+	bool hasFrameEx;
+	speechPlayer_frameEx_t frameEx;
+
 	speechPlayer_frame_t frame;
 	double voicePitchInc; 
 	int userIndex;
@@ -35,7 +40,9 @@ class FrameManagerImpl: public FrameManager {
 	frameRequest_t* oldFrameRequest;
 	frameRequest_t* newFrameRequest;
 	speechPlayer_frame_t curFrame;
+	speechPlayer_frameEx_t curFrameEx;
 	bool curFrameIsNULL;
+	bool curHasFrameEx;
 	unsigned int sampleCounter;
 	int lastUserIndex;
 
@@ -48,10 +55,21 @@ class FrameManagerImpl: public FrameManager {
 				newFrameRequest=NULL;
 				// Ensure curFrame is updated even when numFadeSamples==0.
 				memcpy(&curFrame, &(oldFrameRequest->frame), sizeof(speechPlayer_frame_t));
+				memcpy(&curFrameEx, &(oldFrameRequest->frameEx), sizeof(speechPlayer_frameEx_t));
+				curHasFrameEx = oldFrameRequest->hasFrameEx;
 			} else {
 				double curFadeRatio=(double)sampleCounter/(newFrameRequest->numFadeSamples);
 				for(int i=0;i<speechPlayer_frame_numParams;++i) {
 					((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[i],((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[i],curFadeRatio);
+				}
+				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
+					curHasFrameEx = true;
+					for(int i=0;i<speechPlayer_frameEx_numParams;++i) {
+						((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],curFadeRatio);
+					}
+				} else {
+					curHasFrameEx = false;
+					memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
 				}
 			}
 		} else if(sampleCounter>(oldFrameRequest->minNumSamples)) {
@@ -65,6 +83,10 @@ class FrameManagerImpl: public FrameManager {
 					newFrameRequest->frame.preFormantGain=0;
 					newFrameRequest->frame.voicePitch=curFrame.voicePitch;
 					newFrameRequest->voicePitchInc=0;
+
+					// Carry frameEx through silence fades so transitions stay smooth.
+					memcpy(&(newFrameRequest->frameEx),&(oldFrameRequest->frameEx),sizeof(speechPlayer_frameEx_t));
+					newFrameRequest->hasFrameEx = oldFrameRequest->hasFrameEx;
 				} else if(oldFrameRequest->NULLFrame) {
 					memcpy(&(oldFrameRequest->frame),&(newFrameRequest->frame),sizeof(speechPlayer_frame_t));
 					oldFrameRequest->frame.preFormantGain=0;
@@ -72,6 +94,9 @@ class FrameManagerImpl: public FrameManager {
 					// Mark the old request as non-NULL so subsequent transitions don't keep
 					// taking the "from silence" path with stale state.
 					oldFrameRequest->NULLFrame=false;
+
+					memcpy(&(oldFrameRequest->frameEx),&(newFrameRequest->frameEx),sizeof(speechPlayer_frameEx_t));
+					oldFrameRequest->hasFrameEx = newFrameRequest->hasFrameEx;
 				}
 				if(newFrameRequest) {
 					if(newFrameRequest->userIndex!=-1) lastUserIndex=newFrameRequest->userIndex;
@@ -80,11 +105,15 @@ class FrameManagerImpl: public FrameManager {
 					// first sample of a new segment can't use stale/garbage parameters.
 					if(wasFromSilence) {
 						memcpy(&curFrame, &(oldFrameRequest->frame), sizeof(speechPlayer_frame_t));
+						memcpy(&curFrameEx, &(oldFrameRequest->frameEx), sizeof(speechPlayer_frameEx_t));
+						curHasFrameEx = oldFrameRequest->hasFrameEx;
 					}
 					newFrameRequest->frame.voicePitch+=(newFrameRequest->voicePitchInc*newFrameRequest->numFadeSamples);
 				}
 			} else {
-								curFrameIsNULL=true;
+				curFrameIsNULL=true;
+				curHasFrameEx=false;
+				memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
 				// FIX: We have run out of frames. Mark the old request as NULL (Silence).
 				// This ensures that when a new frame eventually arrives, the engine treats it
 				// as a "Start from Silence" (triggering the 0-gain fade-in logic) rather than
@@ -100,19 +129,27 @@ class FrameManagerImpl: public FrameManager {
 
 	public:
 
-	FrameManagerImpl(): curFrame(), curFrameIsNULL(true), sampleCounter(0), newFrameRequest(NULL), lastUserIndex(-1)  {
+	FrameManagerImpl(): curFrame(), curFrameEx(), curFrameIsNULL(true), curHasFrameEx(false), sampleCounter(0), newFrameRequest(NULL), lastUserIndex(-1)  {
 		// speechPlayer_frame_t is a plain C struct; ensure it starts from a known state.
 		memset(&curFrame, 0, sizeof(speechPlayer_frame_t));
+		memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
+
 		oldFrameRequest=new frameRequest_t();
 		oldFrameRequest->minNumSamples=0;
 		oldFrameRequest->numFadeSamples=0;
 		oldFrameRequest->NULLFrame=true;
+		oldFrameRequest->hasFrameEx=false;
 		memset(&(oldFrameRequest->frame), 0, sizeof(speechPlayer_frame_t));
+		memset(&(oldFrameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
 		oldFrameRequest->voicePitchInc=0;
 		oldFrameRequest->userIndex=-1;
 	}
 
-	void queueFrame(speechPlayer_frame_t* frame, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) {
+	void queueFrame(speechPlayer_frame_t* frame, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) override {
+		queueFrameEx(frame, NULL, minNumSamples, numFadeSamples, userIndex, purgeQueue);
+	}
+
+	void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) override {
 		frameLock.acquire();
 		frameRequest_t* frameRequest=new frameRequest_t;
 		frameRequest->minNumSamples=minNumSamples; //max(minNumSamples,1);
@@ -126,6 +163,15 @@ class FrameManagerImpl: public FrameManager {
 			memset(&(frameRequest->frame), 0, sizeof(speechPlayer_frame_t));
 			frameRequest->voicePitchInc=0;
 		}
+
+		if(frameEx) {
+			frameRequest->hasFrameEx=true;
+			memcpy(&(frameRequest->frameEx), frameEx, sizeof(speechPlayer_frameEx_t));
+		} else {
+			frameRequest->hasFrameEx=false;
+			memset(&(frameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+		}
+
 		frameRequest->userIndex=userIndex;
 		if(purgeQueue) {
 			for(;!frameRequestQueue.empty();frameRequestQueue.pop()) delete frameRequestQueue.front();
@@ -136,6 +182,8 @@ class FrameManagerImpl: public FrameManager {
 			if(!curFrameIsNULL) {
 				oldFrameRequest->NULLFrame=false;
 				memcpy(&(oldFrameRequest->frame),&curFrame,sizeof(speechPlayer_frame_t));
+				oldFrameRequest->hasFrameEx=curHasFrameEx;
+				memcpy(&(oldFrameRequest->frameEx),&curFrameEx,sizeof(speechPlayer_frameEx_t));
 			}
 			if(newFrameRequest) {
 				delete newFrameRequest;
@@ -146,20 +194,28 @@ class FrameManagerImpl: public FrameManager {
 		frameLock.release();
 	}
 
-	const int getLastIndex() {
+	const int getLastIndex() override {
 		return lastUserIndex;
 	}
 
-	const speechPlayer_frame_t* const getCurrentFrame() {
+	const speechPlayer_frame_t* const getCurrentFrameWithEx(const speechPlayer_frameEx_t** outFrameEx) override {
 		frameLock.acquire();
 		updateCurrentFrame();
+		if(outFrameEx) {
+			if(curFrameIsNULL || !curHasFrameEx) *outFrameEx=NULL;
+			else *outFrameEx=&curFrameEx;
+		}
 		frameLock.release();
 		return curFrameIsNULL?NULL:&curFrame;
 	}
 
-	~FrameManagerImpl() {
+	~FrameManagerImpl() override {
 		if(oldFrameRequest) delete oldFrameRequest;
 		if(newFrameRequest) delete newFrameRequest;
+		while(!frameRequestQueue.empty()) {
+			delete frameRequestQueue.front();
+			frameRequestQueue.pop();
+		}
 	}
 
 };

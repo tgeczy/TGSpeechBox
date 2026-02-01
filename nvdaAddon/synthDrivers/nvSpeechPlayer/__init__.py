@@ -87,6 +87,12 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("noiseGlottalMod", "Noise glottal modulation", defaultVal=0),
         NumericDriverSetting("pitchSyncF1", "Pitch-sync F1 delta", defaultVal=50),
         NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
+        NumericDriverSetting("speedQuotient", "Speed quotient (voice gender)", defaultVal=50),
+        # FrameEx voice quality params (DSP v5+) - for testing creaky voice, etc.
+        NumericDriverSetting("frameExCreakiness", "Creakiness (laryngealization)", defaultVal=0),
+        NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
+        NumericDriverSetting("frameExJitter", "Jitter (pitch variation)", defaultVal=0),
+        NumericDriverSetting("frameExShimmer", "Shimmer (amplitude variation)", defaultVal=0),
         DriverSetting("pauseMode", "Pause mode"),
         DriverSetting("sampleRate", "Sample rate"),
         DriverSetting("language", "Language"),
@@ -189,7 +195,21 @@ class SynthDriver(SynthDriver):
         self._curNoiseGlottalMod = 0
         self._curPitchSyncF1 = 50
         self._curPitchSyncB1 = 50
+        self._curSpeedQuotient = 50  # Maps to 2.0 (neutral)
+        # FrameEx voice quality params (DSP v5+)
+        self._curFrameExCreakiness = 0
+        self._curFrameExBreathiness = 0
+        self._curFrameExJitter = 0
+        self._curFrameExShimmer = 0
         self._perVoiceTilt = {}  # Per-voice tilt storage: {voiceName: tiltValue}
+        self._perVoiceNoiseGlottalMod = {}
+        self._perVoicePitchSyncF1 = {}
+        self._perVoicePitchSyncB1 = {}
+        self._perVoiceSpeedQuotient = {}
+        self._perVoiceFrameExCreakiness = {}
+        self._perVoiceFrameExBreathiness = {}
+        self._perVoiceFrameExJitter = {}
+        self._perVoiceFrameExShimmer = {}
         self._usingVoiceProfile = False
         self._activeProfileName = ""
         self._pauseMode = "short"
@@ -1281,7 +1301,29 @@ class SynthDriver(SynthDriver):
                                 setattr(frame, paramName, getattr(frame, paramName) * ratio)
 
                         frame.preFormantGain *= self._curVolume
-                        self._player.queueFrame(frame, frameDuration, fadeDuration, userIndex=idxToSet)
+                        
+                        # Build FrameEx from slider values (0-100 -> 0.0-1.0)
+                        # Only create if any value is non-zero and DLL supports it
+                        frameEx = None
+                        creakVal = getattr(self, "_curFrameExCreakiness", 0)
+                        breathVal = getattr(self, "_curFrameExBreathiness", 0)
+                        jitterVal = getattr(self, "_curFrameExJitter", 0)
+                        shimmerVal = getattr(self, "_curFrameExShimmer", 0)
+                        
+                        if creakVal or breathVal or jitterVal or shimmerVal:
+                            if getattr(self._player, "hasFrameExSupport", lambda: False)():
+                                frameEx = speechPlayer.FrameEx.create(
+                                    creakiness=creakVal / 100.0,
+                                    breathiness=breathVal / 100.0,
+                                    jitter=jitterVal / 100.0,
+                                    shimmer=shimmerVal / 100.0,
+                                )
+                        
+                        # Use queueFrameEx if available, otherwise fall back
+                        if frameEx is not None:
+                            self._player.queueFrameEx(frame, frameEx, frameDuration, fadeDuration, userIndex=idxToSet)
+                        else:
+                            self._player.queueFrame(frame, frameDuration, fadeDuration, userIndex=idxToSet)
                         queuedCount += 1
                         lastStreamWasVoiced = True
 
@@ -1609,6 +1651,69 @@ class SynthDriver(SynthDriver):
         except Exception:
             pass
 
+    # --- Speed Quotient slider (0-100, maps to 0.5-4.0) ---
+    # Controls glottal pulse asymmetry for male/female voice distinction.
+    # 0 = 0.5 (very breathy/soft), 50 = 2.0 (neutral), 100 = 4.0 (pressed/tense)
+    def _get_speedQuotient(self):
+        return int(getattr(self, "_curSpeedQuotient", 50))
+
+    def _set_speedQuotient(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curSpeedQuotient", 50):
+                return
+            self._curSpeedQuotient = newVal
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
+            pass
+
+    # =========================================================================
+    # FrameEx voice quality sliders (DSP v5+)
+    # These are applied per-frame via queueFrameEx, not via voicingTone.
+    # Slider range 0-100 maps to 0.0-1.0 for the DSP.
+    # =========================================================================
+
+    def _get_frameExCreakiness(self):
+        return int(getattr(self, "_curFrameExCreakiness", 0))
+
+    def _set_frameExCreakiness(self, val):
+        try:
+            self._curFrameExCreakiness = int(val)
+        except Exception:
+            pass
+
+    def _get_frameExBreathiness(self):
+        return int(getattr(self, "_curFrameExBreathiness", 0))
+
+    def _set_frameExBreathiness(self, val):
+        try:
+            self._curFrameExBreathiness = int(val)
+        except Exception:
+            pass
+
+    def _get_frameExJitter(self):
+        return int(getattr(self, "_curFrameExJitter", 0))
+
+    def _set_frameExJitter(self, val):
+        try:
+            self._curFrameExJitter = int(val)
+        except Exception:
+            pass
+
+    def _get_frameExShimmer(self):
+        return int(getattr(self, "_curFrameExShimmer", 0))
+
+    def _set_frameExShimmer(self, val):
+        try:
+            self._curFrameExShimmer = int(val)
+        except Exception:
+            pass
+
     def _applyVoicingTone(self, profileName: str) -> None:
         """Apply DSP-level voicing tone parameters safely.
         
@@ -1710,6 +1815,16 @@ class SynthDriver(SynthDriver):
             b1Slider = safe_float(getattr(self, "_curPitchSyncB1", 50), 50.0)
             tone.pitchSyncB1DeltaHz = (b1Slider - 50.0) * 1.0  # 0=-50, 50=0, 100=+50 Hz
             
+            # Apply speed quotient from slider (0-100 maps to 0.5-4.0, centered at 50 = 2.0)
+            sqSlider = safe_float(getattr(self, "_curSpeedQuotient", 50), 50.0)
+            # Linear map: 0->0.5, 50->2.0, 100->4.0
+            # 0-50: 0.5 + (slider/50) * 1.5 = 0.5 to 2.0
+            # 50-100: 2.0 + ((slider-50)/50) * 2.0 = 2.0 to 4.0
+            if sqSlider <= 50.0:
+                tone.speedQuotient = 0.5 + (sqSlider / 50.0) * 1.5
+            else:
+                tone.speedQuotient = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
+            
             # Apply to player
             self._player.setVoicingTone(tone)
             self._lastAppliedVoicingTone = tone
@@ -1755,19 +1870,51 @@ class SynthDriver(SynthDriver):
             oldVoice = getattr(self, "_curVoice", None)
             voiceChanged = (oldVoice is not None and oldVoice != voice)
             
-            # Initialize per-voice tilt storage if needed
+            # Initialize per-voice storage dicts if needed
             if not hasattr(self, "_perVoiceTilt"):
                 self._perVoiceTilt = {}
+            if not hasattr(self, "_perVoiceNoiseGlottalMod"):
+                self._perVoiceNoiseGlottalMod = {}
+            if not hasattr(self, "_perVoicePitchSyncF1"):
+                self._perVoicePitchSyncF1 = {}
+            if not hasattr(self, "_perVoicePitchSyncB1"):
+                self._perVoicePitchSyncB1 = {}
+            if not hasattr(self, "_perVoiceSpeedQuotient"):
+                self._perVoiceSpeedQuotient = {}
+            if not hasattr(self, "_perVoiceFrameExCreakiness"):
+                self._perVoiceFrameExCreakiness = {}
+            if not hasattr(self, "_perVoiceFrameExBreathiness"):
+                self._perVoiceFrameExBreathiness = {}
+            if not hasattr(self, "_perVoiceFrameExJitter"):
+                self._perVoiceFrameExJitter = {}
+            if not hasattr(self, "_perVoiceFrameExShimmer"):
+                self._perVoiceFrameExShimmer = {}
             
-            # Save current tilt for the OLD voice before switching
+            # Save current slider values for the OLD voice before switching
             if voiceChanged and oldVoice:
                 self._perVoiceTilt[oldVoice] = getattr(self, "_curVoiceTilt", 50)
+                self._perVoiceNoiseGlottalMod[oldVoice] = getattr(self, "_curNoiseGlottalMod", 0)
+                self._perVoicePitchSyncF1[oldVoice] = getattr(self, "_curPitchSyncF1", 50)
+                self._perVoicePitchSyncB1[oldVoice] = getattr(self, "_curPitchSyncB1", 50)
+                self._perVoiceSpeedQuotient[oldVoice] = getattr(self, "_curSpeedQuotient", 50)
+                self._perVoiceFrameExCreakiness[oldVoice] = getattr(self, "_curFrameExCreakiness", 0)
+                self._perVoiceFrameExBreathiness[oldVoice] = getattr(self, "_curFrameExBreathiness", 0)
+                self._perVoiceFrameExJitter[oldVoice] = getattr(self, "_curFrameExJitter", 0)
+                self._perVoiceFrameExShimmer[oldVoice] = getattr(self, "_curFrameExShimmer", 0)
             
             self._curVoice = voice
             
-            # Restore tilt for the NEW voice (or default to 50 if never set)
+            # Restore slider values for the NEW voice (or default if never set)
             if voiceChanged and voice:
                 self._curVoiceTilt = self._perVoiceTilt.get(voice, 50)
+                self._curNoiseGlottalMod = self._perVoiceNoiseGlottalMod.get(voice, 0)
+                self._curPitchSyncF1 = self._perVoicePitchSyncF1.get(voice, 50)
+                self._curPitchSyncB1 = self._perVoicePitchSyncB1.get(voice, 50)
+                self._curSpeedQuotient = self._perVoiceSpeedQuotient.get(voice, 50)
+                self._curFrameExCreakiness = self._perVoiceFrameExCreakiness.get(voice, 0)
+                self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
+                self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)
+                self._curFrameExShimmer = self._perVoiceFrameExShimmer.get(voice, 0)
             
             # Handle voice profile vs Python preset
             if voice and voice.startswith(VOICE_PROFILE_PREFIX):
