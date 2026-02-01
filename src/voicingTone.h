@@ -23,7 +23,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * Increments when the synthesizer DSP changes in a way that callers may want
  * to detect (even if the core ABI stays stable).
  */
-#define SPEECHPLAYER_DSP_VERSION 4u
+#define SPEECHPLAYER_DSP_VERSION 5u
 
 /*
  * VoicingTone struct versioning

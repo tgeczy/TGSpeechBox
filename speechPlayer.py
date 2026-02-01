@@ -65,6 +65,34 @@ class Frame(Structure):
     ]]
 
 
+class FrameEx(Structure):
+    """Optional per-frame voice quality extensions (DSP v5+).
+    
+    These parameters are kept separate from Frame so the original 47-parameter
+    ABI stays stable. All fields are expected in range [0.0, 1.0].
+    
+    Use with queueFrameEx() for features like Danish stød (creaky voice).
+    If you don't need these, just use queueFrame() as before.
+    """
+    _fields_ = [
+        ("creakiness", c_double),   # Laryngealization / creaky voice (e.g. Danish stød)
+        ("breathiness", c_double),  # Breath noise mixed into voicing
+        ("jitter", c_double),       # Pitch period variation (irregular F0)
+        ("shimmer", c_double),      # Amplitude variation (irregular loudness)
+    ]
+    
+    @classmethod
+    def create(cls, creakiness: float = 0.0, breathiness: float = 0.0,
+               jitter: float = 0.0, shimmer: float = 0.0) -> "FrameEx":
+        """Create a FrameEx with specified values (all default to 0.0)."""
+        ex = cls()
+        ex.creakiness = creakiness
+        ex.breathiness = breathiness
+        ex.jitter = jitter
+        ex.shimmer = shimmer
+        return ex
+
+
 class VoicingTone(Structure):
     """DSP-level voice quality parameters (v2 struct with version detection).
     
@@ -106,7 +134,7 @@ class VoicingTone(Structure):
         tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC
         tone.structSize = ctypes.sizeof(cls)
         tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION
-        tone.dspVersion = 4  # Current DSP version
+        tone.dspVersion = 5  # Current DSP version
         
         # Original parameters
         tone.voicingPeakPos = 0.91
@@ -196,6 +224,28 @@ class SpeechPlayer(object):
         )
         self._dll.speechPlayer_queueFrame.restype = None
 
+        # Extended frame queue (DSP v5+): optional per-frame voice quality params.
+        # void speechPlayer_queueFrameEx(void* handle, Frame* frame, const FrameEx* frameEx,
+        #                                uint minSamples, uint fadeSamples, int userIndex, bool purgeQueue);
+        self._hasQueueFrameExApi = False
+        try:
+            _queueFrameEx = getattr(self._dll, "speechPlayer_queueFrameEx", None)
+            if _queueFrameEx is not None:
+                self._dll.speechPlayer_queueFrameEx.argtypes = (
+                    c_void_p,
+                    POINTER(Frame),
+                    POINTER(FrameEx),
+                    c_uint,
+                    c_uint,
+                    c_int,
+                    c_int,
+                )
+                self._dll.speechPlayer_queueFrameEx.restype = None
+                self._hasQueueFrameExApi = True
+        except (AttributeError, OSError):
+            # Older DLL without frameEx support - that's fine
+            pass
+
         # int speechPlayer_synthesize(void* handle, uint numSamples, short* out);
         self._dll.speechPlayer_synthesize.argtypes = (c_void_p, c_uint, POINTER(c_short))
         self._dll.speechPlayer_synthesize.restype = c_int
@@ -250,6 +300,64 @@ class SpeechPlayer(object):
             c_int(int(userIndex) if userIndex is not None else -1),
             c_int(1 if purgeQueue else 0),
         )
+
+    def queueFrameEx(self, frame, frameEx, minFrameDuration, fadeDuration,
+                     userIndex: int = -1, purgeQueue: bool = False) -> bool:
+        """Queue a frame with optional extended voice quality parameters (DSP v5+).
+        
+        This is for features like Danish stød (creaky voice), breathiness, jitter,
+        and shimmer that can't be expressed through the standard Frame parameters.
+        
+        Args:
+            frame: Frame struct with standard parameters (or None for silence).
+            frameEx: FrameEx struct with voice quality params, or None for defaults.
+            minFrameDuration: Minimum duration in milliseconds.
+            fadeDuration: Fade/interpolation duration in milliseconds.
+            userIndex: Optional index for tracking (default -1).
+            purgeQueue: If True, clear pending frames before queueing.
+            
+        Returns:
+            True if frameEx was used, False if fell back to queueFrame (older DLL).
+        """
+        # Convert ms -> samples for the DLL.
+        minSamples = int(float(minFrameDuration) * (self.sampleRate / 1000.0))
+        fadeSamples = int(float(fadeDuration) * (self.sampleRate / 1000.0))
+
+        if minSamples < 0:
+            minSamples = 0
+        if fadeSamples < 0:
+            fadeSamples = 0
+
+        framePtr = byref(frame) if frame else None
+        
+        # Try the extended API first
+        if getattr(self, "_hasQueueFrameExApi", False):
+            frameExPtr = byref(frameEx) if frameEx else None
+            self._dll.speechPlayer_queueFrameEx(
+                self._speechHandle,
+                framePtr,
+                frameExPtr,
+                c_uint(minSamples),
+                c_uint(fadeSamples),
+                c_int(int(userIndex) if userIndex is not None else -1),
+                c_int(1 if purgeQueue else 0),
+            )
+            return True
+        
+        # Fall back to legacy API (frameEx params will be ignored)
+        self._dll.speechPlayer_queueFrame(
+            self._speechHandle,
+            framePtr,
+            c_uint(minSamples),
+            c_uint(fadeSamples),
+            c_int(int(userIndex) if userIndex is not None else -1),
+            c_int(1 if purgeQueue else 0),
+        )
+        return False
+
+    def hasFrameExSupport(self) -> bool:
+        """Check if the DLL supports extended frame parameters (DSP v5+)."""
+        return getattr(self, "_hasQueueFrameExApi", False)
 
     def synthesize(self, numSamples: int):
         n = int(numSamples)
