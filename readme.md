@@ -97,21 +97,21 @@ The `speechPlayer.dll` now exports additional functions for real-time control of
 
 ### VoicingTone struct parameters
 
-The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 4, there are **10 parameters** plus a version detection header.
+The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 5, there are **11 parameters** plus a version detection header.
 
-#### Version detection (v2 struct)
+#### Version detection (v3 struct)
 
-The v2 struct includes a header for backward compatibility:
+The v3 struct includes a header for backward compatibility:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `magic` | uint32 | Magic number `0x32544F56` ("VOT2" in little-endian) |
 | `structSize` | uint32 | Size of the struct in bytes |
-| `structVersion` | uint32 | Struct version (currently 2) |
-| `dspVersion` | uint32 | DSP version (currently 4) |
+| `structVersion` | uint32 | Struct version (currently 3) |
+| `dspVersion` | uint32 | DSP version (currently 5) |
 
 When the DLL receives a `VoicingTone` struct, it checks the magic number:
-- **If magic matches**: Uses the full v2 struct with all 10 parameters
+- **If magic matches**: Uses the full v3 struct with all 11 parameters
 - **If magic doesn't match**: Assumes legacy v1 layout (7 doubles) and applies defaults for new parameters
 
 This allows older drivers to continue working with newer DLLs, and vice versa.
@@ -128,7 +128,7 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 | `highShelfQ` | double | 0.7 | 0.3–2.0 | High-shelf Q factor. Higher values create a more resonant shelf transition. |
 | `voicedTiltDbPerOct` | double | 0.0 | -24 to +24 | Spectral tilt in dB/octave. Negative values create a brighter sound (less natural roll-off); positive values create a darker, more muffled sound. |
 
-#### New parameters (v2, DSP version 4+)
+#### V2 parameters (DSP version 4+)
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
@@ -136,14 +136,39 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 | `pitchSyncF1DeltaHz` | double | 0.0 | -60 to +60 | Pitch-synchronous F1 modulation. During the glottal open phase, F1 is shifted by this amount. Can add naturalness or remove subtle clicks. |
 | `pitchSyncB1DeltaHz` | double | 0.0 | -50 to +50 | Pitch-synchronous B1 (F1 bandwidth) modulation. During the glottal open phase, B1 is widened by this amount. Works with `pitchSyncF1DeltaHz`. |
 
-### Usage example (Python/ctypes, v2 struct)
+#### V3 parameters (DSP version 5+)
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `speedQuotient` | double | 2.0 | 0.5–4.0 | Glottal pulse asymmetry (ratio of opening to closing time). Lower values (0.5–1.5) create softer, more female-like voices. Higher values (2.5–4.0) create sharper, more male/pressed voices. Default 2.0 matches original behavior. |
+
+### FrameEx struct (DSP version 5+)
+
+DSP version 5 introduces an optional per-frame extension struct for voice quality parameters that vary during speech (e.g., Danish stød). This keeps the original 47-parameter frame ABI stable.
+
+#### New API function
+
+- `speechPlayer_queueFrameEx(handle, frame*, frameEx*, minDuration, fadeDuration, userIndex, purgeQueue)` — Queue a frame with optional extended parameters. If `frameEx` is NULL, behaves identically to `speechPlayer_queueFrame()`.
+
+#### FrameEx parameters
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `creakiness` | double | 0.0 | 0.0–1.0 | Laryngealization / creaky voice. Used for Danish stød and similar phonation types. Adds pitch irregularity, amplitude reduction, and tighter glottal closure. |
+| `breathiness` | double | 0.0 | 0.0–1.0 | Additional voiced breathiness. Increases turbulence during the open glottal phase independently of `voiceTurbulenceAmplitude`. |
+| `jitter` | double | 0.0 | 0.0–1.0 | Pitch perturbation (cycle-to-cycle F0 variation). Adds random pitch wobble for more natural or pathological voice quality. |
+| `shimmer` | double | 0.0 | 0.0–1.0 | Amplitude perturbation (cycle-to-cycle intensity variation). Adds random amplitude wobble. |
+
+These parameters are interpolated during frame crossfades, just like the core frame parameters.
+
+### Usage example (Python/ctypes, v3 struct)
 
 ```python
 from ctypes import Structure, c_double, c_uint32, c_void_p, POINTER, byref, sizeof
 
 # Constants (must match voicingTone.h)
 SPEECHPLAYER_VOICINGTONE_MAGIC = 0x32544F56  # "VOT2"
-SPEECHPLAYER_VOICINGTONE_VERSION = 2
+SPEECHPLAYER_VOICINGTONE_VERSION = 3
 
 class VoicingTone(Structure):
     _fields_ = [
@@ -160,10 +185,12 @@ class VoicingTone(Structure):
         ("highShelfFcHz", c_double),
         ("highShelfQ", c_double),
         ("voicedTiltDbPerOct", c_double),
-        # New v2 parameters
+        # V2 parameters
         ("noiseGlottalModDepth", c_double),
         ("pitchSyncF1DeltaHz", c_double),
         ("pitchSyncB1DeltaHz", c_double),
+        # V3 parameters
+        ("speedQuotient", c_double),
     ]
     
     @classmethod
@@ -172,7 +199,7 @@ class VoicingTone(Structure):
         tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC
         tone.structSize = sizeof(cls)
         tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION
-        tone.dspVersion = 4
+        tone.dspVersion = 5
         tone.voicingPeakPos = 0.91
         tone.voicedPreEmphA = 0.92
         tone.voicedPreEmphMix = 0.35
@@ -183,6 +210,7 @@ class VoicingTone(Structure):
         tone.noiseGlottalModDepth = 0.0
         tone.pitchSyncF1DeltaHz = 0.0
         tone.pitchSyncB1DeltaHz = 0.0
+        tone.speedQuotient = 2.0
         return tone
 
 # Set up function prototypes
@@ -192,6 +220,7 @@ dll.speechPlayer_setVoicingTone.restype = None
 # Create and configure tone
 tone = VoicingTone.defaults()
 tone.voicedTiltDbPerOct = -6.0  # Brighter tilt (Eloquence-like)
+tone.speedQuotient = 1.2  # Softer, more female-like pulse
 
 # Apply to running synthesizer
 dll.speechPlayer_setVoicingTone(handle, byref(tone))
