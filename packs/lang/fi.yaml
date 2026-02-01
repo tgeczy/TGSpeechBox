@@ -1,26 +1,44 @@
 # Finnish (fi)
+#
+# Finnish characteristics:
+# - Strong phonemic length contrast (both vowels and consonants)
+# - Geminates have 3:1 ratio (longer than most languages!)
+# - Fixed initial stress
+# - Syllable-timed rhythm
+# - Pure vowels, vowel harmony
 
 settings:
-  primaryStressDiv: 1.25
-  secondaryStressDiv: 1.07
+  # === STRESS & RHYTHM ===
+  # Finnish has fixed initial stress but relatively even syllable timing
+  primaryStressDiv: 1.30
+  secondaryStressDiv: 1.08
 
-  # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
-  trillModulationMs: 50
-  trillModulationFadeMs: 2
-
-  # Finnish has phonemic length; eSpeak marks long segments with ː.
-  lengthenedScale: 1.5
+  # === LENGTH CONTRAST ===
+  # Finnish has extremely strong length distinctions
+  # Research shows 3:1 geminate-to-singleton ratio (stronger than Italian/Japanese)
+  lengthenedScale: 1.6
 
   applyLengthenedScaleToVowelsOnly: false
 
-  # Length contrast + gemination (Finnish has strong quantity)
+  # Length contrast + gemination (Finnish has VERY strong quantity)
   lengthContrastEnabled: true
-  lengthContrastShortVowelCeilingMs: 85
-  lengthContrastLongVowelFloorMs: 125
-  lengthContrastGeminateClosureScale: 2.0
-  lengthContrastGeminateReleaseScale: 0.9
-  lengthContrastPreGeminateVowelScale: 0.85
-  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  lengthContrastShortVowelCeilingMs: 80
+  lengthContrastLongVowelFloorMs: 140
+
+  # Finnish geminates are longer than Hungarian - use 2.2x scale
+  lengthContrastGeminateClosureScale: 2.2
+  lengthContrastGeminateReleaseScale: 0.85
+  lengthContrastPreGeminateVowelScale: 0.80
+
+  # === TRILLS ===
+  # Finnish has a trilled /r/
+  trillModulationMs: 50
+  trillModulationFadeMs: 2
+
+  # === SMOOTHING ===
+  boundarySmoothingEnabled: true
+
+  # === SINGLE WORD TUNING ===
   singleWordTuningEnabled: true
   singleWordFinalHoldMs: 45
   singleWordFinalFadeMs: 18
@@ -42,3 +60,6 @@ normalization:
     - from: "ɪ"
       to:   "i"
 
+    # Finnish /e/ should be a pure mid front vowel
+    - from: "ɛ"
+      to:   "e"

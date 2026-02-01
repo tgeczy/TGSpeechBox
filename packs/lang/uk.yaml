@@ -1,52 +1,66 @@
 # Ukrainian (uk)
 #
-# First-pass support. Ukrainian is close to Russian, but with key differences:
+# Ukrainian characteristics:
+# - Less vowel reduction than Russian (no аканье)
+# - Palatalized consonants like Russian
 # - /ɦ/ (letter г) vs /ɡ/ (letter ґ)
-# - vowel inventory closer to Slavic "no schwa" (avoid English-like reductions)
-#
-# NOTE: classic eSpeak 1.48 doesn't ship a Ukrainian voice in this environment,
-# so this file is tuned to match typical eSpeak-ng Ukrainian IPA conventions.
-# Native-speaker feedback will help refine this.
+# - Has geminate consonants from assimilation
+# - Dense consonant clusters
 
 settings:
-  # Keep lexical stress audible, but not overly "sing-song".
-  primaryStressDiv: 1.25
+  # === STRESS & RHYTHM ===
+  # Ukrainian stress is prominent but has less vowel reduction than Russian
+  primaryStressDiv: 1.35
   secondaryStressDiv: 1.10
 
-  # Clusters are common; avoid extra gaps that can sound clicky.
+  # === CONSONANT CLUSTERS ===
+  # Ukrainian has dense clusters like Russian
   stopClosureMode: vowel-and-cluster
-  # Allow small stop-closure gaps in clusters/word-boundaries so stops don't get swallowed.
-  # (This helps reduce the "everything blends together" feeling at higher rates.)
   stopClosureClusterGapsEnabled: true
   stopClosureAfterNasalsEnabled: true
 
-  # Smaller than the global defaults (22ms) to avoid sounding too clicky in Russian.
-  stopClosureClusterGapMs: 16
-  stopClosureClusterFadeMs: 4
+  # Tighter gaps for cluster flow
+  stopClosureClusterGapMs: 14
+  stopClosureClusterFadeMs: 3
+  stopClosureVowelGapMs: 26
+  stopClosureVowelFadeMs: 4
 
-  # Word-initial stops after consonants often vanish in dense clusters; give them a tiny gap.
-  stopClosureWordBoundaryClusterGapMs: 18
-  stopClosureWordBoundaryClusterFadeMs: 4
+  # Word-boundary clusters
+  stopClosureWordBoundaryClusterGapMs: 16
+  stopClosureWordBoundaryClusterFadeMs: 3
 
-  # Rolled /r/ (Ukrainian typically trilled).
+  # === GEMINATES ===
+  # Ukrainian has geminates from consonant assimilation
+  lengthContrastEnabled: true
+  lengthContrastGeminateClosureScale: 1.8
+  lengthContrastGeminateReleaseScale: 0.9
+
+  # === TRILLS ===
+  # Ukrainian has a trilled /r/
   trillModulationMs: 45
   trillModulationFadeMs: 2
+
+  # === SMOOTHING ===
+  boundarySmoothingEnabled: true
+
+  # Single-word tuning
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 40
+  singleWordFinalFadeMs: 16
 
 normalization:
   preReplacements:
     # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
     - from: "ʲ"
-      to: ""
+      to: ""
 
     # eSpeak-ng Ukrainian sometimes emits dental diacritics (t̪/d̪).
-    # We don't treat these as distinct phonemes, so strip them.
     - from: "t̪"
       to: "t"
     - from: "d̪"
       to: "d"
 
-    # Some builds emit ɬ for Ukrainian "ш" in clusters like "шв".
-    # Ukrainian doesn't have /ɬ/, so map it to /ʃ/.
+    # Some builds emit ɬ for Ukrainian "ш" in clusters.
     - from: "ɬ"
       to: "ʃ"
 

@@ -75,6 +75,11 @@ normalization:
     - from: "r"
       to: "ɾ"
 
+    # Brazilian Portuguese palatal nasal (nh) benefits from a palatal offglide.
+    # This makes words like "ninho", "senhor" sound more natural.
+    - from: "ɲ"
+      to: "ɲj"
+
     # Voiced x variant (used for BR Portuguese rules)
     - from: "x"
       to: "X"

@@ -1,21 +1,50 @@
 # Bulgarian (bg)
+#
+# Bulgarian characteristics:
+# - Lexical stress with vowel reduction (like Russian, unlike most Slavic)
+# - /u/ vs /o/ contrast neutralizes in unstressed syllables
+# - Palatalized consonants
+# - Unique vowel /ɤ/ (ъ)
+# - Trilled /r/
 
 settings:
-  primaryStressDiv: 1.1
-  secondaryStressDiv: 1.05
+  # === STRESS & RHYTHM ===
+  # Bulgarian has stress-based vowel reduction similar to Russian
+  # Stressed syllables are notably more prominent
+  primaryStressDiv: 1.35
+  secondaryStressDiv: 1.08
 
-  # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
-  trillModulationMs: 50
+  # === CONSONANT CLUSTERS ===
+  # Bulgarian has Slavic-style clusters
+  stopClosureMode: vowel-and-cluster
+  stopClosureClusterGapsEnabled: true
+  stopClosureAfterNasalsEnabled: true
+
+  # Moderate gaps
+  stopClosureClusterGapMs: 15
+  stopClosureClusterFadeMs: 3
+  stopClosureVowelGapMs: 26
+  stopClosureVowelFadeMs: 4
+
+  # === TRILLS ===
+  # Bulgarian has a trilled /r/
+  trillModulationMs: 48
   trillModulationFadeMs: 2
 
-  # Bulgarian clusters are often tight; avoid adding extra closure gaps.
-  stopClosureClusterGapsEnabled: false
+  # === SMOOTHING ===
+  boundarySmoothingEnabled: true
+
+  # === SINGLE WORD TUNING ===
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 40
+  singleWordFinalFadeMs: 16
 
 normalization:
   preReplacements:
     # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
     - from: "ʲ"
-      to: ""
+      to: ""
+
     # eSpeak bg often uses plain sequences for affricates.
     - from: "ts"
       to: "t͡s"
@@ -24,20 +53,16 @@ normalization:
     - from: "dʒ"
       to: "d͡ʒ"
 
-    # Bulgarian does not have phonemic vowel length. eSpeak occasionally emits
-    # length marks (e.g. word-final iː). Strip them to avoid unnatural stretching.
+    # Bulgarian does not have phonemic vowel length.
     - from: "ː"
       to: ""
 
   replacements:
     # eSpeak bg (--ipa) commonly emits schwa for the vowel written "ъ".
-    # In NVSP we keep this distinct as ɤ.
+    # In NVSP we keep this distinct as ɤ (close-mid back unrounded).
     - from: "ə"
       to: "ɤ"
 
     # Bulgarian /e/ is typically [ɛ] (open-mid) rather than [e].
-    # eSpeak uses the plain 'e' symbol, so remap it to our 'ɛ' phoneme.
     - from: "e"
       to: "ɛ"
-    # Slavic palatalization marker: keep ʲ as its own token (phonemes.yaml defines a subtle ʲ offglide).
-

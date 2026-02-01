@@ -1,19 +1,101 @@
 # Dutch (nl)
+# Enhanced with tense/lax vowel contrast, final devoicing, and proper fricatives
 
 settings:
+  # Dutch stress is not fixed but typically on first syllable of stems
+  # Moderate stress contrast
   primaryStressDiv: 1.25
-  secondaryStressDiv: 1.07
+  secondaryStressDiv: 1.10
 
-  # Dutch has contrastive vowel length; make ː more audible.
-  lengthenedScale: 1.3
+  # Dutch has tense/lax vowel contrast (like German)
+  # Tense vowels are longer in stressed syllables - keep subtle
+  lengthenedScale: 1.15
+
+  # Vowel length is contrastive - moderate values
+  lengthContrastEnabled: true
+  lengthContrastShortVowelCeilingMs: 70
+  lengthContrastLongVowelFloorMs: 90
+
+  # Dutch does NOT have phonemic geminates in native words
+  # (double consonants in spelling just indicate short preceding vowel)
+  # So we don't enable geminate closure scaling
+
+  # Dutch stops - clear but not harsh
+  stopClosureMode: vowel-and-cluster
+  stopClosureVowelGapMs: 20
+  stopClosureVowelFadeMs: 7
+  stopClosureClusterGapMs: 16
+  stopClosureClusterFadeMs: 5
+
+  # Smooth transitions
+  boundarySmoothingEnabled: true
+
+  # Dutch R can be uvular or alveolar depending on region
+  # Use moderate trill settings
+  trillModulationMs: 36
+  trillModulationFadeMs: 4
+
+  # Single-word tuning
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+
+  # Enable microprosody
+  microprosodyEnabled: true
 
 normalization:
-  replacements:
-    # eSpeak Dutch often uses the labiodental approximant ʋ.
-    # NVSP doesn't model it separately yet; approximate as /v/.
+  preReplacements:
+    # Dutch labiodental approximant ʋ - very characteristic
+    # Map to /v/ as approximation (NVSP doesn't model ʋ separately yet)
     - from: "ʋ"
       to: "v"
 
-    # Mnemonic fallback: Q -> ɣ
+    # Mnemonic fallback: Q -> ɣ (voiced velar fricative)
     - from: "Q"
       to: "ɣ"
+
+    # Dutch g/ch are velar/uvular fricatives
+    # Northern Dutch often merges voiced/voiceless to [x] or [χ]
+    # Southern Dutch preserves the contrast
+    # For standard, keep the voiceless form dominant
+    - from: "ɣ"
+      to: "x"
+
+    # Dutch diphthongs - ensure proper handling
+    # ij/ei = [ɛi], ui = [œy], ou/au = [ɔu]
+    # These should already be in phonemes.yaml
+
+    # Final devoicing is automatic in Dutch
+    # Word-final b d g → p t k
+    # This happens in speech, but IPA from eSpeak may already reflect it
+
+  replacements:
+    # Schwa elision - Dutch often drops final schwa after obstruents
+    # But keep for TTS clarity
+
+    # The -en ending often loses the n (just schwa remains)
+    # e.g., "lopen" → [ˈloːpə(n)]
+    # Keep n for clarity in TTS
+
+intonation:
+  # Dutch declaratives - moderate fall
+  ".":
+    preHeadStart: 68
+    preHeadEnd: 52
+    nucleus0Start: 65
+    nucleus0End: 18
+    nucleusStart: 70
+    nucleusEnd: 15
+    tailStart: 18
+    tailEnd: 8
+
+  # Dutch questions - clear rise
+  "?":
+    preHeadStart: 52
+    preHeadEnd: 62
+    nucleus0Start: 58
+    nucleus0End: 82
+    nucleusStart: 55
+    nucleusEnd: 88
+    tailStart: 82
+    tailEnd: 90

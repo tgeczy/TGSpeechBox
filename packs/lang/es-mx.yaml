@@ -2,3 +2,34 @@
 # Inherits from: default.yaml -> es.yaml
 
 settings: {}
+settings:
+  spellingDiphthongMode: none
+  stopClosureAfterNasalsEnabled: false
+  segmentBoundarySkipVowelToLiquid: false
+  postStopAspirationEnabled: false
+  coarticulationEnabled: false
+  coarticulationFadeIntoConsonants: false
+  coarticulationVelarPinchEnabled: false
+  coarticulationGraduated: false
+  coarticulationAdjacencyMaxConsonants: 2
+  phraseFinalLengtheningEnabled: false
+  phraseFinalLengtheningNucleusOnlyMode: false
+  microprosodyEnabled: false
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicedF0LowerEnabled: false
+  rateReductionEnabled: false
+  nasalizationAnticipatoryEnabled: false
+  liquidDynamics:
+    enabled: false
+  lengthContrast:
+    enabled: false
+  positionalAllophones:
+    enabled: false
+    glottalReinforcement:
+      enabled: false
+  boundarySmoothing:
+    enabled: false
+  trajectoryLimit:
+    enabled: false
+    applyAcrossWordBoundary: false
+  stopClosureMode: always

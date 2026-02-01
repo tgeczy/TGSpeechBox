@@ -39,29 +39,34 @@ settings:
 
   spellingDiphthongMode: monophthong
 
+  # Shorten semivowel offglides in diphthongs (e.g. the "j" in FACE eɪ→ej).
+  # This makes diphthongs like "applications" sound more staccato/natural.
+  semivowelOffglideScale: 0.65
+
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
   coarticulationEnabled: false
   boundarySmoothingEnabled: false
   trajectoryLimitEnabled: false
-  microprosodyEnabled: false
-  rateReductionEnabled: false
+  microprosodyEnabled: true
+  rateReductionEnabled: true
   segmentBoundarySkipVowelToLiquid: false
   coarticulationFadeIntoConsonants: false
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
-  coarticulationAdjacencyMaxConsonants: 2
+  coarticulationAdjacencyMaxConsonants: 0
   phraseFinalLengtheningEnabled: false
   phraseFinalLengtheningNucleusOnlyMode: false
   microprosodyVoicelessF0RaiseEnabled: false
-  microprosodyVoicedF0LowerEnabled: false
+  microprosodyVoicedF0LowerEnabled: true
   nasalizationAnticipatoryEnabled: false
   liquidDynamics:
     enabled: true
     # American-style rhotic quality - creates movement in the R
     rhoticF3Dip:
       enabled: true
-      f3Minimum: 1300
-      dipDurationPct: 0.55
+      f3Minimum: 1450
+      # Reduced from 0.45 to make R feel less "drawn out"
+      dipDurationPct: 0.32
   lengthContrast:
     enabled: false
   positionalAllophones:
@@ -72,7 +77,9 @@ settings:
     enabled: false
   trajectoryLimit:
     enabled: false
-    applyAcrossWordBoundary: false
+    applyAcrossWordBoundary: true
+  legacyPitchMode: false
+  singleWordClauseTypeOverrideCommaOnly: false
 normalization:
   preReplacements:
     # Protect PRICE/MOUTH diphthongs from broad TRAP rules (e.g. five/nine/out).
@@ -231,6 +238,14 @@ normalization:
         atWordEnd: true
     - from: "ɹ"
       to:   "ɻ"
+
+    # In onsets (before a vowel), use the lighter alveolar approximant /ɹ/.
+    # Keep the heavier ɻ for codas (word-final or before consonants).
+    - from: "ɻ"
+      to:   "ɹ"
+      when:
+        beforeClass: VOWELS
+
 
     # Word-final R: lengthen it so it doesn't sound clipped or "waiting for next word"
     - from: "ɻ"

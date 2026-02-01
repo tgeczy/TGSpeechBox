@@ -1,63 +1,114 @@
+# Hungarian language pack - tuned for native-like prosody
+# Hungarian is SYLLABLE-TIMED, has phonemic vowel length, and clear geminates
+
 settings:
   legacyPitchMode: false
 
-  # Hungarian stress is fixed (word-initial) and is less "English-like" in timing.
-  # Keep this very subtle so short vs long vowel length contrast stays clear.
-  primaryStressDiv: 1.10
+  # === HUNGARIAN PROSODY ===
+  # Hungarian is SYLLABLE-TIMED (like Spanish/Italian), not stress-timed like English.
+  # Each syllable gets roughly equal duration. Stress is word-initial but very subtle.
+  
+  # Keep stress very subtle - Hungarian stress is more about pitch than duration
+  primaryStressDiv: 1.05
   secondaryStressDiv: 1.00
 
-  # Make sure ː actually creates a clear long/short contrast in Hungarian.
-  # (We set both the generic and HU compat keys so whichever path the frontend uses, it behaves.)
-  lengthenedScale: 1.40
-  # Length contrast + gemination (Hungarian has phonemic length)
-  lengthContrastEnabled: true
-  lengthContrastShortVowelCeilingMs: 90
-  lengthContrastLongVowelFloorMs: 100
-  lengthContrastGeminateClosureScale: 1.85
-  lengthContrastGeminateReleaseScale: 0.9
-  lengthContrastPreGeminateVowelScale: 0.88
-
-  lengthenedScaleHu: 1.40
-  lengthenedVowelFinalCodaScale: 0.90
+  # === LENGTH CONTRAST ===
+  # Hungarian has phonemic vowel length (a vs á, e vs é, etc.) - this MUST be clear
+  lengthenedScale: 1.90
+  lengthenedScaleHu: 1.90
+  lengthenedVowelFinalCodaScale: 0.92
   applyLengthenedScaleToVowelsOnly: false
-  # Hungarian occlusives are often softer; avoid clickiness:
+
+  # Length contrast settings - enforce clear short/long distinction
+  lengthContrast:
+    enabled: true
+    shortVowelCeilingMs: 70
+    longVowelFloorMs: 125
+    # Geminates: held closure then crisp release
+    # Now that the C++ patch inserts proper closure gaps, we can use gentler scaling
+    geminateClosureScale: 1.6
+    geminateReleaseScale: 0.90
+    preGeminateVowelScale: 0.85
+
+  # === CONSONANT CLARITY ===
+  # Hungarian consonant clusters must be crisp and distinct, not blended
+  # Words like "megszülettek" have ɡs, tː clusters that need separation
   stopClosureMode: always
   stopClosureAfterNasalsEnabled: true
-  stopClosureVowelGapMs: 30.0
-  stopClosureVowelFadeMs: 7.0
-  stopClosureClusterGapMs: 24.0
-  stopClosureClusterFadeMs: 5.0
+  stopClosureVowelGapMs: 32.0
+  stopClosureVowelFadeMs: 5.0
+  stopClosureClusterGapMs: 26.0
+  stopClosureClusterFadeMs: 4.0
+  
+  # Segment boundaries - keep consonants separate
+  segmentBoundaryGapMs: 16
+  segmentBoundaryFadeMs: 4
 
-  trillModulationMs: 30.0
+  # === BOUNDARY SMOOTHING OFF ===
+  # Hungarian needs crisp transitions, not smoothed ones
+  boundarySmoothing:
+    enabled: false
+
+  # === COARTICULATION ===
+  # DISABLED for Hungarian - causes ɡ to sound like ɟ near front vowels (függő problem)
+  # Hungarian consonants should stay distinct regardless of vowel context
+  coarticulationEnabled: false
+
+  # === TRAJECTORY LIMITING ===
+  # Limit how fast formants can change - prevents muddy clusters
+  trajectoryLimit:
+    enabled: true
+    applyTo: [cf2, cf3]
+    maxHzPerMs:
+      cf2: 22
+      cf3: 28
+    windowMs: 20
+    applyAcrossWordBoundary: false
+
+  # === PHRASE-FINAL LENGTHENING ===
+  # Hungarian does have some final lengthening but less than English
+  phraseFinalLengthening:
+    enabled: true
+    finalSyllableScale: 1.18
+    penultimateSyllableScale: 1.05
+    nucleusOnlyMode: true
+
+  # === MICROPROSODY ===
+  # Subtle pitch effects around consonants
+  microprosody:
+    enabled: true
+    voicelessF0Raise:
+      enabled: false
+    voicedF0Lower:
+      enabled: true
+      deltaHz: 6
+
+  # === TRILL (rolled R) ===
+  trillModulationMs: 28.0
   trillModulationFadeMs: 0.0
 
-  # Hungarian short "a" timing helper (legacy compat)
+  # === HUNGARIAN SHORT "A" ===
+  # Hungarian short "a" is /ɒ/ (open back rounded), quite distinct from long "á" /aː/
   huShortAVowelEnabled: true
   huShortAVowelKey: "ᴒ"
-  huShortAVowelScale: 0.85
+  huShortAVowelScale: 0.82
 
-  phraseFinalLengtheningNucleusOnlyMode: false
-  phraseFinalLengtheningEnabled: false
-  coarticulationVelarPinchEnabled: false
-  coarticulationFadeIntoConsonants: false
-  coarticulationEnabled: false
-  microprosodyEnabled: true
-  microprosodyVoicelessF0RaiseEnabled: false
-  microprosodyVoicedF0LowerEnabled: true
-  microprosodyVoicedF0LowerHz: -8.0
+  # === OTHER SETTINGS ===
   nasalizationAnticipatoryEnabled: false
   positionalAllophonesGlottalReinforcementEnabled: false
   autoTieDiphthongs: false
   liquidDynamicsEnabled: false
-  # Single-word utterance smoothing (key echo / word-by-word navigation)
+  
+  # Single-word smoothing
   singleWordTuningEnabled: true
-  singleWordFinalHoldMs: 45
-  singleWordFinalFadeMs: 18
+  singleWordFinalHoldMs: 50
+  singleWordFinalFadeMs: 15
   singleWordClauseTypeOverride: "."
   singleWordClauseTypeOverrideCommaOnly: true
 
 normalization:
   preReplacements:
+    # Long vowel mappings to Hungarian-specific symbols
     - from: "aː"
       to: "áː"
     - from: "eː"
@@ -73,53 +124,46 @@ normalization:
     - from: "yː"
       to: "űː"
 
-    # Hungarian short "a" is more /ɒ/ than /ɑ/ for many speakers.
+    # Hungarian short "a" is /ɒ/ not /ɑ/
     - from: "ɑ"
       to: "ᴒ"
-
-    
     - from: "ɒ"
       to: "ᴒ"
-    # Hungarian "ny" is /ɲ/ (palatal nasal). Some eSpeak tables emit it as nʲ or n͡ʲ.
-    # Collapse those to /ɲ/ so the palatal quality doesn't disappear.
+
+    # Hungarian "ny" /ɲ/ - palatal nasal
     - from: "n͡ʲ"
       to: "ɲ"
     - from: "nʲ"
       to: "ɲ"
-    # Use the Hungarian-tuned palatal nasal variant.
-    - from: "ɲ"
-      to: "ɲ"
 
-    # Safety: if a palatalization marker sneaks in, map it to our internal marker.
+    # Strip stray palatalization markers
     - from: "ʲ"
-      to: ""
+      to: ""
+    - from: "n͡"
+      to: "ɲ"
 
-    # If the palatal marker is already converted (n), fold it too.
-    - from: "n͡"
-      to: "ɲ"
-    - from: "n"
-      to: "ɲ"
-
-    
-
-    # Hungarian "gy" (/ɟ/) is word-initially stressed.
-    # The frontend skips inserting stop-closure gaps for stressed consonants, which can make initial /ɟ/ vanish ("György" -> "örgy").
-    # Move the stress mark AFTER the consonant so /ɟ/ still gets a stop-closure gap, but the following vowel carries the stress.
+    # Hungarian "gy" /ɟ/ stress handling
+    # Move stress after word-initial gy so it gets proper closure
     - from: "ˈɟ"
-      to:   "ɟˈ"
+      to: "ɟˈ"
       when:
         atWordStart: true
     - from: "ˈd͡ʑ"
-      to:   "d͡ʑˈ"
+      to: "d͡ʑˈ"
       when:
         atWordStart: true
 
-    # Hungarian doesn't meaningfully use secondary stress in this pipeline; strip it.
+    # Strip secondary stress - Hungarian doesn't really use it
     - from: "ˌ"
       to: ""
+
   replacements:
-    # In long compounds, the final "jel" can get overly reduced (e.g. "felkiáltójel").
-    # Add a light secondary stress so the final syllable stays audible without turning it Englishy.
+    # Separate difficult clusters with micro-schwa for clarity
+    # "megszülettek" has ɡs cluster
+    - from: "ɡs"
+      to: "ɡᵊs"
+
+    # Final "jel" in compounds - keep audible
     - from: "jɛl"
       to: "jˌɛl"
       when:
@@ -127,12 +171,37 @@ normalization:
 
 intonation:
   ".":
-    # Hungarian declaratives: make the final fall clearer (helps even when stress marks are sparse).
-    preHeadStart: 70
-    preHeadEnd: 30
-    nucleus0Start: 68
-    nucleus0End: 0
-    nucleusStart: 72
-    nucleusEnd: 14
-    tailStart: 22
-    tailEnd: 0
+    # Hungarian declaratives: steady then fall at end
+    # Less dramatic than English - more level throughout
+    preHeadStart: 55
+    preHeadEnd: 50
+    headStart: 52
+    headEnd: 45
+    nucleus0Start: 50
+    nucleus0End: 15
+    nucleusStart: 48
+    nucleusEnd: 20
+    tailStart: 25
+    tailEnd: 8
+  
+  "?":
+    # Hungarian yes/no questions rise at end
+    preHeadStart: 45
+    preHeadEnd: 50
+    nucleus0Start: 55
+    nucleus0End: 85
+    nucleusStart: 50
+    nucleusEnd: 80
+    tailStart: 75
+    tailEnd: 90
+  
+  ",":
+    # Continuation - slight rise
+    preHeadStart: 50
+    preHeadEnd: 48
+    nucleus0Start: 50
+    nucleus0End: 55
+    nucleusStart: 48
+    nucleusEnd: 52
+    tailStart: 50
+    tailEnd: 55
