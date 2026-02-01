@@ -842,36 +842,9 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
 
     t.durationMs = dur;
 
-    // ============================================
-    // BOUNDARY SMOOTHING
-    // ============================================
-    // Apply longer fade times at phoneme type transitions
-    // to reduce "clicky" consonant boundaries.
-    if (lang.boundarySmoothingEnabled && last && !t.silence && !last->silence) {
-      const bool lastIsVowel = tokenIsVowel(*last);
-      const bool currIsStop = tokenIsStop(t);
-      const bool currIsAfricate = tokenIsAfricate(t);
-      const bool currIsFric = (!tokenIsVoiced(t) && !currIsStop && !currIsAfricate && !tokenIsVowel(t));
-      const bool currIsVowel = tokenIsVowel(t);
-      const bool lastIsStop = tokenIsStop(*last);
-      const bool lastIsAfricate = tokenIsAfricate(*last);
-      
-      // Vowel -> Stop/Affricate transition
-      if (lastIsVowel && (currIsStop || currIsAfricate)) {
-        double smoothFade = lang.boundarySmoothingVowelToStopFadeMs / curSpeed;
-        if (smoothFade > fade) fade = smoothFade;
-      }
-      // Stop/Affricate -> Vowel transition
-      else if ((lastIsStop || lastIsAfricate) && currIsVowel) {
-        double smoothFade = lang.boundarySmoothingStopToVowelFadeMs / curSpeed;
-        if (smoothFade > fade) fade = smoothFade;
-      }
-      // Vowel -> Fricative transition
-      else if (lastIsVowel && currIsFric) {
-        double smoothFade = lang.boundarySmoothingVowelToFricFadeMs / curSpeed;
-        if (smoothFade > fade) fade = smoothFade;
-      }
-    }
+    // NOTE: Boundary smoothing is now handled by the boundary_smoothing pass
+    // which runs after timing calculation. This allows for more sophisticated
+    // transition handling without cluttering this function.
 
     t.fadeMs = fade;
     last = &t;
