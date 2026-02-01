@@ -87,6 +87,10 @@ class FrameManager {
 
 	virtual const int getLastIndex()=0;
 
+	// Check if a purge happened since last check (and clear the flag).
+	// This allows the wave generator to detect interrupts even when frames continue.
+	virtual bool checkAndClearPurgeFlag()=0;
+
 	// Pure virtual, but still needs a definition.
 	virtual ~FrameManager()=0;
 };

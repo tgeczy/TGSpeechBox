@@ -199,10 +199,12 @@ private:
     double tiltRefHz;
     double tiltLastTlForTargets;
 
-    // Aspiration tilt (LP/HP crossfade for noise color - GPT's approach)
-    double aspTiltDbPerOct;
-    double aspLpState;      // lowpass state for tilt filter
-    double fricLpState;     // lowpass state for frication tilt (uses same tilt value)
+    // Aspiration/frication tilt (LP/HP crossfade for noise color)
+    double aspTiltTargetDb;      // target from slider
+    double aspTiltSmoothedDb;    // smoothed value (prevents clicks)
+    double aspTiltSmoothAlpha;   // smoothing coefficient
+    double aspLpState;           // lowpass state for aspiration tilt filter
+    double fricLpState;          // lowpass state for frication tilt (same tilt value)
 
     // Radiation Gain (Applied ONLY to dFlow)
     double radiationDerivGain;
@@ -297,78 +299,61 @@ return clampDouble(a, 0.0, 0.9999);
         return exp(-PITWO * fc / (double)sampleRate);
     }
 
-    // Aspiration tilt: LP/HP crossfade for noise color (GPT's approach)
-    // Negative = darker (crossfade toward lowpass)
-    // Positive = brighter (add highpass pre-emphasis)
+    // Aspiration/frication tilt: LP/HP crossfade for noise color
+    // Negative = darker, Positive = brighter
+    // Uses smoothing to prevent clicks on parameter changes
     void setAspirationTiltDbPerOct(double tiltDb) {
-        aspTiltDbPerOct = clampDouble(tiltDb, -24.0, 24.0);
+        aspTiltTargetDb = clampDouble(tiltDb, -24.0, 24.0);
     }
 
     double applyAspirationTilt(double x) {
-        double t = aspTiltDbPerOct;
+        // Smooth the tilt parameter (prevents clicks from instant slider changes)
+        aspTiltSmoothedDb += (aspTiltTargetDb - aspTiltSmoothedDb) * aspTiltSmoothAlpha;
+        double t = aspTiltSmoothedDb;
 
-        // No-op for near zero
-        if (fabs(t) < 0.5) return x;
-
-        // amount 0..1, with a perceptual curve so the middle of the slider matters
+        // Effect amount 0..1, with perceptual curve
         double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
         amt = pow(amt, 0.65);
 
-        // choose a cutoff that moves with amt (more amt => more obvious)
-        // darkening: lower cutoff, brightening: higher cutoff for the "hp component"
-        double fc = (t < 0.0)
-            ? (6000.0 - 4500.0 * amt)   // 6k -> 1.5k
-            : (2000.0 + 6000.0 * amt);  // 2k -> 8k
-
+        // Cutoff based on magnitude only (continuous at t=0, no jump)
+        double fc = 6000.0 - 4500.0 * amt;  // 6k -> 1.5k as amt rises
         double a = onePoleAlphaFromFc(fc);
 
-        // lowpass
+        // Always update filter state (prevents state freeze clicks)
         aspLpState = (1.0 - a) * x + a * aspLpState;
         double lp = aspLpState;
-
-        // crude highpass component
         double hp = x - lp;
 
-        if (t < 0.0) {
-            // Darken: crossfade toward lowpass
-            return (1.0 - amt) * x + amt * lp;
-        } else {
-            // Brighten: add highpass component (pre-emphasis feel)
-            // Small makeup gain keeps loudness stable-ish
-            double y = x + (1.25 * amt) * hp;
-            return y;
-        }
+        // Branchless: darken subtracts hp, brighten adds hp
+        double brightAmt = (t > 0.0) ? amt : 0.0;
+        double darkAmt   = (t < 0.0) ? amt : 0.0;
+        const double kBright = 1.25;
+        return x + hp * (kBright * brightAmt - darkAmt);
     }
 
 public:
     bool glottisOpen;
 
-    // Frication tilt: same algorithm, separate state, uses same tilt value
-    // (In future, could expose separate fricationTiltDbPerOct if needed)
+    // Frication tilt: same algorithm, separate state, shares smoothed tilt value
     double applyFricationTilt(double x) {
-        double t = aspTiltDbPerOct;  // Use same tilt value for now
-
-        // No-op for near zero
-        if (fabs(t) < 0.5) return x;
+        // Use the already-smoothed tilt value from aspiration
+        double t = aspTiltSmoothedDb;
 
         double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
         amt = pow(amt, 0.65);
 
-        double fc = (t < 0.0)
-            ? (6000.0 - 4500.0 * amt)
-            : (2000.0 + 6000.0 * amt);
-
+        double fc = 6000.0 - 4500.0 * amt;
         double a = onePoleAlphaFromFc(fc);
 
+        // Always update filter state
         fricLpState = (1.0 - a) * x + a * fricLpState;
         double lp = fricLpState;
         double hp = x - lp;
 
-        if (t < 0.0) {
-            return (1.0 - amt) * x + amt * lp;
-        } else {
-            return x + (1.25 * amt) * hp;
-        }
+        double brightAmt = (t > 0.0) ? amt : 0.0;
+        double darkAmt   = (t < 0.0) ? amt : 0.0;
+        const double kBright = 1.25;
+        return x + hp * (kBright * brightAmt - darkAmt);
     }
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
@@ -384,7 +369,8 @@ public:
         tiltTlAlpha(0.0), tiltPoleAlpha(0.0),
         tiltRefHz(3000.0),
         tiltLastTlForTargets(1e9),
-        aspTiltDbPerOct(0.0), aspLpState(0.0), fricLpState(0.0),
+        aspTiltTargetDb(0.0), aspTiltSmoothedDb(0.0), aspTiltSmoothAlpha(0.0),
+        aspLpState(0.0), fricLpState(0.0),
         radiationDerivGain(1.0),
         radiationMix(0.0) {
 
@@ -393,6 +379,10 @@ public:
 
         tiltTlAlpha = 1.0 - exp(-1.0 / (sampleRate * (tlSmoothMs * 0.001)));
         tiltPoleAlpha = 1.0 - exp(-1.0 / (sampleRate * (poleSmoothMs * 0.001)));
+
+        // Aspiration tilt smoothing (10ms removes clicks without feeling laggy)
+        const double aspTiltSmoothMs = 10.0;
+        aspTiltSmoothAlpha = 1.0 - exp(-1.0 / (sampleRate * (aspTiltSmoothMs * 0.001)));
 
         // Aspiration gain smoothing (attack/release in ms).
         // This helps avoid random clicks when aspirationAmplitude changes quickly.
@@ -440,6 +430,8 @@ public:
         glottisOpen=false;
         aspLpState = 0.0;
         fricLpState = 0.0;
+        aspTiltSmoothedDb = aspTiltTargetDb;  // Snap to target on reset
+        tiltState = 0.0;  // Reset voiced tilt IIR state to prevent transient
     }
 
     void setTiltDbPerOct(double tiltVal) {
@@ -463,7 +455,7 @@ public:
         if (tiltDb) *tiltDb = tiltTargetTlDb;
         if (noiseModDepth) *noiseModDepth = noiseGlottalModDepth;
         if (sq) *sq = speedQuotient;
-        if (aspTiltDb) *aspTiltDb = aspTiltDbPerOct;
+        if (aspTiltDb) *aspTiltDb = aspTiltTargetDb;
     }
 
     void setSpeedQuotient(double sq) {
@@ -1104,6 +1096,8 @@ private:
     double lastBrightOut;      // store last post-shelf sample for fade tail
     int stopFadeRemaining;     // samples left in fade-out
     int stopFadeTotal;         // total fade-out length
+    int startFadeRemaining;    // samples left in fade-in (prevents pop on speech start)
+    int startFadeTotal;        // total fade-in length
 
     void initHighShelf(double fc, double gainDb, double Q) {
         // Clamp inputs to prevent NaNs and weird filter behavior from bad UI values
@@ -1142,7 +1136,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -1229,6 +1223,21 @@ public:
 
     unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
         if(!frameManager) return 0;
+        
+        // Check if a purge happened — if so, trigger a fade-in to prevent pop
+        // Note: We intentionally do NOT reset resonators here because that can cause
+        // its own transient. The fade-in should mask any discontinuity.
+        if(frameManager->checkAndClearPurgeFlag()) {
+            // Only reset stateless things and trigger fade
+            hsIn1 = 0.0; hsIn2 = 0.0; hsOut1 = 0.0; hsOut2 = 0.0;
+            lastInput = 0.0;
+            lastOutput = 0.0;
+            // Trigger fade-in
+            startFadeTotal = (int)(sampleRate * 0.004); // 6 ms - longer for higher sample rates
+            if (startFadeTotal < 64) startFadeTotal = 64;
+            startFadeRemaining = startFadeTotal;
+        }
+        
         for(unsigned int i=0;i<sampleCount;++i) {
             const speechPlayer_frameEx_t* frameEx = NULL;
             const speechPlayer_frame_t* frame=frameManager->getCurrentFrameWithEx(&frameEx);
@@ -1253,7 +1262,12 @@ public:
                     // Reset stop fade-out state
                     stopFadeTotal = 0;
                     stopFadeRemaining = 0;
-                    // NOTE: Do NOT reset hsIn1/hsIn2/hsOut1/hsOut2 here!
+                    // Reset high-shelf filter state to prevent pops from residual energy
+                    hsIn1 = 0.0; hsIn2 = 0.0; hsOut1 = 0.0; hsOut2 = 0.0;
+                    // Start a short fade-in to prevent pops on speech start
+                    startFadeTotal = (int)(sampleRate * 0.002); // 2 ms
+                    if (startFadeTotal < 16) startFadeTotal = 16;
+                    startFadeRemaining = startFadeTotal;
                     wasSilence=false;
                 }
 
@@ -1415,6 +1429,13 @@ public:
                 // Crossfade between unshelved and shelved
                 double bright = filteredOut + shelfMix * (shelved - filteredOut);
 
+                // Apply start fade-in if active (prevents pop on speech start)
+                if (startFadeRemaining > 0) {
+                    double fadeIn = 1.0 - ((double)startFadeRemaining / (double)startFadeTotal);
+                    bright *= fadeIn;
+                    startFadeRemaining--;
+                }
+
                 // Store for fade-out tail on interrupt
                 lastBrightOut = bright;
 
@@ -1434,7 +1455,8 @@ public:
                         stopFadeRemaining = stopFadeTotal;
                     }
                     if (stopFadeRemaining > 0) {
-                        double t = (double)stopFadeRemaining / (double)stopFadeTotal; // 1..0
+                        // Fade from 1.0 to 0.0 inclusive (last sample is exactly 0)
+                        double t = (double)(stopFadeRemaining - 1) / (double)(stopFadeTotal - 1);
                         double tail = lastBrightOut * t;
                         double scaled = tail * 6000.0;
                         const double limit = 32767.0;
@@ -1450,6 +1472,8 @@ public:
                 wasSilence = true;
                 stopFadeTotal = 0;
                 stopFadeRemaining = 0;
+                // Reset high-shelf biquad state so next utterance starts clean
+                hsIn1 = hsIn2 = hsOut1 = hsOut2 = 0.0;
                 return i;
             }
         }

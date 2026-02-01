@@ -45,6 +45,7 @@ class FrameManagerImpl: public FrameManager {
 	bool curHasFrameEx;
 	unsigned int sampleCounter;
 	int lastUserIndex;
+	bool purgeFlag;  // Set on purge, cleared when checked
 
 	void updateCurrentFrame() {
 		sampleCounter++;
@@ -129,7 +130,7 @@ class FrameManagerImpl: public FrameManager {
 
 	public:
 
-	FrameManagerImpl(): curFrame(), curFrameEx(), curFrameIsNULL(true), curHasFrameEx(false), sampleCounter(0), newFrameRequest(NULL), lastUserIndex(-1)  {
+	FrameManagerImpl(): curFrame(), curFrameEx(), curFrameIsNULL(true), curHasFrameEx(false), sampleCounter(0), newFrameRequest(NULL), lastUserIndex(-1), purgeFlag(false)  {
 		// speechPlayer_frame_t is a plain C struct; ensure it starts from a known state.
 		memset(&curFrame, 0, sizeof(speechPlayer_frame_t));
 		memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
@@ -193,6 +194,7 @@ class FrameManagerImpl: public FrameManager {
 				delete newFrameRequest;
 				newFrameRequest=NULL;
 			}
+			purgeFlag = true;  // Signal to wave generator that a purge happened
 		}
 		frameRequestQueue.push(frameRequest);
 		frameLock.release();
@@ -200,6 +202,14 @@ class FrameManagerImpl: public FrameManager {
 
 	const int getLastIndex() override {
 		return lastUserIndex;
+	}
+
+	bool checkAndClearPurgeFlag() override {
+		frameLock.acquire();
+		bool wasPurged = purgeFlag;
+		purgeFlag = false;
+		frameLock.release();
+		return wasPurged;
 	}
 
 	const speechPlayer_frame_t* const getCurrentFrameWithEx(const speechPlayer_frameEx_t** outFrameEx) override {
