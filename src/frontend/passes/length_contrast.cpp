@@ -1,4 +1,3 @@
-\
 #include "length_contrast.h"
 
 #include <algorithm>
@@ -128,20 +127,62 @@ bool runLengthContrast(
   }
 
   // 2b) Consonants marked lengthened directly (Cː).
+  // For STOP consonants, we need to INSERT a closure gap before them,
+  // not just lengthen the consonant itself (which sounds wrong).
+  // For non-stops (fricatives, nasals, etc.), lengthening the consonant is correct.
+  //
+  // We collect insertions first, then apply them to avoid iterator invalidation.
+  struct GapInsertion {
+    int insertBefore;  // index where to insert the gap
+    double gapDurationMs;
+    double gapFadeMs;
+  };
+  std::vector<GapInsertion> insertions;
+
   for (int i = 0; i < n; ++i) {
     Token& c = tokens[i];
     if (!tokIsConsonant(c)) continue;
     if (!c.lengthened) continue;
 
-    // Strengthen the length cue.
-    c.durationMs *= closureScale;
-    clampFadeToDuration(c);
+    if (tokIsStopLike(c)) {
+      // For stops/affricates: insert a closure gap BEFORE the consonant.
+      // The gap duration should be scaled by closureScale.
+      // Use a base gap of ~40ms (typical stop closure) scaled.
+      const double baseGapMs = 40.0 / sp;
+      const double baseFadeMs = 4.0 / sp;
+      
+      GapInsertion ins;
+      ins.insertBefore = i;
+      ins.gapDurationMs = baseGapMs * closureScale;
+      ins.gapFadeMs = baseFadeMs;
+      insertions.push_back(ins);
+
+      // Optionally shorten the release slightly.
+      c.durationMs *= releaseScale;
+      clampFadeToDuration(c);
+    } else {
+      // For non-stops (fricatives, nasals, liquids): just lengthen the sound.
+      c.durationMs *= closureScale;
+      clampFadeToDuration(c);
+    }
 
     // Compensatory shortening.
     scalePrevVowelInWord(tokens, i - 1, preVScale);
 
     // Prevent stacking with later passes.
     c.lengthened = false;
+  }
+
+  // Apply insertions in reverse order to keep indices valid.
+  for (auto it = insertions.rbegin(); it != insertions.rend(); ++it) {
+    Token gap;
+    gap.silence = true;
+    gap.preStopGap = true;
+    gap.durationMs = it->gapDurationMs;
+    gap.fadeMs = it->gapFadeMs;
+    clampFadeToDuration(gap);
+    
+    tokens.insert(tokens.begin() + it->insertBefore, gap);
   }
 
   return true;
