@@ -94,6 +94,7 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
         NumericDriverSetting("frameExJitter", "Jitter (pitch variation)", defaultVal=0),
         NumericDriverSetting("frameExShimmer", "Shimmer (amplitude variation)", defaultVal=0),
+        NumericDriverSetting("frameExSharpness", "Glottal sharpness", defaultVal=50),
         DriverSetting("pauseMode", "Pause mode"),
         DriverSetting("sampleRate", "Sample rate"),
         DriverSetting("language", "Language"),
@@ -203,6 +204,7 @@ class SynthDriver(SynthDriver):
         self._curFrameExBreathiness = 0
         self._curFrameExJitter = 0
         self._curFrameExShimmer = 0
+        self._curFrameExSharpness = 50  # 50 = neutral (1.0x multiplier)
         self._perVoiceTilt = {}  # Per-voice tilt storage: {voiceName: tiltValue}
         self._perVoiceNoiseGlottalMod = {}
         self._perVoicePitchSyncF1 = {}
@@ -213,6 +215,7 @@ class SynthDriver(SynthDriver):
         self._perVoiceFrameExBreathiness = {}
         self._perVoiceFrameExJitter = {}
         self._perVoiceFrameExShimmer = {}
+        self._perVoiceFrameExSharpness = {}
         self._usingVoiceProfile = False
         self._activeProfileName = ""
         self._pauseMode = "short"
@@ -1306,20 +1309,25 @@ class SynthDriver(SynthDriver):
                         frame.preFormantGain *= self._curVolume
                         
                         # Build FrameEx from slider values (0-100 -> 0.0-1.0)
-                        # Only create if any value is non-zero and DLL supports it
+                        # Only create if any value is non-default and DLL supports it
                         frameEx = None
                         creakVal = getattr(self, "_curFrameExCreakiness", 0)
                         breathVal = getattr(self, "_curFrameExBreathiness", 0)
                         jitterVal = getattr(self, "_curFrameExJitter", 0)
                         shimmerVal = getattr(self, "_curFrameExShimmer", 0)
+                        sharpnessVal = getattr(self, "_curFrameExSharpness", 50)
                         
-                        if creakVal or breathVal or jitterVal or shimmerVal:
+                        if creakVal or breathVal or jitterVal or shimmerVal or sharpnessVal != 50:
                             if getattr(self._player, "hasFrameExSupport", lambda: False)():
+                                # Sharpness: slider 0-100 maps to multiplier 0.5-2.0
+                                # 0 = 0.5x (softer), 50 = 1.0x (neutral), 100 = 2.0x (sharper)
+                                sharpnessMul = 0.5 + (sharpnessVal / 100.0) * 1.5
                                 frameEx = speechPlayer.FrameEx.create(
                                     creakiness=creakVal / 100.0,
                                     breathiness=breathVal / 100.0,
                                     jitter=jitterVal / 100.0,
                                     shimmer=shimmerVal / 100.0,
+                                    sharpness=sharpnessMul,
                                 )
                         
                         # Use queueFrameEx if available, otherwise fall back
@@ -1738,6 +1746,15 @@ class SynthDriver(SynthDriver):
         except Exception:
             pass
 
+    def _get_frameExSharpness(self):
+        return int(getattr(self, "_curFrameExSharpness", 50))
+
+    def _set_frameExSharpness(self, val):
+        try:
+            self._curFrameExSharpness = int(val)
+        except Exception:
+            pass
+
     def _applyVoicingTone(self, profileName: str) -> None:
         """Apply DSP-level voicing tone parameters safely.
         
@@ -1919,6 +1936,8 @@ class SynthDriver(SynthDriver):
                 self._perVoiceFrameExJitter = {}
             if not hasattr(self, "_perVoiceFrameExShimmer"):
                 self._perVoiceFrameExShimmer = {}
+            if not hasattr(self, "_perVoiceFrameExSharpness"):
+                self._perVoiceFrameExSharpness = {}
             
             # Save current slider values for the OLD voice before switching
             if voiceChanged and oldVoice:
@@ -1932,6 +1951,7 @@ class SynthDriver(SynthDriver):
                 self._perVoiceFrameExBreathiness[oldVoice] = getattr(self, "_curFrameExBreathiness", 0)
                 self._perVoiceFrameExJitter[oldVoice] = getattr(self, "_curFrameExJitter", 0)
                 self._perVoiceFrameExShimmer[oldVoice] = getattr(self, "_curFrameExShimmer", 0)
+                self._perVoiceFrameExSharpness[oldVoice] = getattr(self, "_curFrameExSharpness", 50)
             
             self._curVoice = voice
             
@@ -1947,6 +1967,7 @@ class SynthDriver(SynthDriver):
                 self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)
                 self._curFrameExShimmer = self._perVoiceFrameExShimmer.get(voice, 0)
+                self._curFrameExSharpness = self._perVoiceFrameExSharpness.get(voice, 50)
             
             # Handle voice profile vs Python preset
             if voice and voice.startswith(VOICE_PROFILE_PREFIX):

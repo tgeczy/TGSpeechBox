@@ -69,7 +69,7 @@ class FrameEx(Structure):
     """Optional per-frame voice quality extensions (DSP v5+).
     
     These parameters are kept separate from Frame so the original 47-parameter
-    ABI stays stable. All fields are expected in range [0.0, 1.0].
+    ABI stays stable. All fields are expected in range [0.0, 1.0] unless noted.
     
     Use with queueFrameEx() for features like Danish stød (creaky voice).
     If you don't need these, just use queueFrame() as before.
@@ -79,17 +79,24 @@ class FrameEx(Structure):
         ("breathiness", c_double),  # Breath noise mixed into voicing
         ("jitter", c_double),       # Pitch period variation (irregular F0)
         ("shimmer", c_double),      # Amplitude variation (irregular loudness)
+        ("sharpness", c_double),    # Glottal sharpness MULTIPLIER (0=SR default, 0.5-2.0 typical)
     ]
     
     @classmethod
     def create(cls, creakiness: float = 0.0, breathiness: float = 0.0,
-               jitter: float = 0.0, shimmer: float = 0.0) -> "FrameEx":
-        """Create a FrameEx with specified values (all default to 0.0)."""
+               jitter: float = 0.0, shimmer: float = 0.0,
+               sharpness: float = 0.0) -> "FrameEx":
+        """Create a FrameEx with specified values (all default to 0.0).
+        
+        Note: sharpness is a MULTIPLIER on the sample-rate-appropriate base value.
+        0.0 = use SR default, 0.5 = softer, 1.0 = default, 2.0 = sharper.
+        """
         ex = cls()
         ex.creakiness = creakiness
         ex.breathiness = breathiness
         ex.jitter = jitter
         ex.shimmer = shimmer
+        ex.sharpness = sharpness
         return ex
 
 
