@@ -97,7 +97,7 @@ The `speechPlayer.dll` now exports additional functions for real-time control of
 
 ### VoicingTone struct parameters
 
-The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 5, there are **11 parameters** plus a version detection header.
+The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 5, there are **12 parameters** plus a version detection header.
 
 #### Version detection (v3 struct)
 
@@ -111,7 +111,7 @@ The v3 struct includes a header for backward compatibility:
 | `dspVersion` | uint32 | DSP version (currently 5) |
 
 When the DLL receives a `VoicingTone` struct, it checks the magic number:
-- **If magic matches**: Uses the full v3 struct with all 11 parameters
+- **If magic matches**: Uses the full v3 struct with all 12 parameters
 - **If magic doesn't match**: Assumes legacy v1 layout (7 doubles) and applies defaults for new parameters
 
 This allows older drivers to continue working with newer DLLs, and vice versa.
@@ -141,6 +141,7 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `speedQuotient` | double | 2.0 | 0.5–4.0 | Glottal pulse asymmetry (ratio of opening to closing time). Lower values (0.5–1.5) create softer, more female-like voices. Higher values (2.5–4.0) create sharper, more male/pressed voices. Default 2.0 matches original behavior. |
+| `aspirationTiltDbPerOct` | double | 0.0 | -12 to +12 | Spectral tilt for aspiration/breath noise in dB/octave. Negative values make breath brighter; positive values make it darker/more muffled. Independent of `voicedTiltDbPerOct`. |
 
 ### FrameEx struct (DSP version 5+)
 
@@ -148,7 +149,7 @@ DSP version 5 introduces an optional per-frame extension struct for voice qualit
 
 #### New API function
 
-- `speechPlayer_queueFrameEx(handle, frame*, frameEx*, minDuration, fadeDuration, userIndex, purgeQueue)` — Queue a frame with optional extended parameters. If `frameEx` is NULL, behaves identically to `speechPlayer_queueFrame()`.
+- `speechPlayer_queueFrameEx(handle, frame*, frameEx*, frameExSize, minDuration, fadeDuration, userIndex, purgeQueue)` — Queue a frame with optional extended parameters. The `frameExSize` parameter enables forward compatibility. If `frameEx` is NULL, behaves identically to `speechPlayer_queueFrame()`.
 
 #### FrameEx parameters
 
@@ -158,6 +159,7 @@ DSP version 5 introduces an optional per-frame extension struct for voice qualit
 | `breathiness` | double | 0.0 | 0.0–1.0 | Additional voiced breathiness. Increases turbulence during the open glottal phase independently of `voiceTurbulenceAmplitude`. |
 | `jitter` | double | 0.0 | 0.0–1.0 | Pitch perturbation (cycle-to-cycle F0 variation). Adds random pitch wobble for more natural or pathological voice quality. |
 | `shimmer` | double | 0.0 | 0.0–1.0 | Amplitude perturbation (cycle-to-cycle intensity variation). Adds random amplitude wobble. |
+| `sharpness` | double | 0.0 | 0.0–15.0 | Glottal closure sharpness multiplier. When non-zero, multiplies the sample-rate-appropriate base sharpness (e.g., 10.0 at 44100 Hz, 3.0 at 16000 Hz). Values 0.5–2.0 are typical slider range. 0 = use default. Higher values create crisper, more "Eloquence-like" attacks. |
 
 These parameters are interpolated during frame crossfades, just like the core frame parameters.
 
@@ -191,6 +193,7 @@ class VoicingTone(Structure):
         ("pitchSyncB1DeltaHz", c_double),
         # V3 parameters
         ("speedQuotient", c_double),
+        ("aspirationTiltDbPerOct", c_double),
     ]
     
     @classmethod
@@ -211,6 +214,7 @@ class VoicingTone(Structure):
         tone.pitchSyncF1DeltaHz = 0.0
         tone.pitchSyncB1DeltaHz = 0.0
         tone.speedQuotient = 2.0
+        tone.aspirationTiltDbPerOct = 0.0
         return tone
 
 # Set up function prototypes
@@ -242,7 +246,9 @@ voiceProfiles:
 
 ### NVDA driver sliders
 
-The driver exposes 4 sliders for real-time voice tuning:
+The driver exposes 10 sliders for real-time voice tuning:
+
+#### VoicingTone sliders (global voice character)
 
 | Slider | Range | Default | Maps to |
 |--------|-------|---------|---------|
@@ -250,8 +256,21 @@ The driver exposes 4 sliders for real-time voice tuning:
 | Noise glottal modulation | 0–100 | 0 | `noiseGlottalModDepth` (0.0–1.0) |
 | Pitch-sync F1 delta | 0–100 | 50 | `pitchSyncF1DeltaHz` (-60 to +60 Hz) |
 | Pitch-sync B1 delta | 0–100 | 50 | `pitchSyncB1DeltaHz` (-50 to +50 Hz) |
+| Speed quotient | 0–100 | 50 | `speedQuotient` (0.5–4.0) |
 
-Note: The tilt and pitch-sync sliders are centered at 50 (neutral), while noise glottal modulation starts at 0 (off). This reflects the nature of each parameter—tilt and pitch-sync have meaningful positive and negative values, while noise modulation is an effect amount.
+#### FrameEx sliders (per-frame voice quality)
+
+| Slider | Range | Default | Maps to |
+|--------|-------|---------|---------|
+| Creakiness | 0–100 | 0 | `creakiness` (0.0–1.0) |
+| Breathiness | 0–100 | 0 | `breathiness` (0.0–1.0) |
+| Jitter | 0–100 | 0 | `jitter` (0.0–1.0) |
+| Shimmer | 0–100 | 0 | `shimmer` (0.0–1.0) |
+| Glottal sharpness | 0–100 | 50 | `sharpness` (0.5–2.0 multiplier) |
+
+Note: Sliders centered at 50 (tilt, pitch-sync, speed quotient, sharpness) have meaningful positive and negative ranges. Sliders starting at 0 (noise modulation, creakiness, breathiness, jitter, shimmer) are effect amounts that default to "off".
+
+All slider values are stored per-voice, so different voice profiles can have different settings.
 
 ## The new frontend model (nvspFrontend.dll + YAML packs)
 The new frontend replaces the Python IPA runtime pipeline. It is designed so that language changes can happen as data (YAML) rather than code.
