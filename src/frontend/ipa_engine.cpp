@@ -2222,7 +2222,13 @@ void emitFrames(
     // TRAJECTORY LIMITING
     // ============================================
     // Limit how fast formant frequencies can change to reduce harsh transitions.
-    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0) {
+    // IMPORTANT: Skip semivowels and liquids - they need sharp formant transitions
+    // to be perceived correctly. Over-smoothing causes /w/ to sound like /r/.
+    const bool skipTrajectoryLimit = t.def && (
+        (t.def->flags & kIsSemivowel) != 0 ||
+        (t.def->flags & kIsLiquid) != 0
+    );
+    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
       const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
       const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
       const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);
