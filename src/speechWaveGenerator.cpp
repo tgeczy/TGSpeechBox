@@ -474,21 +474,25 @@ public:
         double breathiness = 0.0;
         double jitter = 0.0;
         double shimmer = 0.0;
+        double frameExSharpness = 0.0;  // 0 = use SR default, >0 = override
         if (frameEx) {
             creakiness = frameEx->creakiness;
             breathiness = frameEx->breathiness;
             jitter = frameEx->jitter;
             shimmer = frameEx->shimmer;
+            frameExSharpness = frameEx->sharpness;
 
             if (!std::isfinite(creakiness)) creakiness = 0.0;
             if (!std::isfinite(breathiness)) breathiness = 0.0;
             if (!std::isfinite(jitter)) jitter = 0.0;
             if (!std::isfinite(shimmer)) shimmer = 0.0;
+            if (!std::isfinite(frameExSharpness)) frameExSharpness = 0.0;
 
             creakiness = clampDouble(creakiness, 0.0, 1.0);
             breathiness = clampDouble(breathiness, 0.0, 1.0);
             jitter = clampDouble(jitter, 0.0, 1.0);
             shimmer = clampDouble(shimmer, 0.0, 1.0);
+            frameExSharpness = clampDouble(frameExSharpness, 0.0, 15.0);  // Allow up to 15 for extreme effects
             
             // Perceptual curve for breathiness: makes 0.2–0.6 slider range useful
             if (breathiness > 0.0) {
@@ -647,6 +651,7 @@ public:
             } else {
                 // Closing phase: sharper fall with "return phase" character
                 double t = (phase - peakPos) / (1.0 - peakPos);
+                
                 // Sample-rate-dependent base sharpness:
                 // Higher sample rates need sharper closure for fuller harmonics.
                 double baseSharpness;
@@ -661,6 +666,16 @@ public:
                 } else {
                     baseSharpness = 2.5;
                 }
+                
+                // FrameEx sharpness is a MULTIPLIER (0.5 to 2.0), not absolute.
+                // This keeps the slider SR-agnostic: "1.0" always means "default for this SR".
+                // A value of 0 means "use default" (no FrameEx override).
+                if (frameExSharpness > 0.0) {
+                    baseSharpness *= frameExSharpness;
+                    // Clamp to safe range: too low = no closure, too high = just harsh
+                    baseSharpness = clampDouble(baseSharpness, 1.0, 15.0);
+                }
+                
                 // Speed quotient modulates the closing sharpness:
                 //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
                 //   SQ=2.0: sharpness * 1.0 (default)

@@ -59,6 +59,7 @@ typedef struct {
 	double breathiness;     // breath noise mixed into voicing
 	double jitter;          // pitch period variation (irregular F0)
 	double shimmer;         // amplitude variation (irregular loudness)
+	double sharpness;       // glottal closure sharpness MULTIPLIER (0=use SR default, 0.5-2.0 typical)
 	// room for more...
 } speechPlayer_frameEx_t;
 
