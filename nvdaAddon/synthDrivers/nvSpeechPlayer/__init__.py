@@ -88,6 +88,7 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("pitchSyncF1", "Pitch-sync F1 delta", defaultVal=50),
         NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
         NumericDriverSetting("speedQuotient", "Speed quotient (voice gender)", defaultVal=50),
+        NumericDriverSetting("aspirationTilt", "Aspiration tilt (breath color)", defaultVal=50),
         # FrameEx voice quality params (DSP v5+) - for testing creaky voice, etc.
         NumericDriverSetting("frameExCreakiness", "Creakiness (laryngealization)", defaultVal=0),
         NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
@@ -196,6 +197,7 @@ class SynthDriver(SynthDriver):
         self._curPitchSyncF1 = 50
         self._curPitchSyncB1 = 50
         self._curSpeedQuotient = 50  # Maps to 2.0 (neutral)
+        self._curAspirationTilt = 50  # Maps to 0.0 dB/oct (no tilt)
         # FrameEx voice quality params (DSP v5+)
         self._curFrameExCreakiness = 0
         self._curFrameExBreathiness = 0
@@ -206,6 +208,7 @@ class SynthDriver(SynthDriver):
         self._perVoicePitchSyncF1 = {}
         self._perVoicePitchSyncB1 = {}
         self._perVoiceSpeedQuotient = {}
+        self._perVoiceAspirationTilt = {}
         self._perVoiceFrameExCreakiness = {}
         self._perVoiceFrameExBreathiness = {}
         self._perVoiceFrameExJitter = {}
@@ -1672,6 +1675,27 @@ class SynthDriver(SynthDriver):
         except Exception:
             pass
 
+    # --- Aspiration Tilt slider (0-100 maps to -12 to +12 dB/oct) ---
+    # Controls brightness/darkness of breath noise.
+    # 0 = -12 dB/oct (dark/soft), 50 = 0 (neutral), 100 = +12 dB/oct (bright/harsh)
+    def _get_aspirationTilt(self):
+        return int(getattr(self, "_curAspirationTilt", 50))
+
+    def _set_aspirationTilt(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curAspirationTilt", 50):
+                return
+            self._curAspirationTilt = newVal
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
+            pass
+
     # =========================================================================
     # FrameEx voice quality sliders (DSP v5+)
     # These are applied per-frame via queueFrameEx, not via voicingTone.
@@ -1825,6 +1849,10 @@ class SynthDriver(SynthDriver):
             else:
                 tone.speedQuotient = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
             
+            # Apply aspiration tilt from slider (0-100 maps to -12 to +12 dB/oct, centered at 50 = 0)
+            aspTiltSlider = safe_float(getattr(self, "_curAspirationTilt", 50), 50.0)
+            tone.aspirationTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24  # 0=-12, 50=0, 100=+12 dB/oct
+            
             # Apply to player
             self._player.setVoicingTone(tone)
             self._lastAppliedVoicingTone = tone
@@ -1881,6 +1909,8 @@ class SynthDriver(SynthDriver):
                 self._perVoicePitchSyncB1 = {}
             if not hasattr(self, "_perVoiceSpeedQuotient"):
                 self._perVoiceSpeedQuotient = {}
+            if not hasattr(self, "_perVoiceAspirationTilt"):
+                self._perVoiceAspirationTilt = {}
             if not hasattr(self, "_perVoiceFrameExCreakiness"):
                 self._perVoiceFrameExCreakiness = {}
             if not hasattr(self, "_perVoiceFrameExBreathiness"):
@@ -1897,6 +1927,7 @@ class SynthDriver(SynthDriver):
                 self._perVoicePitchSyncF1[oldVoice] = getattr(self, "_curPitchSyncF1", 50)
                 self._perVoicePitchSyncB1[oldVoice] = getattr(self, "_curPitchSyncB1", 50)
                 self._perVoiceSpeedQuotient[oldVoice] = getattr(self, "_curSpeedQuotient", 50)
+                self._perVoiceAspirationTilt[oldVoice] = getattr(self, "_curAspirationTilt", 50)
                 self._perVoiceFrameExCreakiness[oldVoice] = getattr(self, "_curFrameExCreakiness", 0)
                 self._perVoiceFrameExBreathiness[oldVoice] = getattr(self, "_curFrameExBreathiness", 0)
                 self._perVoiceFrameExJitter[oldVoice] = getattr(self, "_curFrameExJitter", 0)
@@ -1911,6 +1942,7 @@ class SynthDriver(SynthDriver):
                 self._curPitchSyncF1 = self._perVoicePitchSyncF1.get(voice, 50)
                 self._curPitchSyncB1 = self._perVoicePitchSyncB1.get(voice, 50)
                 self._curSpeedQuotient = self._perVoiceSpeedQuotient.get(voice, 50)
+                self._curAspirationTilt = self._perVoiceAspirationTilt.get(voice, 50)
                 self._curFrameExCreakiness = self._perVoiceFrameExCreakiness.get(voice, 0)
                 self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)
