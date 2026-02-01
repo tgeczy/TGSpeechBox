@@ -37,7 +37,7 @@ speechPlayer_frameParam_t = c_double
 
 # VoicingTone struct versioning constants (must match voicingTone.h)
 SPEECHPLAYER_VOICINGTONE_MAGIC = 0x32544F56  # "VOT2" in little-endian
-SPEECHPLAYER_VOICINGTONE_VERSION = 2
+SPEECHPLAYER_VOICINGTONE_VERSION = 3
 
 
 class Frame(Structure):
@@ -122,8 +122,12 @@ class VoicingTone(Structure):
         
         # New v2 parameters
         ("noiseGlottalModDepth", c_double),  # Noise modulation by glottal cycle (0.0-1.0, default 0.0)
-        ("pitchSyncF1DeltaHz", c_double),    # F1 delta during glottal open phase (default 60.0)
-        ("pitchSyncB1DeltaHz", c_double),    # B1 delta during glottal open phase (default 50.0)
+        ("pitchSyncF1DeltaHz", c_double),    # F1 delta during glottal open phase (default 0.0)
+        ("pitchSyncB1DeltaHz", c_double),    # B1 delta during glottal open phase (default 0.0)
+        
+        # New v3 parameters
+        ("speedQuotient", c_double),         # Glottal pulse asymmetry (0.5-4.0, default 2.0)
+        ("aspirationTiltDbPerOct", c_double),  # Aspiration noise tilt (default 0.0)
     ]
     
     @classmethod
@@ -149,6 +153,10 @@ class VoicingTone(Structure):
         tone.noiseGlottalModDepth = 0.0
         tone.pitchSyncF1DeltaHz = 0.0   # Slider 50 = neutral (0 Hz)
         tone.pitchSyncB1DeltaHz = 0.0   # Slider 50 = neutral (0 Hz)
+        
+        # New v3 parameters
+        tone.speedQuotient = 2.0        # Neutral asymmetry
+        tone.aspirationTiltDbPerOct = 0.0
         return tone
 
 
@@ -226,7 +234,8 @@ class SpeechPlayer(object):
 
         # Extended frame queue (DSP v5+): optional per-frame voice quality params.
         # void speechPlayer_queueFrameEx(void* handle, Frame* frame, const FrameEx* frameEx,
-        #                                uint minSamples, uint fadeSamples, int userIndex, bool purgeQueue);
+        #                                uint frameExSize, uint minSamples, uint fadeSamples, 
+        #                                int userIndex, bool purgeQueue);
         self._hasQueueFrameExApi = False
         try:
             _queueFrameEx = getattr(self._dll, "speechPlayer_queueFrameEx", None)
@@ -235,10 +244,11 @@ class SpeechPlayer(object):
                     c_void_p,
                     POINTER(Frame),
                     POINTER(FrameEx),
-                    c_uint,
-                    c_uint,
-                    c_int,
-                    c_int,
+                    c_uint,         # frameExSize - size of FrameEx struct for ABI safety
+                    c_uint,         # minSamples
+                    c_uint,         # fadeSamples
+                    c_int,          # userIndex
+                    c_int,          # purgeQueue
                 )
                 self._dll.speechPlayer_queueFrameEx.restype = None
                 self._hasQueueFrameExApi = True
@@ -333,10 +343,13 @@ class SpeechPlayer(object):
         # Try the extended API first
         if getattr(self, "_hasQueueFrameExApi", False):
             frameExPtr = byref(frameEx) if frameEx else None
+            # Pass sizeof(FrameEx) so the DLL knows how much data to read safely
+            frameExSize = ctypes.sizeof(FrameEx) if frameEx else 0
             self._dll.speechPlayer_queueFrameEx(
                 self._speechHandle,
                 framePtr,
                 frameExPtr,
+                c_uint(frameExSize),
                 c_uint(minSamples),
                 c_uint(fadeSamples),
                 c_int(int(userIndex) if userIndex is not None else -1),
