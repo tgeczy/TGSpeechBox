@@ -29,71 +29,75 @@ Based on klsyn-88, found at http://linguistics.berkeley.edu/phonlab/resources/
 using namespace std;
 
 const double PITWO=M_PI*2;
-// ------------------------------------------------------------
-// Real Glottal DERIVATIVE Table (extracted from human voice)
-// ------------------------------------------------------------
-// This is dFlow/dt - the rate of change of glottal airflow.
-// It's what actually excites the vocal tract (not flow itself).
-// Values range from -1 to +1 with a sharp positive spike at closure.
 
-#define REAL_GLOTTAL_DERIV_LEN 518
-static const float realGlottalDeriv[REAL_GLOTTAL_DERIV_LEN] = {
-    -0.78288f, -0.75177f, -0.65948f, -0.51569f, -0.33927f, -0.15012f, 0.03478f, 0.19582f, 0.30649f, 0.34412f, 0.30550f, 0.20826f,
-    0.07650f, -0.07102f, -0.21678f, -0.34033f, -0.42028f, -0.44424f, -0.41447f, -0.34205f, -0.24109f, -0.12475f, -0.00603f, 0.09831f,
-    0.17924f, 0.23712f, 0.27257f, 0.28641f, 0.28074f, 0.26040f, 0.22959f, 0.19218f, 0.15010f, 0.10453f, 0.05878f, 0.02025f,
-    -0.00358f, -0.00884f, 0.00690f, 0.04731f, 0.11116f, 0.19316f, 0.28684f, 0.38209f, 0.46590f, 0.52333f, 0.54404f, 0.52463f,
-    0.46460f, 0.36636f, 0.23653f, 0.08747f, -0.06390f, -0.20188f, -0.31265f, -0.38623f, -0.41632f, -0.40439f, -0.35885f, -0.28929f,
-    -0.20819f, -0.13089f, -0.07248f, -0.04163f, -0.04107f, -0.07081f, -0.12364f, -0.19060f, -0.26129f, -0.32596f, -0.37626f, -0.40429f,
-    -0.40716f, -0.38725f, -0.35117f, -0.30576f, -0.25497f, -0.19747f, -0.13635f, -0.07590f, -0.01806f, 0.03800f, 0.09420f, 0.14657f,
-    0.18489f, 0.19940f, 0.18857f, 0.15422f, 0.10086f, 0.03014f, -0.05219f, -0.12993f, -0.18344f, -0.19981f, -0.17608f, -0.11615f,
-    -0.02484f, 0.08978f, 0.21104f, 0.31718f, 0.39407f, 0.43512f, 0.43887f, 0.40774f, 0.35066f, 0.28373f, 0.21937f, 0.16721f,
-    0.13552f, 0.12801f, 0.13994f, 0.15983f, 0.17931f, 0.19421f, 0.20232f, 0.20130f, 0.18888f, 0.16786f, 0.14733f, 0.13180f,
-    0.11997f, 0.10761f, 0.08925f, 0.05934f, 0.01392f, -0.04789f, -0.12395f, -0.21209f, -0.30368f, -0.38494f, -0.44420f, -0.47061f,
-    -0.45826f, -0.41240f, -0.34342f, -0.26004f, -0.17191f, -0.09382f, -0.04016f, -0.01985f, -0.03042f, -0.06206f, -0.10452f, -0.15061f,
-    -0.19367f, -0.22273f, -0.22807f, -0.20992f, -0.17304f, -0.12341f, -0.06870f, -0.01687f, 0.02806f, 0.06541f, 0.09484f, 0.11614f,
-    0.13021f, 0.13822f, 0.14249f, 0.14781f, 0.15436f, 0.15666f, 0.14958f, 0.13332f, 0.11117f, 0.08872f, 0.07009f, 0.05844f,
-    0.05751f, 0.06982f, 0.09909f, 0.14263f, 0.19194f, 0.24021f, 0.28451f, 0.31853f, 0.33400f, 0.32504f, 0.29151f, 0.24088f,
-    0.18094f, 0.11747f, 0.05601f, 0.00452f, -0.03074f, -0.04826f, -0.05384f, -0.05097f, -0.03974f, -0.02304f, -0.00910f, -0.00449f,
-    -0.00867f, -0.01850f, -0.03296f, -0.05270f, -0.07314f, -0.08895f, -0.10151f, -0.11225f, -0.11953f, -0.12433f, -0.12657f, -0.12345f,
-    -0.11452f, -0.09809f, -0.07631f, -0.05001f, -0.01708f, 0.02461f, 0.07209f, 0.11811f, 0.15565f, 0.18034f, 0.19309f, 0.19345f,
-    0.18073f, 0.15555f, 0.12350f, 0.09183f, 0.06633f, 0.05073f, 0.04861f, 0.06149f, 0.08749f, 0.12291f, 0.16124f, 0.19476f,
-    0.22056f, 0.23601f, 0.23958f, 0.23193f, 0.21228f, 0.18254f, 0.14855f, 0.11643f, 0.09007f, 0.06931f, 0.05151f, 0.03759f,
-    0.03173f, 0.03760f, 0.05140f, 0.06583f, 0.08035f, 0.09918f, 0.12407f, 0.14973f, 0.17036f, 0.18591f, 0.19859f, 0.20623f,
-    0.20149f, 0.18468f, 0.16346f, 0.14238f, 0.11960f, 0.09365f, 0.06995f, 0.05523f, 0.05035f, 0.05329f, 0.06305f, 0.07730f,
-    0.09318f, 0.10611f, 0.11303f, 0.11215f, 0.10359f, 0.08573f, 0.05759f, 0.02201f, -0.01703f, -0.05717f, -0.09663f, -0.13098f,
-    -0.15650f, -0.17585f, -0.18797f, -0.18940f, -0.18199f, -0.16837f, -0.14887f, -0.12324f, -0.09475f, -0.06784f, -0.04323f, -0.02056f,
-    0.00326f, 0.02655f, 0.04366f, 0.05164f, 0.05588f, 0.06213f, 0.07005f, 0.07745f, 0.08326f, 0.09195f, 0.10776f, 0.12999f,
-    0.15544f, 0.17980f, 0.20097f, 0.22050f, 0.23685f, 0.24738f, 0.24776f, 0.23876f, 0.22237f, 0.19945f, 0.17070f, 0.13805f,
-    0.10259f, 0.06593f, 0.03094f, -0.00078f, -0.02792f, -0.05062f, -0.06916f, -0.08532f, -0.09796f, -0.10480f, -0.10588f, -0.10476f,
-    -0.10583f, -0.11121f, -0.11939f, -0.12744f, -0.13872f, -0.15594f, -0.17693f, -0.19735f, -0.21321f, -0.22358f, -0.22850f, -0.22697f,
-    -0.21708f, -0.19672f, -0.16796f, -0.13490f, -0.10149f, -0.06645f, -0.02958f, 0.00584f, 0.03518f, 0.05854f, 0.07744f, 0.09024f,
-    0.09956f, 0.10947f, 0.11905f, 0.12545f, 0.12769f, 0.12723f, 0.13014f, 0.13804f, 0.14597f, 0.14964f, 0.15205f, 0.15440f,
-    0.15639f, 0.15649f, 0.15315f, 0.14346f, 0.12537f, 0.09969f, 0.06926f, 0.03689f, 0.00224f, -0.03732f, -0.08095f, -0.12277f,
-    -0.15889f, -0.18643f, -0.20765f, -0.22275f, -0.22996f, -0.23043f, -0.22449f, -0.21496f, -0.20280f, -0.18896f, -0.17671f, -0.16645f,
-    -0.15807f, -0.15057f, -0.14356f, -0.13592f, -0.12498f, -0.11135f, -0.09663f, -0.08224f, -0.06744f, -0.04891f, -0.02824f, -0.01149f,
-    -0.00079f, 0.00437f, 0.00724f, 0.01131f, 0.01735f, 0.01958f, 0.01435f, 0.00529f, -0.00227f, -0.00713f, -0.01274f, -0.02250f,
-    -0.03537f, -0.04893f, -0.05917f, -0.06174f, -0.05575f, -0.04558f, -0.03563f, -0.02670f, -0.01472f, 0.00033f, 0.01128f, 0.01278f,
-    0.00657f, -0.00315f, -0.01727f, -0.03841f, -0.06230f, -0.08110f, -0.09310f, -0.10165f, -0.11226f, -0.12266f, -0.12946f, -0.13290f,
-    -0.13408f, -0.13638f, -0.14122f, -0.14791f, -0.15555f, -0.16418f, -0.17376f, -0.18463f, -0.19461f, -0.20254f, -0.20901f, -0.21594f,
-    -0.22153f, -0.21867f, -0.20282f, -0.17805f, -0.15187f, -0.12362f, -0.09104f, -0.05888f, -0.03322f, -0.01768f, -0.01134f, -0.01159f,
-    -0.01723f, -0.02886f, -0.04467f, -0.06147f, -0.07686f, -0.09013f, -0.10358f, -0.12170f, -0.14562f, -0.17068f, -0.19324f, -0.21052f,
-    -0.22438f, -0.23545f, -0.24162f, -0.24107f, -0.23657f, -0.23663f, -0.25003f, -0.28148f, -0.32936f, -0.38741f, -0.44405f, -0.48377f,
-    -0.49375f, -0.45995f, -0.37049f, -0.22184f, -0.02133f, 0.21146f, 0.45110f, 0.67088f, 0.84738f, 0.96169f, 1.00000f, 0.95993f,
-    0.85329f, 0.70471f, 0.54055f, 0.38516f, 0.25618f, 0.16632f, 0.12106f, 0.11746f, 0.14408f, 0.18323f, 0.22075f, 0.24457f,
-    0.24852f, 0.23260f, 0.20157f, 0.15758f, 0.10128f, 0.03314f, -0.04463f, -0.13132f, -0.23075f, -0.34586f, -0.47466f, -0.60229f,
-    -0.71050f, -0.78439f
+// ------------------------------------------------------------
+// Real Glottal Pulse Table (extracted from human voice recording)
+// ------------------------------------------------------------
+// This is a smoothed glottal flow waveform extracted from a sustained "ah"
+// vowel at ~85Hz. The formant resonances have been lowpass filtered out,
+// leaving just the glottal source character.
+// 
+// To use: lookup by phase (0.0-1.0) with linear interpolation.
+// The table is 518 samples representing one complete glottal cycle.
+
+#define REAL_GLOTTAL_LEN 518
+static const float realGlottalPulse[REAL_GLOTTAL_LEN] = {
+    1.00000f, 0.94340f, 0.88668f, 0.83006f, 0.77378f, 0.71805f, 0.66313f, 0.60923f, 0.55658f, 0.50539f, 0.45588f, 0.40825f,
+    0.36268f, 0.31935f, 0.27842f, 0.24003f, 0.20431f, 0.17137f, 0.14129f, 0.11414f, 0.08995f, 0.06877f, 0.05058f, 0.03537f,
+    0.02310f, 0.01371f, 0.00712f, 0.00324f, 0.00196f, 0.00315f, 0.00669f, 0.01242f, 0.02019f, 0.02985f, 0.04123f, 0.05417f,
+    0.06850f, 0.08406f, 0.10069f, 0.11822f, 0.13651f, 0.15540f, 0.17473f, 0.19438f, 0.21420f, 0.23405f, 0.25381f, 0.27335f,
+    0.29255f, 0.31129f, 0.32946f, 0.34695f, 0.36364f, 0.37943f, 0.39423f, 0.40794f, 0.42046f, 0.43171f, 0.44161f, 0.45008f,
+    0.45706f, 0.46250f, 0.46634f, 0.46855f, 0.46910f, 0.46798f, 0.46520f, 0.46076f, 0.45470f, 0.44707f, 0.43792f, 0.42734f,
+    0.41540f, 0.40223f, 0.38792f, 0.37263f, 0.35648f, 0.33963f, 0.32224f, 0.30447f, 0.28650f, 0.26849f, 0.25061f, 0.23304f,
+    0.21595f, 0.19948f, 0.18380f, 0.16905f, 0.15535f, 0.14284f, 0.13162f, 0.12179f, 0.11342f, 0.10658f, 0.10133f, 0.09771f,
+    0.09572f, 0.09538f, 0.09668f, 0.09960f, 0.10410f, 0.11015f, 0.11766f, 0.12659f, 0.13684f, 0.14833f, 0.16097f, 0.17463f,
+    0.18923f, 0.20463f, 0.22072f, 0.23737f, 0.25445f, 0.27184f, 0.28938f, 0.30696f, 0.32443f, 0.34166f, 0.35851f, 0.37484f,
+    0.39054f, 0.40546f, 0.41949f, 0.43250f, 0.44439f, 0.45506f, 0.46439f, 0.47232f, 0.47876f, 0.48365f, 0.48695f, 0.48862f,
+    0.48863f, 0.48698f, 0.48369f, 0.47878f, 0.47229f, 0.46429f, 0.45484f, 0.44404f, 0.43199f, 0.41881f, 0.40464f, 0.38961f,
+    0.37388f, 0.35760f, 0.34094f, 0.32408f, 0.30718f, 0.29041f, 0.27394f, 0.25794f, 0.24257f, 0.22797f, 0.21428f, 0.20164f,
+    0.19016f, 0.17995f, 0.17108f, 0.16363f, 0.15766f, 0.15320f, 0.15028f, 0.14889f, 0.14904f, 0.15069f, 0.15381f, 0.15834f,
+    0.16421f, 0.17136f, 0.17968f, 0.18910f, 0.19950f, 0.21077f, 0.22280f, 0.23548f, 0.24867f, 0.26227f, 0.27615f, 0.29019f,
+    0.30428f, 0.31828f, 0.33211f, 0.34564f, 0.35878f, 0.37143f, 0.38351f, 0.39492f, 0.40560f, 0.41547f, 0.42448f, 0.43257f,
+    0.43971f, 0.44585f, 0.45097f, 0.45505f, 0.45810f, 0.46010f, 0.46107f, 0.46103f, 0.46000f, 0.45804f, 0.45518f, 0.45147f,
+    0.44699f, 0.44179f, 0.43596f, 0.42957f, 0.42272f, 0.41549f, 0.40797f, 0.40026f, 0.39246f, 0.38466f, 0.37695f, 0.36944f,
+    0.36220f, 0.35532f, 0.34888f, 0.34296f, 0.33762f, 0.33293f, 0.32893f, 0.32567f, 0.32318f, 0.32149f, 0.32063f, 0.32059f,
+    0.32138f, 0.32300f, 0.32542f, 0.32862f, 0.33259f, 0.33727f, 0.34263f, 0.34863f, 0.35521f, 0.36233f, 0.36992f, 0.37793f,
+    0.38630f, 0.39497f, 0.40389f, 0.41299f, 0.42221f, 0.43149f, 0.44079f, 0.45004f, 0.45919f, 0.46818f, 0.47698f, 0.48553f,
+    0.49379f, 0.50171f, 0.50925f, 0.51637f, 0.52304f, 0.52922f, 0.53488f, 0.54000f, 0.54453f, 0.54847f, 0.55178f, 0.55446f,
+    0.55647f, 0.55781f, 0.55847f, 0.55844f, 0.55771f, 0.55630f, 0.55420f, 0.55142f, 0.54797f, 0.54388f, 0.53916f, 0.53385f,
+    0.52797f, 0.52156f, 0.51466f, 0.50733f, 0.49960f, 0.49154f, 0.48321f, 0.47467f, 0.46599f, 0.45723f, 0.44846f, 0.43977f,
+    0.43121f, 0.42288f, 0.41482f, 0.40713f, 0.39986f, 0.39309f, 0.38686f, 0.38124f, 0.37628f, 0.37202f, 0.36849f, 0.36573f,
+    0.36375f, 0.36256f, 0.36217f, 0.36256f, 0.36371f, 0.36559f, 0.36817f, 0.37140f, 0.37521f, 0.37954f, 0.38431f, 0.38945f,
+    0.39487f, 0.40047f, 0.40615f, 0.41183f, 0.41739f, 0.42274f, 0.42779f, 0.43243f, 0.43657f, 0.44014f, 0.44305f, 0.44523f,
+    0.44662f, 0.44718f, 0.44686f, 0.44563f, 0.44348f, 0.44041f, 0.43643f, 0.43155f, 0.42582f, 0.41928f, 0.41199f, 0.40402f,
+    0.39544f, 0.38635f, 0.37684f, 0.36701f, 0.35696f, 0.34681f, 0.33666f, 0.32663f, 0.31682f, 0.30735f, 0.29831f, 0.28980f,
+    0.28190f, 0.27470f, 0.26828f, 0.26268f, 0.25795f, 0.25414f, 0.25127f, 0.24935f, 0.24838f, 0.24833f, 0.24920f, 0.25092f,
+    0.25346f, 0.25675f, 0.26072f, 0.26528f, 0.27035f, 0.27582f, 0.28160f, 0.28758f, 0.29365f, 0.29971f, 0.30564f, 0.31134f,
+    0.31671f, 0.32166f, 0.32609f, 0.32993f, 0.33309f, 0.33553f, 0.33718f, 0.33801f, 0.33799f, 0.33710f, 0.33535f, 0.33273f,
+    0.32927f, 0.32501f, 0.31999f, 0.31426f, 0.30788f, 0.30093f, 0.29348f, 0.28562f, 0.27744f, 0.26902f, 0.26047f, 0.25187f,
+    0.24331f, 0.23489f, 0.22668f, 0.21877f, 0.21123f, 0.20412f, 0.19751f, 0.19144f, 0.18596f, 0.18109f, 0.17685f, 0.17327f,
+    0.17034f, 0.16806f, 0.16641f, 0.16538f, 0.16493f, 0.16503f, 0.16563f, 0.16671f, 0.16819f, 0.17004f, 0.17220f, 0.17461f,
+    0.17722f, 0.17997f, 0.18280f, 0.18567f, 0.18853f, 0.19131f, 0.19399f, 0.19651f, 0.19884f, 0.20094f, 0.20278f, 0.20432f,
+    0.20556f, 0.20645f, 0.20700f, 0.20717f, 0.20697f, 0.20638f, 0.20540f, 0.20403f, 0.20228f, 0.20014f, 0.19762f, 0.19474f,
+    0.19151f, 0.18794f, 0.18405f, 0.17986f, 0.17539f, 0.17066f, 0.16570f, 0.16053f, 0.15517f, 0.14966f, 0.14400f, 0.13824f,
+    0.13239f, 0.12648f, 0.12053f, 0.11455f, 0.10858f, 0.10262f, 0.09669f, 0.09080f, 0.08498f, 0.07922f, 0.07355f, 0.06796f,
+    0.06247f, 0.05709f, 0.05183f, 0.04669f, 0.04170f, 0.03686f, 0.03219f, 0.02771f, 0.02345f, 0.01943f, 0.01568f, 0.01223f,
+    0.00912f, 0.00639f, 0.00408f, 0.00224f, 0.00092f, 0.00016f, 0.00000f, 0.00050f, 0.00169f, 0.00361f, 0.00629f, 0.00977f,
+    0.01405f, 0.01915f, 0.02506f, 0.03178f, 0.03928f, 0.04753f, 0.05647f, 0.06606f, 0.07621f, 0.08686f, 0.09790f, 0.10924f,
+    0.12077f, 0.13239f, 0.14397f, 0.15541f, 0.16658f, 0.17740f, 0.18774f, 0.19753f, 0.20668f, 0.21513f, 0.22283f, 0.22974f,
+    0.23585f, 0.24116f
 };
 
-// Helper: lookup from derivative table with linear interpolation
-static inline double lookupRealGlottalDeriv(double phase) {
+// Helper: lookup from real glottal table with linear interpolation
+static inline double lookupRealGlottal(double phase) {
     if (phase < 0.0) phase = 0.0;
     if (phase > 1.0) phase = 1.0;
-    double idx = phase * (REAL_GLOTTAL_DERIV_LEN - 1);
+    double idx = phase * (REAL_GLOTTAL_LEN - 1);
     int i0 = (int)idx;
     int i1 = i0 + 1;
-    if (i1 >= REAL_GLOTTAL_DERIV_LEN) i1 = REAL_GLOTTAL_DERIV_LEN - 1;
+    if (i1 >= REAL_GLOTTAL_LEN) i1 = REAL_GLOTTAL_LEN - 1;
     double frac = idx - i0;
-    return (1.0 - frac) * realGlottalDeriv[i0] + frac * realGlottalDeriv[i1];
+    return (1.0 - frac) * realGlottalPulse[i0] + frac * realGlottalPulse[i1];
 }
 
 
@@ -226,7 +230,6 @@ private:
     FrequencyGenerator vibratoGen;
     NoiseGenerator aspirationGen;
     double lastFlow;
-    double lastPhase;  // Track phase for derivative lookup
     double lastVoicedIn;
     double lastVoicedOut;
     double lastVoicedSrc;
@@ -282,7 +285,7 @@ private:
     double radiationMix;
     
     // Real glottal derivative mode: use extracted human voice derivative instead of computed
-    bool useRealGlottalDeriv;
+    bool useRealGlottal;
 
     static double clampDouble(double v, double lo, double hi) {
         if (v < lo) return lo;
@@ -429,7 +432,7 @@ public:
     }
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
-        lastFlow(0.0), lastPhase(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
+        lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
         noiseGlottalModDepth(0.0), lastNoiseMod(1.0),
         smoothAspAmp(0.0), smoothAspAmpInit(false),
         aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
@@ -445,7 +448,7 @@ public:
         aspLpState(0.0), fricLpState(0.0),
         radiationDerivGain(1.0),
         radiationMix(0.0),
-        useRealGlottalDeriv(true) {  // ENABLED: uses extracted human glottal derivative
+        useRealGlottal(true) {  // ENABLED: uses extracted human glottal flow table
 
         const double tlSmoothMs = 8.0;
         const double poleSmoothMs = 5.0;
@@ -541,9 +544,9 @@ public:
 
     double getLastNoiseMod() const { return lastNoiseMod; }
 
-    // Enable/disable real glottal derivative mode
-    void setUseRealGlottalDeriv(bool enable) { useRealGlottalDeriv = enable; }
-    bool getUseRealGlottalDeriv() const { return useRealGlottalDeriv; }
+    // Enable/disable real glottal flow table mode
+    void setUseRealGlottal(bool enable) { useRealGlottal = enable; }
+    bool getUseRealGlottal() const { return useRealGlottal; }
 
     double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx) {
         // Optional per-frame voice quality (DSP v5+). If frameEx is NULL, all effects are disabled.
@@ -705,48 +708,55 @@ public:
             }
 
             // Compute LF-inspired flow (asymmetric, more harmonics)
-            // Speed quotient affects the asymmetry:
-            //   SQ < 2.0: Slower opening, gentler closing (female-like)
-            //   SQ = 2.0: Default/neutral
-            //   SQ > 2.0: Faster opening, sharper closing (male-like, pressed)
             double flowLF;
-            if (phase < peakPos) {
-                // Opening phase: polynomial rise
-                // speedQuotient affects the curve steepness
-                double t = phase / peakPos;
-                // Higher SQ = faster opening (steeper curve)
-                // Lower SQ = slower opening (gentler curve)
-                double openPower = 2.0 + (speedQuotient - 2.0) * 0.5;  // Range ~1.25 to ~3.0
-                if (openPower < 1.0) openPower = 1.0;
-                if (openPower > 4.0) openPower = 4.0;
-                double tPow = pow(t, openPower);
-                flowLF = tPow * (3.0 - 2.0 * t);  // Modified smoothstep
+            if (useRealGlottal) {
+                // Use extracted human glottal pulse instead of mathematical model
+                // The table is normalized 0-1, lookup by phase
+                flowLF = lookupRealGlottal(phase);
             } else {
-                // Closing phase: sharper fall with "return phase" character
-                double t = (phase - peakPos) / (1.0 - peakPos);
-                // Sample-rate-dependent base sharpness:
-                // Higher sample rates need sharper closure for fuller harmonics.
-                double baseSharpness;
-                if (sampleRate >= 44100) {
-                    baseSharpness = 10.0;
-                } else if (sampleRate >= 32000) {
-                    baseSharpness = 8.0;
-                } else if (sampleRate >= 22050) {
-                    baseSharpness = 4.0;
-                } else if (sampleRate >= 16000) {
-                    baseSharpness = 3.0;
+                // Mathematical LF model with speed quotient
+                // Speed quotient affects the asymmetry:
+                //   SQ < 2.0: Slower opening, gentler closing (female-like)
+                //   SQ = 2.0: Default/neutral
+                //   SQ > 2.0: Faster opening, sharper closing (male-like, pressed)
+                if (phase < peakPos) {
+                    // Opening phase: polynomial rise
+                    // speedQuotient affects the curve steepness
+                    double t = phase / peakPos;
+                    // Higher SQ = faster opening (steeper curve)
+                    // Lower SQ = slower opening (gentler curve)
+                    double openPower = 2.0 + (speedQuotient - 2.0) * 0.5;  // Range ~1.25 to ~3.0
+                    if (openPower < 1.0) openPower = 1.0;
+                    if (openPower > 4.0) openPower = 4.0;
+                    double tPow = pow(t, openPower);
+                    flowLF = tPow * (3.0 - 2.0 * t);  // Modified smoothstep
                 } else {
-                    baseSharpness = 2.5;
+                    // Closing phase: sharper fall with "return phase" character
+                    double t = (phase - peakPos) / (1.0 - peakPos);
+                    // Sample-rate-dependent base sharpness:
+                    // Higher sample rates need sharper closure for fuller harmonics.
+                    double baseSharpness;
+                    if (sampleRate >= 44100) {
+                        baseSharpness = 10.0;
+                    } else if (sampleRate >= 32000) {
+                        baseSharpness = 8.0;
+                    } else if (sampleRate >= 22050) {
+                        baseSharpness = 4.0;
+                    } else if (sampleRate >= 16000) {
+                        baseSharpness = 3.0;
+                    } else {
+                        baseSharpness = 2.5;
+                    }
+                    // Speed quotient modulates the closing sharpness:
+                    //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
+                    //   SQ=2.0: sharpness * 1.0 (default)
+                    //   SQ=4.0: sharpness * 1.6 (very sharp, pressed)
+                    double sqFactor = 0.4 + (speedQuotient - 0.5) * (0.6 / 1.5);  // Linear map
+                    if (sqFactor < 0.3) sqFactor = 0.3;
+                    if (sqFactor > 2.0) sqFactor = 2.0;
+                    double sharpness = baseSharpness * sqFactor;
+                    flowLF = pow(1.0 - t, sharpness);
                 }
-                // Speed quotient modulates the closing sharpness:
-                //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
-                //   SQ=2.0: sharpness * 1.0 (default)
-                //   SQ=4.0: sharpness * 1.6 (very sharp, pressed)
-                double sqFactor = 0.4 + (speedQuotient - 0.5) * (0.6 / 1.5);  // Linear map
-                if (sqFactor < 0.3) sqFactor = 0.3;
-                if (sqFactor > 2.0) sqFactor = 2.0;
-                double sharpness = baseSharpness * sqFactor;
-                flowLF = pow(1.0 - t, sharpness);
             }
 
             // Blend based on sample rate:
@@ -764,23 +774,13 @@ public:
             }
 
             flow = (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
-
-            // Store phase for derivative lookup (used below)
-            lastPhase = phase;
         }
 
         const double flowScale = 1.6;
         flow *= flowScale;
 
-        double dFlow;
-        if (useRealGlottalDeriv && glottisOpen) {
-            // Use extracted human glottal derivative directly
-            // Scale to match the amplitude of the mathematical derivative
-            dFlow = lookupRealGlottalDeriv(lastPhase) * flowScale * 0.15;
-        } else {
-            // Compute derivative mathematically from flow
-            dFlow = flow - lastFlow;
-        }
+        // Compute derivative mathematically from flow
+        double dFlow = flow - lastFlow;
         lastFlow = flow;
 
         // ------------------------------------------------------------
