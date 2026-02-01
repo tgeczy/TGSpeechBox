@@ -400,6 +400,11 @@ public:
             breathiness = clampDouble(breathiness, 0.0, 1.0);
             jitter = clampDouble(jitter, 0.0, 1.0);
             shimmer = clampDouble(shimmer, 0.0, 1.0);
+            
+            // Perceptual curve for breathiness: makes 0.2–0.6 slider range useful
+            if (breathiness > 0.0) {
+                breathiness = pow(breathiness, 0.55);
+            }
         }
 
         double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
@@ -462,7 +467,9 @@ public:
         }
         lastNoiseMod = noiseMod;
 
-        double aspiration=aspirationGen.getNext()*0.1*noiseMod;
+        // Aspiration noise: base gain 0.1, breathiness lifts it up to 0.25
+        double aspBase = 0.10 + (0.15 * breathiness);
+        double aspiration = aspirationGen.getNext() * aspBase * noiseMod;
 
         double effectiveOQ = frame->glottalOpenQuotient;
         if (effectiveOQ <= 0.0) effectiveOQ = 0.4;
@@ -473,6 +480,12 @@ public:
         if (creakiness > 0.0) {
             effectiveOQ += 0.10 * creakiness;
             if (effectiveOQ > 0.95) effectiveOQ = 0.95;
+        }
+        
+        // Breathiness: longer open phase (opens earlier, incomplete closure)
+        if (breathiness > 0.0) {
+            effectiveOQ -= 0.12 * breathiness;
+            if (effectiveOQ < 0.10) effectiveOQ = 0.10;
         }
 
         glottisOpen = (pitchHz > 0.0) && (cyclePos >= effectiveOQ);
@@ -637,7 +650,7 @@ public:
         }
         if (breathiness > 0.0) {
             // Breathy voice has weaker vocal fold vibration
-            voiceAmp *= (1.0 - (0.40 * breathiness));
+            voiceAmp *= (1.0 - (0.25 * breathiness));
         }
         voiceAmp *= shimmerMul;
 
