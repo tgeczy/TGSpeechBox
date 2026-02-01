@@ -176,6 +176,9 @@ private:
     double voicedPreEmphA;
     double voicedPreEmphMix;
 
+    // Speed quotient: glottal pulse asymmetry (V3 voicingTone)
+    double speedQuotient;
+
     // Spectral tilt (Bipolar)
     double tiltTargetTlDb;
     double tiltTlDb;
@@ -317,6 +320,7 @@ public:
         voicedPreEmphA = defaults.voicedPreEmphA;
         voicedPreEmphMix = defaults.voicedPreEmphMix;
         noiseGlottalModDepth = clampDouble(defaults.noiseGlottalModDepth, 0.0, 1.0);
+        speedQuotient = clampDouble(defaults.speedQuotient, 0.5, 4.0);
         setTiltDbPerOct(defaults.voicedTiltDbPerOct);
 
         tiltTlDb = tiltTargetTlDb;
@@ -347,20 +351,30 @@ public:
         tiltTargetTlDb = clampDouble(tiltVal, -24.0, 24.0);
     }
 
-    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth) {
+    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth, double sq) {
         voicingPeakPos = peakPos;
         voicedPreEmphA = preEmphA;
         voicedPreEmphMix = preEmphMix;
         noiseGlottalModDepth = clampDouble(noiseModDepth, 0.0, 1.0);
+        speedQuotient = clampDouble(sq, 0.5, 4.0);
         setTiltDbPerOct(tiltDb);
     }
 
-    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth) const {
+    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth, double* sq) const {
         if (peakPos) *peakPos = voicingPeakPos;
         if (preEmphA) *preEmphA = voicedPreEmphA;
         if (preEmphMix) *preEmphMix = voicedPreEmphMix;
         if (tiltDb) *tiltDb = tiltTargetTlDb;
         if (noiseModDepth) *noiseModDepth = noiseGlottalModDepth;
+        if (sq) *sq = speedQuotient;
+    }
+
+    void setSpeedQuotient(double sq) {
+        speedQuotient = clampDouble(sq, 0.5, 4.0);
+    }
+
+    double getSpeedQuotient() const {
+        return speedQuotient;
     }
 
     double getLastNoiseMod() const { return lastNoiseMod; }
@@ -413,10 +427,10 @@ public:
         lastCyclePos = cyclePos;
 
         if (cycleWrapped) {
-            // Map [0..1] to small, sane ranges.
-            // - jitter: relative F0 variation (typical human jitter is small)
+            // Map [0..1] to perceptible ranges.
+            // - jitter: relative F0 variation (0.02 = realistic, but inaudible; use 0.15 for testing)
             // - shimmer: relative amplitude variation
-            double jitterRel = (jitter * 0.02) + (creakiness * 0.05);
+            double jitterRel = (jitter * 0.15) + (creakiness * 0.05);
             if (jitterRel > 0.0) {
                 double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
                 jitterMul = 1.0 + (r * jitterRel);
@@ -425,7 +439,7 @@ public:
                 jitterMul = 1.0;
             }
 
-            double shimmerRel = (shimmer * 0.06) + (creakiness * 0.12);
+            double shimmerRel = (shimmer * 0.70) + (creakiness * 0.12);
             if (shimmerRel > 0.0) {
                 double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
                 shimmerMul = 1.0 + (r * shimmerRel);
@@ -508,29 +522,47 @@ public:
             }
 
             // Compute LF-inspired flow (asymmetric, more harmonics)
+            // Speed quotient affects the asymmetry:
+            //   SQ < 2.0: Slower opening, gentler closing (female-like)
+            //   SQ = 2.0: Default/neutral
+            //   SQ > 2.0: Faster opening, sharper closing (male-like, pressed)
             double flowLF;
             if (phase < peakPos) {
-                // Opening: polynomial rise
+                // Opening phase: polynomial rise
+                // speedQuotient affects the curve steepness
                 double t = phase / peakPos;
-                flowLF = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
+                // Higher SQ = faster opening (steeper curve)
+                // Lower SQ = slower opening (gentler curve)
+                double openPower = 2.0 + (speedQuotient - 2.0) * 0.5;  // Range ~1.25 to ~3.0
+                if (openPower < 1.0) openPower = 1.0;
+                if (openPower > 4.0) openPower = 4.0;
+                double tPow = pow(t, openPower);
+                flowLF = tPow * (3.0 - 2.0 * t);  // Modified smoothstep
             } else {
-                // Closing: sharper fall with "return phase" character
+                // Closing phase: sharper fall with "return phase" character
                 double t = (phase - peakPos) / (1.0 - peakPos);
-                // Sample-rate-dependent sharpness:
+                // Sample-rate-dependent base sharpness:
                 // Higher sample rates need sharper closure for fuller harmonics.
-                // Note: Below 16000 Hz, lfBlend is < 1.0 so cosine dominates anyway.
-                double sharpness;
+                double baseSharpness;
                 if (sampleRate >= 44100) {
-                    sharpness = 10.0;  // Very aggressive at high rates
+                    baseSharpness = 10.0;
                 } else if (sampleRate >= 32000) {
-                    sharpness = 8.0;   // Still quite sharp
+                    baseSharpness = 8.0;
                 } else if (sampleRate >= 22050) {
-                    sharpness = 4.0;   // Balanced for 22050
+                    baseSharpness = 4.0;
                 } else if (sampleRate >= 16000) {
-                    sharpness = 3.0;   // Gentler at 16000
+                    baseSharpness = 3.0;
                 } else {
-                    sharpness = 2.5;   // Doesn't matter much - cosine dominates at low rates
+                    baseSharpness = 2.5;
                 }
+                // Speed quotient modulates the closing sharpness:
+                //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
+                //   SQ=2.0: sharpness * 1.0 (default)
+                //   SQ=4.0: sharpness * 1.6 (very sharp, pressed)
+                double sqFactor = 0.4 + (speedQuotient - 0.5) * (0.6 / 1.5);  // Linear map
+                if (sqFactor < 0.3) sqFactor = 0.3;
+                if (sqFactor > 2.0) sqFactor = 2.0;
+                double sharpness = baseSharpness * sqFactor;
                 flowLF = pow(1.0 - t, sharpness);
             }
 
@@ -1369,7 +1401,8 @@ public:
             currentTone.voicedPreEmphA,
             currentTone.voicedPreEmphMix,
             currentTone.voicedTiltDbPerOct,
-            currentTone.noiseGlottalModDepth
+            currentTone.noiseGlottalModDepth,
+            currentTone.speedQuotient
         );
 
         // Update high-shelf coefficients (do not reset state)
