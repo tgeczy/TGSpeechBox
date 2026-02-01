@@ -491,7 +491,7 @@ int main(int argc, char** argv) {
   // Apply VoicingTone if any parameters are non-default
   if (hasVoicingToneEffect(opt)) {
     VoicingToneV3 tone = buildVoicingTone(opt);
-    speechPlayer_setVoicingTone(player, &tone);
+    speechPlayer_setVoicingTone(player, reinterpret_cast<const speechPlayer_voicingTone_t*>(&tone));
   }
 
   // Initialize frontend
