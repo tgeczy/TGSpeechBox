@@ -615,7 +615,7 @@ public:
         if (!std::isfinite(voiceTurbAmp)) voiceTurbAmp = 0.0;
         voiceTurbAmp = clampDouble(voiceTurbAmp, 0.0, 1.0);
         if (breathiness > 0.0) {
-            voiceTurbAmp = clampDouble(voiceTurbAmp + (0.65 * breathiness), 0.0, 1.0);
+            voiceTurbAmp = clampDouble(voiceTurbAmp + (1.0 * breathiness), 0.0, 1.0);
         }
 
         double turbulence = aspiration * voiceTurbAmp;
@@ -628,12 +628,16 @@ public:
             turbulence = 0.0;
         }
 
-        // Voice amplitude with optional shimmer/creakiness scaling.
+        // Voice amplitude with optional shimmer/creakiness/breathiness scaling.
         double voiceAmp = frame->voiceAmplitude;
         if (!std::isfinite(voiceAmp)) voiceAmp = 0.0;
         voiceAmp = clampDouble(voiceAmp, 0.0, 1.0);
         if (creakiness > 0.0) {
             voiceAmp *= (1.0 - (0.35 * creakiness));
+        }
+        if (breathiness > 0.0) {
+            // Breathy voice has weaker vocal fold vibration
+            voiceAmp *= (1.0 - (0.40 * breathiness));
         }
         voiceAmp *= shimmerMul;
 
@@ -650,7 +654,7 @@ public:
         if (targetAspAmp > 1.0) targetAspAmp = 1.0;
 
         if (breathiness > 0.0) {
-            targetAspAmp = clampDouble(targetAspAmp + (0.50 * breathiness), 0.0, 1.0);
+            targetAspAmp = clampDouble(targetAspAmp + (1.0 * breathiness), 0.0, 1.0);
         }
 
         if (!smoothAspAmpInit) {
