@@ -16,7 +16,7 @@ from synthDriverHandler import VoiceInfo
 # Language choices exposed in NVDA settings.
 languages = OrderedDict([
     ("en-us", VoiceInfo("en-us", "English (US)")),
-    ("en", VoiceInfo("en", "English (UK)")),
+    ("en-gb", VoiceInfo("en-gb", "English (UK)")),
     ("zh", VoiceInfo("zh", "Chinese")),
     ("pt", VoiceInfo("pt", "Portuguese")),
     ("hu", VoiceInfo("hu", "Hungarian")),
@@ -30,6 +30,7 @@ languages = OrderedDict([
     ("ro", VoiceInfo("ro", "Romanian")),
     ("de", VoiceInfo("de", "German")),
     ("nl", VoiceInfo("nl", "Dutch")),
+    ("da", VoiceInfo("da", "Danish")),
     ("sv", VoiceInfo("sv", "Swedish")),
     ("cs", VoiceInfo("cs", "Czech")),
     ("hr", VoiceInfo("hr", "Croatian")),
@@ -172,7 +173,7 @@ voices = {
         "pf3_mul": 1.06,
         "pf4_mul": 1.08,
         "pf5_mul": 1.10,
-        "pf6_mul": 1.05,
+        "pf6_mul": 1.00,
         # No vibrato - steady synthetic pitch
         "vibratoPitchOffset": 0.0,
         "vibratoSpeed": 0.0,
