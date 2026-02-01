@@ -7,3 +7,4 @@ EXPORTS
 	; Extended API (safe ABI extension - old drivers won't call these)
 	speechPlayer_setVoicingTone
 	speechPlayer_getVoicingTone
+	speechPlayer_getDspVersion

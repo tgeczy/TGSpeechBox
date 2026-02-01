@@ -10,7 +10,6 @@
 # - queueFrame() accepts durations in milliseconds, converts to samples (DLL expects samples).
 # - Supports both 32-bit and 64-bit NVDA by loading DLLs from ./x86 or ./x64.
 # - setVoicingTone() for DSP-level voice quality adjustments.
-# - VoicingTone v2 struct with version detection and new pitch-sync params.
 ###
 
 from __future__ import annotations
@@ -24,7 +23,6 @@ from ctypes import (
     c_int,
     c_short,
     c_uint,
-    c_uint32,
     c_void_p,
     cdll,
 )
@@ -34,10 +32,6 @@ from typing import Optional
 from logHandler import log
 
 speechPlayer_frameParam_t = c_double
-
-# VoicingTone struct versioning constants (must match voicingTone.h)
-SPEECHPLAYER_VOICINGTONE_MAGIC = 0x32544F56  # "VOT2" in little-endian
-SPEECHPLAYER_VOICINGTONE_VERSION = 2
 
 
 class Frame(Structure):
@@ -66,49 +60,27 @@ class Frame(Structure):
 
 
 class VoicingTone(Structure):
-    """DSP-level voice quality parameters (v2 struct with version detection).
+    """DSP-level voice quality parameters.
     
     These affect the wave generator's glottal pulse shape, voiced pre-emphasis,
-    spectral tilt, high-shelf EQ, and pitch-synchronous F1 modulation.
-    Set once per voice change, not per-frame.
+    spectral tilt, and high-shelf EQ. Set once per voice change, not per-frame.
     
-    This struct matches speechPlayer_voicingTone_t in voicingTone.h (v2 layout).
-    The magic/structSize/structVersion header enables backward compatibility
-    with older DLLs that only know the original 7-field layout.
+    This struct matches speechPlayer_voicingTone_t in voicingTone.h.
     """
     _fields_ = [
-        # Version detection header
-        ("magic", c_uint32),              # Must be SPEECHPLAYER_VOICINGTONE_MAGIC
-        ("structSize", c_uint32),         # sizeof(VoicingTone)
-        ("structVersion", c_uint32),      # Must be SPEECHPLAYER_VOICINGTONE_VERSION
-        ("dspVersion", c_uint32),         # DSP version (informational)
-        
-        # Original v1 parameters
         ("voicingPeakPos", c_double),     # Glottal pulse peak position (0.85-0.95, default 0.91)
         ("voicedPreEmphA", c_double),     # Pre-emphasis coefficient (0.0-0.97, default 0.92)
         ("voicedPreEmphMix", c_double),   # Pre-emphasis mix (0.0-1.0, default 0.35)
         ("highShelfGainDb", c_double),    # High-shelf EQ gain in dB (default 4.0)
         ("highShelfFcHz", c_double),      # High-shelf corner frequency (default 2000.0)
         ("highShelfQ", c_double),         # High-shelf Q factor (default 0.7)
-        ("voicedTiltDbPerOct", c_double), # Spectral tilt in dB/octave (default 0.0)
-        
-        # New v2 parameters
-        ("noiseGlottalModDepth", c_double),  # Noise modulation by glottal cycle (0.0-1.0, default 0.0)
-        ("pitchSyncF1DeltaHz", c_double),    # F1 delta during glottal open phase (default 60.0)
-        ("pitchSyncB1DeltaHz", c_double),    # B1 delta during glottal open phase (default 50.0)
+        ("voicedTiltDbPerOct", c_double), # Spectral tilt in dB/octave (default 0.0, negative = darker)
     ]
     
     @classmethod
     def defaults(cls) -> "VoicingTone":
-        """Return a VoicingTone with default values matching voicingTone.h."""
+        """Return a VoicingTone with default values matching the original DSP constants."""
         tone = cls()
-        # Version header
-        tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC
-        tone.structSize = ctypes.sizeof(cls)
-        tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION
-        tone.dspVersion = 4  # Current DSP version
-        
-        # Original parameters
         tone.voicingPeakPos = 0.91
         tone.voicedPreEmphA = 0.92
         tone.voicedPreEmphMix = 0.35
@@ -116,11 +88,6 @@ class VoicingTone(Structure):
         tone.highShelfFcHz = 2000.0
         tone.highShelfQ = 0.7
         tone.voicedTiltDbPerOct = 0.0
-        
-        # New v2 parameters
-        tone.noiseGlottalModDepth = 0.0
-        tone.pitchSyncF1DeltaHz = 0.0   # Slider 50 = neutral (0 Hz)
-        tone.pitchSyncB1DeltaHz = 0.0   # Slider 50 = neutral (0 Hz)
         return tone
 
 
@@ -273,8 +240,7 @@ class SpeechPlayer(object):
         """Set DSP-level voice quality parameters.
         
         This affects the wave generator's glottal pulse shape, voiced pre-emphasis,
-        high-shelf EQ, and pitch-synchronous F1 modulation. Call this once when 
-        switching voices, not per-frame.
+        and high-shelf EQ. Call this once when switching voices, not per-frame.
         
         Args:
             tone: VoicingTone struct with parameters, or None to reset to defaults.
@@ -329,15 +295,9 @@ class SpeechPlayer(object):
                 pass
             self._dllDirCookie = None
 
-        # Unload the DLL so the file can be replaced/deleted
-        # Import here to avoid circular import issues
-        if self._dll:
-            try:
-                from ._dll_utils import freeDll
-                freeDll(self._dll)
-            except Exception:
-                # Non-fatal - DLL will be unloaded when NVDA exits
-                log.debug("nvSpeechPlayer: freeDll failed for speechPlayer.dll", exc_info=True)
+        # Note: We intentionally do NOT call FreeLibrary to unload the DLL.
+        # On some NVDA/Python versions, this causes memory corruption that affects
+        # other DLLs (like espeak). The DLL will be unloaded when NVDA exits.
         self._dll = None
 
     def __del__(self):

@@ -15,6 +15,28 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 #ifndef SPEECHPLAYER_VOICINGTONE_H
 #define SPEECHPLAYER_VOICINGTONE_H
 
+#include <stdint.h>
+
+/*
+ * DSP versioning
+ *
+ * Increments when the synthesizer DSP changes in a way that callers may want
+ * to detect (even if the core ABI stays stable).
+ */
+#define SPEECHPLAYER_DSP_VERSION 4u
+
+/*
+ * VoicingTone struct versioning
+ *
+ * We keep a small header at the top of the struct so newer/older callers can
+ * negotiate how much data is safe to read/write.
+ *
+ * If a caller passes an older VoicingTone layout (the original 7 doubles),
+ * the magic won't match and the DLL will treat it as the legacy layout.
+ */
+#define SPEECHPLAYER_VOICINGTONE_MAGIC 0x32544F56u /* "VOT2" */
+#define SPEECHPLAYER_VOICINGTONE_VERSION 2u
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,6 +51,36 @@ extern "C" {
  * so existing drivers that never call the setter will sound identical.
  */
 typedef struct {
+    /**
+     * ABI header
+     *
+     * Callers should set:
+     *   - magic = SPEECHPLAYER_VOICINGTONE_MAGIC
+     *   - structSize = sizeof(speechPlayer_voicingTone_t)
+     *
+     * If the DLL sees an unexpected magic, it will treat the pointer as the
+     * legacy 7-double layout.
+     */
+    uint32_t magic;
+
+    /**
+     * Size of this struct in bytes.
+     * Used to safely extend the struct in the future without crashes.
+     */
+    uint32_t structSize;
+
+    /**
+     * Struct layout version.
+     * This is about the C layout (fields/order), not the DSP behavior.
+     */
+    uint32_t structVersion;
+
+    /**
+     * DSP version implemented by the DLL (see SPEECHPLAYER_DSP_VERSION).
+     * Callers may ignore this field and instead call speechPlayer_getDspVersion().
+     */
+    uint32_t dspVersion;
+
     /**
      * Glottal pulse peak position (0.0 to 1.0, typically 0.85-0.95).
      * Higher values => faster closing portion => more high-frequency harmonic energy ("crisper").
@@ -81,17 +133,71 @@ typedef struct {
      * and more voice-like.
      * 
      * Typical values:
-     *   - Adult male:  +4 to +6 dB/oct (brighter, buzzier)
+     *   - Adult male:  -4 to -6 dB/oct (brighter, buzzier)
      *   - Female:      -7 to -10 dB/oct (smoother)
-     *   - Child/soft:  -9 to -12 dB/oct (very smooth/bright)
+     *   - Child/soft:  -9 to -12 dB/oct (very smooth/muffled)
      *   - 0 dB/oct:    No tilt (brightest, most synthetic)
      * 
-     * Negative values = brighter/smoother (normal for speech)
-     * Positive values = Buzzier and more bass  (unusual, may sound harsh)
+     * Negative values = darker/smoother (normal for speech)
+     * Positive values = brighter (unusual, may sound harsh)
      * 
      * Default: 0.0 (no additional tilt, preserves original DSP behavior)
      */
     double voicedTiltDbPerOct;
+
+    /**
+     * Optional glottal-cycle amplitude modulation depth for *noise* sources
+     * (aspiration + frication), matching the classic Klatt 50% AM idea.
+     *
+     * 0.0 = off (noise is steady)
+     * 1.0 = full Klatt-style modulation (second half-cycle attenuated)
+     *
+     * Default: 0.0 (off, preserves original behavior)
+     */
+    double noiseGlottalModDepth;
+
+    /* ================================================================
+     * V3 additions: Pitch-synchronous F1 modulation (Eloquence-like)
+     * ================================================================
+     * 
+     * These parameters enable pitch-synchronous modulation of the first
+     * formant (F1) and its bandwidth (B1), which is a key characteristic
+     * of the ETI-Eloquence "buzzy clarity" sound.
+     * 
+     * During each glottal cycle:
+     *   - OPEN phase: F1 is raised by pitchSyncF1DeltaHz, B1 widened by pitchSyncB1DeltaHz
+     *   - CLOSED phase: F1/B1 return to base values
+     * 
+     * This models the acoustic coupling between the glottal source and
+     * the vocal tract that occurs during the open phase of voicing.
+     * 
+     * Reference: Klatt 1980, Qlatt pitch-sync-mod crate
+     */
+
+    /**
+     * F1 frequency delta during glottal open phase (Hz).
+     * Positive values raise F1 during open phase (typical: 0-100 Hz).
+     * 
+     * 0.0 = off (no pitch-sync modulation)
+     * 50.0 = moderate Eloquence-like effect
+     * 100.0 = strong effect
+     * 
+     * Default: 0.0 (off, preserves original behavior)
+     */
+    double pitchSyncF1DeltaHz;
+
+    /**
+     * B1 bandwidth delta during glottal open phase (Hz).
+     * Positive values widen B1 during open phase (typical: 0-80 Hz).
+     * Wider B1 during open phase simulates increased glottal losses.
+     * 
+     * 0.0 = off
+     * 40.0 = moderate effect
+     * 80.0 = strong effect
+     * 
+     * Default: 0.0 (off, preserves original behavior)
+     */
+    double pitchSyncB1DeltaHz;
 
 } speechPlayer_voicingTone_t;
 
@@ -100,13 +206,20 @@ typedef struct {
  * Use this to initialize a voicingTone struct before modifying specific fields.
  */
 #define SPEECHPLAYER_VOICINGTONE_DEFAULTS { \
+    SPEECHPLAYER_VOICINGTONE_MAGIC,              /* magic */ \
+    (uint32_t)sizeof(speechPlayer_voicingTone_t),/* structSize */ \
+    SPEECHPLAYER_VOICINGTONE_VERSION,            /* structVersion */ \
+    SPEECHPLAYER_DSP_VERSION,                    /* dspVersion */ \
     0.91,   /* voicingPeakPos */ \
     0.92,   /* voicedPreEmphA */ \
     0.35,   /* voicedPreEmphMix */ \
     4.0,    /* highShelfGainDb */ \
     2000.0, /* highShelfFcHz */ \
     0.7,    /* highShelfQ */ \
-    0.0     /* voicedTiltDbPerOct (no tilt by default) */ \
+    0.0,    /* voicedTiltDbPerOct (no tilt by default) */ \
+    0.0,    /* noiseGlottalModDepth */ \
+    0.0,    /* pitchSyncF1DeltaHz (off by default) */ \
+    0.0     /* pitchSyncB1DeltaHz (off by default) */ \
 }
 
 /**
