@@ -23,7 +23,9 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * Increments when the synthesizer DSP changes in a way that callers may want
  * to detect (even if the core ABI stays stable).
  */
+#ifndef SPEECHPLAYER_DSP_VERSION
 #define SPEECHPLAYER_DSP_VERSION 5u
+#endif
 
 /*
  * VoicingTone struct versioning
@@ -34,8 +36,13 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * If a caller passes an older VoicingTone layout (the original 7 doubles),
  * the magic won't match and the DLL will treat it as the legacy layout.
  */
+#ifndef SPEECHPLAYER_VOICINGTONE_MAGIC
 #define SPEECHPLAYER_VOICINGTONE_MAGIC 0x32544F56u /* "VOT2" */
+#endif
+
+#ifndef SPEECHPLAYER_VOICINGTONE_VERSION
 #define SPEECHPLAYER_VOICINGTONE_VERSION 3u
+#endif
 
 #ifdef __cplusplus
 extern "C" {
