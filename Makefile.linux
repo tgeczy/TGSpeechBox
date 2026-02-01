@@ -25,6 +25,7 @@ FRONTEND_SRCS = \
 	$(FRONTENDDIR)/nvspFrontend.cpp \
 	$(FRONTENDDIR)/pack.cpp \
 	$(FRONTENDDIR)/utf8.cpp \
+	$(FRONTENDDIR)/voice_profile.cpp \
 	$(FRONTENDDIR)/yaml_min.cpp \
 	$(PASSESDIR)/allophones.cpp \
 	$(PASSESDIR)/boundary_smoothing.cpp \
@@ -101,6 +102,9 @@ $(BUILDDIR)/utf8.o: $(FRONTENDDIR)/utf8.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/yaml_min.o: $(FRONTENDDIR)/yaml_min.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/voice_profile.o: $(FRONTENDDIR)/voice_profile.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 # Passes sources
