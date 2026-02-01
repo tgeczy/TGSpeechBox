@@ -842,36 +842,9 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
 
     t.durationMs = dur;
 
-    // ============================================
-    // BOUNDARY SMOOTHING
-    // ============================================
-    // Apply longer fade times at phoneme type transitions
-    // to reduce "clicky" consonant boundaries.
-    if (lang.boundarySmoothingEnabled && last && !t.silence && !last->silence) {
-      const bool lastIsVowel = tokenIsVowel(*last);
-      const bool currIsStop = tokenIsStop(t);
-      const bool currIsAfricate = tokenIsAfricate(t);
-      const bool currIsFric = (!tokenIsVoiced(t) && !currIsStop && !currIsAfricate && !tokenIsVowel(t));
-      const bool currIsVowel = tokenIsVowel(t);
-      const bool lastIsStop = tokenIsStop(*last);
-      const bool lastIsAfricate = tokenIsAfricate(*last);
-      
-      // Vowel -> Stop/Affricate transition
-      if (lastIsVowel && (currIsStop || currIsAfricate)) {
-        double smoothFade = lang.boundarySmoothingVowelToStopFadeMs / curSpeed;
-        if (smoothFade > fade) fade = smoothFade;
-      }
-      // Stop/Affricate -> Vowel transition
-      else if ((lastIsStop || lastIsAfricate) && currIsVowel) {
-        double smoothFade = lang.boundarySmoothingStopToVowelFadeMs / curSpeed;
-        if (smoothFade > fade) fade = smoothFade;
-      }
-      // Vowel -> Fricative transition
-      else if (lastIsVowel && currIsFric) {
-        double smoothFade = lang.boundarySmoothingVowelToFricFadeMs / curSpeed;
-        if (smoothFade > fade) fade = smoothFade;
-      }
-    }
+    // NOTE: Boundary smoothing is now handled by the boundary_smoothing pass
+    // which runs after timing calculation. This allows for more sophisticated
+    // transition handling without cluttering this function.
 
     t.fadeMs = fade;
     last = &t;
@@ -2222,7 +2195,13 @@ void emitFrames(
     // TRAJECTORY LIMITING
     // ============================================
     // Limit how fast formant frequencies can change to reduce harsh transitions.
-    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0) {
+    // IMPORTANT: Skip semivowels and liquids - they need sharp formant transitions
+    // to be perceived correctly. Over-smoothing causes /w/ to sound like /r/.
+    const bool skipTrajectoryLimit = t.def && (
+        (t.def->flags & kIsSemivowel) != 0 ||
+        (t.def->flags & kIsLiquid) != 0
+    );
+    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
       const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
       const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
       const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);

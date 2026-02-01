@@ -97,3 +97,28 @@ def findDllDir(baseDir: str) -> Optional[str]:
             continue
 
     return None
+
+
+def freeDll(dll) -> bool:
+    """Attempt to unload a DLL from the process.
+    
+    On Windows, calls FreeLibrary via kernel32. Returns True on success.
+    This allows the DLL file to be replaced/deleted while NVDA is running.
+    """
+    if dll is None:
+        return False
+    try:
+        # Get the handle from ctypes CDLL object
+        handle = dll._handle
+        if not handle:
+            return False
+        
+        # Call FreeLibrary
+        kernel32 = ctypes.windll.kernel32
+        kernel32.FreeLibrary.argtypes = [ctypes.c_void_p]
+        kernel32.FreeLibrary.restype = ctypes.c_int
+        result = kernel32.FreeLibrary(handle)
+        return bool(result)
+    except Exception:
+        log.debug("nvSpeechPlayer: freeDll failed", exc_info=True)
+        return False

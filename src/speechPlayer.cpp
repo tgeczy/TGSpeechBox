@@ -35,7 +35,12 @@ speechPlayer_handle_t speechPlayer_initialize(int sampleRate) {
 
 void speechPlayer_queueFrame(speechPlayer_handle_t playerHandle, speechPlayer_frame_t* framePtr, unsigned int minFrameDuration, unsigned int fadeDuration, int userIndex, bool purgeQueue) { 
 	speechPlayer_handleInfo_t* playerHandleInfo=(speechPlayer_handleInfo_t*)playerHandle;
-	playerHandleInfo->frameManager->queueFrame(framePtr, minFrameDuration, std::max(fadeDuration, 1u), userIndex, purgeQueue);
+	playerHandleInfo->frameManager->queueFrameEx(framePtr, NULL, 0, minFrameDuration, std::max(fadeDuration, 1u), userIndex, purgeQueue);
+}
+
+void speechPlayer_queueFrameEx(speechPlayer_handle_t playerHandle, speechPlayer_frame_t* framePtr, const speechPlayer_frameEx_t* frameExPtr, unsigned int frameExSize, unsigned int minFrameDuration, unsigned int fadeDuration, int userIndex, bool purgeQueue) { 
+	speechPlayer_handleInfo_t* playerHandleInfo=(speechPlayer_handleInfo_t*)playerHandle;
+	playerHandleInfo->frameManager->queueFrameEx(framePtr, frameExPtr, frameExSize, minFrameDuration, std::max(fadeDuration, 1u), userIndex, purgeQueue);
 }
 
 int speechPlayer_synthesize(speechPlayer_handle_t playerHandle, unsigned int sampleCount, sample* sampleBuf) {

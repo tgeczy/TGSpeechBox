@@ -1,19 +1,112 @@
 # Swedish (sv)
+# Enhanced with pitch accent awareness, quantity sensitivity, and retroflex handling
 
 settings:
-  primaryStressDiv: 1.25
-  secondaryStressDiv: 1.07
+  # Swedish stress interacts with pitch accent - make it clear
+  primaryStressDiv: 1.30
+  secondaryStressDiv: 1.10
 
-  # Swedish length contrasts are important; make ː more audible.
-  lengthenedScale: 1.3
+  # Swedish has strict quantity requirements:
+  # Stressed syllables must be heavy (long vowel OR short vowel + long consonant)
+  # This creates the "sing-song" rhythm
+  lengthenedScale: 1.20
 
-# eSpeak Swedish IPA sometimes emits the ɧ sound as "sx".
-# Map the sequence to the single phoneme ɧ.
+  # Vowel length contrast is phonemic - moderate values
+  lengthContrastEnabled: true
+  lengthContrastShortVowelCeilingMs: 65
+  lengthContrastLongVowelFloorMs: 90
+  
+  # Swedish has geminate consonants (phonemic consonant length)
+  # The complementary distribution: long V + short C OR short V + long C
+  lengthContrastGeminateClosureScale: 1.7
+  lengthContrastGeminateReleaseScale: 0.85
+  lengthContrastPreGeminateVowelScale: 0.75
+
+  # Swedish stops are often preaspirated in some dialects
+  # Keep closure clear but not harsh
+  stopClosureMode: vowel-and-cluster
+  stopClosureVowelGapMs: 22
+  stopClosureVowelFadeMs: 6
+  stopClosureClusterGapMs: 18
+  stopClosureClusterFadeMs: 5
+
+  # Smooth transitions for retroflex consonants
+  boundarySmoothingEnabled: true
+
+  # Swedish trill
+  trillModulationMs: 35
+  trillModulationFadeMs: 3
+
+  # Single-word tuning
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 50
+  singleWordFinalFadeMs: 20
+
+  # Enable microprosody for natural pitch variation
+  microprosodyEnabled: true
+  microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: -6
+
 normalization:
   preReplacements:
+    # Swedish sj-sound - eSpeak sometimes outputs "sx"
+    # Map to the ɧ phoneme (voiceless palatal-velar fricative)
     - from: "sx"
       to: "ɧ"
 
-    # Mnemonic fallback for /ʉ/.
+    # Mnemonic fallback for /ʉ/ (central close rounded)
     - from: "u-"
       to: "ʉ"
+
+    # Swedish retroflex consonants from r+dental clusters
+    # These are automatic in speech but sometimes transcribed separately
+    - from: "rt"
+      to: "ʈ"
+    - from: "rd"
+      to: "ɖ"
+    - from: "rn"
+      to: "ɳ"
+    - from: "rl"
+      to: "ɭ"
+    - from: "rs"
+      to: "ʂ"
+
+    # Standard Swedish R is usually alveolar tap/trill
+    # (Southern Swedish uses uvular, but standard is alveolar)
+    - from: "ʁ"
+      to: "r"
+
+    # Ensure tj/kj cluster becomes the tj-sound (voiceless palatal fricative)
+    - from: "tj"
+      to: "ɕ"
+    - from: "kj"
+      to: "ɕ"
+
+  replacements:
+    # Pitch accent notation - if present, preserve stress patterns
+    # Accent 1 (acute) vs Accent 2 (grave) distinction
+    # For now, we rely on stress markers; future: could add F0 contour differences
+
+intonation:
+  # Swedish declaratives - the characteristic "sing-song" quality
+  # Higher pitch excursion than Danish, reflecting pitch accent system
+  ".":
+    preHeadStart: 70
+    preHeadEnd: 50
+    nucleus0Start: 68
+    nucleus0End: 20
+    nucleusStart: 72
+    nucleusEnd: 15
+    tailStart: 18
+    tailEnd: 8
+
+  # Swedish questions - clear rise
+  "?":
+    preHeadStart: 55
+    preHeadEnd: 65
+    nucleus0Start: 60
+    nucleus0End: 85
+    nucleusStart: 55
+    nucleusEnd: 90
+    tailStart: 85
+    tailEnd: 92

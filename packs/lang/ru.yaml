@@ -1,39 +1,54 @@
 # Russian (ru)
 #
 # Cyrillic support built around eSpeak / eSpeak-ng IPA output.
-# Notes:
-# - Russian stress is lexical; keep stress shaping modest so it remains audible.
-# - Palatalization marker ʲ is mapped to an internal phoneme key (U+E001)
-#   to work around an engine bug with the original character.
+#
+# Russian characteristics:
+# - Strong lexical stress with significant vowel reduction (аканье/иканье)
+# - Palatalized (soft) vs non-palatalized (hard) consonant pairs
+# - Dense consonant clusters (встретить, взгляд)
+# - Rolled /r/ and palatalized /rʲ/
 
 settings:
-  primaryStressDiv: 1.25
-  secondaryStressDiv: 1.10
+  # === STRESS & RHYTHM ===
+  # Russian stress is very prominent - stressed syllables are notably longer
+  # Unstressed vowels reduce significantly (especially /o/ → [ɐ], /e/ → [ɪ])
+  primaryStressDiv: 1.40
+  secondaryStressDiv: 1.12
 
-  # Russian clusters can be dense; keep closures modest.
+  # === CONSONANT CLUSTERS ===
+  # Russian has very dense clusters; keep gaps small to maintain flow
   stopClosureMode: vowel-and-cluster
-  # Allow small stop-closure gaps in clusters/word-boundaries so stops don't get swallowed.
-  # (This helps reduce the "everything blends together" feeling at higher rates.)
   stopClosureClusterGapsEnabled: true
   stopClosureAfterNasalsEnabled: true
 
-  # Smaller than the global defaults (22ms) to avoid sounding too clicky in Russian.
-  stopClosureClusterGapMs: 16
-  stopClosureClusterFadeMs: 4
+  # Tighter gaps than default - Russian clusters should flow
+  stopClosureClusterGapMs: 14
+  stopClosureClusterFadeMs: 3
+  stopClosureVowelGapMs: 26
+  stopClosureVowelFadeMs: 4
 
-  # Word-initial stops after consonants often vanish in dense clusters; give them a tiny gap.
-  stopClosureWordBoundaryClusterGapMs: 18
-  stopClosureWordBoundaryClusterFadeMs: 4
+  # Word-boundary clusters need small gaps to stay intelligible
+  stopClosureWordBoundaryClusterGapMs: 16
+  stopClosureWordBoundaryClusterFadeMs: 3
 
-  # Rolled /r/
-  trillModulationMs: 40
+  # === TRILLS ===
+  # Russian has both /r/ and /rʲ/ (palatalized trill)
+  trillModulationMs: 42
   trillModulationFadeMs: 2
+
+  # === SMOOTHING ===
+  boundarySmoothingEnabled: true
+
+  # Single-word tuning for isolated words
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 40
+  singleWordFinalFadeMs: 16
 
 normalization:
   preReplacements:
     # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
     - from: "ʲ"
-      to: ""
+      to: ""
 
     # Russian has no phonemic vowel length; strip any stray length marks.
     - from: "ː"
@@ -48,7 +63,6 @@ normalization:
       to: "ɫ"
 
     # eSpeak can emit doubled glides in a few contexts (e.g. семья).
-    # Keep it readable.
     - from: "jj"
       to: "j"
 

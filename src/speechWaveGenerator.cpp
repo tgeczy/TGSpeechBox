@@ -161,9 +161,15 @@ public:
         lastValue=0.0;
     }
 
+    // Brownish noise (smoothed random) - original behavior for frication etc.
     double getNext() {
         lastValue=(((double)rand()/(double)RAND_MAX)-0.5)+0.75*lastValue;
         return lastValue;
+    }
+    
+    // White noise - flat spectrum, better for aspiration tilt to act on
+    static inline double white() {
+        return ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
     }
 };
 
@@ -236,11 +242,19 @@ private:
     double aspAttackCoeff;
     double aspReleaseCoeff;
 
+    // Per-frame voice-quality modulation (DSP v5+)
+    double lastCyclePos;
+    double jitterMul;
+    double shimmerMul;
+
     double voicingPeakPos;
     double voicedPreEmphA;
     double voicedPreEmphMix;
 
-    // Spectral tilt (Bipolar)
+    // Speed quotient: glottal pulse asymmetry (V3 voicingTone)
+    double speedQuotient;
+
+    // Spectral tilt (Bipolar) for voiced signal
     double tiltTargetTlDb;
     double tiltTlDb;
 
@@ -253,6 +267,13 @@ private:
 
     double tiltRefHz;
     double tiltLastTlForTargets;
+
+    // Aspiration/frication tilt (LP/HP crossfade for noise color)
+    double aspTiltTargetDb;      // target from slider
+    double aspTiltSmoothedDb;    // smoothed value (prevents clicks)
+    double aspTiltSmoothAlpha;   // smoothing coefficient
+    double aspLpState;           // lowpass state for aspiration tilt filter
+    double fricLpState;          // lowpass state for frication tilt (same tilt value)
 
     // Radiation Gain (Applied ONLY to dFlow)
     double radiationDerivGain;
@@ -341,14 +362,78 @@ return clampDouble(a, 0.0, 0.9999);
         return out;
     }
 
+    // Helper: compute one-pole lowpass alpha from cutoff frequency
+    double onePoleAlphaFromFc(double fcHz) const {
+        double fc = fcHz;
+        double nyq = 0.5 * (double)sampleRate;
+        if (fc < 20.0) fc = 20.0;
+        if (fc > nyq * 0.95) fc = nyq * 0.95;
+        return exp(-PITWO * fc / (double)sampleRate);
+    }
+
+    // Aspiration/frication tilt: LP/HP crossfade for noise color
+    // Negative = darker, Positive = brighter
+    // Uses smoothing to prevent clicks on parameter changes
+    void setAspirationTiltDbPerOct(double tiltDb) {
+        aspTiltTargetDb = clampDouble(tiltDb, -24.0, 24.0);
+    }
+
+    double applyAspirationTilt(double x) {
+        // Smooth the tilt parameter (prevents clicks from instant slider changes)
+        aspTiltSmoothedDb += (aspTiltTargetDb - aspTiltSmoothedDb) * aspTiltSmoothAlpha;
+        double t = aspTiltSmoothedDb;
+
+        // Effect amount 0..1, with perceptual curve
+        double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
+        amt = pow(amt, 0.65);
+
+        // Cutoff based on magnitude only (continuous at t=0, no jump)
+        double fc = 6000.0 - 4500.0 * amt;  // 6k -> 1.5k as amt rises
+        double a = onePoleAlphaFromFc(fc);
+
+        // Always update filter state (prevents state freeze clicks)
+        aspLpState = (1.0 - a) * x + a * aspLpState;
+        double lp = aspLpState;
+        double hp = x - lp;
+
+        // Branchless: darken subtracts hp, brighten adds hp
+        double brightAmt = (t > 0.0) ? amt : 0.0;
+        double darkAmt   = (t < 0.0) ? amt : 0.0;
+        const double kBright = 1.25;
+        return x + hp * (kBright * brightAmt - darkAmt);
+    }
+
 public:
     bool glottisOpen;
+
+    // Frication tilt: same algorithm, separate state, shares smoothed tilt value
+    double applyFricationTilt(double x) {
+        // Use the already-smoothed tilt value from aspiration
+        double t = aspTiltSmoothedDb;
+
+        double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
+        amt = pow(amt, 0.65);
+
+        double fc = 6000.0 - 4500.0 * amt;
+        double a = onePoleAlphaFromFc(fc);
+
+        // Always update filter state
+        fricLpState = (1.0 - a) * x + a * fricLpState;
+        double lp = fricLpState;
+        double hp = x - lp;
+
+        double brightAmt = (t > 0.0) ? amt : 0.0;
+        double darkAmt   = (t < 0.0) ? amt : 0.0;
+        const double kBright = 1.25;
+        return x + hp * (kBright * brightAmt - darkAmt);
+    }
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
         lastFlow(0.0), lastPhase(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
         noiseGlottalModDepth(0.0), lastNoiseMod(1.0),
         smoothAspAmp(0.0), smoothAspAmpInit(false),
         aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
+        lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0),
         glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
         tiltTargetTlDb(0.0), tiltTlDb(0.0),
@@ -356,6 +441,8 @@ public:
         tiltTlAlpha(0.0), tiltPoleAlpha(0.0),
         tiltRefHz(3000.0),
         tiltLastTlForTargets(1e9),
+        aspTiltTargetDb(0.0), aspTiltSmoothedDb(0.0), aspTiltSmoothAlpha(0.0),
+        aspLpState(0.0), fricLpState(0.0),
         radiationDerivGain(1.0),
         radiationMix(0.0),
         useRealGlottalDeriv(true) {  // ENABLED: uses extracted human glottal derivative
@@ -365,6 +452,10 @@ public:
 
         tiltTlAlpha = 1.0 - exp(-1.0 / (sampleRate * (tlSmoothMs * 0.001)));
         tiltPoleAlpha = 1.0 - exp(-1.0 / (sampleRate * (poleSmoothMs * 0.001)));
+
+        // Aspiration tilt smoothing (10ms removes clicks without feeling laggy)
+        const double aspTiltSmoothMs = 10.0;
+        aspTiltSmoothAlpha = 1.0 - exp(-1.0 / (sampleRate * (aspTiltSmoothMs * 0.001)));
 
         // Aspiration gain smoothing (attack/release in ms).
         // This helps avoid random clicks when aspirationAmplitude changes quickly.
@@ -384,7 +475,9 @@ public:
         voicedPreEmphA = defaults.voicedPreEmphA;
         voicedPreEmphMix = defaults.voicedPreEmphMix;
         noiseGlottalModDepth = clampDouble(defaults.noiseGlottalModDepth, 0.0, 1.0);
+        speedQuotient = clampDouble(defaults.speedQuotient, 0.5, 4.0);
         setTiltDbPerOct(defaults.voicedTiltDbPerOct);
+        setAspirationTiltDbPerOct(defaults.aspirationTiltDbPerOct);
 
         tiltTlDb = tiltTargetTlDb;
         updateTiltTargets(tiltTlDb);
@@ -404,27 +497,46 @@ public:
         lastNoiseMod=1.0;
         smoothAspAmp = 0.0;
         smoothAspAmpInit = false;
+        lastCyclePos = 0.0;
+        jitterMul = 1.0;
+        shimmerMul = 1.0;
         glottisOpen=false;
+        aspLpState = 0.0;
+        fricLpState = 0.0;
+        aspTiltSmoothedDb = aspTiltTargetDb;  // Snap to target on reset
+        tiltState = 0.0;  // Reset voiced tilt IIR state to prevent transient
     }
 
     void setTiltDbPerOct(double tiltVal) {
         tiltTargetTlDb = clampDouble(tiltVal, -24.0, 24.0);
     }
 
-    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth) {
+    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth, double sq, double aspTiltDb) {
         voicingPeakPos = peakPos;
         voicedPreEmphA = preEmphA;
         voicedPreEmphMix = preEmphMix;
         noiseGlottalModDepth = clampDouble(noiseModDepth, 0.0, 1.0);
+        speedQuotient = clampDouble(sq, 0.5, 4.0);
         setTiltDbPerOct(tiltDb);
+        setAspirationTiltDbPerOct(aspTiltDb);
     }
 
-    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth) const {
+    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth, double* sq, double* aspTiltDb) const {
         if (peakPos) *peakPos = voicingPeakPos;
         if (preEmphA) *preEmphA = voicedPreEmphA;
         if (preEmphMix) *preEmphMix = voicedPreEmphMix;
         if (tiltDb) *tiltDb = tiltTargetTlDb;
         if (noiseModDepth) *noiseModDepth = noiseGlottalModDepth;
+        if (sq) *sq = speedQuotient;
+        if (aspTiltDb) *aspTiltDb = aspTiltTargetDb;
+    }
+
+    void setSpeedQuotient(double sq) {
+        speedQuotient = clampDouble(sq, 0.5, 4.0);
+    }
+
+    double getSpeedQuotient() const {
+        return speedQuotient;
     }
 
     double getLastNoiseMod() const { return lastNoiseMod; }
@@ -433,10 +545,80 @@ public:
     void setUseRealGlottalDeriv(bool enable) { useRealGlottalDeriv = enable; }
     bool getUseRealGlottalDeriv() const { return useRealGlottalDeriv; }
 
-    double getNext(const speechPlayer_frame_t* frame) {
+    double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx) {
+        // Optional per-frame voice quality (DSP v5+). If frameEx is NULL, all effects are disabled.
+        double creakiness = 0.0;
+        double breathiness = 0.0;
+        double jitter = 0.0;
+        double shimmer = 0.0;
+        if (frameEx) {
+            creakiness = frameEx->creakiness;
+            breathiness = frameEx->breathiness;
+            jitter = frameEx->jitter;
+            shimmer = frameEx->shimmer;
+
+            if (!std::isfinite(creakiness)) creakiness = 0.0;
+            if (!std::isfinite(breathiness)) breathiness = 0.0;
+            if (!std::isfinite(jitter)) jitter = 0.0;
+            if (!std::isfinite(shimmer)) shimmer = 0.0;
+
+            creakiness = clampDouble(creakiness, 0.0, 1.0);
+            breathiness = clampDouble(breathiness, 0.0, 1.0);
+            jitter = clampDouble(jitter, 0.0, 1.0);
+            shimmer = clampDouble(shimmer, 0.0, 1.0);
+            
+            // Perceptual curve for breathiness: makes 0.2–0.6 slider range useful
+            if (breathiness > 0.0) {
+                breathiness = pow(breathiness, 0.55);
+            }
+        }
+
         double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
         double pitchHz = frame->voicePitch * vibrato;
+        if (!std::isfinite(pitchHz) || pitchHz < 0.0) pitchHz = 0.0;
+
+        // Creaky voice tends to have slightly lower F0 and more irregularity.
+        if (creakiness > 0.0) {
+            pitchHz *= (1.0 - 0.12 * creakiness);
+        }
+
+        // If we are unvoiced, reset per-cycle multipliers so voiced segments restart clean.
+        if (pitchHz <= 0.0) {
+            jitterMul = 1.0;
+            shimmerMul = 1.0;
+        }
+
+        // Apply per-cycle jitter multiplier (updated on cycle wraps).
+        pitchHz *= jitterMul;
+
         double cyclePos = pitchGen.getNext(pitchHz > 0.0 ? pitchHz : 0.0);
+
+        // Detect start of a new glottal cycle.
+        const bool cycleWrapped = (pitchHz > 0.0) && (cyclePos < lastCyclePos);
+        lastCyclePos = cyclePos;
+
+        if (cycleWrapped) {
+            // Map [0..1] to perceptible ranges.
+            // - jitter: relative F0 variation (0.02 = realistic, but inaudible; use 0.15 for testing)
+            // - shimmer: relative amplitude variation
+            double jitterRel = (jitter * 0.15) + (creakiness * 0.05);
+            if (jitterRel > 0.0) {
+                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                jitterMul = 1.0 + (r * jitterRel);
+                if (jitterMul < 0.2) jitterMul = 0.2;
+            } else {
+                jitterMul = 1.0;
+            }
+
+            double shimmerRel = (shimmer * 0.70) + (creakiness * 0.12);
+            if (shimmerRel > 0.0) {
+                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                shimmerMul = 1.0 + (r * shimmerRel);
+                if (shimmerMul < 0.0) shimmerMul = 0.0;
+            } else {
+                shimmerMul = 1.0;
+            }
+        }
 
         // Optional Klatt-style glottal-cycle AM for noise sources.
         // When enabled, the second half of the cycle is attenuated.
@@ -451,12 +633,30 @@ public:
         }
         lastNoiseMod = noiseMod;
 
-        double aspiration=aspirationGen.getNext()*0.1*noiseMod;
+        // Aspiration noise: use WHITE noise (flat spectrum) so tilt filter can shape it
+        // Base gain 0.1, breathiness lifts it up to 0.25
+        double aspBase = 0.10 + (0.15 * breathiness);
+        double aspiration = NoiseGenerator::white() * aspBase * noiseMod;
+        
+        // Apply tilt filter to aspiration (color the noise)
+        aspiration = applyAspirationTilt(aspiration);
 
         double effectiveOQ = frame->glottalOpenQuotient;
         if (effectiveOQ <= 0.0) effectiveOQ = 0.4;
         if (effectiveOQ < 0.10) effectiveOQ = 0.10;
         if (effectiveOQ > 0.95) effectiveOQ = 0.95;
+
+        // Creakiness: shorter open phase (more closed time) in this model.
+        if (creakiness > 0.0) {
+            effectiveOQ += 0.10 * creakiness;
+            if (effectiveOQ > 0.95) effectiveOQ = 0.95;
+        }
+        
+        // Breathiness: longer open phase (opens earlier, incomplete closure)
+        if (breathiness > 0.0) {
+            effectiveOQ -= 0.12 * breathiness;
+            if (effectiveOQ < 0.10) effectiveOQ = 0.10;
+        }
 
         glottisOpen = (pitchHz > 0.0) && (cyclePos >= effectiveOQ);
 
@@ -464,7 +664,12 @@ public:
         if(glottisOpen) {
             double openLen = 1.0 - effectiveOQ;
             if (openLen < 0.0001) openLen = 0.0001;
-            double peakPos = voicingPeakPos;
+
+            // Per-frame voice quality tweaks to pulse shape:
+            // - breathiness nudges the peak later (softer/relaxed)
+            // - creakiness nudges the peak earlier (tenser/pressed)
+            double peakPos = voicingPeakPos + (0.02 * breathiness) - (0.05 * creakiness);
+
             double dt = 0.0;
             if (pitchHz > 0.0) dt = pitchHz / (double)sampleRate;
             double denom = openLen - dt;
@@ -490,7 +695,7 @@ public:
             // 
             // The blend preserves fricative clarity (from LF edge) while
             // reducing aliasing artifacts (from cosine smoothness).
-            
+
             // Compute symmetric cosine flow (original SpeechPlayer)
             double flowCosine;
             if (phase < peakPos) {
@@ -498,20 +703,52 @@ public:
             } else {
                 flowCosine = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
             }
-            
+
             // Compute LF-inspired flow (asymmetric, more harmonics)
+            // Speed quotient affects the asymmetry:
+            //   SQ < 2.0: Slower opening, gentler closing (female-like)
+            //   SQ = 2.0: Default/neutral
+            //   SQ > 2.0: Faster opening, sharper closing (male-like, pressed)
             double flowLF;
             if (phase < peakPos) {
-                // Opening: polynomial rise
+                // Opening phase: polynomial rise
+                // speedQuotient affects the curve steepness
                 double t = phase / peakPos;
-                flowLF = t * t * (3.0 - 2.0 * t);  // smoothstep - natural opening
+                // Higher SQ = faster opening (steeper curve)
+                // Lower SQ = slower opening (gentler curve)
+                double openPower = 2.0 + (speedQuotient - 2.0) * 0.5;  // Range ~1.25 to ~3.0
+                if (openPower < 1.0) openPower = 1.0;
+                if (openPower > 4.0) openPower = 4.0;
+                double tPow = pow(t, openPower);
+                flowLF = tPow * (3.0 - 2.0 * t);  // Modified smoothstep
             } else {
-                // Closing: sharper fall with "return phase" character
+                // Closing phase: sharper fall with "return phase" character
                 double t = (phase - peakPos) / (1.0 - peakPos);
-                double sharpness = 2.5;  // Higher = sharper closure = more harmonics
+                // Sample-rate-dependent base sharpness:
+                // Higher sample rates need sharper closure for fuller harmonics.
+                double baseSharpness;
+                if (sampleRate >= 44100) {
+                    baseSharpness = 10.0;
+                } else if (sampleRate >= 32000) {
+                    baseSharpness = 8.0;
+                } else if (sampleRate >= 22050) {
+                    baseSharpness = 4.0;
+                } else if (sampleRate >= 16000) {
+                    baseSharpness = 3.0;
+                } else {
+                    baseSharpness = 2.5;
+                }
+                // Speed quotient modulates the closing sharpness:
+                //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
+                //   SQ=2.0: sharpness * 1.0 (default)
+                //   SQ=4.0: sharpness * 1.6 (very sharp, pressed)
+                double sqFactor = 0.4 + (speedQuotient - 0.5) * (0.6 / 1.5);  // Linear map
+                if (sqFactor < 0.3) sqFactor = 0.3;
+                if (sqFactor > 2.0) sqFactor = 2.0;
+                double sharpness = baseSharpness * sqFactor;
                 flowLF = pow(1.0 - t, sharpness);
             }
-            
+
             // Blend based on sample rate:
             // - 11025 Hz: 70% cosine, 30% LF (enough edge for fricatives)
             // - 14000 Hz: 50/50 blend
@@ -525,9 +762,9 @@ public:
                 // Linear interpolation between 11025 and 16000
                 lfBlend = 0.30 + 0.70 * (double)(sampleRate - 11025) / (16000.0 - 11025.0);
             }
-            
+
             flow = (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
-            
+
             // Store phase for derivative lookup (used below)
             lastPhase = phase;
         }
@@ -551,10 +788,10 @@ public:
         // ------------------------------------------------------------
         // dFlow (Derivative) is naturally tiny. It needs gain to match flow.
         // Flow (Integral) is naturally loud. It DOES NOT need gain.
-        
+
         double srcDeriv = dFlow * radiationDerivGain;
         // srcFlow is just flow.
-        
+
         // At Tilt 0: Mix is 0.0 -> voicedSrc = flow. (WARM/FAT, no clipping)
         // At Tilt -20: Mix is 1.0 -> voicedSrc = srcDeriv. (BRIGHT/BUZZY)
         double voicedSrc = (1.0 - radiationMix) * flow + (radiationMix * srcDeriv);
@@ -567,7 +804,15 @@ public:
         // Klatt TL (Bipolar)
         voicedSrc = applyTilt(voicedSrc);
 
-        double turbulence = aspiration * frame->voiceTurbulenceAmplitude;
+        // Breathiness adds extra turbulence during the open phase.
+        double voiceTurbAmp = frame->voiceTurbulenceAmplitude;
+        if (!std::isfinite(voiceTurbAmp)) voiceTurbAmp = 0.0;
+        voiceTurbAmp = clampDouble(voiceTurbAmp, 0.0, 1.0);
+        if (breathiness > 0.0) {
+            voiceTurbAmp = clampDouble(voiceTurbAmp + (1.0 * breathiness), 0.0, 1.0);
+        }
+
+        double turbulence = aspiration * voiceTurbAmp;
         if(glottisOpen) {
             double flow01 = flow / flowScale;
             if(flow01 < 0.0) flow01 = 0.0;
@@ -577,7 +822,20 @@ public:
             turbulence = 0.0;
         }
 
-        double voicedIn = (voicedSrc + turbulence) * frame->voiceAmplitude;
+        // Voice amplitude with optional shimmer/creakiness/breathiness scaling.
+        double voiceAmp = frame->voiceAmplitude;
+        if (!std::isfinite(voiceAmp)) voiceAmp = 0.0;
+        voiceAmp = clampDouble(voiceAmp, 0.0, 1.0);
+        if (creakiness > 0.0) {
+            voiceAmp *= (1.0 - (0.35 * creakiness));
+        }
+        if (breathiness > 0.0) {
+            // Breathy voice has weaker vocal fold vibration
+            voiceAmp *= (1.0 - (0.25 * breathiness));
+        }
+        voiceAmp *= shimmerMul;
+
+        double voicedIn = (voicedSrc + turbulence) * voiceAmp;
         const double dcPole = 0.9995;
         double voiced = voicedIn - lastVoicedIn + (dcPole * lastVoicedOut);
         lastVoicedIn = voicedIn;
@@ -588,6 +846,10 @@ public:
         if (!std::isfinite(targetAspAmp)) targetAspAmp = 0.0;
         if (targetAspAmp < 0.0) targetAspAmp = 0.0;
         if (targetAspAmp > 1.0) targetAspAmp = 1.0;
+
+        if (breathiness > 0.0) {
+            targetAspAmp = clampDouble(targetAspAmp + (1.0 * breathiness), 0.0, 1.0);
+        }
 
         if (!smoothAspAmpInit) {
             smoothAspAmp = targetAspAmp;
@@ -833,7 +1095,7 @@ public:
         output = r4.resonate(output, frame->cf4, frame->cb4);
         output = r3.resonate(output, frame->cf3, frame->cb3);
         output = r2.resonate(output, frame->cf2, frame->cb2);
-        // F1 uses pitch-synchronous resonator with Fujisaki compensation
+        // F1 uses pitch-synchronous resonator without Fujisaki compensation (dropped as we don't have F1 spikes it worked with.)
         output = r1.resonate(output, frame->cf1, frame->cb1, glottisOpen);
         return output;
     }
@@ -922,6 +1184,8 @@ private:
     double lastBrightOut;      // store last post-shelf sample for fade tail
     int stopFadeRemaining;     // samples left in fade-out
     int stopFadeTotal;         // total fade-out length
+    int startFadeRemaining;    // samples left in fade-in (prevents pop on speech start)
+    int startFadeTotal;        // total fade-in length
 
     void initHighShelf(double fc, double gainDb, double Q) {
         // Clamp inputs to prevent NaNs and weird filter behavior from bad UI values
@@ -960,7 +1224,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -1047,8 +1311,24 @@ public:
 
     unsigned int generate(const unsigned int sampleCount, sample* sampleBuf) {
         if(!frameManager) return 0;
+        
+        // Check if a purge happened — if so, trigger a fade-in to prevent pop
+        // Note: We intentionally do NOT reset resonators here because that can cause
+        // its own transient. The fade-in should mask any discontinuity.
+        if(frameManager->checkAndClearPurgeFlag()) {
+            // Only reset stateless things and trigger fade
+            hsIn1 = 0.0; hsIn2 = 0.0; hsOut1 = 0.0; hsOut2 = 0.0;
+            lastInput = 0.0;
+            lastOutput = 0.0;
+            // Trigger fade-in
+            startFadeTotal = (int)(sampleRate * 0.004); // 6 ms - longer for higher sample rates
+            if (startFadeTotal < 64) startFadeTotal = 64;
+            startFadeRemaining = startFadeTotal;
+        }
+        
         for(unsigned int i=0;i<sampleCount;++i) {
-            const speechPlayer_frame_t* frame=frameManager->getCurrentFrame();
+            const speechPlayer_frameEx_t* frameEx = NULL;
+            const speechPlayer_frame_t* frame=frameManager->getCurrentFrameWithEx(&frameEx);
             if(frame) {
                 if(wasSilence) {
                     voiceGenerator.reset();
@@ -1070,7 +1350,12 @@ public:
                     // Reset stop fade-out state
                     stopFadeTotal = 0;
                     stopFadeRemaining = 0;
-                    // NOTE: Do NOT reset hsIn1/hsIn2/hsOut1/hsOut2 here!
+                    // Reset high-shelf filter state to prevent pops from residual energy
+                    hsIn1 = 0.0; hsIn2 = 0.0; hsOut1 = 0.0; hsOut2 = 0.0;
+                    // Start a short fade-in to prevent pops on speech start
+                    startFadeTotal = (int)(sampleRate * 0.002); // 2 ms
+                    if (startFadeTotal < 16) startFadeTotal = 16;
+                    startFadeRemaining = startFadeTotal;
                     wasSilence=false;
                 }
 
@@ -1078,7 +1363,7 @@ public:
                 double alpha = (targetPreGain > smoothPreGain) ? preGainAttackAlpha : preGainReleaseAlpha;
                 smoothPreGain += (targetPreGain - smoothPreGain) * alpha;
 
-                double voice=voiceGenerator.getNext(frame);
+                double voice=voiceGenerator.getNext(frame, frameEx);
 
                 // ------------------------------------------------------------
                 // Split voice into voiced + aspiration for separate filtering
@@ -1183,6 +1468,9 @@ public:
                 // Generate raw frication noise
                 double fricNoise = fricGenerator.getNext() * kFricNoiseScale * fricAmp * bypassGain * bypassVoicedDuck * voicedFricScale;
 
+                // Apply tilt filter to frication (same tilt as aspiration for now)
+                fricNoise = voiceGenerator.applyFricationTilt(fricNoise);
+
                 // Optional Klatt-style glottal-cycle AM for noise sources.
                 // This is driven by the voiced pitch cycle and will be 1.0
                 // when disabled/unvoiced.
@@ -1229,6 +1517,13 @@ public:
                 // Crossfade between unshelved and shelved
                 double bright = filteredOut + shelfMix * (shelved - filteredOut);
 
+                // Apply start fade-in if active (prevents pop on speech start)
+                if (startFadeRemaining > 0) {
+                    double fadeIn = 1.0 - ((double)startFadeRemaining / (double)startFadeTotal);
+                    bright *= fadeIn;
+                    startFadeRemaining--;
+                }
+
                 // Store for fade-out tail on interrupt
                 lastBrightOut = bright;
 
@@ -1248,7 +1543,8 @@ public:
                         stopFadeRemaining = stopFadeTotal;
                     }
                     if (stopFadeRemaining > 0) {
-                        double t = (double)stopFadeRemaining / (double)stopFadeTotal; // 1..0
+                        // Fade from 1.0 to 0.0 inclusive (last sample is exactly 0)
+                        double t = (double)(stopFadeRemaining - 1) / (double)(stopFadeTotal - 1);
                         double tail = lastBrightOut * t;
                         double scaled = tail * 6000.0;
                         const double limit = 32767.0;
@@ -1264,6 +1560,8 @@ public:
                 wasSilence = true;
                 stopFadeTotal = 0;
                 stopFadeRemaining = 0;
+                // Reset high-shelf biquad state so next utterance starts clean
+                hsIn1 = hsIn2 = hsOut1 = hsOut2 = 0.0;
                 return i;
             }
         }
@@ -1336,7 +1634,9 @@ public:
             currentTone.voicedPreEmphA,
             currentTone.voicedPreEmphMix,
             currentTone.voicedTiltDbPerOct,
-            currentTone.noiseGlottalModDepth
+            currentTone.noiseGlottalModDepth,
+            currentTone.speedQuotient,
+            currentTone.aspirationTiltDbPerOct
         );
 
         // Update high-shelf coefficients (do not reset state)

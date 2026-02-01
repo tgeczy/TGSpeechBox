@@ -13,11 +13,17 @@ settings:
   coarticulationFadeIntoConsonants: true
   coarticulationVelarPinchEnabled: true
 
+  # Safe additions for screen reader use
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
+  boundarySmoothingEnabled: true
+
 normalization:
   preReplacements:
     # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
     - from: "ʲ"
-      to: ""
+      to: ""
 
     # Make sure common Polish affricate spellings are treated as single tokens.
     - from: "tɕ"

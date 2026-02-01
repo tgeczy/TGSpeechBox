@@ -23,7 +23,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * Increments when the synthesizer DSP changes in a way that callers may want
  * to detect (even if the core ABI stays stable).
  */
-#define SPEECHPLAYER_DSP_VERSION 4u
+#define SPEECHPLAYER_DSP_VERSION 5u
 
 /*
  * VoicingTone struct versioning
@@ -35,7 +35,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * the magic won't match and the DLL will treat it as the legacy layout.
  */
 #define SPEECHPLAYER_VOICINGTONE_MAGIC 0x32544F56u /* "VOT2" */
-#define SPEECHPLAYER_VOICINGTONE_VERSION 2u
+#define SPEECHPLAYER_VOICINGTONE_VERSION 3u
 
 #ifdef __cplusplus
 extern "C" {
@@ -199,6 +199,55 @@ typedef struct {
      */
     double pitchSyncB1DeltaHz;
 
+    /* ================================================================
+     * V3 addition: Speed Quotient (glottal pulse asymmetry)
+     * ================================================================
+     * 
+     * Controls the ratio of glottal opening time to closing time.
+     * This is a key parameter for distinguishing male vs female voice quality.
+     * 
+     * In real speech:
+     *   - Female voices: slower opening, slower/smoother closing (SQ ~1.5-2.5)
+     *   - Male voices: faster opening, sharper closing (SQ ~2.5-4.0)
+     *   - Pressed/tense: very fast opening, very sharp closing (SQ ~4.0+)
+     *   - Breathy/lax: slow symmetric (SQ ~1.0-1.5)
+     * 
+     * The speed quotient affects the harmonic spectrum:
+     *   - Lower SQ (more symmetric): fewer high harmonics, softer/breathier
+     *   - Higher SQ (more asymmetric): richer harmonics, buzzier/brighter
+     */
+
+    /**
+     * Speed quotient: ratio controlling glottal pulse asymmetry.
+     * 
+     * Affects both the opening curve steepness and closing sharpness.
+     * 
+     * Range: 0.5 to 4.0 (values outside this are clamped)
+     *   - 0.5-1.0: Very soft/breathy (slow open, slow close)
+     *   - 1.0-1.5: Female-like (moderate asymmetry)
+     *   - 2.0: Neutral/default (matches original behavior)
+     *   - 2.5-3.5: Male-like (faster open, sharper close)
+     *   - 3.5-4.0: Pressed/tense voice
+     * 
+     * Default: 2.0 (preserves original DSP behavior)
+     */
+    double speedQuotient;
+
+    /**
+     * Spectral tilt applied to aspiration noise, in dB per octave.
+     * 
+     * Controls the brightness/darkness of breath noise independently
+     * from the voiced signal tilt. Useful for shaping breathy voice quality.
+     * 
+     * Typical values:
+     *   - -6 to -3 dB/oct: Darker, softer breath (more natural/relaxed)
+     *   - 0 dB/oct: No tilt (default, white-ish noise)
+     *   - +3 to +6 dB/oct: Brighter, harsher breath (more "airy")
+     * 
+     * Default: 0.0 (no tilt, preserves original behavior)
+     */
+    double aspirationTiltDbPerOct;
+
 } speechPlayer_voicingTone_t;
 
 /**
@@ -219,7 +268,9 @@ typedef struct {
     0.0,    /* voicedTiltDbPerOct (no tilt by default) */ \
     0.0,    /* noiseGlottalModDepth */ \
     0.0,    /* pitchSyncF1DeltaHz (off by default) */ \
-    0.0     /* pitchSyncB1DeltaHz (off by default) */ \
+    0.0,    /* pitchSyncB1DeltaHz (off by default) */ \
+    2.0,    /* speedQuotient (neutral, matches original behavior) */ \
+    0.0     /* aspirationTiltDbPerOct (no tilt by default) */ \
 }
 
 /**

@@ -1,23 +1,116 @@
 # German (de)
+# Enhanced with glottal stop (Knacklaut), tense/lax vowels, and proper fricatives
 
 settings:
-  primaryStressDiv: 1.25
-  secondaryStressDiv: 1.07
+  # German has strong lexical stress on stems
+  # More prominent than Dutch but less than English
+  primaryStressDiv: 1.30
+  secondaryStressDiv: 1.12
 
-  # German vowel length (short/long) is phonemic; make ː more audible.
-  lengthenedScale: 1.3
+  # German has clear tense/lax (long/short) vowel contrast - keep moderate
+  lengthenedScale: 1.18
+
+  # Vowel length is phonemic - moderate values
+  lengthContrastEnabled: true
+  lengthContrastShortVowelCeilingMs: 68
+  lengthContrastLongVowelFloorMs: 88
+
+  # German has no phonemic geminates in native words
+  # (like Dutch, double consonants indicate short preceding vowel)
+
+  # German stops - aspirated initially, unaspirated after s/ʃ
+  # Clear closure for characteristic "choppy" German sound
+  stopClosureMode: always
+  stopClosureVowelGapMs: 24
+  stopClosureVowelFadeMs: 6
+  stopClosureClusterGapMs: 18
+  stopClosureClusterFadeMs: 5
+
+  # German glottal stop before vowel-initial words (Knacklaut)
+  # This is what makes German sound "choppy" to English ears
+  # Enable glottal reinforcement for vowel-initial stressed syllables
+  positionalAllophonesGlottalReinforcementEnabled: true
+
+  # Smooth transitions for consonant clusters
+  boundarySmoothingEnabled: true
+
+  # German R - uvular in most standard accents
+  trillModulationMs: 40
+  trillModulationFadeMs: 5
+
+  # Single-word tuning
+  singleWordTuningEnabled: true
+  singleWordFinalHoldMs: 48
+  singleWordFinalFadeMs: 18
+
+  # Enable microprosody
+  microprosodyEnabled: true
+  microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: -5
 
 normalization:
-  replacements:
-    # German /r/ is typically uvular in many modern accents.
-    # eSpeak's IPA can emit alveolar r; normalize to ʁ when possible.
+  preReplacements:
+    # German /r/ is typically uvular in standard accents
+    # eSpeak may emit alveolar r; normalize to ʁ
     - from: "r"
       to: "ʁ"
 
-    # In clusters eSpeak often emits a tap ɾ for /r/.
+    # Tap also becomes uvular
     - from: "ɾ"
       to: "ʁ"
 
-    # If you ever get a non-syllabic ɐ̯, normalize to ɐ.
+    # Vocalized r (common in coda position)
+    # If you get non-syllabic ɐ̯, normalize to ɐ
     - from: "ɐ̯"
       to: "ɐ"
+
+    # The ich-laut (ç) vs ach-laut (x) distinction
+    # After front vowels: ç (palatal)
+    # After back vowels: x (velar)
+    # eSpeak usually handles this, but ensure ç is preserved
+    # (phonemes.yaml should have both)
+
+    # German affricates
+    - from: "pf"
+      to: "p͡f"
+    
+    # Ensure proper ʃ for sch
+    - from: "ʃ"
+      to: "ʃ"
+
+  replacements:
+    # Final devoicing - automatic in German
+    # Word-final b d g → p t k
+    # Word-final v z → f s
+    # eSpeak IPA usually reflects this already
+
+    # Glottal stop insertion before vowel-initial words
+    # This is handled by positionalAllophonesGlottalReinforcementEnabled
+    # But we can also add explicit ʔ for compound-internal vowels if needed
+
+intonation:
+  # German declaratives - clear terminal fall
+  # German intonation is more "matter-of-fact" than English
+  ".":
+    preHeadStart: 65
+    preHeadEnd: 50
+    nucleus0Start: 62
+    nucleus0End: 12
+    nucleusStart: 68
+    nucleusEnd: 10
+    tailStart: 15
+    tailEnd: 5
+
+  # German yes/no questions - rise
+  "?":
+    preHeadStart: 50
+    preHeadEnd: 60
+    nucleus0Start: 55
+    nucleus0End: 85
+    nucleusStart: 52
+    nucleusEnd: 90
+    tailStart: 85
+    tailEnd: 95
+
+  # German wh-questions typically fall (like statements)
+  # But we only have "?" so this uses rising pattern
