@@ -11,6 +11,14 @@ static inline bool tokIsSilenceOrMissing(const Token& t) {
   return t.silence || !t.def;
 }
 
+// Check if this token needs sharp formant transitions (semivowels, liquids).
+// These sounds are perceptually sensitive to over-smoothing.
+static inline bool tokNeedsSharpTransition(const Token& t) {
+  if (!t.def) return false;
+  const uint32_t f = t.def->flags;
+  return ((f & kIsSemivowel) != 0) || ((f & kIsLiquid) != 0);
+}
+
 static inline double getResolvedField(const Token& t, int idx) {
   const uint64_t bit = 1ULL << idx;
   if (t.setMask & bit) return t.field[idx];
@@ -40,6 +48,11 @@ bool runTrajectoryLimit(PassContext& ctx, std::vector<Token>& tokens, std::strin
   const std::uint64_t mask = lang.trajectoryLimitApplyMask;
   if (mask == 0) return true;
 
+  // Maximum fraction of a token's duration that can be fade.
+  // If fade exceeds this, the phoneme's "steady state" gets eaten
+  // and perception suffers.
+  constexpr double kMaxFadeRatio = 0.40;
+
   for (size_t i = 1; i < tokens.size(); ++i) {
     const Token& prev = tokens[i - 1];
     Token& cur = tokens[i];
@@ -50,6 +63,11 @@ bool runTrajectoryLimit(PassContext& ctx, std::vector<Token>& tokens, std::strin
 
     // Optional: do not smooth across word boundaries.
     if (!lang.trajectoryLimitApplyAcrossWordBoundary && cur.wordStart) {
+      continue;
+    }
+
+    // Skip semivowels and liquids - they need sharp formant transitions.
+    if (tokNeedsSharpTransition(cur) || tokNeedsSharpTransition(prev)) {
       continue;
     }
 
@@ -79,7 +97,14 @@ bool runTrajectoryLimit(PassContext& ctx, std::vector<Token>& tokens, std::strin
     // Only act if current fade is shorter than what we need.
     if (neededFade > curFade) {
       // Do not extend beyond the configured window.
-      const double target = std::min(neededFade, win);
+      double target = std::min(neededFade, win);
+
+      // Also cap fade to a fraction of token duration to preserve steady-state.
+      if (cur.durationMs > 0.0) {
+        const double maxFadeForToken = cur.durationMs * kMaxFadeRatio;
+        target = std::min(target, maxFadeForToken);
+      }
+
       if (target > cur.fadeMs) {
         cur.fadeMs = target;
         clampFade(cur);
