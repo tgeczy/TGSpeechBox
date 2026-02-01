@@ -144,9 +144,15 @@ class NvspFrontend(object):
                 log.debug("nvSpeechPlayer: failed closing dll directory cookie", exc_info=True)
             self._dllDirCookie = None
 
-        # Note: We intentionally do NOT call FreeLibrary to unload the DLL.
-        # On some NVDA/Python versions, this causes memory corruption that affects
-        # other DLLs (like espeak). The DLL will be unloaded when NVDA exits.
+        # Unload the DLL so the file can be replaced/deleted
+        # Import here to avoid circular import issues
+        if self._dll:
+            try:
+                from ._dll_utils import freeDll
+                freeDll(self._dll)
+            except Exception:
+                # Non-fatal - DLL will be unloaded when NVDA exits
+                log.debug("nvSpeechPlayer: freeDll failed for nvspFrontend.dll", exc_info=True)
         self._dll = None
 
     def getLastError(self) -> str:
