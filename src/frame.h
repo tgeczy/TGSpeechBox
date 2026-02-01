@@ -73,8 +73,9 @@ class FrameManager {
 	virtual void queueFrame(speechPlayer_frame_t* frame, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue)=0;
 
 	// Extended frame queue (DSP v5+): optional per-frame voice quality params.
-	// If frameEx is NULL, behavior must match queueFrame() exactly.
-	virtual void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue)=0;
+	// If frameEx is NULL or frameExSize is 0, behavior must match queueFrame() exactly.
+	// frameExSize allows safe extension of frameEx struct in future versions.
+	virtual void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int frameExSize, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue)=0;
 
 	// Fetch the current frame (and optional extended params) for the next output sample.
 	// The returned pointers are owned by the FrameManager and remain valid until the next call.

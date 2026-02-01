@@ -233,6 +233,21 @@ typedef struct {
      */
     double speedQuotient;
 
+    /**
+     * Spectral tilt applied to aspiration noise, in dB per octave.
+     * 
+     * Controls the brightness/darkness of breath noise independently
+     * from the voiced signal tilt. Useful for shaping breathy voice quality.
+     * 
+     * Typical values:
+     *   - -6 to -3 dB/oct: Darker, softer breath (more natural/relaxed)
+     *   - 0 dB/oct: No tilt (default, white-ish noise)
+     *   - +3 to +6 dB/oct: Brighter, harsher breath (more "airy")
+     * 
+     * Default: 0.0 (no tilt, preserves original behavior)
+     */
+    double aspirationTiltDbPerOct;
+
 } speechPlayer_voicingTone_t;
 
 /**
@@ -254,7 +269,8 @@ typedef struct {
     0.0,    /* noiseGlottalModDepth */ \
     0.0,    /* pitchSyncF1DeltaHz (off by default) */ \
     0.0,    /* pitchSyncB1DeltaHz (off by default) */ \
-    2.0     /* speedQuotient (neutral, matches original behavior) */ \
+    2.0,    /* speedQuotient (neutral, matches original behavior) */ \
+    0.0     /* aspirationTiltDbPerOct (no tilt by default) */ \
 }
 
 /**

@@ -146,10 +146,10 @@ class FrameManagerImpl: public FrameManager {
 	}
 
 	void queueFrame(speechPlayer_frame_t* frame, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) override {
-		queueFrameEx(frame, NULL, minNumSamples, numFadeSamples, userIndex, purgeQueue);
+		queueFrameEx(frame, NULL, 0, minNumSamples, numFadeSamples, userIndex, purgeQueue);
 	}
 
-	void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) override {
+	void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int frameExSize, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) override {
 		frameLock.acquire();
 		frameRequest_t* frameRequest=new frameRequest_t;
 		frameRequest->minNumSamples=minNumSamples; //max(minNumSamples,1);
@@ -164,9 +164,13 @@ class FrameManagerImpl: public FrameManager {
 			frameRequest->voicePitchInc=0;
 		}
 
-		if(frameEx) {
+		// Copy frameEx safely: only copy min(frameExSize, sizeof) bytes.
+		// This allows older callers with smaller structs to work with newer DLLs.
+		if(frameEx && frameExSize > 0) {
 			frameRequest->hasFrameEx=true;
-			memcpy(&(frameRequest->frameEx), frameEx, sizeof(speechPlayer_frameEx_t));
+			memset(&(frameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+			unsigned int copySize = frameExSize < sizeof(speechPlayer_frameEx_t) ? frameExSize : sizeof(speechPlayer_frameEx_t);
+			memcpy(&(frameRequest->frameEx), frameEx, copySize);
 		} else {
 			frameRequest->hasFrameEx=false;
 			memset(&(frameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));

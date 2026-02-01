@@ -93,9 +93,15 @@ public:
         lastValue=0.0;
     }
 
+    // Brownish noise (smoothed random) - original behavior for frication etc.
     double getNext() {
         lastValue=(((double)rand()/(double)RAND_MAX)-0.5)+0.75*lastValue;
         return lastValue;
+    }
+    
+    // White noise - flat spectrum, better for aspiration tilt to act on
+    static inline double white() {
+        return ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
     }
 };
 
@@ -179,7 +185,7 @@ private:
     // Speed quotient: glottal pulse asymmetry (V3 voicingTone)
     double speedQuotient;
 
-    // Spectral tilt (Bipolar)
+    // Spectral tilt (Bipolar) for voiced signal
     double tiltTargetTlDb;
     double tiltTlDb;
 
@@ -192,6 +198,11 @@ private:
 
     double tiltRefHz;
     double tiltLastTlForTargets;
+
+    // Aspiration tilt (LP/HP crossfade for noise color - GPT's approach)
+    double aspTiltDbPerOct;
+    double aspLpState;      // lowpass state for tilt filter
+    double fricLpState;     // lowpass state for frication tilt (uses same tilt value)
 
     // Radiation Gain (Applied ONLY to dFlow)
     double radiationDerivGain;
@@ -277,8 +288,88 @@ return clampDouble(a, 0.0, 0.9999);
         return out;
     }
 
+    // Helper: compute one-pole lowpass alpha from cutoff frequency
+    double onePoleAlphaFromFc(double fcHz) const {
+        double fc = fcHz;
+        double nyq = 0.5 * (double)sampleRate;
+        if (fc < 20.0) fc = 20.0;
+        if (fc > nyq * 0.95) fc = nyq * 0.95;
+        return exp(-PITWO * fc / (double)sampleRate);
+    }
+
+    // Aspiration tilt: LP/HP crossfade for noise color (GPT's approach)
+    // Negative = darker (crossfade toward lowpass)
+    // Positive = brighter (add highpass pre-emphasis)
+    void setAspirationTiltDbPerOct(double tiltDb) {
+        aspTiltDbPerOct = clampDouble(tiltDb, -24.0, 24.0);
+    }
+
+    double applyAspirationTilt(double x) {
+        double t = aspTiltDbPerOct;
+
+        // No-op for near zero
+        if (fabs(t) < 0.5) return x;
+
+        // amount 0..1, with a perceptual curve so the middle of the slider matters
+        double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
+        amt = pow(amt, 0.65);
+
+        // choose a cutoff that moves with amt (more amt => more obvious)
+        // darkening: lower cutoff, brightening: higher cutoff for the "hp component"
+        double fc = (t < 0.0)
+            ? (6000.0 - 4500.0 * amt)   // 6k -> 1.5k
+            : (2000.0 + 6000.0 * amt);  // 2k -> 8k
+
+        double a = onePoleAlphaFromFc(fc);
+
+        // lowpass
+        aspLpState = (1.0 - a) * x + a * aspLpState;
+        double lp = aspLpState;
+
+        // crude highpass component
+        double hp = x - lp;
+
+        if (t < 0.0) {
+            // Darken: crossfade toward lowpass
+            return (1.0 - amt) * x + amt * lp;
+        } else {
+            // Brighten: add highpass component (pre-emphasis feel)
+            // Small makeup gain keeps loudness stable-ish
+            double y = x + (1.25 * amt) * hp;
+            return y;
+        }
+    }
+
 public:
     bool glottisOpen;
+
+    // Frication tilt: same algorithm, separate state, uses same tilt value
+    // (In future, could expose separate fricationTiltDbPerOct if needed)
+    double applyFricationTilt(double x) {
+        double t = aspTiltDbPerOct;  // Use same tilt value for now
+
+        // No-op for near zero
+        if (fabs(t) < 0.5) return x;
+
+        double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
+        amt = pow(amt, 0.65);
+
+        double fc = (t < 0.0)
+            ? (6000.0 - 4500.0 * amt)
+            : (2000.0 + 6000.0 * amt);
+
+        double a = onePoleAlphaFromFc(fc);
+
+        fricLpState = (1.0 - a) * x + a * fricLpState;
+        double lp = fricLpState;
+        double hp = x - lp;
+
+        if (t < 0.0) {
+            return (1.0 - amt) * x + amt * lp;
+        } else {
+            return x + (1.25 * amt) * hp;
+        }
+    }
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
         lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
@@ -293,6 +384,7 @@ public:
         tiltTlAlpha(0.0), tiltPoleAlpha(0.0),
         tiltRefHz(3000.0),
         tiltLastTlForTargets(1e9),
+        aspTiltDbPerOct(0.0), aspLpState(0.0), fricLpState(0.0),
         radiationDerivGain(1.0),
         radiationMix(0.0) {
 
@@ -322,6 +414,7 @@ public:
         noiseGlottalModDepth = clampDouble(defaults.noiseGlottalModDepth, 0.0, 1.0);
         speedQuotient = clampDouble(defaults.speedQuotient, 0.5, 4.0);
         setTiltDbPerOct(defaults.voicedTiltDbPerOct);
+        setAspirationTiltDbPerOct(defaults.aspirationTiltDbPerOct);
 
         tiltTlDb = tiltTargetTlDb;
         updateTiltTargets(tiltTlDb);
@@ -345,28 +438,32 @@ public:
         jitterMul = 1.0;
         shimmerMul = 1.0;
         glottisOpen=false;
+        aspLpState = 0.0;
+        fricLpState = 0.0;
     }
 
     void setTiltDbPerOct(double tiltVal) {
         tiltTargetTlDb = clampDouble(tiltVal, -24.0, 24.0);
     }
 
-    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth, double sq) {
+    void setVoicingParams(double peakPos, double preEmphA, double preEmphMix, double tiltDb, double noiseModDepth, double sq, double aspTiltDb) {
         voicingPeakPos = peakPos;
         voicedPreEmphA = preEmphA;
         voicedPreEmphMix = preEmphMix;
         noiseGlottalModDepth = clampDouble(noiseModDepth, 0.0, 1.0);
         speedQuotient = clampDouble(sq, 0.5, 4.0);
         setTiltDbPerOct(tiltDb);
+        setAspirationTiltDbPerOct(aspTiltDb);
     }
 
-    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth, double* sq) const {
+    void getVoicingParams(double* peakPos, double* preEmphA, double* preEmphMix, double* tiltDb, double* noiseModDepth, double* sq, double* aspTiltDb) const {
         if (peakPos) *peakPos = voicingPeakPos;
         if (preEmphA) *preEmphA = voicedPreEmphA;
         if (preEmphMix) *preEmphMix = voicedPreEmphMix;
         if (tiltDb) *tiltDb = tiltTargetTlDb;
         if (noiseModDepth) *noiseModDepth = noiseGlottalModDepth;
         if (sq) *sq = speedQuotient;
+        if (aspTiltDb) *aspTiltDb = aspTiltDbPerOct;
     }
 
     void setSpeedQuotient(double sq) {
@@ -467,9 +564,13 @@ public:
         }
         lastNoiseMod = noiseMod;
 
-        // Aspiration noise: base gain 0.1, breathiness lifts it up to 0.25
+        // Aspiration noise: use WHITE noise (flat spectrum) so tilt filter can shape it
+        // Base gain 0.1, breathiness lifts it up to 0.25
         double aspBase = 0.10 + (0.15 * breathiness);
-        double aspiration = aspirationGen.getNext() * aspBase * noiseMod;
+        double aspiration = NoiseGenerator::white() * aspBase * noiseMod;
+        
+        // Apply tilt filter to aspiration (color the noise)
+        aspiration = applyAspirationTilt(aspiration);
 
         double effectiveOQ = frame->glottalOpenQuotient;
         if (effectiveOQ <= 0.0) effectiveOQ = 0.4;
@@ -1265,6 +1366,9 @@ public:
                 // Generate raw frication noise
                 double fricNoise = fricGenerator.getNext() * kFricNoiseScale * fricAmp * bypassGain * bypassVoicedDuck * voicedFricScale;
 
+                // Apply tilt filter to frication (same tilt as aspiration for now)
+                fricNoise = voiceGenerator.applyFricationTilt(fricNoise);
+
                 // Optional Klatt-style glottal-cycle AM for noise sources.
                 // This is driven by the voiced pitch cycle and will be 1.0
                 // when disabled/unvoiced.
@@ -1419,7 +1523,8 @@ public:
             currentTone.voicedPreEmphMix,
             currentTone.voicedTiltDbPerOct,
             currentTone.noiseGlottalModDepth,
-            currentTone.speedQuotient
+            currentTone.speedQuotient,
+            currentTone.aspirationTiltDbPerOct
         );
 
         // Update high-shelf coefficients (do not reset state)
