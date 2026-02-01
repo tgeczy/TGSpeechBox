@@ -1037,6 +1037,20 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
     setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
   };
 
+  auto syncSelectedFrameExParamToUi = [&]() {
+    if (!st) return;
+    HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+    int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+    if (sel < 0) sel = 0;
+    if (sel >= static_cast<int>(st->frameExParamNames.size())) return;
+    // Default: 0 for creakiness/breathiness/jitter/shimmer, 50 for sharpness
+    int defaultVal = (sel == 4) ? 50 : 0;
+    int v = (sel < static_cast<int>(st->settings.frameExParams.size())) ? st->settings.frameExParams[static_cast<size_t>(sel)] : defaultVal;
+    HWND tb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_SLIDER);
+    setTrackbarRangeAndPos(tb, v);
+    setDlgIntText(hDlg, IDC_SPEECH_FRAMEEX_VAL, v);
+  };
+
   switch (msg) {
     case WM_INITDIALOG: {
       st = reinterpret_cast<SpeechSettingsDialogState*>(lParam);
@@ -1067,6 +1081,11 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
       HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
       populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
       syncSelectedVoicingParamToUi();
+      
+      // FrameEx param list (voice quality)
+      HWND flb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+      populateParamList(flb, st->frameExParamNames, st->settings.frameExParams);
+      syncSelectedFrameExParamToUi();
       
       return TRUE;
     }
@@ -1122,6 +1141,21 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
           setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
           if (sel < static_cast<int>(st->voicingParamNames.size())) {
             refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], v);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+      if (id == IDC_SPEECH_FRAMEEX_SLIDER) {
+        int v = getTrackbarPos(src);
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.frameExParams.size())) {
+          st->settings.frameExParams[static_cast<size_t>(sel)] = v;
+          setDlgIntText(hDlg, IDC_SPEECH_FRAMEEX_VAL, v);
+          if (sel < static_cast<int>(st->frameExParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->frameExParamNames[static_cast<size_t>(sel)], v);
             SendMessageW(lb, LB_SETCURSEL, sel, 0);
           }
         }
@@ -1205,6 +1239,11 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         return TRUE;
       }
 
+      if (id == IDC_SPEECH_FRAMEEX_LIST && code == LBN_SELCHANGE) {
+        syncSelectedFrameExParamToUi();
+        return TRUE;
+      }
+
       if (id == IDC_SPEECH_PARAM_RESET) {
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
         int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
@@ -1251,6 +1290,34 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
         populateParamList(lb, st->voicingParamNames, st->settings.voicingParams);
         syncSelectedVoicingParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_FRAMEEX_RESET) {
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.frameExParams.size())) {
+          // Default: 0 for creakiness/breathiness/jitter/shimmer, 50 for sharpness
+          int defaultVal = (sel == 4) ? 50 : 0;
+          st->settings.frameExParams[static_cast<size_t>(sel)] = defaultVal;
+          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_SLIDER), defaultVal);
+          setDlgIntText(hDlg, IDC_SPEECH_FRAMEEX_VAL, defaultVal);
+          if (sel < static_cast<int>(st->frameExParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->frameExParamNames[static_cast<size_t>(sel)], defaultVal);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_FRAMEEX_RESET_ALL) {
+        // Reset: creakiness/breathiness/jitter/shimmer=0, sharpness=50
+        st->settings.frameExParams.assign(st->frameExParamNames.size(), 0);
+        if (st->settings.frameExParams.size() >= 5) st->settings.frameExParams[4] = 50;
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+        populateParamList(lb, st->frameExParamNames, st->settings.frameExParams);
+        syncSelectedFrameExParamToUi();
         return TRUE;
       }
 

@@ -74,6 +74,10 @@ struct SpeechSettingsDialogState {
   std::vector<std::string> voicingParamNames;
   int selectedVoicingParam = 0;
   
+  // FrameEx param UI (voice quality: creakiness, breathiness, jitter, shimmer, sharpness)
+  std::vector<std::string> frameExParamNames;
+  int selectedFrameExParam = 0;
+  
   bool ok = false;
 };
 

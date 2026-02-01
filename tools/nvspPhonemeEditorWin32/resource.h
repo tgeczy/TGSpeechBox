@@ -130,6 +130,13 @@
 #define IDC_SPEECH_VOICING_RESET_ALL  2724
 #define IDC_SPEECH_RESET_ALL          2714
 
+// FrameEx voice quality controls
+#define IDC_SPEECH_FRAMEEX_LIST       2730
+#define IDC_SPEECH_FRAMEEX_SLIDER     2731
+#define IDC_SPEECH_FRAMEEX_VAL        2732
+#define IDC_SPEECH_FRAMEEX_RESET      2733
+#define IDC_SPEECH_FRAMEEX_RESET_ALL  2734
+
 
 // -----------------
 // Dialog controls: Phonemizer settings

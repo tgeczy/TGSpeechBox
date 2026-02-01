@@ -1632,11 +1632,17 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         st.settings = app.runtime.getSpeechSettings();
         st.paramNames = std::vector<std::string>(NvspRuntime::frameParamNames().begin(), NvspRuntime::frameParamNames().end());
         st.voicingParamNames = std::vector<std::string>(NvspRuntime::voicingParamNames().begin(), NvspRuntime::voicingParamNames().end());
+        st.frameExParamNames = std::vector<std::string>(NvspRuntime::frameExParamNames().begin(), NvspRuntime::frameExParamNames().end());
         if (st.settings.frameParams.size() != st.paramNames.size()) {
           st.settings.frameParams.assign(st.paramNames.size(), 50);
         }
         if (st.settings.voicingParams.size() != st.voicingParamNames.size()) {
           st.settings.voicingParams.assign(st.voicingParamNames.size(), 50);
+        }
+        if (st.settings.frameExParams.size() != st.frameExParamNames.size()) {
+          // Default: creakiness/breathiness/jitter/shimmer=0, sharpness=50
+          st.settings.frameExParams.assign(st.frameExParamNames.size(), 0);
+          if (st.settings.frameExParams.size() >= 5) st.settings.frameExParams[4] = 50;
         }
         st.runtime = &app.runtime;
         

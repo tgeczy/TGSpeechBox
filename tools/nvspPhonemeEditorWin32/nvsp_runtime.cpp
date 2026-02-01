@@ -140,7 +140,23 @@ const std::vector<std::string>& NvspRuntime::voicingParamNames() {
       "voicedTiltDbPerOct",
       "noiseGlottalModDepth",
       "pitchSyncF1DeltaHz",
-      "pitchSyncB1DeltaHz"
+      "pitchSyncB1DeltaHz",
+      "speedQuotient",
+      "aspirationTiltDbPerOct"
+    };
+  }
+  return names;
+}
+
+const std::vector<std::string>& NvspRuntime::frameExParamNames() {
+  static std::vector<std::string> names;
+  if (names.empty()) {
+    names = {
+      "creakiness",
+      "breathiness",
+      "jitter",
+      "shimmer",
+      "sharpness"
     };
   }
   return names;
@@ -177,6 +193,9 @@ NvspRuntime::NvspRuntime() {
   // No static layout assumptions: we convert frames field-by-field in the callback.
   m_speech.frameParams.assign(frameParamNames().size(), 50);
   m_speech.voicingParams.assign(voicingParamNames().size(), 50);
+  // FrameEx params: creakiness/breathiness/jitter/shimmer default to 0, sharpness to 50
+  m_speech.frameExParams.assign(frameExParamNames().size(), 0);
+  if (m_speech.frameExParams.size() >= 5) m_speech.frameExParams[4] = 50; // sharpness default
 }
 
 NvspRuntime::~NvspRuntime() {
@@ -198,6 +217,10 @@ void NvspRuntime::setSpeechSettings(const SpeechSettings& s) {
   }
   if (m_speech.voicingParams.size() != voicingParamNames().size()) {
     m_speech.voicingParams.assign(voicingParamNames().size(), 50);
+  }
+  if (m_speech.frameExParams.size() != frameExParamNames().size()) {
+    m_speech.frameExParams.assign(frameExParamNames().size(), 0);
+    if (m_speech.frameExParams.size() >= 5) m_speech.frameExParams[4] = 50; // sharpness default
   }
 }
 
@@ -237,6 +260,10 @@ static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
       return -60.0 + (sv / 100.0) * 120.0;
     case 9: // pitchSyncB1DeltaHz: -50 to +50, default 0.0 at 50
       return -50.0 + (sv / 100.0) * 100.0;
+    case 10: // speedQuotient: 0.5-4.0, default 2.0 at 50
+      return 0.5 + (sv / 100.0) * 3.5;
+    case 11: // aspirationTiltDbPerOct: -12 to +12, default 0.0 at 50
+      return -12.0 + (sv / 100.0) * 24.0;
     default:
       return 0.0;
   }
@@ -246,7 +273,7 @@ static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
 static EditorVoicingToneV2 buildVoicingToneV2(const std::vector<int>& sliders) {
   EditorVoicingToneV2 tone{};
   
-  // Set v2 header
+  // Set v3 header
   tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC;
   tone.structSize = sizeof(EditorVoicingToneV2);
   tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION;
@@ -263,6 +290,9 @@ static EditorVoicingToneV2 buildVoicingToneV2(const std::vector<int>& sliders) {
   tone.noiseGlottalModDepth = (sliders.size() > 7) ? mapVoicingSliderToValue(7, sliders[7]) : 0.0;
   tone.pitchSyncF1DeltaHz = (sliders.size() > 8) ? mapVoicingSliderToValue(8, sliders[8]) : 0.0;
   tone.pitchSyncB1DeltaHz = (sliders.size() > 9) ? mapVoicingSliderToValue(9, sliders[9]) : 0.0;
+  // V3 params
+  tone.speedQuotient = (sliders.size() > 10) ? mapVoicingSliderToValue(10, sliders[10]) : 2.0;
+  tone.aspirationTiltDbPerOct = (sliders.size() > 11) ? mapVoicingSliderToValue(11, sliders[11]) : 0.0;
   
   return tone;
 }
@@ -280,6 +310,39 @@ static EditorVoicingToneV1 buildVoicingToneV1(const std::vector<int>& sliders) {
   tone.voicedTiltDbPerOct = (sliders.size() > 6) ? mapVoicingSliderToValue(6, sliders[6]) : 0.0;
   
   return tone;
+}
+
+// Build FrameEx struct from slider values
+// Params: creakiness, breathiness, jitter, shimmer (0-100 -> 0.0-1.0)
+//         sharpness (0-100 -> 0.5-2.0 multiplier, 50 = 1.0 = default)
+static EditorFrameEx buildFrameEx(const std::vector<int>& sliders, bool& outHasEffect) {
+  EditorFrameEx ex{};
+  outHasEffect = false;
+  
+  // creakiness: 0-100 -> 0.0-1.0
+  int creakVal = (sliders.size() > 0) ? clampInt(sliders[0], 0, 100) : 0;
+  ex.creakiness = creakVal / 100.0;
+  
+  // breathiness: 0-100 -> 0.0-1.0
+  int breathVal = (sliders.size() > 1) ? clampInt(sliders[1], 0, 100) : 0;
+  ex.breathiness = breathVal / 100.0;
+  
+  // jitter: 0-100 -> 0.0-1.0
+  int jitterVal = (sliders.size() > 2) ? clampInt(sliders[2], 0, 100) : 0;
+  ex.jitter = jitterVal / 100.0;
+  
+  // shimmer: 0-100 -> 0.0-1.0
+  int shimmerVal = (sliders.size() > 3) ? clampInt(sliders[3], 0, 100) : 0;
+  ex.shimmer = shimmerVal / 100.0;
+  
+  // sharpness: 0-100 -> 0.5-2.0 multiplier (50 = 1.0 = neutral)
+  int sharpVal = (sliders.size() > 4) ? clampInt(sliders[4], 0, 100) : 50;
+  ex.sharpness = 0.5 + (sharpVal / 100.0) * 1.5;
+  
+  // Check if any effect is active (non-default values)
+  outHasEffect = (creakVal > 0 || breathVal > 0 || jitterVal > 0 || shimmerVal > 0 || sharpVal != 50);
+  
+  return ex;
 }
 
 static void applyMul(speechPlayer_frame_t& frame, speechPlayer_frameParam_t speechPlayer_frame_t::* member, double mul) {
@@ -414,6 +477,7 @@ void NvspRuntime::unload() {
 
   m_spInitialize = nullptr;
   m_spQueueFrame = nullptr;
+  m_spQueueFrameEx = nullptr;
   m_spSynthesize = nullptr;
   m_spTerminate = nullptr;
   m_spSetVoicingTone = nullptr;
@@ -470,6 +534,7 @@ bool NvspRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
   // speechPlayer
   m_spInitialize = reinterpret_cast<sp_initialize_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_initialize"));
   m_spQueueFrame = reinterpret_cast<sp_queueFrame_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_queueFrame"));
+  m_spQueueFrameEx = reinterpret_cast<sp_queueFrameEx_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_queueFrameEx"));
   m_spSynthesize = reinterpret_cast<sp_synthesize_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_synthesize"));
   m_spTerminate = reinterpret_cast<sp_terminate_fn>(GetProcAddress(m_speechPlayer, "speechPlayer_terminate"));
   
@@ -644,10 +709,20 @@ bool NvspRuntime::synthPreviewPhoneme(
   const unsigned int postS = msToSamples(postMs, sampleRate);
   const unsigned int fadeS = msToSamples(fadeMs, sampleRate);
 
+  // Build FrameEx from current settings
+  bool hasFrameEx = false;
+  EditorFrameEx frameEx = buildFrameEx(m_speech.frameExParams, hasFrameEx);
+
   // Purge on first queue.
-  m_spQueueFrame(player, nullptr, preS, fadeS, -1, true);
-  m_spQueueFrame(player, &frame, durS, fadeS, -1, false);
-  m_spQueueFrame(player, nullptr, postS, fadeS, -1, false);
+  if (m_spQueueFrameEx && hasFrameEx) {
+    m_spQueueFrameEx(player, nullptr, &frameEx, static_cast<unsigned int>(sizeof(EditorFrameEx)), preS, fadeS, -1, true);
+    m_spQueueFrameEx(player, &frame, &frameEx, static_cast<unsigned int>(sizeof(EditorFrameEx)), durS, fadeS, -1, false);
+    m_spQueueFrameEx(player, nullptr, &frameEx, static_cast<unsigned int>(sizeof(EditorFrameEx)), postS, fadeS, -1, false);
+  } else {
+    m_spQueueFrame(player, nullptr, preS, fadeS, -1, true);
+    m_spQueueFrame(player, &frame, durS, fadeS, -1, false);
+    m_spQueueFrame(player, nullptr, postS, fadeS, -1, false);
+  }
 
   synthesizeAll(m_spSynthesize, player, outSamples);
   m_spTerminate(player);
@@ -778,6 +853,9 @@ static void splitIpaByClauseMarkers(const std::string& ipaUtf8, std::vector<IpaC
 
 struct QueueCtx {
   sp_queueFrame_fn queueFrame;
+  sp_queueFrameEx_fn queueFrameEx;
+  EditorFrameEx frameEx;
+  bool hasFrameEx;
   speechPlayer_handle_t player;
   int sampleRate;
   bool first;
@@ -792,7 +870,7 @@ static void __cdecl frameCallback(
   int userIndex
 ) {
   QueueCtx* ctx = reinterpret_cast<QueueCtx*>(userData);
-  if (!ctx || !ctx->queueFrame) return;
+  if (!ctx || (!ctx->queueFrame && !ctx->queueFrameEx)) return;
 
   unsigned int durS = msToSamples(durationMs, ctx->sampleRate);
   unsigned int fadeS = msToSamples(fadeMs, ctx->sampleRate);
@@ -860,9 +938,23 @@ static void __cdecl frameCallback(
       ctx->runtime->applySpeechSettingsToFrame(f);
     }
 
-    ctx->queueFrame(ctx->player, &f, durS, fadeS, userIndex, ctx->first);
+    // Use queueFrameEx if available and we have FrameEx params
+    if (ctx->queueFrameEx && ctx->hasFrameEx) {
+      ctx->queueFrameEx(ctx->player, &f, &ctx->frameEx, 
+                        static_cast<unsigned int>(sizeof(EditorFrameEx)),
+                        durS, fadeS, userIndex, ctx->first);
+    } else if (ctx->queueFrame) {
+      ctx->queueFrame(ctx->player, &f, durS, fadeS, userIndex, ctx->first);
+    }
   } else {
-    ctx->queueFrame(ctx->player, nullptr, durS, fadeS, userIndex, ctx->first);
+    // Silence frame
+    if (ctx->queueFrameEx && ctx->hasFrameEx) {
+      ctx->queueFrameEx(ctx->player, nullptr, &ctx->frameEx,
+                        static_cast<unsigned int>(sizeof(EditorFrameEx)),
+                        durS, fadeS, userIndex, ctx->first);
+    } else if (ctx->queueFrame) {
+      ctx->queueFrame(ctx->player, nullptr, durS, fadeS, userIndex, ctx->first);
+    }
   }
   ctx->first = false;
 }
@@ -945,6 +1037,8 @@ bool NvspRuntime::synthIpa(
 
   QueueCtx ctx{};
   ctx.queueFrame = m_spQueueFrame;
+  ctx.queueFrameEx = m_spQueueFrameEx;
+  ctx.frameEx = buildFrameEx(m_speech.frameExParams, ctx.hasFrameEx);
   ctx.player = player;
   ctx.sampleRate = sampleRate;
   ctx.first = true;
@@ -1005,7 +1099,13 @@ for (size_t i = 0; i < clauses.size(); ++i) {
       const unsigned int durS = msToSamples(pMs, sampleRate);
       const double fadeMs = (std::min)(pMs, 3.0);
       const unsigned int fadeS = msToSamples(fadeMs, sampleRate);
-      ctx.queueFrame(ctx.player, nullptr, durS, fadeS, -1, ctx.first);
+      if (ctx.queueFrameEx && ctx.hasFrameEx) {
+        ctx.queueFrameEx(ctx.player, nullptr, &ctx.frameEx,
+                         static_cast<unsigned int>(sizeof(EditorFrameEx)),
+                         durS, fadeS, -1, ctx.first);
+      } else if (ctx.queueFrame) {
+        ctx.queueFrame(ctx.player, nullptr, durS, fadeS, -1, ctx.first);
+      }
       ctx.first = false;
     }
   }
