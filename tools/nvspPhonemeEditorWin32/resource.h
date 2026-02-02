@@ -137,6 +137,9 @@
 #define IDC_SPEECH_FRAMEEX_RESET      2733
 #define IDC_SPEECH_FRAMEEX_RESET_ALL  2734
 
+// Save to profile button
+#define IDC_SPEECH_SAVE_TO_PROFILE    2740
+
 
 // -----------------
 // Dialog controls: Phonemizer settings

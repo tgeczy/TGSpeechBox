@@ -191,6 +191,13 @@ public:
   // Voice profile prefix used to distinguish profiles from Python presets.
   static constexpr const char* kVoiceProfilePrefix = "profile:";
 
+  // Save voicing + FrameEx slider values to YAML for specified profile.
+  // voicingSliders: 12 values (0-100), frameExSliders: 5 values (0-100)
+  bool saveVoiceProfileSliders(const std::string& profileName,
+                               const std::vector<int>& voicingSliders,
+                               const std::vector<int>& frameExSliders,
+                               std::string& outError);
+
   // Apply voice preset + per-field multipliers + volume scaling.
   // Exposed so the free callback helper can reuse the same logic.
   void applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const;

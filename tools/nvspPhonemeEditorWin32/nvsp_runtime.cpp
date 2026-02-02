@@ -1,4 +1,5 @@
 #include "nvsp_runtime.h"
+#include "VoiceProfileEditor.h"
 
 #include <algorithm>
 #include <cassert>
@@ -6,6 +7,7 @@
 #include <cstring>
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <unordered_set>
 
@@ -1265,6 +1267,124 @@ std::string NvspRuntime::getVoiceProfile() const {
   
   const char* name = m_feGetVoiceProfile(m_feHandle);
   return name ? name : "";
+}
+
+bool NvspRuntime::saveVoiceProfileSliders(const std::string& profileName,
+                                          const std::vector<int>& voicingSliders,
+                                          const std::vector<int>& frameExSliders,
+                                          std::string& outError) {
+  outError.clear();
+  
+  if (m_packRoot.empty()) {
+    outError = "No pack loaded. Open a pack root first (File > Open Pack Root).";
+    return false;
+  }
+  
+  // Build path to phonemes.yaml
+  // m_packRoot could be either:
+  //   - The packs folder itself (app.packsDir): C:\git\NVSpeechPlayer\packs
+  //   - Or the parent (packRoot for frontend): C:\git\NVSpeechPlayer
+  // Try both patterns
+  std::wstring yamlPath = m_packRoot;
+  if (!yamlPath.empty() && yamlPath.back() != L'\\' && yamlPath.back() != L'/') {
+    yamlPath += L'\\';
+  }
+  yamlPath += L"phonemes.yaml";
+  
+  // If that doesn't exist, try packs/phonemes.yaml
+  {
+    std::ifstream test(yamlPath);
+    if (!test.is_open()) {
+      yamlPath = m_packRoot;
+      if (!yamlPath.empty() && yamlPath.back() != L'\\' && yamlPath.back() != L'/') {
+        yamlPath += L'\\';
+      }
+      yamlPath += L"packs\\phonemes.yaml";
+    }
+  }
+  
+  // Load existing profiles
+  std::vector<VPVoiceProfile> profiles;
+  std::string loadErr;
+  if (!loadVoiceProfilesFromYaml(yamlPath, profiles, loadErr)) {
+    // It's OK if file doesn't exist or has no profiles - we'll create one
+    profiles.clear();
+  }
+  
+  // Find or create the target profile
+  VPVoiceProfile* targetProfile = nullptr;
+  for (auto& p : profiles) {
+    if (p.name == profileName) {
+      targetProfile = &p;
+      break;
+    }
+  }
+  
+  if (!targetProfile) {
+    // Create new profile
+    profiles.push_back(VPVoiceProfile{});
+    targetProfile = &profiles.back();
+    targetProfile->name = profileName;
+  }
+  
+  // Build voicingTone map with all params
+  targetProfile->hasVoicingTone = true;
+  targetProfile->voicingTone.clear();
+  
+  // Helper to format double as string
+  auto fmtDouble = [](double v) -> std::string {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(6) << v;
+    std::string s = oss.str();
+    // Trim trailing zeros after decimal point
+    size_t dot = s.find('.');
+    if (dot != std::string::npos) {
+      size_t last = s.find_last_not_of('0');
+      if (last != std::string::npos && last > dot) {
+        s = s.substr(0, last + 1);
+      }
+      // Remove trailing dot
+      if (s.back() == '.') s.pop_back();
+    }
+    return s;
+  };
+  
+  // 12 VoicingTone params
+  const auto& voicingNames = voicingParamNames();
+  for (size_t i = 0; i < voicingNames.size() && i < voicingSliders.size(); ++i) {
+    double val = mapVoicingSliderToValue(static_cast<int>(i), voicingSliders[i]);
+    targetProfile->voicingTone[voicingNames[i]] = fmtDouble(val);
+  }
+  
+  // 5 FrameEx params
+  const auto& frameExNames = frameExParamNames();
+  auto clamp01 = [](int v) -> double {
+    int c = (v < 0) ? 0 : ((v > 100) ? 100 : v);
+    return static_cast<double>(c) / 100.0;
+  };
+  
+  if (frameExSliders.size() > 0 && frameExNames.size() > 0)
+    targetProfile->voicingTone[frameExNames[0]] = fmtDouble(clamp01(frameExSliders[0]));  // creakiness
+  if (frameExSliders.size() > 1 && frameExNames.size() > 1)
+    targetProfile->voicingTone[frameExNames[1]] = fmtDouble(clamp01(frameExSliders[1]));  // breathiness
+  if (frameExSliders.size() > 2 && frameExNames.size() > 2)
+    targetProfile->voicingTone[frameExNames[2]] = fmtDouble(clamp01(frameExSliders[2]));  // jitter
+  if (frameExSliders.size() > 3 && frameExNames.size() > 3)
+    targetProfile->voicingTone[frameExNames[3]] = fmtDouble(clamp01(frameExSliders[3]));  // shimmer
+  if (frameExSliders.size() > 4 && frameExNames.size() > 4) {
+    // sharpness: 0-100 -> 0.5-2.0
+    int sharpVal = frameExSliders[4];
+    sharpVal = (sharpVal < 0) ? 0 : ((sharpVal > 100) ? 100 : sharpVal);
+    double sharpness = 0.5 + (static_cast<double>(sharpVal) / 100.0) * 1.5;
+    targetProfile->voicingTone[frameExNames[4]] = fmtDouble(sharpness);
+  }
+  
+  // Save back to YAML
+  if (!saveVoiceProfilesToYaml(yamlPath, profiles, outError)) {
+    return false;
+  }
+  
+  return true;
 }
 
 } // namespace nvsp_editor

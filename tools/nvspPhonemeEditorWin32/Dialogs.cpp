@@ -1321,6 +1321,44 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         return TRUE;
       }
 
+      if (id == IDC_SPEECH_SAVE_TO_PROFILE) {
+        // Get profile name - strip "profile:" prefix if present, otherwise use voice name directly
+        std::string profileName;
+        if (nvsp_editor::NvspRuntime::isVoiceProfile(st->settings.voiceName)) {
+          profileName = nvsp_editor::NvspRuntime::getProfileNameFromVoice(st->settings.voiceName);
+        } else {
+          profileName = st->settings.voiceName;
+        }
+        
+        if (profileName.empty()) {
+          msgBox(hDlg, L"No voice selected.", L"Save to Profile", MB_ICONERROR);
+          return TRUE;
+        }
+        
+        // Check runtime is available
+        if (!st->runtime) {
+          msgBox(hDlg, L"Runtime not available.", L"Save to Profile", MB_ICONERROR);
+          return TRUE;
+        }
+        
+        // Save the 17 params (12 voicing + 5 FrameEx) to phonemes.yaml
+        std::string err;
+        if (st->runtime->saveVoiceProfileSliders(profileName, st->settings.voicingParams, st->settings.frameExParams, err)) {
+          std::wstring msg = L"Saved voicing and voice quality settings to profile \"" + utf8ToWide(profileName) + L"\" in phonemes.yaml.";
+          msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONINFORMATION);
+          
+          // Refresh voice list so the new profile appears
+          st->voiceProfiles = st->runtime->discoverVoiceProfiles();
+          st->settings.voiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
+          HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
+          fillVoices(combo, st->settings.voiceName, st->voiceProfiles);
+        } else {
+          std::wstring msg = L"Failed to save: " + utf8ToWide(err);
+          msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONERROR);
+        }
+        return TRUE;
+      }
+
       if (id == IDOK) {
         st->ok = true;
         EndDialog(hDlg, IDOK);
