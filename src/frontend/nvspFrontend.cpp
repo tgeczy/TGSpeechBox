@@ -421,7 +421,8 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   const std::string& profileName = h->pack.lang.voiceProfileName;
   if (profileName.empty()) return 0;
 
-  const VoiceProfile* profile = h->pack.profiles.getProfile(profileName);
+  if (!h->pack.voiceProfiles) return 0;
+  const VoiceProfile* profile = h->pack.voiceProfiles->getProfile(profileName);
   if (!profile) return 0;
   if (!profile->hasVoicingTone) return 0;
 
@@ -452,9 +453,12 @@ NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfileNames(nvspFrontend_han
 
   // Build newline-separated list of profile names
   h->profileNamesBuffer.clear();
-  for (const auto& kv : h->pack.profiles.profiles) {
-    h->profileNamesBuffer += kv.first;
-    h->profileNamesBuffer += '\n';
+  
+  if (h->pack.voiceProfiles) {
+    for (const auto& kv : h->pack.voiceProfiles->profiles) {
+      h->profileNamesBuffer += kv.first;
+      h->profileNamesBuffer += '\n';
+    }
   }
 
   return h->profileNamesBuffer.c_str();
