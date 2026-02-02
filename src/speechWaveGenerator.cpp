@@ -701,6 +701,26 @@ public:
                 lfBlend = 0.30 + 0.70 * (double)(sampleRate - 11025) / (16000.0 - 11025.0);
             }
 
+
+            // Scale LF mixing with user-facing glottal sharpness (frameExSharpness) while keeping
+            // the neutral/default behavior unchanged.
+            //
+            // - frameExSharpness == 0.0: use the sample-rate default LF blend (backward compatible)
+            // - frameExSharpness  < 1.0: smoother (less LF)
+            // - frameExSharpness  > 1.0: sharper (more LF), capped per sample rate to avoid aliasy crunch
+            const double lfBlendBase = lfBlend;
+
+            const double sharpMul = (frameExSharpness > 0.0) ? frameExSharpness : 1.0;
+            const double sharpClamped = clampDouble(sharpMul, 0.25, 3.0);
+            const double lfScale = pow(sharpClamped, 0.25); // gentle curve: 0.5->~0.84, 2.0->~1.19
+
+            double lfCap = 1.0;
+            if (sampleRate <= 11025) lfCap = 0.35;
+            else if (sampleRate < 16000) lfCap = 0.85;
+
+            lfBlend = clampDouble(lfBlendBase * lfScale, 0.0, lfCap);
+
+
             flow = (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
         }
 
