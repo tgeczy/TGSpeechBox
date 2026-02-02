@@ -556,6 +556,10 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("rateReductionSchwaMinDurationMs", lp.rateReductionSchwaMinDurationMs);
   getNum("rateReductionSchwaScale", lp.rateReductionSchwaScale);
 
+  getBool("wordFinalSchwaReductionEnabled", lp.wordFinalSchwaReductionEnabled);
+  getNum("wordFinalSchwaScale", lp.wordFinalSchwaScale);
+  getNum("wordFinalSchwaMinDurationMs", lp.wordFinalSchwaMinDurationMs);
+
   getBool("nasalizationAnticipatoryEnabled", lp.nasalizationAnticipatoryEnabled);
   getNum("nasalizationAnticipatoryAmplitude", lp.nasalizationAnticipatoryAmplitude);
   getNum("nasalizationAnticipatoryBlend", lp.nasalizationAnticipatoryBlend);

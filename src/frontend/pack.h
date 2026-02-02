@@ -495,6 +495,13 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double rateReductionSchwaMinDurationMs = 15.0;
   double rateReductionSchwaScale = 0.8;
 
+  // Word-final schwa reduction.
+  // Languages like Danish, German, French, European Portuguese reduce word-final
+  // schwas heavily. This applies a duration scale to unstressed word-final schwas.
+  bool wordFinalSchwaReductionEnabled = false;
+  double wordFinalSchwaScale = 0.6;            // 0.0-1.0, lower = shorter
+  double wordFinalSchwaMinDurationMs = 8.0;    // floor to avoid total silence
+
   // Anticipatory nasalization.
   bool nasalizationAnticipatoryEnabled = false;
   double nasalizationAnticipatoryAmplitude = 0.4;
