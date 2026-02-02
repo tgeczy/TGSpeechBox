@@ -17,6 +17,8 @@
     - VoicingTone V3 support (12 parameters)
     - FrameEx support (creakiness, breathiness, jitter, shimmer, sharpness)
     - Voice profile support via nvspFrontend_setVoiceProfile
+    - --list-voices to show available profiles for speech-dispatcher config
+    - Automatic voicing tone loading from YAML when --voice is specified
 */
 
 #include <cmath>
@@ -140,6 +142,7 @@ struct Options {
   int sharpness = 50;             // 0.5-2.0 multiplier, default 1.0
 
   bool help = false;
+  bool listVoices = false;        // --list-voices: print available voice profiles and exit
 };
 
 // ============================================================================
@@ -153,7 +156,8 @@ static void printHelp(const char* argv0) {
     << "Basic options:\n"
     << "  --packdir <path>      Path to repo root or packs dir (default: .)\n"
     << "  --lang <tag>          Language tag for pack selection (default: en)\n"
-    << "  --voice <name>        Voice profile name (default: none)\n"
+    << "  --voice <name>        Voice profile name (loads voicingTone from YAML)\n"
+    << "  --list-voices         List available voice profiles and exit\n"
     << "  --rate <int>          SSIP-style rate -100..100 (default: 0)\n"
     << "  --pitch <int>         Pitch 0..100 (default: 50)\n"
     << "  --volume <float>      Output gain multiplier (default: 1.0)\n"
@@ -216,6 +220,10 @@ static Options parseArgs(int argc, char** argv) {
 
     if (a == "-h" || a == "--help") {
       opt.help = true;
+      continue;
+    }
+    if (a == "--list-voices") {
+      opt.listVoices = true;
       continue;
     }
 
@@ -471,6 +479,53 @@ int main(int argc, char** argv) {
     return 2;
   }
 
+  // Handle --list-voices: print available profiles and exit
+  if (opt.listVoices) {
+    nvspFrontend_handle_t fe = nvspFrontend_create(opt.packDir.c_str());
+    if (!fe) {
+      std::cerr << "nvspFrontend_create failed (packDir='" << opt.packDir << "')\n";
+      return 1;
+    }
+    if (!nvspFrontend_setLanguage(fe, opt.language.c_str())) {
+      std::cerr << "nvspFrontend_setLanguage failed (lang='" << opt.language << "')\n";
+      nvspFrontend_destroy(fe);
+      return 1;
+    }
+    
+    const char* names = nvspFrontend_getVoiceProfileNames(fe);
+    if (names && *names) {
+      std::cerr << "Available voice profiles:\n";
+      std::string nameStr = names;
+      std::string::size_type pos = 0, prev = 0;
+      while ((pos = nameStr.find('\n', prev)) != std::string::npos) {
+        std::string name = nameStr.substr(prev, pos - prev);
+        if (!name.empty()) {
+          std::cerr << "  " << name << "\n";
+        }
+        prev = pos + 1;
+      }
+      if (prev < nameStr.size()) {
+        std::cerr << "  " << nameStr.substr(prev) << "\n";
+      }
+      std::cerr << "\nExample speech-dispatcher AddVoice lines:\n";
+      prev = 0;
+      while ((pos = nameStr.find('\n', prev)) != std::string::npos) {
+        std::string name = nameStr.substr(prev, pos - prev);
+        if (!name.empty()) {
+          std::cerr << "  AddVoice \"en\" \"male1\" \"" << name << "\"\n";
+        }
+        prev = pos + 1;
+      }
+      if (prev < nameStr.size()) {
+        std::cerr << "  AddVoice \"en\" \"male1\" \"" << nameStr.substr(prev) << "\"\n";
+      }
+    } else {
+      std::cerr << "No voice profiles found.\n";
+    }
+    nvspFrontend_destroy(fe);
+    return 0;
+  }
+
 #if defined(_WIN32)
   _setmode(_fileno(stdout), _O_BINARY);
 #endif
@@ -486,12 +541,6 @@ int main(int argc, char** argv) {
   if (!player) {
     std::cerr << "speechPlayer_initialize failed\n";
     return 1;
-  }
-
-  // Apply VoicingTone if any parameters are non-default
-  if (hasVoicingToneEffect(opt)) {
-    VoicingToneV3 tone = buildVoicingTone(opt);
-    speechPlayer_setVoicingTone(player, reinterpret_cast<const speechPlayer_voicingTone_t*>(&tone));
   }
 
   // Initialize frontend
@@ -519,6 +568,67 @@ int main(int argc, char** argv) {
       if (err && *err) std::cerr << "  " << err << "\n";
       // Continue anyway - fall back to default voice
     }
+  }
+
+  // Apply VoicingTone: first try to load from YAML via frontend, then apply CLI overrides
+  {
+    VoicingToneV3 tone{};
+    tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC;
+    tone.structSize = sizeof(VoicingToneV3);
+    tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION;
+    tone.dspVersion = SPEECHPLAYER_DSP_VERSION;
+    
+    // Start with defaults
+    tone.voicingPeakPos = 0.91;
+    tone.voicedPreEmphA = 0.92;
+    tone.voicedPreEmphMix = 0.35;
+    tone.highShelfGainDb = 2.0;
+    tone.highShelfFcHz = 2800.0;
+    tone.highShelfQ = 0.7;
+    tone.voicedTiltDbPerOct = 0.0;
+    tone.noiseGlottalModDepth = 0.0;
+    tone.pitchSyncF1DeltaHz = 0.0;
+    tone.pitchSyncB1DeltaHz = 0.0;
+    tone.speedQuotient = 2.0;
+    tone.aspirationTiltDbPerOct = 0.0;
+    
+    // Try to get voicing tone from YAML (if voice profile has one)
+    nvspFrontend_VoicingTone yamlTone{};
+    if (nvspFrontend_getVoicingTone(fe, &yamlTone)) {
+      // Copy YAML values
+      tone.voicingPeakPos = yamlTone.voicingPeakPos;
+      tone.voicedPreEmphA = yamlTone.voicedPreEmphA;
+      tone.voicedPreEmphMix = yamlTone.voicedPreEmphMix;
+      tone.highShelfGainDb = yamlTone.highShelfGainDb;
+      tone.highShelfFcHz = yamlTone.highShelfFcHz;
+      tone.highShelfQ = yamlTone.highShelfQ;
+      tone.voicedTiltDbPerOct = yamlTone.voicedTiltDbPerOct;
+      tone.noiseGlottalModDepth = yamlTone.noiseGlottalModDepth;
+      tone.pitchSyncF1DeltaHz = yamlTone.pitchSyncF1DeltaHz;
+      tone.pitchSyncB1DeltaHz = yamlTone.pitchSyncB1DeltaHz;
+      tone.speedQuotient = yamlTone.speedQuotient;
+      tone.aspirationTiltDbPerOct = yamlTone.aspirationTiltDbPerOct;
+    }
+    
+    // Apply CLI overrides (only if non-default)
+    if (hasVoicingToneEffect(opt)) {
+      VoicingToneV3 cliTone = buildVoicingTone(opt);
+      // CLI args override YAML values
+      if (opt.voicingPeakPos != 50) tone.voicingPeakPos = cliTone.voicingPeakPos;
+      if (opt.voicedPreEmphA != 50) tone.voicedPreEmphA = cliTone.voicedPreEmphA;
+      if (opt.voicedPreEmphMix != 50) tone.voicedPreEmphMix = cliTone.voicedPreEmphMix;
+      if (opt.highShelfGainDb != 50) tone.highShelfGainDb = cliTone.highShelfGainDb;
+      if (opt.highShelfFcHz != 50) tone.highShelfFcHz = cliTone.highShelfFcHz;
+      if (opt.highShelfQ != 50) tone.highShelfQ = cliTone.highShelfQ;
+      if (opt.voicedTiltDbPerOct != 50) tone.voicedTiltDbPerOct = cliTone.voicedTiltDbPerOct;
+      if (opt.noiseGlottalModDepth != 0) tone.noiseGlottalModDepth = cliTone.noiseGlottalModDepth;
+      if (opt.pitchSyncF1DeltaHz != 50) tone.pitchSyncF1DeltaHz = cliTone.pitchSyncF1DeltaHz;
+      if (opt.pitchSyncB1DeltaHz != 50) tone.pitchSyncB1DeltaHz = cliTone.pitchSyncB1DeltaHz;
+      if (opt.speedQuotient != 50) tone.speedQuotient = cliTone.speedQuotient;
+      if (opt.aspirationTiltDbPerOct != 50) tone.aspirationTiltDbPerOct = cliTone.aspirationTiltDbPerOct;
+    }
+    
+    speechPlayer_setVoicingTone(player, reinterpret_cast<const speechPlayer_voicingTone_t*>(&tone));
   }
 
   // Build FrameEx
