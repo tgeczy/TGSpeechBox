@@ -84,6 +84,37 @@ typedef struct nvspFrontend_FrameEx {
 #define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 5
 
 /*
+  VoicingTone parameters for DSP-level voice quality (ABI v2+).
+  
+  These control the glottal pulse shape, spectral tilt, and EQ at the DSP level.
+  They are read from the voicingTone: block in voice profiles.
+  
+  All fields have defaults that result in neutral/bypass behavior.
+*/
+typedef struct nvspFrontend_VoicingTone {
+  /* V1 parameters */
+  double voicingPeakPos;        /* Glottal pulse peak position (0.0-1.0) */
+  double voicedPreEmphA;        /* Pre-emphasis coefficient A */
+  double voicedPreEmphMix;      /* Pre-emphasis mix (0.0-1.0) */
+  double highShelfGainDb;       /* High shelf EQ gain in dB */
+  double highShelfFcHz;         /* High shelf EQ center frequency */
+  double highShelfQ;            /* High shelf EQ Q factor */
+  double voicedTiltDbPerOct;    /* Spectral tilt in dB/octave */
+  
+  /* V2 parameters */
+  double noiseGlottalModDepth;  /* Noise modulation by glottal cycle */
+  double pitchSyncF1DeltaHz;    /* Pitch-synchronous F1 delta */
+  double pitchSyncB1DeltaHz;    /* Pitch-synchronous B1 delta */
+  
+  /* V3 parameters */
+  double speedQuotient;         /* Glottal speed quotient (2.0 = neutral) */
+  double aspirationTiltDbPerOct; /* Aspiration spectral tilt */
+} nvspFrontend_VoicingTone;
+
+/* Number of fields in VoicingTone struct */
+#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 12
+
+/*
   Callback invoked for each frame (legacy, ABI v1).
   - frameOrNull: NULL means "silence" for the given duration.
   - durationMs and fadeMs are in milliseconds (same units as the Python side today).
@@ -275,6 +306,38 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
   nvspFrontend_FrameExCallback cb,
   void* userData
 );
+
+/*
+  Get the voicing tone parameters for the current voice profile (ABI v2+).
+  
+  Writes the VoicingTone parameters for the currently active voice profile
+  to the provided struct. If no profile is active or the profile doesn't
+  have voicingTone settings, the struct is filled with default values.
+  
+  Parameters:
+  - outTone: Pointer to struct to fill with voicing tone parameters.
+  
+  Returns:
+  - 1 if the current profile has explicit voicingTone settings
+  - 0 if using defaults (no profile or profile has no voicingTone block)
+  
+  The caller should use the returned value to decide whether to apply
+  the voicing tone or fall back to Python-side defaults.
+*/
+NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
+  nvspFrontend_handle_t handle,
+  nvspFrontend_VoicingTone* outTone
+);
+
+/*
+  Get a list of voice profile names (ABI v2+).
+  
+  Returns a null-terminated, newline-separated string of profile names.
+  The returned pointer is owned by the handle and valid until the next API call.
+  
+  Example return value: "Crystal\nBeth\nBobby\n"
+*/
+NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfileNames(nvspFrontend_handle_t handle);
 
 #ifdef __cplusplus
 }

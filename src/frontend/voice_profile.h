@@ -91,6 +91,43 @@ struct PhonemeOverride {
   std::unordered_map<int, double> values;
 };
 
+// Voicing tone parameters for DSP-level voice quality.
+// These control the glottal pulse shape, spectral tilt, and EQ.
+// All fields have sensible defaults; only non-default values need to be specified in YAML.
+struct VoicingTone {
+  // V1 parameters
+  double voicingPeakPos = 0.0;       // Glottal pulse peak position (0.0-1.0)
+  double voicedPreEmphA = 0.0;       // Pre-emphasis coefficient A
+  double voicedPreEmphMix = 0.0;     // Pre-emphasis mix (0.0-1.0)
+  double highShelfGainDb = 0.0;      // High shelf EQ gain in dB
+  double highShelfFcHz = 0.0;        // High shelf EQ center frequency
+  double highShelfQ = 0.0;           // High shelf EQ Q factor
+  double voicedTiltDbPerOct = 0.0;   // Spectral tilt in dB/octave
+  
+  // V2 parameters
+  double noiseGlottalModDepth = 0.0; // Noise modulation by glottal cycle
+  double pitchSyncF1DeltaHz = 0.0;   // Pitch-synchronous F1 delta
+  double pitchSyncB1DeltaHz = 0.0;   // Pitch-synchronous B1 delta
+  
+  // V3 parameters
+  double speedQuotient = 2.0;        // Glottal speed quotient (default 2.0 = neutral)
+  double aspirationTiltDbPerOct = 0.0; // Aspiration spectral tilt
+  
+  // Track which fields were explicitly set in YAML
+  bool voicingPeakPos_set = false;
+  bool voicedPreEmphA_set = false;
+  bool voicedPreEmphMix_set = false;
+  bool highShelfGainDb_set = false;
+  bool highShelfFcHz_set = false;
+  bool highShelfQ_set = false;
+  bool voicedTiltDbPerOct_set = false;
+  bool noiseGlottalModDepth_set = false;
+  bool pitchSyncF1DeltaHz_set = false;
+  bool pitchSyncB1DeltaHz_set = false;
+  bool speedQuotient_set = false;
+  bool aspirationTiltDbPerOct_set = false;
+};
+
 // A single voice profile definition.
 struct VoiceProfile {
   std::string name;
@@ -111,6 +148,10 @@ struct VoiceProfile {
   
   // Per-phoneme overrides keyed by phoneme symbol (UTF-8).
   std::unordered_map<std::string, PhonemeOverride> phonemeOverrides;
+  
+  // DSP-level voicing tone parameters (optional).
+  VoicingTone voicingTone;
+  bool hasVoicingTone = false;
 };
 
 // Collection of voice profiles from a pack.

@@ -128,6 +128,42 @@ static bool parsePhonemeOverride(const yaml_min::Node& node, PhonemeOverride& ou
   return true;
 }
 
+// Parse VoicingTone from a YAML map node.
+static bool parseVoicingTone(const yaml_min::Node& node, VoicingTone& out, std::string& /*outError*/) {
+  if (!node.isMap()) return true;
+  
+  // Helper to parse a voicing tone parameter
+  auto parseParam = [&](const char* key, double& val, bool& setFlag) {
+    const yaml_min::Node* n = node.get(key);
+    if (!n) return;
+    double v;
+    if (n->asNumber(v)) {
+      val = v;
+      setFlag = true;
+    }
+  };
+  
+  // V1 parameters
+  parseParam("voicingPeakPos", out.voicingPeakPos, out.voicingPeakPos_set);
+  parseParam("voicedPreEmphA", out.voicedPreEmphA, out.voicedPreEmphA_set);
+  parseParam("voicedPreEmphMix", out.voicedPreEmphMix, out.voicedPreEmphMix_set);
+  parseParam("highShelfGainDb", out.highShelfGainDb, out.highShelfGainDb_set);
+  parseParam("highShelfFcHz", out.highShelfFcHz, out.highShelfFcHz_set);
+  parseParam("highShelfQ", out.highShelfQ, out.highShelfQ_set);
+  parseParam("voicedTiltDbPerOct", out.voicedTiltDbPerOct, out.voicedTiltDbPerOct_set);
+  
+  // V2 parameters
+  parseParam("noiseGlottalModDepth", out.noiseGlottalModDepth, out.noiseGlottalModDepth_set);
+  parseParam("pitchSyncF1DeltaHz", out.pitchSyncF1DeltaHz, out.pitchSyncF1DeltaHz_set);
+  parseParam("pitchSyncB1DeltaHz", out.pitchSyncB1DeltaHz, out.pitchSyncB1DeltaHz_set);
+  
+  // V3 parameters
+  parseParam("speedQuotient", out.speedQuotient, out.speedQuotient_set);
+  parseParam("aspirationTiltDbPerOct", out.aspirationTiltDbPerOct, out.aspirationTiltDbPerOct_set);
+  
+  return true;
+}
+
 // Parse a single VoiceProfile from a YAML map node.
 // Supports both nested and dotted-key formats for classScales:
 //   Nested:  classScales: { vowel: { cf_mul: [...] } }
@@ -242,6 +278,16 @@ static bool parseVoiceProfile(const std::string& name, const yaml_min::Node& nod
         out.phonemeOverrides[phonemeKey] = ovr;
       }
     }
+  }
+  
+  // Parse voicingTone (DSP-level voice quality parameters).
+  const yaml_min::Node* voicingToneNode = node.get("voicingTone");
+  if (voicingToneNode && voicingToneNode->isMap()) {
+    if (!parseVoicingTone(*voicingToneNode, out.voicingTone, outError)) {
+      return false;
+    }
+    // Mark that this profile has explicit voicing tone settings
+    out.hasVoicingTone = true;
   }
   
   return true;

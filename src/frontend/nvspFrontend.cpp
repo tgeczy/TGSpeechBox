@@ -32,6 +32,9 @@ struct Handle {
   double frameExJitter = 0.0;
   double frameExShimmer = 0.0;
   double frameExSharpness = 1.0;  // multiplier, 1.0 = neutral
+  
+  // Buffer for getVoiceProfileNames return value
+  std::string profileNamesBuffer;
 };
 
 static Handle* asHandle(nvspFrontend_handle_t h) {
@@ -388,6 +391,73 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
     h->lastEndsVowelLike = endsVowelLike;
   }
   return 1;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
+  nvspFrontend_handle_t handle,
+  nvspFrontend_VoicingTone* outTone
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !outTone) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  // Initialize with defaults
+  outTone->voicingPeakPos = 0.0;
+  outTone->voicedPreEmphA = 0.0;
+  outTone->voicedPreEmphMix = 0.0;
+  outTone->highShelfGainDb = 0.0;
+  outTone->highShelfFcHz = 0.0;
+  outTone->highShelfQ = 0.0;
+  outTone->voicedTiltDbPerOct = 0.0;
+  outTone->noiseGlottalModDepth = 0.0;
+  outTone->pitchSyncF1DeltaHz = 0.0;
+  outTone->pitchSyncB1DeltaHz = 0.0;
+  outTone->speedQuotient = 2.0;  // neutral default
+  outTone->aspirationTiltDbPerOct = 0.0;
+
+  // Check if we have a voice profile with voicing tone
+  const std::string& profileName = h->pack.lang.voiceProfileName;
+  if (profileName.empty()) return 0;
+
+  const VoiceProfile* profile = h->pack.profiles.getProfile(profileName);
+  if (!profile) return 0;
+  if (!profile->hasVoicingTone) return 0;
+
+  // Copy the voicing tone values
+  const VoicingTone& vt = profile->voicingTone;
+  if (vt.voicingPeakPos_set) outTone->voicingPeakPos = vt.voicingPeakPos;
+  if (vt.voicedPreEmphA_set) outTone->voicedPreEmphA = vt.voicedPreEmphA;
+  if (vt.voicedPreEmphMix_set) outTone->voicedPreEmphMix = vt.voicedPreEmphMix;
+  if (vt.highShelfGainDb_set) outTone->highShelfGainDb = vt.highShelfGainDb;
+  if (vt.highShelfFcHz_set) outTone->highShelfFcHz = vt.highShelfFcHz;
+  if (vt.highShelfQ_set) outTone->highShelfQ = vt.highShelfQ;
+  if (vt.voicedTiltDbPerOct_set) outTone->voicedTiltDbPerOct = vt.voicedTiltDbPerOct;
+  if (vt.noiseGlottalModDepth_set) outTone->noiseGlottalModDepth = vt.noiseGlottalModDepth;
+  if (vt.pitchSyncF1DeltaHz_set) outTone->pitchSyncF1DeltaHz = vt.pitchSyncF1DeltaHz;
+  if (vt.pitchSyncB1DeltaHz_set) outTone->pitchSyncB1DeltaHz = vt.pitchSyncB1DeltaHz;
+  if (vt.speedQuotient_set) outTone->speedQuotient = vt.speedQuotient;
+  if (vt.aspirationTiltDbPerOct_set) outTone->aspirationTiltDbPerOct = vt.aspirationTiltDbPerOct;
+
+  return 1;  // Profile has explicit voicing tone
+}
+
+NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfileNames(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return "";
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  // Build newline-separated list of profile names
+  h->profileNamesBuffer.clear();
+  for (const auto& kv : h->pack.profiles.profiles) {
+    h->profileNamesBuffer += kv.first;
+    h->profileNamesBuffer += '\n';
+  }
+
+  return h->profileNamesBuffer.c_str();
 }
 
 } // extern "C"
