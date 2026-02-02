@@ -573,10 +573,13 @@ static void correctCopyAdjacent(std::vector<Token>& tokens) {
     if (!cur.def) continue;
     if ((cur.def->flags & kCopyAdjacent) == 0) continue;
 
-    // Find adjacent real phoneme.
+    // Find adjacent real phoneme that has actual formant values.
+    // Skip other _copyAdjacent phonemes since they won't have formants yet!
     const Token* adjacent = nullptr;
     for (int j = i + 1; j < n; ++j) {
       if (tokens[j].def && !tokens[j].silence) {
+        // Skip phonemes that also use _copyAdjacent — they don't have real formants
+        if ((tokens[j].def->flags & kCopyAdjacent) != 0) continue;
         adjacent = &tokens[j];
         break;
       }
@@ -584,6 +587,8 @@ static void correctCopyAdjacent(std::vector<Token>& tokens) {
     if (!adjacent) {
       for (int j = i - 1; j >= 0; --j) {
         if (tokens[j].def && !tokens[j].silence) {
+          // Skip phonemes that also use _copyAdjacent
+          if ((tokens[j].def->flags & kCopyAdjacent) != 0) continue;
           adjacent = &tokens[j];
           break;
         }
