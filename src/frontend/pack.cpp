@@ -994,6 +994,33 @@ static bool mergeLanguageFile(const fs::path& path, PackSet& out, std::string& o
             }
             continue;
           }
+          
+          // Parse frameEx: block for per-phoneme voice quality
+          if (fieldName == "frameEx" && val.isMap()) {
+            for (const auto& fxkv : val.map) {
+              const std::string& fxKey = fxkv.first;
+              double fxVal;
+              if (!fxkv.second.asNumber(fxVal)) continue;
+              
+              if (fxKey == "creakiness") {
+                def.hasCreakiness = true;
+                def.creakiness = fxVal;
+              } else if (fxKey == "breathiness") {
+                def.hasBreathiness = true;
+                def.breathiness = fxVal;
+              } else if (fxKey == "jitter") {
+                def.hasJitter = true;
+                def.jitter = fxVal;
+              } else if (fxKey == "shimmer") {
+                def.hasShimmer = true;
+                def.shimmer = fxVal;
+              } else if (fxKey == "sharpness") {
+                def.hasSharpness = true;
+                def.sharpness = fxVal;
+              }
+            }
+            continue;
+          }
 
           FieldId id;
           if (!parseFieldId(fieldName, id)) continue;

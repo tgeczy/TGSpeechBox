@@ -115,6 +115,36 @@ typedef struct nvspFrontend_VoicingTone {
 #define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 12
 
 /*
+  VoiceProfileSliders - the 11 user-adjustable slider values (ABI v2+).
+  
+  These are the values exposed to users via NVDA sliders.
+  The 6 "hidden" VoicingTone params (voicingPeakPos, voicedPreEmphA, etc.)
+  are NOT included here - they are preserved if manually edited in YAML.
+  
+  Used by nvspFrontend_saveVoiceProfileSliders() to write user settings
+  back to phonemes.yaml.
+*/
+typedef struct nvspFrontend_VoiceProfileSliders {
+  /* VoicingTone sliders (6) */
+  double voicedTiltDbPerOct;      /* Spectral tilt in dB/octave */
+  double noiseGlottalModDepth;    /* Noise modulation by glottal cycle (0.0-1.0) */
+  double pitchSyncF1DeltaHz;      /* Pitch-synchronous F1 delta */
+  double pitchSyncB1DeltaHz;      /* Pitch-synchronous B1 delta */
+  double speedQuotient;           /* Glottal speed quotient (0.5-4.0, 2.0 = neutral) */
+  double aspirationTiltDbPerOct;  /* Aspiration spectral tilt */
+  
+  /* FrameEx sliders (5) */
+  double creakiness;              /* Laryngealization (0.0-1.0) */
+  double breathiness;             /* Breathiness (0.0-1.0) */
+  double jitter;                  /* Pitch variation (0.0-1.0) */
+  double shimmer;                 /* Amplitude variation (0.0-1.0) */
+  double sharpness;               /* Glottal sharpness multiplier (0.5-2.0, 1.0 = neutral) */
+} nvspFrontend_VoiceProfileSliders;
+
+/* Number of fields in VoiceProfileSliders struct */
+#define NVSP_FRONTEND_VOICEPROFILESLIDERS_NUM_PARAMS 11
+
+/*
   Callback invoked for each frame (legacy, ABI v1).
   - frameOrNull: NULL means "silence" for the given duration.
   - durationMs and fadeMs are in milliseconds (same units as the Python side today).
@@ -338,6 +368,30 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   Example return value: "Crystal\nBeth\nBobby\n"
 */
 NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfileNames(nvspFrontend_handle_t handle);
+
+/*
+  Save voice profile slider values to phonemes.yaml (ABI v2+).
+  
+  Writes the 11 user-adjustable slider values to the voicingTone block
+  for the specified profile in phonemes.yaml.
+  
+  If the profile doesn't exist, it will be created under voiceProfiles:.
+  If the voicingTone: block doesn't exist, it will be created.
+  Existing "hidden" params (voicingPeakPos, etc.) are preserved.
+  
+  Parameters:
+  - profileNameUtf8: Name of the profile (e.g., "Adam", "Beth")
+  - sliders: Pointer to struct containing the 11 slider values
+  
+  Returns:
+  - 1 on success
+  - 0 on failure (call nvspFrontend_getLastError for details)
+*/
+NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
+  nvspFrontend_handle_t handle,
+  const char* profileNameUtf8,
+  const nvspFrontend_VoiceProfileSliders* sliders
+);
 
 #ifdef __cplusplus
 }

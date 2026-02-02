@@ -2327,19 +2327,23 @@ void emitFramesEx(
     }
 
     // Build FrameEx by mixing user defaults with per-phoneme values.
-    // For now, phoneme values come from user defaults only (per-phoneme YAML support is future work).
     // The mixing formula:
     //   - creakiness, breathiness, jitter, shimmer: additive, clamped to [0,1]
     //   - sharpness: multiplicative (phoneme * user), clamped to reasonable range
+    // Per-phoneme values override only if explicitly set (has* flags).
     nvspFrontend_FrameEx frameEx;
     
-    // TODO: When per-phoneme FrameEx values are added to Token, mix them here.
-    // For now, just use user defaults directly.
-    double phonemeCreakiness = 0.0;
-    double phonemeBreathiness = 0.0;
-    double phonemeJitter = 0.0;
-    double phonemeShimmer = 0.0;
-    double phonemeSharpness = 1.0;  // neutral multiplier
+    // Get per-phoneme values (0 / 1.0 neutral if not set)
+    double phonemeCreakiness = (t.def && t.def->hasCreakiness) ? t.def->creakiness : 0.0;
+    double phonemeBreathiness = (t.def && t.def->hasBreathiness) ? t.def->breathiness : 0.0;
+    double phonemeJitter = (t.def && t.def->hasJitter) ? t.def->jitter : 0.0;
+    double phonemeShimmer = (t.def && t.def->hasShimmer) ? t.def->shimmer : 0.0;
+    double phonemeSharpness = (t.def && t.def->hasSharpness) ? t.def->sharpness : 1.0;
+    
+    // Phoneme can only BOOST sharpness, never dull it - this ensures the user's
+    // configured sharpness is never reduced by per-phoneme values. A phoneme
+    // wanting "less sharp" would actually make it less distinct from neighbors.
+    if (phonemeSharpness < 1.0) phonemeSharpness = 1.0;
     
     frameEx.creakiness = clamp01(phonemeCreakiness + frameExDefaults.creakiness);
     frameEx.breathiness = clamp01(phonemeBreathiness + frameExDefaults.breathiness);

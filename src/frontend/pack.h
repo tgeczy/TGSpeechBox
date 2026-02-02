@@ -89,6 +89,21 @@ struct PhonemeDef {
   // Which frame fields are explicitly specified in YAML.
   std::uint64_t setMask = 0;
   double field[kFrameFieldCount] = {0.0};
+  
+  // Per-phoneme FrameEx overrides (voice quality).
+  // The has* flags indicate which values are explicitly set in YAML.
+  // Values without has* true should fall back to user defaults.
+  bool hasCreakiness = false;
+  bool hasBreathiness = false;
+  bool hasJitter = false;
+  bool hasShimmer = false;
+  bool hasSharpness = false;
+  
+  double creakiness = 0.0;    // 0.0-1.0, additive with user default
+  double breathiness = 0.0;   // 0.0-1.0, additive with user default
+  double jitter = 0.0;        // 0.0-1.0, additive with user default
+  double shimmer = 0.0;       // 0.0-1.0, additive with user default
+  double sharpness = 1.0;     // multiplier (1.0 = neutral, only >= 1.0 used)
 };
 
 // In YAML we keep replacements in UTF-8; we convert to UTF-32 during load.

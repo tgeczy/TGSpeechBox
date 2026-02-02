@@ -1,7 +1,10 @@
 #include "nvspFrontend.h"
 
+#include <cstdio>
+#include <fstream>
 #include <mutex>
 #include <new>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -44,6 +47,25 @@ static Handle* asHandle(nvspFrontend_handle_t h) {
 static void setError(Handle* h, const std::string& msg) {
   if (!h) return;
   h->lastError = msg;
+}
+
+// Helper to format a double with minimal precision (avoid "2.000000")
+// Defined here (outside extern "C") to avoid C4190 warning about std::string.
+static std::string formatDouble(double val, int precision = 2) {
+  char buf[64];
+  snprintf(buf, sizeof(buf), "%.*f", precision, val);
+  // Trim trailing zeros after decimal point
+  std::string s = buf;
+  if (s.find('.') != std::string::npos) {
+    size_t lastNonZero = s.find_last_not_of('0');
+    if (lastNonZero != std::string::npos && s[lastNonZero] == '.') {
+      // Keep at least one decimal (e.g., "2.0" not "2.")
+      s = s.substr(0, lastNonZero + 2);
+    } else if (lastNonZero != std::string::npos) {
+      s = s.substr(0, lastNonZero + 1);
+    }
+  }
+  return s;
 }
 
 } // namespace nvsp_frontend
@@ -462,6 +484,309 @@ NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfileNames(nvspFrontend_han
   }
 
   return h->profileNamesBuffer.c_str();
+}
+
+NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
+  nvspFrontend_handle_t handle,
+  const char* profileNameUtf8,
+  const nvspFrontend_VoiceProfileSliders* sliders
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !profileNameUtf8 || !sliders) {
+    if (h) setError(h, "Invalid parameters");
+    return 0;
+  }
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  std::string profileName = profileNameUtf8;
+  if (profileName.empty()) {
+    setError(h, "Profile name cannot be empty");
+    return 0;
+  }
+
+  // Build path to phonemes.yaml
+  std::string phonemesPath = h->packDir + "/phonemes.yaml";
+  
+  // Read current file content
+  std::ifstream inFile(phonemesPath);
+  if (!inFile.is_open()) {
+    setError(h, "Cannot open phonemes.yaml for reading");
+    return 0;
+  }
+  
+  std::vector<std::string> lines;
+  std::string line;
+  while (std::getline(inFile, line)) {
+    // Remove trailing \r if present (Windows line endings)
+    if (!line.empty() && line.back() == '\r') {
+      line.pop_back();
+    }
+    lines.push_back(line);
+  }
+  inFile.close();
+
+  // The 11 slider keys we write (6 VoicingTone + 5 FrameEx)
+  // Order matters for nice YAML output
+  struct SliderDef {
+    const char* key;
+    double value;
+    int precision;
+  };
+  std::vector<SliderDef> sliderDefs = {
+    {"voicedTiltDbPerOct", sliders->voicedTiltDbPerOct, 2},
+    {"noiseGlottalModDepth", sliders->noiseGlottalModDepth, 2},
+    {"pitchSyncF1DeltaHz", sliders->pitchSyncF1DeltaHz, 1},
+    {"pitchSyncB1DeltaHz", sliders->pitchSyncB1DeltaHz, 1},
+    {"speedQuotient", sliders->speedQuotient, 2},
+    {"aspirationTiltDbPerOct", sliders->aspirationTiltDbPerOct, 2},
+    {"creakiness", sliders->creakiness, 2},
+    {"breathiness", sliders->breathiness, 2},
+    {"jitter", sliders->jitter, 2},
+    {"shimmer", sliders->shimmer, 2},
+    {"sharpness", sliders->sharpness, 2},
+  };
+
+  // Track which slider keys we've written (to avoid duplicates)
+  std::set<std::string> writtenKeys;
+
+  // State machine for parsing
+  bool inVoiceProfiles = false;
+  bool inTargetProfile = false;
+  bool inVoicingTone = false;
+  bool foundProfile = false;
+  bool foundVoicingTone = false;
+  int voiceProfilesIndent = -1;
+  int profileIndent = -1;
+  int voicingToneIndent = -1;
+  int voicingToneContentIndent = -1;
+
+  std::vector<std::string> newLines;
+
+  auto getIndent = [](const std::string& s) -> int {
+    int indent = 0;
+    for (char c : s) {
+      if (c == ' ') indent++;
+      else break;
+    }
+    return indent;
+  };
+
+  auto makeIndent = [](int n) -> std::string {
+    return std::string(static_cast<size_t>(n), ' ');
+  };
+
+  // Helper to write all slider values
+  auto writeAllSliders = [&](int indent) {
+    for (const auto& sd : sliderDefs) {
+      if (writtenKeys.find(sd.key) == writtenKeys.end()) {
+        newLines.push_back(makeIndent(indent) + sd.key + ": " + formatDouble(sd.value, sd.precision));
+        writtenKeys.insert(sd.key);
+      }
+    }
+  };
+
+  for (size_t i = 0; i < lines.size(); ++i) {
+    const std::string& curLine = lines[i];
+    std::string stripped = curLine;
+    // Trim leading/trailing whitespace for comparison
+    size_t start = stripped.find_first_not_of(" \t");
+    if (start != std::string::npos) {
+      stripped = stripped.substr(start);
+    } else {
+      stripped = "";
+    }
+    
+    int indent = getIndent(curLine);
+
+    // Check for voiceProfiles: at root level
+    if (!curLine.empty() && curLine[0] != ' ' && curLine[0] != '\t') {
+      if (stripped.find("voiceProfiles:") == 0) {
+        inVoiceProfiles = true;
+        voiceProfilesIndent = 0;
+        profileIndent = -1;
+        inTargetProfile = false;
+        inVoicingTone = false;
+      } else if (inVoiceProfiles) {
+        // Left voiceProfiles section - if we were in target profile, close it
+        if (inTargetProfile && !foundVoicingTone) {
+          // Need to add voicingTone block before leaving
+          int vtIndent = (profileIndent >= 0 ? profileIndent : 2) + 2;
+          newLines.push_back(makeIndent(vtIndent) + "voicingTone:");
+          writeAllSliders(vtIndent + 2);
+          foundVoicingTone = true;
+        } else if (inVoicingTone) {
+          // Write any remaining slider values
+          writeAllSliders(voicingToneContentIndent >= 0 ? voicingToneContentIndent : voicingToneIndent + 2);
+          inVoicingTone = false;
+        }
+        inVoiceProfiles = false;
+        inTargetProfile = false;
+      }
+    }
+
+    if (inVoiceProfiles) {
+      // Detect profile indent level
+      if (profileIndent < 0 && !stripped.empty() && stripped.back() == ':' && indent > voiceProfilesIndent) {
+        profileIndent = indent;
+      }
+
+      // Check if this is the target profile line
+      if (indent == profileIndent && !stripped.empty()) {
+        std::string potentialName = stripped;
+        size_t colonPos = potentialName.find(':');
+        if (colonPos != std::string::npos) {
+          potentialName = potentialName.substr(0, colonPos);
+        }
+        
+        if (potentialName == profileName) {
+          inTargetProfile = true;
+          foundProfile = true;
+          inVoicingTone = false;
+          foundVoicingTone = false;
+          voicingToneIndent = -1;
+          writtenKeys.clear();
+        } else if (inTargetProfile) {
+          // Moving to a different profile
+          if (!foundVoicingTone) {
+            // Add voicingTone block before the new profile
+            int vtIndent = profileIndent + 2;
+            newLines.push_back(makeIndent(vtIndent) + "voicingTone:");
+            writeAllSliders(vtIndent + 2);
+            foundVoicingTone = true;
+          } else if (inVoicingTone) {
+            // Write remaining sliders before leaving
+            writeAllSliders(voicingToneContentIndent >= 0 ? voicingToneContentIndent : voicingToneIndent + 2);
+          }
+          inTargetProfile = false;
+          inVoicingTone = false;
+        }
+      }
+
+      // Inside target profile
+      if (inTargetProfile && indent > profileIndent) {
+        // Check for voicingTone:
+        if (stripped.find("voicingTone:") == 0 && !inVoicingTone) {
+          inVoicingTone = true;
+          foundVoicingTone = true;
+          voicingToneIndent = indent;
+          voicingToneContentIndent = -1;
+          newLines.push_back(curLine);
+          continue;
+        }
+
+        // Check for sibling sections (classScales, phonemeOverrides)
+        if ((stripped.find("classScales:") == 0 || stripped.find("phonemeOverrides:") == 0) 
+            && indent == profileIndent + 2) {
+          if (inVoicingTone) {
+            // Write remaining sliders before sibling section
+            writeAllSliders(voicingToneContentIndent >= 0 ? voicingToneContentIndent : voicingToneIndent + 2);
+            inVoicingTone = false;
+          } else if (!foundVoicingTone) {
+            // Add voicingTone block before sibling
+            int vtIndent = profileIndent + 2;
+            newLines.push_back(makeIndent(vtIndent) + "voicingTone:");
+            writeAllSliders(vtIndent + 2);
+            foundVoicingTone = true;
+          }
+        }
+
+        // Inside voicingTone block
+        if (inVoicingTone && indent > voicingToneIndent) {
+          if (voicingToneContentIndent < 0) {
+            voicingToneContentIndent = indent;
+          }
+
+          // Check if this line is one of our slider keys
+          size_t colonPos = stripped.find(':');
+          if (colonPos != std::string::npos) {
+            std::string key = stripped.substr(0, colonPos);
+            
+            // Check if it's one of our slider keys
+            bool isSliderKey = false;
+            for (const auto& sd : sliderDefs) {
+              if (key == sd.key) {
+                isSliderKey = true;
+                // Replace with new value
+                if (writtenKeys.find(key) == writtenKeys.end()) {
+                  newLines.push_back(makeIndent(indent) + sd.key + ": " + formatDouble(sd.value, sd.precision));
+                  writtenKeys.insert(key);
+                }
+                // Skip the original line (we wrote the replacement)
+                goto nextLine;
+              }
+            }
+            
+            // Not a slider key - preserve it (hidden params like voicingPeakPos)
+            // But first check if we've left voicingTone (indent decreased)
+          }
+        }
+        
+        // Check if we've left voicingTone block (indent back to profile level or voicingTone level)
+        if (inVoicingTone && indent <= voicingToneIndent) {
+          // Write remaining sliders
+          writeAllSliders(voicingToneContentIndent >= 0 ? voicingToneContentIndent : voicingToneIndent + 2);
+          inVoicingTone = false;
+        }
+      }
+    }
+
+    newLines.push_back(curLine);
+    nextLine:;
+  }
+
+  // Handle end of file cases
+  if (inVoicingTone) {
+    writeAllSliders(voicingToneContentIndent >= 0 ? voicingToneContentIndent : voicingToneIndent + 2);
+  } else if (inTargetProfile && !foundVoicingTone) {
+    int vtIndent = (profileIndent >= 0 ? profileIndent : 2) + 2;
+    newLines.push_back(makeIndent(vtIndent) + "voicingTone:");
+    writeAllSliders(vtIndent + 2);
+  }
+
+  // If profile wasn't found at all, add it at the end of voiceProfiles section
+  if (!foundProfile) {
+    // Find where voiceProfiles section ends (or end of file)
+    // For simplicity, append at end of file under voiceProfiles
+    bool hasVoiceProfiles = false;
+    for (const auto& l : lines) {
+      if (l.find("voiceProfiles:") == 0) {
+        hasVoiceProfiles = true;
+        break;
+      }
+    }
+    
+    if (!hasVoiceProfiles) {
+      // Add voiceProfiles section
+      newLines.push_back("");
+      newLines.push_back("voiceProfiles:");
+    }
+    
+    // Add the new profile
+    newLines.push_back("  " + profileName + ":");
+    newLines.push_back("    voicingTone:");
+    for (const auto& sd : sliderDefs) {
+      newLines.push_back("      " + std::string(sd.key) + ": " + formatDouble(sd.value, sd.precision));
+    }
+  }
+
+  // Write back to file
+  std::ofstream outFile(phonemesPath);
+  if (!outFile.is_open()) {
+    setError(h, "Cannot open phonemes.yaml for writing");
+    return 0;
+  }
+
+  for (size_t i = 0; i < newLines.size(); ++i) {
+    outFile << newLines[i];
+    if (i + 1 < newLines.size()) {
+      outFile << '\n';
+    }
+  }
+  outFile.close();
+
+  return 1;
 }
 
 } // extern "C"
