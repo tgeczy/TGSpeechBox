@@ -124,6 +124,37 @@ using fe_setVoiceProfile_fn = int(*)(nvspFrontend_handle_t, const char*);
 using fe_getVoiceProfile_fn = const char*(*)(nvspFrontend_handle_t);
 using fe_getPackWarnings_fn = const char*(*)(nvspFrontend_handle_t);
 
+// FrameExCallback - receives the MIXED FrameEx (phoneme + user defaults)
+using nvspFrontend_FrameExCallback = void(*)(
+  void* userData,
+  const nvspFrontend_Frame* frameOrNull,
+  const nvspFrontend_FrameEx* frameExOrNull,
+  double durationMs,
+  double fadeMs,
+  int userIndex
+);
+
+using fe_setFrameExDefaults_fn = void(*)(
+  nvspFrontend_handle_t,
+  double creakiness,
+  double breathiness,
+  double jitter,
+  double shimmer,
+  double sharpness
+);
+
+using fe_queueIPA_Ex_fn = int(*)(
+  nvspFrontend_handle_t,
+  const char*,
+  double,
+  double,
+  double,
+  const char*,
+  int,
+  nvspFrontend_FrameExCallback,
+  void*
+);
+
 class NvspRuntime {
 public:
   NvspRuntime();
@@ -229,6 +260,8 @@ private:
   fe_setVoiceProfile_fn m_feSetVoiceProfile = nullptr;
   fe_getVoiceProfile_fn m_feGetVoiceProfile = nullptr;
   fe_getPackWarnings_fn m_feGetPackWarnings = nullptr;
+  fe_setFrameExDefaults_fn m_feSetFrameExDefaults = nullptr;
+  fe_queueIPA_Ex_fn m_feQueueIPA_Ex = nullptr;
 
   // Runtime state
   nvspFrontend_handle_t m_feHandle = nullptr;

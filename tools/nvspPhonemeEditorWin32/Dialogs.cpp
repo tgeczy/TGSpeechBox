@@ -705,7 +705,13 @@ static const std::vector<std::string>& getStandardPhonemeTypeFlags() {
     "_isTap",
     "_isTrill",
     "_isVoiced",
-    "_isVowel"
+    "_isVowel",
+    // FrameEx voice quality (stored under frameEx: in YAML)
+    "frameEx.creakiness",
+    "frameEx.breathiness",
+    "frameEx.jitter",
+    "frameEx.shimmer",
+    "frameEx.sharpness"
   };
   return flags;
 }
@@ -720,10 +726,23 @@ static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeM
   std::vector<std::string> allKeys;
   std::unordered_set<std::string> seen;
   
-  // Add existing keys first
+  // Add existing keys first (skip "frameEx" itself since we'll show its children)
   for (const auto& k : existingKeys) {
+    if (k == "frameEx") continue;  // Handle specially below
     allKeys.push_back(k);
     seen.insert(k);
+  }
+  
+  // Add frameEx.* keys if frameEx exists in the map
+  auto frameExIt = phonemeMap.map.find("frameEx");
+  if (frameExIt != phonemeMap.map.end() && frameExIt->second.isMap()) {
+    for (const auto& kv : frameExIt->second.map) {
+      std::string flatKey = "frameEx." + kv.first;
+      if (seen.find(flatKey) == seen.end()) {
+        allKeys.push_back(flatKey);
+        seen.insert(flatKey);
+      }
+    }
   }
   
   // Add standard type flags that aren't already present
@@ -739,11 +758,29 @@ static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeM
 
   int row = 0;
   for (const auto& k : allKeys) {
-    auto it = phonemeMap.map.find(k);
-    bool exists = (it != phonemeMap.map.end() && it->second.isScalar());
+    bool exists = false;
+    std::string valueStr;
     
-    // Skip non-scalar values that exist (like nested maps)
-    if (it != phonemeMap.map.end() && !it->second.isScalar()) continue;
+    // Handle frameEx.* keys specially
+    if (k.rfind("frameEx.", 0) == 0) {
+      std::string subKey = k.substr(8);  // Remove "frameEx." prefix
+      auto fxIt = phonemeMap.map.find("frameEx");
+      if (fxIt != phonemeMap.map.end() && fxIt->second.isMap()) {
+        auto subIt = fxIt->second.map.find(subKey);
+        if (subIt != fxIt->second.map.end() && subIt->second.isScalar()) {
+          exists = true;
+          valueStr = subIt->second.scalar;
+        }
+      }
+    } else {
+      auto it = phonemeMap.map.find(k);
+      exists = (it != phonemeMap.map.end() && it->second.isScalar());
+      
+      // Skip non-scalar values that exist (like nested maps)
+      if (it != phonemeMap.map.end() && !it->second.isScalar()) continue;
+      
+      if (exists) valueStr = it->second.scalar;
+    }
 
     LVITEMW item{};
     item.mask = LVIF_TEXT;
@@ -753,7 +790,7 @@ static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeM
     item.pszText = wk.data();
     ListView_InsertItem(lv, &item);
 
-    std::wstring wv = exists ? utf8ToWide(it->second.scalar) : L"(not set)";
+    std::wstring wv = exists ? utf8ToWide(valueStr) : L"(not set)";
     ListView_SetItemText(lv, row, 1, const_cast<wchar_t*>(wv.c_str()));
 
     row++;
@@ -800,31 +837,65 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
           return TRUE;
         }
 
-        auto it = st->working.map.find(field);
-        bool fieldExists = (it != st->working.map.end());
+        // Handle frameEx.* fields specially
+        bool isFrameExField = (field.rfind("frameEx.", 0) == 0);
+        std::string subKey;
+        bool fieldExists = false;
+        std::string currentValue;
         
-        // If field exists but is not scalar, reject it
-        if (fieldExists && !it->second.isScalar()) {
-          msgBox(hDlg, L"That field isn't a scalar value.", L"Edit phoneme", MB_ICONERROR);
-          return TRUE;
+        if (isFrameExField) {
+          subKey = field.substr(8);  // Remove "frameEx." prefix
+          auto fxIt = st->working.map.find("frameEx");
+          if (fxIt != st->working.map.end() && fxIt->second.isMap()) {
+            auto subIt = fxIt->second.map.find(subKey);
+            if (subIt != fxIt->second.map.end() && subIt->second.isScalar()) {
+              fieldExists = true;
+              currentValue = subIt->second.scalar;
+            }
+          }
+        } else {
+          auto it = st->working.map.find(field);
+          fieldExists = (it != st->working.map.end());
+          
+          // If field exists but is not scalar, reject it
+          if (fieldExists && !it->second.isScalar()) {
+            msgBox(hDlg, L"That field isn't a scalar value.", L"Edit phoneme", MB_ICONERROR);
+            return TRUE;
+          }
+          if (fieldExists) currentValue = it->second.scalar;
         }
 
         EditValueDialogState vs;
         vs.field = field;
-        vs.value = fieldExists ? it->second.scalar : "";
+        vs.value = currentValue;
         vs.baseMap = st->working;
         vs.runtime = st->runtime;
         vs.livePreview = true;
 
         DialogBoxParamW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_EDIT_VALUE), hDlg, EditValueDlgProc, reinterpret_cast<LPARAM>(&vs));
         if (vs.ok) {
-          // Create or update the field
-          if (!fieldExists) {
-            st->working.map[field] = nvsp_editor::Node{};
-            it = st->working.map.find(field);
+          if (isFrameExField) {
+            // Create frameEx map if it doesn't exist
+            auto fxIt = st->working.map.find("frameEx");
+            if (fxIt == st->working.map.end()) {
+              st->working.map["frameEx"] = nvsp_editor::Node{};
+              st->working.map["frameEx"].type = nvsp_editor::Node::Type::Map;
+              fxIt = st->working.map.find("frameEx");
+            }
+            // Create or update the subkey
+            fxIt->second.map[subKey] = nvsp_editor::Node{};
+            fxIt->second.map[subKey].type = nvsp_editor::Node::Type::Scalar;
+            fxIt->second.map[subKey].scalar = vs.value;
+          } else {
+            // Create or update the field at top level
+            auto it = st->working.map.find(field);
+            if (it == st->working.map.end()) {
+              st->working.map[field] = nvsp_editor::Node{};
+              it = st->working.map.find(field);
+            }
+            it->second.type = nvsp_editor::Node::Type::Scalar;
+            it->second.scalar = vs.value;
           }
-          it->second.type = nvsp_editor::Node::Type::Scalar;
-          it->second.scalar = vs.value;
           populatePhonemeFieldsList(lv, st->working);
           EnsureListViewHasSelection(lv);
         }

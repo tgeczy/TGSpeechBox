@@ -236,6 +236,12 @@ static int clampInt(int v, int lo, int hi) {
   return v;
 }
 
+static double clampDouble(double v, double lo, double hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
 // Map slider value (0-100) to actual VoicingTone parameter value
 // Each parameter has different ranges, with 50 being "neutral/default"
 static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
@@ -345,6 +351,51 @@ static EditorFrameEx buildFrameEx(const std::vector<int>& sliders, bool& outHasE
   outHasEffect = (creakVal > 0 || breathVal > 0 || jitterVal > 0 || shimmerVal > 0 || sharpVal != 50);
   
   return ex;
+}
+
+// Mix phoneme-level FrameEx values (from YAML) with user defaults.
+// Same mixing logic as frontend:
+//   - creakiness, breathiness, jitter, shimmer: additive, clamped to [0,1]
+//   - sharpness: multiplicative, phoneme >= 1.0 (boost only)
+static EditorFrameEx mixPhonemeFrameEx(const Node& phonemeMap, const EditorFrameEx& userDefaults) {
+  EditorFrameEx mixed = userDefaults;
+  
+  // Look for frameEx: map in the phoneme
+  auto fxIt = phonemeMap.map.find("frameEx");
+  if (fxIt == phonemeMap.map.end() || !fxIt->second.isMap()) {
+    return mixed;  // No per-phoneme overrides
+  }
+  
+  const auto& fxMap = fxIt->second.map;
+  
+  // Helper to get double from map
+  auto getDouble = [&](const std::string& key, double defaultVal) -> double {
+    auto it = fxMap.find(key);
+    if (it != fxMap.end() && it->second.isScalar()) {
+      try { return std::stod(it->second.scalar); }
+      catch (...) { return defaultVal; }
+    }
+    return defaultVal;
+  };
+  
+  // Get phoneme values (0.0 is neutral for additive, 1.0 for multiplicative)
+  double phonemeCreakiness = getDouble("creakiness", 0.0);
+  double phonemeBreathiness = getDouble("breathiness", 0.0);
+  double phonemeJitter = getDouble("jitter", 0.0);
+  double phonemeShimmer = getDouble("shimmer", 0.0);
+  double phonemeSharpness = getDouble("sharpness", 1.0);
+  
+  // Phoneme can only BOOST sharpness, not reduce it
+  if (phonemeSharpness < 1.0) phonemeSharpness = 1.0;
+  
+  // Mix: additive for 0-1 params, multiplicative for sharpness
+  mixed.creakiness = clampDouble(phonemeCreakiness + userDefaults.creakiness, 0.0, 1.0);
+  mixed.breathiness = clampDouble(phonemeBreathiness + userDefaults.breathiness, 0.0, 1.0);
+  mixed.jitter = clampDouble(phonemeJitter + userDefaults.jitter, 0.0, 1.0);
+  mixed.shimmer = clampDouble(phonemeShimmer + userDefaults.shimmer, 0.0, 1.0);
+  mixed.sharpness = clampDouble(phonemeSharpness * userDefaults.sharpness, 0.1, 5.0);
+  
+  return mixed;
 }
 
 static void applyMul(speechPlayer_frame_t& frame, speechPlayer_frameParam_t speechPlayer_frame_t::* member, double mul) {
@@ -494,6 +545,8 @@ void NvspRuntime::unload() {
   m_feSetVoiceProfile = nullptr;
   m_feGetVoiceProfile = nullptr;
   m_feGetPackWarnings = nullptr;
+  m_feSetFrameExDefaults = nullptr;
+  m_feQueueIPA_Ex = nullptr;
 
   if (m_frontend) {
     FreeLibrary(m_frontend);
@@ -577,6 +630,10 @@ bool NvspRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
   m_feSetVoiceProfile = reinterpret_cast<fe_setVoiceProfile_fn>(GetProcAddress(m_frontend, "nvspFrontend_setVoiceProfile"));
   m_feGetVoiceProfile = reinterpret_cast<fe_getVoiceProfile_fn>(GetProcAddress(m_frontend, "nvspFrontend_getVoiceProfile"));
   m_feGetPackWarnings = reinterpret_cast<fe_getPackWarnings_fn>(GetProcAddress(m_frontend, "nvspFrontend_getPackWarnings"));
+  
+  // FrameEx API (optional - enables per-phoneme voice quality mixing)
+  m_feSetFrameExDefaults = reinterpret_cast<fe_setFrameExDefaults_fn>(GetProcAddress(m_frontend, "nvspFrontend_setFrameExDefaults"));
+  m_feQueueIPA_Ex = reinterpret_cast<fe_queueIPA_Ex_fn>(GetProcAddress(m_frontend, "nvspFrontend_queueIPA_Ex"));
 
   if (!m_feCreate || !m_feDestroy || !m_feSetLanguage || !m_feQueueIPA || !m_feGetLastError) {
     outError = "nvspFrontend.dll is missing expected exports";
@@ -711,9 +768,15 @@ bool NvspRuntime::synthPreviewPhoneme(
   const unsigned int postS = msToSamples(postMs, sampleRate);
   const unsigned int fadeS = msToSamples(fadeMs, sampleRate);
 
-  // Build FrameEx from current settings
+  // Build FrameEx: start with user defaults, then mix in per-phoneme values
   bool hasFrameEx = false;
-  EditorFrameEx frameEx = buildFrameEx(m_speech.frameExParams, hasFrameEx);
+  EditorFrameEx userFrameEx = buildFrameEx(m_speech.frameExParams, hasFrameEx);
+  EditorFrameEx frameEx = mixPhonemeFrameEx(phonemeMap, userFrameEx);
+  
+  // Always use FrameEx if the phoneme has values OR user has values
+  auto fxIt = phonemeMap.map.find("frameEx");
+  bool phonemeHasFrameEx = (fxIt != phonemeMap.map.end() && fxIt->second.isMap());
+  hasFrameEx = hasFrameEx || phonemeHasFrameEx;
 
   // Purge on first queue.
   if (m_spQueueFrameEx && hasFrameEx) {
@@ -961,6 +1024,117 @@ static void __cdecl frameCallback(
   ctx->first = false;
 }
 
+// New callback for queueIPA_Ex - receives MIXED FrameEx from frontend
+// (phoneme values + user defaults already combined)
+static void __cdecl frameExCallback(
+  void* userData,
+  const nvspFrontend_Frame* frameOrNull,
+  const nvspFrontend_FrameEx* frameExOrNull,
+  double durationMs,
+  double fadeMs,
+  int userIndex
+) {
+  QueueCtx* ctx = reinterpret_cast<QueueCtx*>(userData);
+  if (!ctx || (!ctx->queueFrame && !ctx->queueFrameEx)) return;
+
+  unsigned int durS = msToSamples(durationMs, ctx->sampleRate);
+  unsigned int fadeS = msToSamples(fadeMs, ctx->sampleRate);
+
+  if (frameOrNull) {
+    speechPlayer_frame_t f{};
+    // Copy field-by-field (no ABI/layout assumptions).
+    f.voicePitch = frameOrNull->voicePitch;
+    f.vibratoPitchOffset = frameOrNull->vibratoPitchOffset;
+    f.vibratoSpeed = frameOrNull->vibratoSpeed;
+    f.voiceTurbulenceAmplitude = frameOrNull->voiceTurbulenceAmplitude;
+    f.glottalOpenQuotient = frameOrNull->glottalOpenQuotient;
+    f.voiceAmplitude = frameOrNull->voiceAmplitude;
+    f.aspirationAmplitude = frameOrNull->aspirationAmplitude;
+
+    f.cf1 = frameOrNull->cf1;
+    f.cf2 = frameOrNull->cf2;
+    f.cf3 = frameOrNull->cf3;
+    f.cf4 = frameOrNull->cf4;
+    f.cf5 = frameOrNull->cf5;
+    f.cf6 = frameOrNull->cf6;
+    f.cfN0 = frameOrNull->cfN0;
+    f.cfNP = frameOrNull->cfNP;
+
+    f.cb1 = frameOrNull->cb1;
+    f.cb2 = frameOrNull->cb2;
+    f.cb3 = frameOrNull->cb3;
+    f.cb4 = frameOrNull->cb4;
+    f.cb5 = frameOrNull->cb5;
+    f.cb6 = frameOrNull->cb6;
+    f.cbN0 = frameOrNull->cbN0;
+    f.cbNP = frameOrNull->cbNP;
+
+    f.caNP = frameOrNull->caNP;
+
+    f.fricationAmplitude = frameOrNull->fricationAmplitude;
+
+    f.pf1 = frameOrNull->pf1;
+    f.pf2 = frameOrNull->pf2;
+    f.pf3 = frameOrNull->pf3;
+    f.pf4 = frameOrNull->pf4;
+    f.pf5 = frameOrNull->pf5;
+    f.pf6 = frameOrNull->pf6;
+
+    f.pb1 = frameOrNull->pb1;
+    f.pb2 = frameOrNull->pb2;
+    f.pb3 = frameOrNull->pb3;
+    f.pb4 = frameOrNull->pb4;
+    f.pb5 = frameOrNull->pb5;
+    f.pb6 = frameOrNull->pb6;
+
+    f.pa1 = frameOrNull->pa1;
+    f.pa2 = frameOrNull->pa2;
+    f.pa3 = frameOrNull->pa3;
+    f.pa4 = frameOrNull->pa4;
+    f.pa5 = frameOrNull->pa5;
+    f.pa6 = frameOrNull->pa6;
+
+    f.parallelBypass = frameOrNull->parallelBypass;
+    f.preFormantGain = frameOrNull->preFormantGain;
+    f.outputGain = frameOrNull->outputGain;
+    f.endVoicePitch = frameOrNull->endVoicePitch;
+
+    if (ctx->runtime) {
+      ctx->runtime->applySpeechSettingsToFrame(f);
+    }
+
+    // Use the MIXED FrameEx from frontend (phoneme + user defaults)
+    if (ctx->queueFrameEx && frameExOrNull) {
+      EditorFrameEx mixedEx{};
+      mixedEx.creakiness = frameExOrNull->creakiness;
+      mixedEx.breathiness = frameExOrNull->breathiness;
+      mixedEx.jitter = frameExOrNull->jitter;
+      mixedEx.shimmer = frameExOrNull->shimmer;
+      mixedEx.sharpness = frameExOrNull->sharpness;
+      ctx->queueFrameEx(ctx->player, &f, &mixedEx, 
+                        static_cast<unsigned int>(sizeof(EditorFrameEx)),
+                        durS, fadeS, userIndex, ctx->first);
+    } else if (ctx->queueFrameEx && ctx->hasFrameEx) {
+      // Fallback: use ctx->frameEx if frontend didn't provide mixed values
+      ctx->queueFrameEx(ctx->player, &f, &ctx->frameEx, 
+                        static_cast<unsigned int>(sizeof(EditorFrameEx)),
+                        durS, fadeS, userIndex, ctx->first);
+    } else if (ctx->queueFrame) {
+      ctx->queueFrame(ctx->player, &f, durS, fadeS, userIndex, ctx->first);
+    }
+  } else {
+    // Silence frame - use ctx->frameEx for continuity (frontend gives NULL for silence)
+    if (ctx->queueFrameEx && ctx->hasFrameEx) {
+      ctx->queueFrameEx(ctx->player, nullptr, &ctx->frameEx,
+                        static_cast<unsigned int>(sizeof(EditorFrameEx)),
+                        durS, fadeS, userIndex, ctx->first);
+    } else if (ctx->queueFrame) {
+      ctx->queueFrame(ctx->player, nullptr, durS, fadeS, userIndex, ctx->first);
+    }
+  }
+  ctx->first = false;
+}
+
 bool NvspRuntime::synthIpa(
   const std::string& ipaUtf8,
   int sampleRate,
@@ -1046,6 +1220,20 @@ bool NvspRuntime::synthIpa(
   ctx.first = true;
   ctx.runtime = this;
 
+  // Set FrameEx defaults on frontend for per-phoneme mixing.
+  // This lets the frontend combine user slider values with per-phoneme YAML values.
+  // Always set defaults when using the new API (even zeros), so frontend has correct state.
+  if (m_feSetFrameExDefaults) {
+    m_feSetFrameExDefaults(
+      m_feHandle,
+      ctx.frameEx.creakiness,
+      ctx.frameEx.breathiness,
+      ctx.frameEx.jitter,
+      ctx.frameEx.shimmer,
+      ctx.frameEx.sharpness
+    );
+  }
+
   // Match NVDA driver's mapping:
   //   rate: 0..100 -> 0.25 * 2^(rate/25)
   //   pitch: 0..100 -> basePitch = 25 + 21.25*(pitch/12.5)
@@ -1076,17 +1264,34 @@ for (size_t i = 0; i < clauses.size(); ++i) {
   const char punct = c.punct ? c.punct : '.';
   char clauseBuf[2] = { punct, 0 };
 
-  int qok = m_feQueueIPA(
-    m_feHandle,
-    c.ipa.c_str(),
-    speed,
-    basePitch,
-    inflection,
-    clauseBuf,
-    -1,
-    frameCallback,
-    &ctx
-  );
+  int qok;
+  // Use queueIPA_Ex if available - this gets per-phoneme FrameEx mixing from frontend
+  if (m_feQueueIPA_Ex) {
+    qok = m_feQueueIPA_Ex(
+      m_feHandle,
+      c.ipa.c_str(),
+      speed,
+      basePitch,
+      inflection,
+      clauseBuf,
+      -1,
+      frameExCallback,
+      &ctx
+    );
+  } else {
+    // Fallback to old API (no per-phoneme FrameEx mixing)
+    qok = m_feQueueIPA(
+      m_feHandle,
+      c.ipa.c_str(),
+      speed,
+      basePitch,
+      inflection,
+      clauseBuf,
+      -1,
+      frameCallback,
+      &ctx
+    );
+  }
 
   if (!qok) {
     ok = false;
