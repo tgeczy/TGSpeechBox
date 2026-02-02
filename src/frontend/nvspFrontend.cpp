@@ -24,6 +24,14 @@ struct Handle {
   std::string langTag;
   std::string lastError;
   std::mutex mu;
+  
+  // User-level FrameEx defaults (ABI v2+).
+  // These are mixed with per-phoneme values when emitting frames.
+  double frameExCreakiness = 0.0;
+  double frameExBreathiness = 0.0;
+  double frameExJitter = 0.0;
+  double frameExShimmer = 0.0;
+  double frameExSharpness = 1.0;  // multiplier, 1.0 = neutral
 };
 
 static Handle* asHandle(nvspFrontend_handle_t h) {
@@ -230,6 +238,156 @@ NVSP_FRONTEND_API const char* nvspFrontend_getLastError(nvspFrontend_handle_t ha
   if (!h) return "invalid handle";
   std::lock_guard<std::mutex> lock(h->mu);
   return h->lastError.c_str();
+}
+
+NVSP_FRONTEND_API int nvspFrontend_getABIVersion(void) {
+  return NVSP_FRONTEND_ABI_VERSION;
+}
+
+NVSP_FRONTEND_API void nvspFrontend_setFrameExDefaults(
+  nvspFrontend_handle_t handle,
+  double creakiness,
+  double breathiness,
+  double jitter,
+  double shimmer,
+  double sharpness
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  h->frameExCreakiness = creakiness;
+  h->frameExBreathiness = breathiness;
+  h->frameExJitter = jitter;
+  h->frameExShimmer = shimmer;
+  h->frameExSharpness = sharpness;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_getFrameExDefaults(
+  nvspFrontend_handle_t handle,
+  nvspFrontend_FrameEx* outDefaults
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !outDefaults) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  outDefaults->creakiness = h->frameExCreakiness;
+  outDefaults->breathiness = h->frameExBreathiness;
+  outDefaults->jitter = h->frameExJitter;
+  outDefaults->shimmer = h->frameExShimmer;
+  outDefaults->sharpness = h->frameExSharpness;
+  return 1;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
+  nvspFrontend_handle_t handle,
+  const char* ipaUtf8,
+  double speed,
+  double basePitch,
+  double inflection,
+  const char* clauseTypeUtf8,
+  int userIndexBase,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  h->lastError.clear();
+
+  if (!h->packLoaded) {
+    // Default to "default" language if the caller didn't call setLanguage.
+    PackSet pack;
+    std::string err;
+    if (!loadPackSet(h->packDir, "default", pack, err)) {
+      setError(h, err.empty() ? "No language loaded and default load failed" : err);
+      return 0;
+    }
+    h->pack = std::move(pack);
+    h->packLoaded = true;
+    h->langTag = "default";
+  }
+
+  if (!ipaUtf8) ipaUtf8 = "";
+
+  char clauseType = '.';
+  if (clauseTypeUtf8 && clauseTypeUtf8[0]) {
+    clauseType = clauseTypeUtf8[0];
+  }
+
+  std::vector<Token> tokens;
+  std::string err;
+  if (!convertIpaToTokens(h->pack, ipaUtf8, speed, basePitch, inflection, clauseType, tokens, err)) {
+    setError(h, err.empty() ? "IPA conversion failed" : err);
+    return 0;
+  }
+
+  // Determine whether this chunk starts/ends with a vowel-like phoneme.
+  const Token* firstReal = nullptr;
+  const Token* lastReal = nullptr;
+  for (const Token& t : tokens) {
+    if (!t.def || t.silence) continue;
+    if (!firstReal) firstReal = &t;
+    lastReal = &t;
+  }
+
+  auto isVowelLike = [](const Token& t) -> bool {
+    if (!t.def) return false;
+    const std::uint32_t f = t.def->flags;
+    return (f & kIsVowel) || (f & kIsSemivowel);
+  };
+
+  auto isLiquidLike = [](const Token& t) -> bool {
+    if (!t.def) return false;
+    const std::uint32_t f = t.def->flags;
+    return (f & kIsLiquid) || (f & kIsTap) || (f & kIsTrill);
+  };
+
+  const bool startsVowelLike = firstReal && isVowelLike(*firstReal);
+  const bool startsLiquidLike = firstReal && isLiquidLike(*firstReal);
+  const bool endsVowelLike = lastReal && isVowelLike(*lastReal);
+  const bool hasRealPhoneme = (firstReal != nullptr);
+
+  // Optional: insert a short silence between consecutive queueIPA calls.
+  if (cb && h->streamHasSpeech && hasRealPhoneme) {
+    const double gapMs = h->pack.lang.segmentBoundaryGapMs;
+    const double fadeMs = h->pack.lang.segmentBoundaryFadeMs;
+    if (gapMs > 0.0 || fadeMs > 0.0) {
+      bool skip = false;
+      if (h->pack.lang.segmentBoundarySkipVowelToVowel &&
+          h->lastEndsVowelLike && startsVowelLike) {
+        skip = true;
+      }
+      if (!skip && h->pack.lang.segmentBoundarySkipVowelToLiquid &&
+          h->lastEndsVowelLike && startsLiquidLike) {
+        skip = true;
+      }
+      if (!skip) {
+        const double spd = (speed > 0.0) ? speed : 1.0;
+        cb(userData, nullptr, nullptr, gapMs / spd, fadeMs / spd, userIndexBase);
+      }
+    }
+  }
+
+  // Build FrameEx defaults struct to pass to emitFramesEx
+  nvspFrontend_FrameEx frameExDefaults;
+  frameExDefaults.creakiness = h->frameExCreakiness;
+  frameExDefaults.breathiness = h->frameExBreathiness;
+  frameExDefaults.jitter = h->frameExJitter;
+  frameExDefaults.shimmer = h->frameExShimmer;
+  frameExDefaults.sharpness = h->frameExSharpness;
+
+  emitFramesEx(h->pack, tokens, userIndexBase, frameExDefaults, cb, userData);
+  
+  if (hasRealPhoneme) {
+    h->streamHasSpeech = true;
+    h->lastEndsVowelLike = endsVowelLike;
+  }
+  return 1;
 }
 
 } // extern "C"

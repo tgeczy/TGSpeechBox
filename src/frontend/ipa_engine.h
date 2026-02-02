@@ -73,6 +73,17 @@ void emitFrames(
   void* userData
 );
 
+// Convert tokens -> callback frames with extended parameters (ABI v2+).
+// frameExDefaults contains user-level defaults that are mixed with per-phoneme values.
+void emitFramesEx(
+  const PackSet& pack,
+  const std::vector<Token>& tokens,
+  int userIndexBase,
+  const nvspFrontend_FrameEx& frameExDefaults,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+);
+
 } // namespace nvsp_frontend
 
 #endif

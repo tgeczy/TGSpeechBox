@@ -2260,4 +2260,233 @@ void emitFrames(
   }
 }
 
+// Helper to clamp a value to [0, 1]
+static inline double clamp01(double v) {
+  if (v < 0.0) return 0.0;
+  if (v > 1.0) return 1.0;
+  return v;
+}
+
+// Helper to clamp sharpness multiplier to reasonable range
+static inline double clampSharpness(double v) {
+  if (v < 0.1) return 0.1;
+  if (v > 5.0) return 5.0;
+  return v;
+}
+
+void emitFramesEx(
+  const PackSet& pack,
+  const std::vector<Token>& tokens,
+  int userIndexBase,
+  const nvspFrontend_FrameEx& frameExDefaults,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+) {
+  if (!cb) return;
+
+  // Same static asserts as emitFrames
+  static_assert(sizeof(nvspFrontend_Frame) == sizeof(double) * kFrameFieldCount,
+                "nvspFrontend_Frame must remain exactly kFrameFieldCount doubles with no padding");
+  static_assert(std::is_standard_layout<nvspFrontend_Frame>::value,
+                "nvspFrontend_Frame must remain standard-layout");
+  static_assert(std::is_trivially_copyable<nvspFrontend_Frame>::value,
+                "nvspFrontend_Frame must remain trivially copyable");
+
+  const bool trillEnabled = (pack.lang.trillModulationMs > 0.0);
+
+  const int vp = static_cast<int>(FieldId::voicePitch);
+  const int evp = static_cast<int>(FieldId::endVoicePitch);
+  const int va = static_cast<int>(FieldId::voiceAmplitude);
+  const int fa = static_cast<int>(FieldId::fricationAmplitude);
+
+  // Trill modulation constants (same as emitFrames)
+  constexpr double kTrillCloseFactor = 0.22;
+  constexpr double kTrillCloseFrac = 0.28;
+  constexpr double kTrillFricFloor = 0.12;
+  constexpr double kMinPhaseMs = 0.25;
+
+  // Trajectory limiting state
+  const LanguagePack& lang = pack.lang;
+  static double prevCf2 = 0.0, prevCf3 = 0.0, prevPf2 = 0.0, prevPf3 = 0.0;
+  static bool hasPrevFrame = false;
+  hasPrevFrame = false;
+
+  for (const Token& t : tokens) {
+    if (t.silence || !t.def) {
+      // Silence frame - no FrameEx
+      cb(userData, nullptr, nullptr, t.durationMs, t.fadeMs, userIndexBase);
+      continue;
+    }
+
+    // Build base frame (same as emitFrames)
+    double base[kFrameFieldCount] = {};
+    const std::uint64_t mask = t.setMask;
+    for (int f = 0; f < kFrameFieldCount; ++f) {
+      if ((mask & (1ull << f)) == 0) continue;
+      base[f] = t.field[f];
+    }
+
+    // Build FrameEx by mixing user defaults with per-phoneme values.
+    // For now, phoneme values come from user defaults only (per-phoneme YAML support is future work).
+    // The mixing formula:
+    //   - creakiness, breathiness, jitter, shimmer: additive, clamped to [0,1]
+    //   - sharpness: multiplicative (phoneme * user), clamped to reasonable range
+    nvspFrontend_FrameEx frameEx;
+    
+    // TODO: When per-phoneme FrameEx values are added to Token, mix them here.
+    // For now, just use user defaults directly.
+    double phonemeCreakiness = 0.0;
+    double phonemeBreathiness = 0.0;
+    double phonemeJitter = 0.0;
+    double phonemeShimmer = 0.0;
+    double phonemeSharpness = 1.0;  // neutral multiplier
+    
+    frameEx.creakiness = clamp01(phonemeCreakiness + frameExDefaults.creakiness);
+    frameEx.breathiness = clamp01(phonemeBreathiness + frameExDefaults.breathiness);
+    frameEx.jitter = clamp01(phonemeJitter + frameExDefaults.jitter);
+    frameEx.shimmer = clamp01(phonemeShimmer + frameExDefaults.shimmer);
+    frameEx.sharpness = clampSharpness(phonemeSharpness * frameExDefaults.sharpness);
+
+    // Handle trill modulation (simplified version - emits micro-frames)
+    if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {
+      double totalDur = t.durationMs;
+      constexpr double kFixedTrillCycleMs = 28.0;
+      double cycleMs = kFixedTrillCycleMs;
+      if (cycleMs > totalDur) cycleMs = totalDur;
+
+      double closeMs = cycleMs * kTrillCloseFrac;
+      double openMs = cycleMs - closeMs;
+
+      if (openMs < kMinPhaseMs) {
+        openMs = kMinPhaseMs;
+        closeMs = std::max(kMinPhaseMs, cycleMs - openMs);
+      }
+      if (closeMs < kMinPhaseMs) {
+        closeMs = kMinPhaseMs;
+        openMs = std::max(kMinPhaseMs, cycleMs - closeMs);
+      }
+
+      double microFadeMs = pack.lang.trillModulationFadeMs;
+      if (microFadeMs <= 0.0) {
+        microFadeMs = std::min(2.0, cycleMs * 0.12);
+      }
+
+      const bool hasVoiceAmp = ((mask & (1ull << va)) != 0);
+      const bool hasFricAmp = ((mask & (1ull << fa)) != 0);
+      const double baseVoiceAmp = base[va];
+      const double baseFricAmp = base[fa];
+
+      const double startPitch = base[vp];
+      const double endPitch = base[evp];
+      const double pitchDelta = endPitch - startPitch;
+
+      double remaining = totalDur;
+      double pos = 0.0;
+      bool highPhase = true;
+      bool firstPhase = true;
+
+      while (remaining > 1e-9) {
+        double phaseDur = highPhase ? openMs : closeMs;
+        if (phaseDur > remaining) phaseDur = remaining;
+
+        double t0 = (totalDur > 0.0) ? (pos / totalDur) : 0.0;
+        double t1 = (totalDur > 0.0) ? ((pos + phaseDur) / totalDur) : 1.0;
+
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+
+        seg[vp] = startPitch + pitchDelta * t0;
+        seg[evp] = startPitch + pitchDelta * t1;
+
+        if (!highPhase) {
+          if (hasVoiceAmp) {
+            seg[va] = baseVoiceAmp * kTrillCloseFactor;
+          }
+          if (hasFricAmp && baseFricAmp > 0.0) {
+            seg[fa] = std::max(baseFricAmp, kTrillFricFloor);
+          }
+        }
+
+        nvspFrontend_Frame frame;
+        std::memcpy(&frame, seg, sizeof(frame));
+
+        double fadeIn = firstPhase ? t.fadeMs : microFadeMs;
+        if (fadeIn <= 0.0) fadeIn = microFadeMs;
+        if (fadeIn > phaseDur) fadeIn = phaseDur;
+
+        cb(userData, &frame, &frameEx, phaseDur, fadeIn, userIndexBase);
+
+        remaining -= phaseDur;
+        pos += phaseDur;
+        highPhase = !highPhase;
+        firstPhase = false;
+      }
+
+      continue;
+    }
+
+    // Normal frame emission
+    nvspFrontend_Frame frame;
+    std::memcpy(&frame, base, sizeof(frame));
+
+    // Trajectory limiting (same as emitFrames)
+    const bool skipTrajectoryLimit = t.def && (
+        (t.def->flags & kIsSemivowel) != 0 ||
+        (t.def->flags & kIsLiquid) != 0
+    );
+    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
+      const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
+      const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
+      const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);
+      const size_t idx_pf3 = static_cast<size_t>(FieldId::pf3);
+      double maxDelta, delta;
+      
+      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf2)) != 0) {
+        if (lang.trajectoryLimitMaxHzPerMs[idx_cf2] > 0.0) {
+          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf2] * t.durationMs;
+          delta = frame.cf2 - prevCf2;
+          if (delta > maxDelta) frame.cf2 = prevCf2 + maxDelta;
+          else if (delta < -maxDelta) frame.cf2 = prevCf2 - maxDelta;
+        }
+      }
+      
+      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf3)) != 0) {
+        if (lang.trajectoryLimitMaxHzPerMs[idx_cf3] > 0.0) {
+          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf3] * t.durationMs;
+          delta = frame.cf3 - prevCf3;
+          if (delta > maxDelta) frame.cf3 = prevCf3 + maxDelta;
+          else if (delta < -maxDelta) frame.cf3 = prevCf3 - maxDelta;
+        }
+      }
+      
+      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf2)) != 0) {
+        if (lang.trajectoryLimitMaxHzPerMs[idx_pf2] > 0.0) {
+          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf2] * t.durationMs;
+          delta = frame.pf2 - prevPf2;
+          if (delta > maxDelta) frame.pf2 = prevPf2 + maxDelta;
+          else if (delta < -maxDelta) frame.pf2 = prevPf2 - maxDelta;
+        }
+      }
+      
+      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf3)) != 0) {
+        if (lang.trajectoryLimitMaxHzPerMs[idx_pf3] > 0.0) {
+          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf3] * t.durationMs;
+          delta = frame.pf3 - prevPf3;
+          if (delta > maxDelta) frame.pf3 = prevPf3 + maxDelta;
+          else if (delta < -maxDelta) frame.pf3 = prevPf3 - maxDelta;
+        }
+      }
+    }
+    
+    // Update previous frame values
+    prevCf2 = frame.cf2;
+    prevCf3 = frame.cf3;
+    prevPf2 = frame.pf2;
+    prevPf3 = frame.pf3;
+    hasPrevFrame = true;
+
+    cb(userData, &frame, &frameEx, t.durationMs, t.fadeMs, userIndexBase);
+  }
+}
+
 } // namespace nvsp_frontend
