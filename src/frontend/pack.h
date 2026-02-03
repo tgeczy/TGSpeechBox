@@ -169,6 +169,35 @@ struct LanguagePack {
   double primaryStressDiv = 1.4;
   double secondaryStressDiv = 1.1;
   
+  // ============================================================================
+  // Phoneme timing constants (ms at speed=1.0; divided by current speed)
+  // ============================================================================
+  // These control the base duration and fade times for different phoneme classes.
+  // Previously hardcoded in calculateTimes(); now configurable via YAML.
+  
+  double defaultVowelDurationMs = 60.0;       // Base vowel duration
+  double defaultFadeMs = 10.0;                // Default crossfade between segments
+  double postStopAspirationDurationMs = 20.0; // Inserted aspiration after voiceless stops
+  
+  // Consonant durations
+  double stopDurationMs = 6.0;                // Plosive burst duration (p, t, k, b, d, g)
+  double affricateDurationMs = 24.0;          // Affricate duration (t͡ʃ, d͡ʒ)
+  double voicelessFricativeDurationMs = 45.0; // Voiceless fricatives (f, s, ʃ, x)
+  double voicedConsonantDurationMs = 30.0;    // Voiced non-vowel default
+  double tapDurationMs = 14.0;                // Tap/flap duration (ɾ)
+  double trillFallbackDurationMs = 40.0;      // Trill duration if trillModulationMs unset
+  
+  // Vowel context-dependent durations
+  double tiedVowelDurationMs = 40.0;          // Vowel tied to following segment (diphthong start)
+  double tiedFromVowelDurationMs = 20.0;      // Vowel tied from previous (diphthong end)
+  double tiedFromVowelFadeMs = 20.0;          // Fade for tied-from vowels
+  double vowelBeforeLiquidDurationMs = 30.0;  // Unstressed vowel before liquid
+  double vowelBeforeNasalDurationMs = 40.0;   // Unstressed vowel before nasal
+  
+  // Transition fades (into vowels)
+  double fadeAfterLiquidMs = 25.0;            // Fade into vowel after liquid/semivowel
+  double liquidFadeMs = 20.0;                 // Fade for liquid/semivowel segments
+  
   // Voice profile name (optional).
   // If set, this profile will be applied to phoneme parameters to produce
   // different voice qualities (e.g., "female" for a female voice).

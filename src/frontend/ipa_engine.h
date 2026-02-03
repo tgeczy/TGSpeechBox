@@ -9,6 +9,30 @@
 
 namespace nvsp_frontend {
 
+// ============================================================================
+// Trajectory limiting state (per-handle, NOT static)
+// ============================================================================
+// This state tracks previous frame formant values for rate-of-change limiting.
+// It MUST be stored per-handle (not as function-static variables) to avoid
+// data races when multiple engine instances speak concurrently.
+//
+// The state is reset at the start of each utterance by calling reset().
+struct TrajectoryState {
+  double prevCf2 = 0.0;
+  double prevCf3 = 0.0;
+  double prevPf2 = 0.0;
+  double prevPf3 = 0.0;
+  bool hasPrevFrame = false;
+
+  void reset() {
+    prevCf2 = 0.0;
+    prevCf3 = 0.0;
+    prevPf2 = 0.0;
+    prevPf3 = 0.0;
+    hasPrevFrame = false;
+  }
+};
+
 struct Token {
   // If def is null, this token is "silence" (no frame).
   const PhonemeDef* def = nullptr;
@@ -65,21 +89,25 @@ bool convertIpaToTokens(
 );
 
 // Convert tokens -> callback frames.
+// trajectoryState is per-handle state for formant smoothing (must not be null).
 void emitFrames(
   const PackSet& pack,
   const std::vector<Token>& tokens,
   int userIndexBase,
+  TrajectoryState* trajectoryState,
   nvspFrontend_FrameCallback cb,
   void* userData
 );
 
 // Convert tokens -> callback frames with extended parameters (ABI v2+).
 // frameExDefaults contains user-level defaults that are mixed with per-phoneme values.
+// trajectoryState is per-handle state for formant smoothing (must not be null).
 void emitFramesEx(
   const PackSet& pack,
   const std::vector<Token>& tokens,
   int userIndexBase,
   const nvspFrontend_FrameEx& frameExDefaults,
+  TrajectoryState* trajectoryState,
   nvspFrontend_FrameExCallback cb,
   void* userData
 );

@@ -28,6 +28,11 @@ struct Handle {
   std::string lastError;
   std::mutex mu;
   
+  // Per-handle trajectory limiting state for formant smoothing.
+  // This is NOT static - each handle has its own state to avoid data races
+  // when multiple engine instances speak concurrently.
+  TrajectoryState trajectoryState;
+  
   // User-level FrameEx defaults (ABI v2+).
   // These are mixed with per-phoneme values when emitting frames.
   double frameExCreakiness = 0.0;
@@ -217,7 +222,7 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA(
     }
   }
 
-  emitFrames(h->pack, tokens, userIndexBase, cb, userData);
+  emitFrames(h->pack, tokens, userIndexBase, &h->trajectoryState, cb, userData);
   if (hasRealPhoneme) {
     h->streamHasSpeech = true;
     h->lastEndsVowelLike = endsVowelLike;
@@ -406,7 +411,7 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
   frameExDefaults.shimmer = h->frameExShimmer;
   frameExDefaults.sharpness = h->frameExSharpness;
 
-  emitFramesEx(h->pack, tokens, userIndexBase, frameExDefaults, cb, userData);
+  emitFramesEx(h->pack, tokens, userIndexBase, frameExDefaults, &h->trajectoryState, cb, userData);
   
   if (hasRealPhoneme) {
     h->streamHasSpeech = true;
@@ -589,6 +594,8 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
 
   for (size_t i = 0; i < lines.size(); ++i) {
     const std::string& curLine = lines[i];
+    bool skipLine = false;  // Set true to skip adding curLine to output
+    
     std::string stripped = curLine;
     // Trim leading/trailing whitespace for comparison
     size_t start = stripped.find_first_not_of(" \t");
@@ -703,18 +710,16 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
           if (colonPos != std::string::npos) {
             std::string key = stripped.substr(0, colonPos);
             
-            // Check if it's one of our slider keys
-            bool isSliderKey = false;
+            // Check if it's one of our slider keys and replace if so
             for (const auto& sd : sliderDefs) {
               if (key == sd.key) {
-                isSliderKey = true;
-                // Replace with new value
+                // Replace with new value (skip original line)
                 if (writtenKeys.find(key) == writtenKeys.end()) {
                   newLines.push_back(makeIndent(indent) + sd.key + ": " + formatDouble(sd.value, sd.precision));
                   writtenKeys.insert(key);
                 }
-                // Skip the original line (we wrote the replacement)
-                goto nextLine;
+                skipLine = true;
+                break;
               }
             }
             
@@ -732,8 +737,9 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
       }
     }
 
-    newLines.push_back(curLine);
-    nextLine:;
+    if (!skipLine) {
+      newLines.push_back(curLine);
+    }
   }
 
   // Handle end of file cases

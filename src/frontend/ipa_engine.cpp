@@ -696,8 +696,9 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       }
     }
 
-    double dur = 60.0 / curSpeed;
-    double fade = 10.0 / curSpeed;
+    // Use configurable defaults instead of hardcoded magic numbers
+    double dur = lang.defaultVowelDurationMs / curSpeed;
+    double fade = lang.defaultFadeMs / curSpeed;
 
     if (t.vowelHiatusGap) {
       dur = lang.stressedVowelHiatusGapMs / baseSpeed;
@@ -722,47 +723,47 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
         fade = lang.stopClosureVowelFadeMs / curSpeed;
       }
     } else if (t.postStopAspiration) {
-      dur = 20.0 / curSpeed;
+      dur = lang.postStopAspirationDurationMs / curSpeed;
     } else if (tokenIsTap(t) || tokenIsTrill(t)) {
       if (tokenIsTrill(t)) {
         // Use trillModulationMs as the base duration for trills (at speed=1.0).
-        // If unset/invalid, fall back to a reasonable short trill.
-        double baseDur = (lang.trillModulationMs > 0.0) ? lang.trillModulationMs : 40.0;
+        // If unset/invalid, fall back to configurable default.
+        double baseDur = (lang.trillModulationMs > 0.0) ? lang.trillModulationMs : lang.trillFallbackDurationMs;
         dur = baseDur / curSpeed;
       } else {
-        dur = std::min(14.0 / curSpeed, 14.0);
+        dur = std::min(lang.tapDurationMs / curSpeed, lang.tapDurationMs);
       }
       fade = 0.001;
     } else if (tokenIsStop(t)) {
-      dur = std::min(6.0 / curSpeed, 6.0);
+      dur = std::min(lang.stopDurationMs / curSpeed, lang.stopDurationMs);
       fade = 0.001;
     } else if (tokenIsAfricate(t)) {
-      dur = 24.0 / curSpeed;
+      dur = lang.affricateDurationMs / curSpeed;
       fade = 0.001;
     } else if (!tokenIsVoiced(t)) {
-      dur = 45.0 / curSpeed;
+      dur = lang.voicelessFricativeDurationMs / curSpeed;
     } else {
       if (tokenIsVowel(t)) {
         if (last && (tokenIsLiquid(*last) || tokenIsSemivowel(*last))) {
-          fade = 25.0 / curSpeed;
+          fade = lang.fadeAfterLiquidMs / curSpeed;
         }
 
         if (t.tiedTo) {
-          dur = 40.0 / curSpeed;
+          dur = lang.tiedVowelDurationMs / curSpeed;
         } else if (t.tiedFrom) {
-          dur = 20.0 / curSpeed;
-          fade = 20.0 / curSpeed;
+          dur = lang.tiedFromVowelDurationMs / curSpeed;
+          fade = lang.tiedFromVowelFadeMs / curSpeed;
         } else if (!syllableStress && !t.syllableStart && next && !next->wordStart && (tokenIsLiquid(*next) || tokenIsNasal(*next))) {
           if (tokenIsLiquid(*next)) {
-            dur = 30.0 / curSpeed;
+            dur = lang.vowelBeforeLiquidDurationMs / curSpeed;
           } else {
-            dur = 40.0 / curSpeed;
+            dur = lang.vowelBeforeNasalDurationMs / curSpeed;
           }
         }
       } else {
-        dur = 30.0 / curSpeed;
+        dur = lang.voicedConsonantDurationMs / curSpeed;
         if (tokenIsLiquid(t) || tokenIsSemivowel(t)) {
-          fade = 20.0 / curSpeed;
+          fade = lang.liquidFadeMs / curSpeed;
         }
       }
     }
@@ -2049,6 +2050,7 @@ void emitFrames(
   const PackSet& pack,
   const std::vector<Token>& tokens,
   int userIndexBase,
+  TrajectoryState* trajectoryState,
   nvspFrontend_FrameCallback cb,
   void* userData
 ) {
@@ -2089,16 +2091,11 @@ void emitFrames(
 
 
   // ============================================
-  // TRAJECTORY LIMITING STATE
+  // TRAJECTORY LIMITING STATE (per-handle)
   // ============================================
-  // Track previous frame formant values for rate-of-change limiting.
-  // This reduces harsh transitions between vowels and consonants.
-  const LanguagePack& lang = pack.lang;
-  static double prevCf2 = 0.0, prevCf3 = 0.0, prevPf2 = 0.0, prevPf3 = 0.0;
-  static bool hasPrevFrame = false;
-  
   // Reset state at start of each utterance
-  hasPrevFrame = false;
+  const LanguagePack& lang = pack.lang;
+  trajectoryState->hasPrevFrame = false;
 
   for (const Token& t : tokens) {
     if (t.silence || !t.def) {
@@ -2229,7 +2226,7 @@ void emitFrames(
         (t.def->flags & kIsSemivowel) != 0 ||
         (t.def->flags & kIsLiquid) != 0
     );
-    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
+    if (lang.trajectoryLimitEnabled && trajectoryState->hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
       const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
       const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
       const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);
@@ -2240,9 +2237,9 @@ void emitFrames(
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf2)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_cf2] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf2] * t.durationMs;
-          delta = frame.cf2 - prevCf2;
-          if (delta > maxDelta) frame.cf2 = prevCf2 + maxDelta;
-          else if (delta < -maxDelta) frame.cf2 = prevCf2 - maxDelta;
+          delta = frame.cf2 - trajectoryState->prevCf2;
+          if (delta > maxDelta) frame.cf2 = trajectoryState->prevCf2 + maxDelta;
+          else if (delta < -maxDelta) frame.cf2 = trajectoryState->prevCf2 - maxDelta;
         }
       }
       
@@ -2250,9 +2247,9 @@ void emitFrames(
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf3)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_cf3] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf3] * t.durationMs;
-          delta = frame.cf3 - prevCf3;
-          if (delta > maxDelta) frame.cf3 = prevCf3 + maxDelta;
-          else if (delta < -maxDelta) frame.cf3 = prevCf3 - maxDelta;
+          delta = frame.cf3 - trajectoryState->prevCf3;
+          if (delta > maxDelta) frame.cf3 = trajectoryState->prevCf3 + maxDelta;
+          else if (delta < -maxDelta) frame.cf3 = trajectoryState->prevCf3 - maxDelta;
         }
       }
       
@@ -2260,9 +2257,9 @@ void emitFrames(
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf2)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_pf2] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf2] * t.durationMs;
-          delta = frame.pf2 - prevPf2;
-          if (delta > maxDelta) frame.pf2 = prevPf2 + maxDelta;
-          else if (delta < -maxDelta) frame.pf2 = prevPf2 - maxDelta;
+          delta = frame.pf2 - trajectoryState->prevPf2;
+          if (delta > maxDelta) frame.pf2 = trajectoryState->prevPf2 + maxDelta;
+          else if (delta < -maxDelta) frame.pf2 = trajectoryState->prevPf2 - maxDelta;
         }
       }
       
@@ -2270,19 +2267,19 @@ void emitFrames(
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf3)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_pf3] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf3] * t.durationMs;
-          delta = frame.pf3 - prevPf3;
-          if (delta > maxDelta) frame.pf3 = prevPf3 + maxDelta;
-          else if (delta < -maxDelta) frame.pf3 = prevPf3 - maxDelta;
+          delta = frame.pf3 - trajectoryState->prevPf3;
+          if (delta > maxDelta) frame.pf3 = trajectoryState->prevPf3 + maxDelta;
+          else if (delta < -maxDelta) frame.pf3 = trajectoryState->prevPf3 - maxDelta;
         }
       }
     }
     
     // Update previous frame values for next iteration
-    prevCf2 = frame.cf2;
-    prevCf3 = frame.cf3;
-    prevPf2 = frame.pf2;
-    prevPf3 = frame.pf3;
-    hasPrevFrame = true;
+    trajectoryState->prevCf2 = frame.cf2;
+    trajectoryState->prevCf3 = frame.cf3;
+    trajectoryState->prevPf2 = frame.pf2;
+    trajectoryState->prevPf3 = frame.pf3;
+    trajectoryState->hasPrevFrame = true;
 
     cb(userData, &frame, t.durationMs, t.fadeMs, userIndexBase);
   }
@@ -2307,6 +2304,7 @@ void emitFramesEx(
   const std::vector<Token>& tokens,
   int userIndexBase,
   const nvspFrontend_FrameEx& frameExDefaults,
+  TrajectoryState* trajectoryState,
   nvspFrontend_FrameExCallback cb,
   void* userData
 ) {
@@ -2333,11 +2331,9 @@ void emitFramesEx(
   constexpr double kTrillFricFloor = 0.12;
   constexpr double kMinPhaseMs = 0.25;
 
-  // Trajectory limiting state
+  // Trajectory limiting state (per-handle, reset at utterance start)
   const LanguagePack& lang = pack.lang;
-  static double prevCf2 = 0.0, prevCf3 = 0.0, prevPf2 = 0.0, prevPf3 = 0.0;
-  static bool hasPrevFrame = false;
-  hasPrevFrame = false;
+  trajectoryState->hasPrevFrame = false;
 
   for (const Token& t : tokens) {
     if (t.silence || !t.def) {
@@ -2466,7 +2462,7 @@ void emitFramesEx(
         (t.def->flags & kIsSemivowel) != 0 ||
         (t.def->flags & kIsLiquid) != 0
     );
-    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
+    if (lang.trajectoryLimitEnabled && trajectoryState->hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
       const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
       const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
       const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);
@@ -2476,46 +2472,46 @@ void emitFramesEx(
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf2)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_cf2] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf2] * t.durationMs;
-          delta = frame.cf2 - prevCf2;
-          if (delta > maxDelta) frame.cf2 = prevCf2 + maxDelta;
-          else if (delta < -maxDelta) frame.cf2 = prevCf2 - maxDelta;
+          delta = frame.cf2 - trajectoryState->prevCf2;
+          if (delta > maxDelta) frame.cf2 = trajectoryState->prevCf2 + maxDelta;
+          else if (delta < -maxDelta) frame.cf2 = trajectoryState->prevCf2 - maxDelta;
         }
       }
       
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf3)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_cf3] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf3] * t.durationMs;
-          delta = frame.cf3 - prevCf3;
-          if (delta > maxDelta) frame.cf3 = prevCf3 + maxDelta;
-          else if (delta < -maxDelta) frame.cf3 = prevCf3 - maxDelta;
+          delta = frame.cf3 - trajectoryState->prevCf3;
+          if (delta > maxDelta) frame.cf3 = trajectoryState->prevCf3 + maxDelta;
+          else if (delta < -maxDelta) frame.cf3 = trajectoryState->prevCf3 - maxDelta;
         }
       }
       
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf2)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_pf2] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf2] * t.durationMs;
-          delta = frame.pf2 - prevPf2;
-          if (delta > maxDelta) frame.pf2 = prevPf2 + maxDelta;
-          else if (delta < -maxDelta) frame.pf2 = prevPf2 - maxDelta;
+          delta = frame.pf2 - trajectoryState->prevPf2;
+          if (delta > maxDelta) frame.pf2 = trajectoryState->prevPf2 + maxDelta;
+          else if (delta < -maxDelta) frame.pf2 = trajectoryState->prevPf2 - maxDelta;
         }
       }
       
       if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf3)) != 0) {
         if (lang.trajectoryLimitMaxHzPerMs[idx_pf3] > 0.0) {
           maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf3] * t.durationMs;
-          delta = frame.pf3 - prevPf3;
-          if (delta > maxDelta) frame.pf3 = prevPf3 + maxDelta;
-          else if (delta < -maxDelta) frame.pf3 = prevPf3 - maxDelta;
+          delta = frame.pf3 - trajectoryState->prevPf3;
+          if (delta > maxDelta) frame.pf3 = trajectoryState->prevPf3 + maxDelta;
+          else if (delta < -maxDelta) frame.pf3 = trajectoryState->prevPf3 - maxDelta;
         }
       }
     }
     
     // Update previous frame values
-    prevCf2 = frame.cf2;
-    prevCf3 = frame.cf3;
-    prevPf2 = frame.pf2;
-    prevPf3 = frame.pf3;
-    hasPrevFrame = true;
+    trajectoryState->prevCf2 = frame.cf2;
+    trajectoryState->prevCf3 = frame.cf3;
+    trajectoryState->prevPf2 = frame.pf2;
+    trajectoryState->prevPf3 = frame.pf3;
+    trajectoryState->hasPrevFrame = true;
 
     cb(userData, &frame, &frameEx, t.durationMs, t.fadeMs, userIndexBase);
   }
