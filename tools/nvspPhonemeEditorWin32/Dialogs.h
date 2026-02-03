@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <string>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -15,6 +16,12 @@
 struct AddMappingDialogState {
   nvsp_editor::ReplacementRule rule;
   std::vector<std::string> classNames;
+  nvsp_editor::LanguageYaml* language = nullptr;  // for class editing
+  bool ok = false;
+};
+
+struct ClassEditorDialogState {
+  std::map<std::string, std::string> classes;  // className -> members string
   bool ok = false;
 };
 
@@ -106,6 +113,7 @@ bool ShowEditSettingsDialog(HINSTANCE hInst, HWND parent, EditSettingsDialogStat
 bool ShowEditPhonemeDialog(HINSTANCE hInst, HWND parent, EditPhonemeDialogState& st);
 bool ShowSpeechSettingsDialog(HINSTANCE hInst, HWND parent, SpeechSettingsDialogState& st);
 bool ShowPhonemizerSettingsDialog(HINSTANCE hInst, HWND parent, PhonemizerSettingsDialogState& st);
+bool ShowClassEditorDialog(HINSTANCE hInst, HWND parent, ClassEditorDialogState& st);
 
 // Persistence for speech settings (nvspPhonemeEditor.ini).
 nvsp_editor::SpeechSettings loadSpeechSettingsFromIni();

@@ -177,6 +177,54 @@ static INT_PTR CALLBACK AddMappingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
     }
 
     case WM_COMMAND: {
+      if (LOWORD(wParam) == IDC_MAP_EDIT_CLASSES && st && st->language) {
+        // Open the class editor dialog
+        ClassEditorDialogState ceSt;
+        ceSt.classes = st->language->classes();
+
+        HINSTANCE hInst = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hDlg, GWLP_HINSTANCE));
+        if (ShowClassEditorDialog(hInst, hDlg, ceSt)) {
+          // Write back to YAML and refresh comboboxes
+          st->language->setClasses(ceSt.classes);
+          st->classNames = st->language->classNamesSorted();
+
+          // Refresh all class comboboxes
+          auto refreshCombo = [&](int id, const std::string& selected) {
+            HWND h = GetDlgItem(hDlg, id);
+            SendMessageW(h, CB_RESETCONTENT, 0, 0);
+            comboAddNone(h);
+            int selIdx = 0;
+            for (size_t i = 0; i < st->classNames.size(); ++i) {
+              std::wstring w = utf8ToWide(st->classNames[i]);
+              int pos = static_cast<int>(SendMessageW(h, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
+              if (!selected.empty() && st->classNames[i] == selected) selIdx = pos;
+            }
+            SendMessageW(h, CB_SETCURSEL, selIdx, 0);
+          };
+
+          // Preserve current selections where possible
+          auto getComboSel = [&](int id) -> std::string {
+            HWND h = GetDlgItem(hDlg, id);
+            int sel = static_cast<int>(SendMessageW(h, CB_GETCURSEL, 0, 0));
+            if (sel <= 0) return "";
+            wchar_t item[512];
+            SendMessageW(h, CB_GETLBTEXT, sel, reinterpret_cast<LPARAM>(item));
+            return wideToUtf8(item);
+          };
+
+          std::string selBefore = getComboSel(IDC_MAP_BEFORECLASS);
+          std::string selAfter = getComboSel(IDC_MAP_AFTERCLASS);
+          std::string selNotBefore = getComboSel(IDC_MAP_NOTBEFORECLASS);
+          std::string selNotAfter = getComboSel(IDC_MAP_NOTAFTERCLASS);
+
+          refreshCombo(IDC_MAP_BEFORECLASS, selBefore);
+          refreshCombo(IDC_MAP_AFTERCLASS, selAfter);
+          refreshCombo(IDC_MAP_NOTBEFORECLASS, selNotBefore);
+          refreshCombo(IDC_MAP_NOTAFTERCLASS, selNotAfter);
+        }
+        return TRUE;
+      }
+
       if (LOWORD(wParam) == IDOK && st) {
         wchar_t buf[1024];
         GetDlgItemTextW(hDlg, IDC_MAP_FROM, buf, 1024);
@@ -1702,5 +1750,192 @@ static INT_PTR CALLBACK PhonemizerSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wP
 bool ShowPhonemizerSettingsDialog(HINSTANCE hInst, HWND parent, PhonemizerSettingsDialogState& st) {
   st.ok = false;
   DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_PHONEMIZER_SETTINGS), parent, PhonemizerSettingsDlgProc, (LPARAM)&st);
+  return st.ok;
+}
+
+// -------------------------------------------------------------------
+// Class Editor Dialog
+// -------------------------------------------------------------------
+
+static INT_PTR CALLBACK ClassEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+  ClassEditorDialogState* st = reinterpret_cast<ClassEditorDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
+
+  switch (msg) {
+    case WM_INITDIALOG: {
+      st = reinterpret_cast<ClassEditorDialogState*>(lParam);
+      SetWindowLongPtrW(hDlg, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(st));
+
+      // Populate class list
+      HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+      for (const auto& kv : st->classes) {
+        std::wstring w = utf8ToWide(kv.first);
+        SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str()));
+      }
+
+      // Select first item if any
+      if (!st->classes.empty()) {
+        SendMessageW(list, LB_SETCURSEL, 0, 0);
+        // Show members of first class
+        auto it = st->classes.begin();
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, utf8ToWide(it->second).c_str());
+        std::wstring label = L"Members of \"" + utf8ToWide(it->first) + L"\":";
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, label.c_str());
+      }
+
+      return TRUE;
+    }
+
+    case WM_COMMAND: {
+      int id = LOWORD(wParam);
+      int notif = HIWORD(wParam);
+
+      if (id == IDC_CE_CLASS_LIST && notif == LBN_SELCHANGE && st) {
+        // Save current class members before switching
+        // First, find previously selected class
+        static std::string lastClass;
+
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel == LB_ERR) return TRUE;
+
+        // Get selected class name
+        int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+        std::wstring buf(len + 1, L'\0');
+        SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+        buf.resize(len);
+        std::string className = wideToUtf8(buf);
+
+        // Update members edit
+        auto it = st->classes.find(className);
+        if (it != st->classes.end()) {
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, utf8ToWide(it->second).c_str());
+        } else {
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, L"");
+        }
+
+        // Update label
+        std::wstring label = L"Members of \"" + utf8ToWide(className) + L"\":";
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, label.c_str());
+
+        return TRUE;
+      }
+
+      if (id == IDC_CE_MEMBERS_EDIT && notif == EN_KILLFOCUS && st) {
+        // Save members when edit loses focus
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel == LB_ERR) return TRUE;
+
+        int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+        std::wstring buf(len + 1, L'\0');
+        SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+        buf.resize(len);
+        std::string className = wideToUtf8(buf);
+
+        wchar_t membersBuf[4096];
+        GetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, membersBuf, 4096);
+        st->classes[className] = wideToUtf8(membersBuf);
+
+        return TRUE;
+      }
+
+      if (id == IDC_CE_CLASS_ADD && st) {
+        // Prompt for new class name
+        // For simplicity, use a simple input box approach
+        // We'll reuse a pattern: ask user via a small modal or just add "NewClass" and let them rename
+
+        // Generate unique name
+        std::string baseName = "NEW_CLASS";
+        std::string newName = baseName;
+        int suffix = 1;
+        while (st->classes.count(newName)) {
+          newName = baseName + std::to_string(suffix++);
+        }
+
+        st->classes[newName] = "";
+
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int pos = static_cast<int>(SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(utf8ToWide(newName).c_str())));
+        SendMessageW(list, LB_SETCURSEL, pos, 0);
+
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, L"");
+        std::wstring label = L"Members of \"" + utf8ToWide(newName) + L"\":";
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, label.c_str());
+
+        // Focus the members edit so user can type
+        SetFocus(GetDlgItem(hDlg, IDC_CE_MEMBERS_EDIT));
+
+        msgBox(hDlg, L"New class created. Edit the YAML directly to rename it, or add members now.", L"Class Editor", MB_ICONINFORMATION);
+
+        return TRUE;
+      }
+
+      if (id == IDC_CE_CLASS_REMOVE && st) {
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel == LB_ERR) {
+          msgBox(hDlg, L"Select a class to remove.", L"Class Editor", MB_ICONWARNING);
+          return TRUE;
+        }
+
+        int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+        std::wstring buf(len + 1, L'\0');
+        SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+        buf.resize(len);
+        std::string className = wideToUtf8(buf);
+
+        st->classes.erase(className);
+        SendMessageW(list, LB_DELETESTRING, sel, 0);
+
+        // Select next or previous item
+        int count = static_cast<int>(SendMessageW(list, LB_GETCOUNT, 0, 0));
+        if (count > 0) {
+          if (sel >= count) sel = count - 1;
+          SendMessageW(list, LB_SETCURSEL, sel, 0);
+          // Trigger selection change
+          SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(IDC_CE_CLASS_LIST, LBN_SELCHANGE), (LPARAM)list);
+        } else {
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, L"");
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, L"Members (IPA characters):");
+        }
+
+        return TRUE;
+      }
+
+      if (id == IDOK && st) {
+        // Save current selection's members before closing
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel != LB_ERR) {
+          int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+          std::wstring buf(len + 1, L'\0');
+          SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+          buf.resize(len);
+          std::string className = wideToUtf8(buf);
+
+          wchar_t membersBuf[4096];
+          GetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, membersBuf, 4096);
+          st->classes[className] = wideToUtf8(membersBuf);
+        }
+
+        st->ok = true;
+        EndDialog(hDlg, IDOK);
+        return TRUE;
+      }
+
+      if (id == IDCANCEL) {
+        EndDialog(hDlg, IDCANCEL);
+        return TRUE;
+      }
+      break;
+    }
+  }
+
+  return FALSE;
+}
+
+bool ShowClassEditorDialog(HINSTANCE hInst, HWND parent, ClassEditorDialogState& st) {
+  st.ok = false;
+  DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_CLASS_EDITOR), parent, ClassEditorDlgProc, (LPARAM)&st);
   return st.ok;
 }

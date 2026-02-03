@@ -299,6 +299,55 @@ std::vector<std::string> LanguageYaml::classNamesSorted() const {
   return out;
 }
 
+std::map<std::string, std::string> LanguageYaml::classes() const {
+  std::map<std::string, std::string> out;
+  const Node* norm = m_root.get("normalization");
+  if (!norm || !norm->isMap()) return out;
+  const Node* classesNode = norm->get("classes");
+  if (!classesNode || !classesNode->isMap()) return out;
+
+  for (const auto& kv : classesNode->map) {
+    if (kv.second.isScalar()) {
+      out[kv.first] = kv.second.scalar;
+    }
+  }
+  return out;
+}
+
+void LanguageYaml::setClasses(const std::map<std::string, std::string>& classes) {
+  // Ensure normalization exists
+  if (m_root.type != Node::Type::Map) {
+    m_root.type = Node::Type::Map;
+    m_root.map.clear();
+  }
+
+  Node* norm = nullptr;
+  auto it = m_root.map.find("normalization");
+  if (it == m_root.map.end()) {
+    Node n;
+    n.type = Node::Type::Map;
+    m_root.map["normalization"] = std::move(n);
+    norm = &m_root.map["normalization"];
+  } else {
+    norm = &it->second;
+    if (norm->type != Node::Type::Map) {
+      norm->type = Node::Type::Map;
+      norm->map.clear();
+    }
+  }
+
+  // Build the classes node
+  Node classesNode;
+  classesNode.type = Node::Type::Map;
+  for (const auto& kv : classes) {
+    Node val;
+    val.type = Node::Type::Scalar;
+    val.scalar = kv.second;
+    classesNode.map[kv.first] = std::move(val);
+  }
+  norm->map["classes"] = std::move(classesNode);
+}
+
 // Helper to flatten nested settings into dotted/camelCase keys
 // e.g., trajectoryLimit.enabled -> trajectoryLimitEnabled
 // e.g., trajectoryLimit.maxHzPerMs.cf2 -> trajectoryLimitMaxHzPerMsCf2

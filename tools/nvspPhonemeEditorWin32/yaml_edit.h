@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -62,6 +63,10 @@ public:
   void setReplacements(const std::vector<ReplacementRule>& rules);
 
   std::vector<std::string> classNamesSorted() const;
+
+  // Normalization classes: normalization.classes
+  std::map<std::string, std::string> classes() const;
+  void setClasses(const std::map<std::string, std::string>& classes);
 
   // Top-level settings: settings:
   // Only scalar values are represented here.

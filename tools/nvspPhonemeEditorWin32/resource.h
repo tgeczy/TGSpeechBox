@@ -197,3 +197,18 @@
 // Menu command: Edit Voices
 // -----------------
 #define IDM_SETTINGS_EDIT_VOICES     40105
+
+// -----------------
+// Dialog: Class Editor (for normalization classes)
+// -----------------
+#define IDD_CLASS_EDITOR             212
+#define IDC_CE_CLASS_LIST            3201
+#define IDC_CE_CLASS_ADD             3202
+#define IDC_CE_CLASS_REMOVE          3203
+#define IDC_CE_MEMBERS_LABEL         3204
+#define IDC_CE_MEMBERS_EDIT          3205
+
+// -----------------
+// Add Mapping dialog: Edit Classes button
+// -----------------
+#define IDC_MAP_EDIT_CLASSES         2109

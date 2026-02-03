@@ -596,8 +596,16 @@ static void onAddMapping(AppController& app, const std::string& defaultTo = {}) 
   AddMappingDialogState st;
   st.rule.to = defaultTo;
   st.classNames = app.classNames;
+  st.language = &app.language;
 
   ShowAddMappingDialog(app.hInst, app.wnd, st);
+
+  // Refresh classNames in case classes were edited in dialog
+  if (st.classNames != app.classNames) {
+    app.classNames = st.classNames;
+    app.languageDirty = true;
+  }
+
   if (!st.ok) return;
 
   app.repls.push_back(st.rule);
@@ -616,8 +624,16 @@ static void onEditSelectedMapping(AppController& app) {
   AddMappingDialogState st;
   st.rule = app.repls[static_cast<size_t>(sel)];
   st.classNames = app.classNames;
+  st.language = &app.language;
 
   ShowAddMappingDialog(app.hInst, app.wnd, st);
+
+  // Refresh classNames in case classes were edited in dialog
+  if (st.classNames != app.classNames) {
+    app.classNames = st.classNames;
+    app.languageDirty = true;
+  }
+
   if (!st.ok) return;
 
   app.repls[static_cast<size_t>(sel)] = st.rule;
