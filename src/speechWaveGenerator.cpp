@@ -21,6 +21,7 @@ Based on klsyn-88, found at http://linguistics.berkeley.edu/phonlab/resources/
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include "debug.h"
 #include "utils.h"
@@ -82,12 +83,41 @@ const double kAspBurstFc_44k = 2500.0;   // 44100 Hz
 // Burstiness detection sensitivity (higher = more sensitive to fast rises)
 const double kBurstinessScale = 25.0;
 
+// ------------------------------------------------------------
+// Fast thread-local PRNG (replaces stdlib rand() for audio thread safety)
+// ------------------------------------------------------------
+// Linear Congruential Generator - fast, no locking, good enough spectral
+// properties for audio noise. Each NoiseGenerator/VoiceGenerator instance
+// gets its own state, eliminating thread contention.
+class FastRandom {
+private:
+    uint32_t seed;
+
+public:
+    FastRandom(uint32_t s = 12345): seed(s) {}
+
+    void setSeed(uint32_t s) { seed = s; }
+
+    // Returns [0, 1)
+    inline double nextDouble() {
+        seed = seed * 1664525u + 1013904223u;  // LCG constants from Numerical Recipes
+        return (double)(seed >> 1) * (1.0 / 2147483648.0);
+    }
+
+    // Returns [-1, 1)
+    inline double nextBipolar() {
+        seed = seed * 1664525u + 1013904223u;
+        return (double)((int32_t)seed) * (1.0 / 2147483648.0);
+    }
+};
+
 class NoiseGenerator {
 private:
     double lastValue;
+    FastRandom rng;
 
 public:
-    NoiseGenerator(): lastValue(0.0) {}
+    NoiseGenerator(): lastValue(0.0), rng(54321) {}
 
     void reset() {
         lastValue=0.0;
@@ -95,13 +125,13 @@ public:
 
     // Brownish noise (smoothed random) - original behavior for frication etc.
     double getNext() {
-        lastValue=(((double)rand()/(double)RAND_MAX)-0.5)+0.75*lastValue;
+        lastValue=(rng.nextDouble()-0.5)+0.75*lastValue;
         return lastValue;
     }
     
     // White noise - flat spectrum, better for aspiration tilt to act on
-    static inline double white() {
-        return ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+    double white() {
+        return rng.nextBipolar();
     }
 };
 
@@ -177,6 +207,7 @@ private:
     double lastCyclePos;
     double jitterMul;
     double shimmerMul;
+    FastRandom jitterShimmerRng;  // dedicated PRNG for jitter/shimmer
 
     double voicingPeakPos;
     double voicedPreEmphA;
@@ -361,7 +392,7 @@ public:
         noiseGlottalModDepth(0.0), lastNoiseMod(1.0),
         smoothAspAmp(0.0), smoothAspAmpInit(false),
         aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
-        lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0),
+        lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0), jitterShimmerRng(98765),
         glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
         tiltTargetTlDb(0.0), tiltTlDb(0.0),
@@ -530,7 +561,7 @@ public:
             // - shimmer: relative amplitude variation
             double jitterRel = (jitter * 0.15) + (creakiness * 0.05);
             if (jitterRel > 0.0) {
-                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                double r = jitterShimmerRng.nextBipolar();
                 jitterMul = 1.0 + (r * jitterRel);
                 if (jitterMul < 0.2) jitterMul = 0.2;
             } else {
@@ -539,7 +570,7 @@ public:
 
             double shimmerRel = (shimmer * 0.70) + (creakiness * 0.12);
             if (shimmerRel > 0.0) {
-                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                double r = jitterShimmerRng.nextBipolar();
                 shimmerMul = 1.0 + (r * shimmerRel);
                 if (shimmerMul < 0.0) shimmerMul = 0.0;
             } else {
@@ -563,7 +594,7 @@ public:
         // Aspiration noise: use WHITE noise (flat spectrum) so tilt filter can shape it
         // Base gain 0.1, breathiness lifts it up to 0.25
         double aspBase = 0.10 + (0.15 * breathiness);
-        double aspiration = NoiseGenerator::white() * aspBase * noiseMod;
+        double aspiration = aspirationGen.white() * aspBase * noiseMod;
         
         // Apply tilt filter to aspiration (color the noise)
         aspiration = applyAspirationTilt(aspiration);
@@ -1509,6 +1540,11 @@ public:
                 stopFadeRemaining = 0;
                 // Reset high-shelf biquad state so next utterance starts clean
                 hsIn1 = hsIn2 = hsOut1 = hsOut2 = 0.0;
+                // Zero-fill remainder of buffer to prevent garbage audio if caller
+                // plays the full buffer regardless of return value
+                if (i < sampleCount) {
+                    memset(&sampleBuf[i], 0, (sampleCount - i) * sizeof(sample));
+                }
                 return i;
             }
         }
