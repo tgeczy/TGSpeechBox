@@ -68,10 +68,10 @@ class FrameManagerImpl: public FrameManager {
 					for(int i=0;i<speechPlayer_frameEx_numParams;++i) {
 						((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],curFadeRatio);
 					}
-				} else {
-					curHasFrameEx = false;
-					memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
-				}
+					} else {
+						curHasFrameEx = false;
+						curFrameEx = speechPlayer_frameEx_defaults;
+					}
 			}
 		} else if(sampleCounter>(oldFrameRequest->minNumSamples)) {
 			if(!frameRequestQueue.empty()) {
@@ -114,7 +114,7 @@ class FrameManagerImpl: public FrameManager {
 			} else {
 				curFrameIsNULL=true;
 				curHasFrameEx=false;
-				memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
+				curFrameEx = speechPlayer_frameEx_defaults;
 				// FIX: We have run out of frames. Mark the old request as NULL (Silence).
 				// This ensures that when a new frame eventually arrives, the engine treats it
 				// as a "Start from Silence" (triggering the 0-gain fade-in logic) rather than
@@ -133,7 +133,7 @@ class FrameManagerImpl: public FrameManager {
 	FrameManagerImpl(): curFrame(), curFrameEx(), curFrameIsNULL(true), curHasFrameEx(false), sampleCounter(0), newFrameRequest(NULL), lastUserIndex(-1), purgeFlag(false)  {
 		// speechPlayer_frame_t is a plain C struct; ensure it starts from a known state.
 		memset(&curFrame, 0, sizeof(speechPlayer_frame_t));
-		memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
+		curFrameEx = speechPlayer_frameEx_defaults;
 
 		oldFrameRequest=new frameRequest_t();
 		oldFrameRequest->minNumSamples=0;
@@ -141,7 +141,7 @@ class FrameManagerImpl: public FrameManager {
 		oldFrameRequest->NULLFrame=true;
 		oldFrameRequest->hasFrameEx=false;
 		memset(&(oldFrameRequest->frame), 0, sizeof(speechPlayer_frame_t));
-		memset(&(oldFrameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+		oldFrameRequest->frameEx = speechPlayer_frameEx_defaults;
 		oldFrameRequest->voicePitchInc=0;
 		oldFrameRequest->userIndex=-1;
 	}
@@ -153,8 +153,10 @@ class FrameManagerImpl: public FrameManager {
 	void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int frameExSize, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) override {
 		frameLock.acquire();
 		frameRequest_t* frameRequest=new frameRequest_t;
-		frameRequest->minNumSamples=minNumSamples; //max(minNumSamples,1);
-		frameRequest->numFadeSamples=numFadeSamples; //max(numFadeSamples,1);
+		frameRequest->minNumSamples=minNumSamples;
+		// Enforce minimum of 1 to prevent divide-by-zero in updateCurrentFrame().
+		// This makes the class self-protecting rather than relying on callers.
+		frameRequest->numFadeSamples=numFadeSamples > 0 ? numFadeSamples : 1;
 		if(frame) {
 			frameRequest->NULLFrame=false;
 			memcpy(&(frameRequest->frame),frame,sizeof(speechPlayer_frame_t));
@@ -165,16 +167,17 @@ class FrameManagerImpl: public FrameManager {
 			frameRequest->voicePitchInc=0;
 		}
 
-		// Copy frameEx safely: only copy min(frameExSize, sizeof) bytes.
-		// This allows older callers with smaller structs to work with newer DLLs.
+		// Copy frameEx safely: start with defaults, then overlay caller's data.
+		// This allows older callers with smaller structs to work with newer DLLs,
+		// and ensures new parameters get sensible defaults (not just zeros).
 		if(frameEx && frameExSize > 0) {
 			frameRequest->hasFrameEx=true;
-			memset(&(frameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+			frameRequest->frameEx = speechPlayer_frameEx_defaults;
 			unsigned int copySize = frameExSize < sizeof(speechPlayer_frameEx_t) ? frameExSize : sizeof(speechPlayer_frameEx_t);
 			memcpy(&(frameRequest->frameEx), frameEx, copySize);
 		} else {
 			frameRequest->hasFrameEx=false;
-			memset(&(frameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+			frameRequest->frameEx = speechPlayer_frameEx_defaults;
 		}
 
 		frameRequest->userIndex=userIndex;
@@ -224,12 +227,16 @@ class FrameManagerImpl: public FrameManager {
 	}
 
 	~FrameManagerImpl() override {
+		// Acquire lock during teardown to ensure audio thread isn't mid-read.
+		// Caller should have stopped audio callbacks first, but this is defensive.
+		frameLock.acquire();
 		if(oldFrameRequest) delete oldFrameRequest;
 		if(newFrameRequest) delete newFrameRequest;
 		while(!frameRequestQueue.empty()) {
 			delete frameRequestQueue.front();
 			frameRequestQueue.pop();
 		}
+		frameLock.release();
 	}
 
 };

@@ -63,6 +63,18 @@ typedef struct {
 	// room for more...
 } speechPlayer_frameEx_t;
 
+// Default values for frameEx parameters. Used when:
+// - Old callers pass a smaller struct (partial copy gets padded with these)
+// - No frameEx is provided at all
+// This makes it safe to add new parameters with non-zero defaults in the future.
+static const speechPlayer_frameEx_t speechPlayer_frameEx_defaults = {
+	0.0,  // creakiness: none
+	0.0,  // breathiness: none
+	0.0,  // jitter: none
+	0.0,  // shimmer: none
+	0.0   // sharpness: 0 means "use sample-rate default"
+};
+
 const int speechPlayer_frameEx_numParams=sizeof(speechPlayer_frameEx_t)/sizeof(double);
 
 
