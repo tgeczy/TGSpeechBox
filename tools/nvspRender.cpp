@@ -16,6 +16,7 @@
   DSP V5 Features:
     - VoicingTone V3 support (12 parameters)
     - FrameEx support (creakiness, breathiness, jitter, shimmer, sharpness)
+    - Per-phoneme FrameEx from YAML (e.g. Danish stød creakiness) via queueIPA_Ex
     - Voice profile support via nvspFrontend_setVoiceProfile
     - --list-voices to show available profiles for speech-dispatcher config
     - Automatic voicing tone loading from YAML when --voice is specified
@@ -395,13 +396,14 @@ struct CallbackCtx {
   speechPlayer_handle_t player = nullptr;
   int sampleRate = 16000;
   double volume = 1.0;
-  FrameEx frameEx{};
-  bool useFrameEx = false;
+  FrameEx userFrameEx{};      // User-level defaults from CLI (additive)
+  bool hasUserFrameEx = false;
 };
 
-static void onFrontendFrame(
+static void onFrontendFrameEx(
     void* userData,
     const nvspFrontend_Frame* frameOrNull,
+    const nvspFrontend_FrameEx* frameExOrNull,  // Per-phoneme FrameEx (e.g. Danish stød)
     double durationMs,
     double fadeMs,
     int userIndex
@@ -425,24 +427,40 @@ static void onFrontendFrame(
     std::memcpy(&f, frameOrNull, sizeof(f));
     f.outputGain *= ctx->volume;
 
-    if (ctx->useFrameEx) {
-      speechPlayer_queueFrameEx(ctx->player, &f, 
-                                reinterpret_cast<const speechPlayer_frameEx_t*>(&ctx->frameEx),
+    // Use FrameEx if we have per-phoneme values OR user CLI overrides
+    if (frameExOrNull || ctx->hasUserFrameEx) {
+      FrameEx merged{};
+      
+      // Start with per-phoneme values (from YAML, e.g. Danish stød creakiness)
+      if (frameExOrNull) {
+        merged.creakiness = frameExOrNull->creakiness;
+        merged.breathiness = frameExOrNull->breathiness;
+        merged.jitter = frameExOrNull->jitter;
+        merged.shimmer = frameExOrNull->shimmer;
+        merged.sharpness = frameExOrNull->sharpness;
+      } else {
+        merged.sharpness = 1.0;  // Neutral default
+      }
+      
+      // Add user CLI overrides (additive for 0-1 params, multiplicative for sharpness)
+      if (ctx->hasUserFrameEx) {
+        merged.creakiness = std::min(1.0, merged.creakiness + ctx->userFrameEx.creakiness);
+        merged.breathiness = std::min(1.0, merged.breathiness + ctx->userFrameEx.breathiness);
+        merged.jitter = std::min(1.0, merged.jitter + ctx->userFrameEx.jitter);
+        merged.shimmer = std::min(1.0, merged.shimmer + ctx->userFrameEx.shimmer);
+        merged.sharpness *= ctx->userFrameEx.sharpness;
+      }
+      
+      speechPlayer_queueFrameEx(ctx->player, &f,
+                                reinterpret_cast<const speechPlayer_frameEx_t*>(&merged),
                                 static_cast<unsigned int>(sizeof(FrameEx)),
                                 minSamples, fadeSamples, userIndex, false);
     } else {
       speechPlayer_queueFrame(ctx->player, &f, minSamples, fadeSamples, userIndex, false);
     }
   } else {
-    // Silence frame
-    if (ctx->useFrameEx) {
-      speechPlayer_queueFrameEx(ctx->player, nullptr,
-                                reinterpret_cast<const speechPlayer_frameEx_t*>(&ctx->frameEx),
-                                static_cast<unsigned int>(sizeof(FrameEx)),
-                                minSamples, fadeSamples, userIndex, false);
-    } else {
-      speechPlayer_queueFrame(ctx->player, nullptr, minSamples, fadeSamples, userIndex, false);
-    }
+    // Silence frame - no FrameEx needed
+    speechPlayer_queueFrame(ctx->player, nullptr, minSamples, fadeSamples, userIndex, false);
   }
 }
 
@@ -631,16 +649,16 @@ int main(int argc, char** argv) {
     speechPlayer_setVoicingTone(player, reinterpret_cast<const speechPlayer_voicingTone_t*>(&tone));
   }
 
-  // Build FrameEx
-  bool useFrameEx = false;
-  FrameEx frameEx = buildFrameEx(opt, useFrameEx);
+  // Build user-level FrameEx defaults from CLI args
+  bool hasUserFrameEx = false;
+  FrameEx userFrameEx = buildFrameEx(opt, hasUserFrameEx);
 
   CallbackCtx cbCtx;
   cbCtx.player = player;
   cbCtx.sampleRate = sampleRate;
   cbCtx.volume = opt.volume;
-  cbCtx.frameEx = frameEx;
-  cbCtx.useFrameEx = useFrameEx;
+  cbCtx.userFrameEx = userFrameEx;
+  cbCtx.hasUserFrameEx = hasUserFrameEx;
 
   const double speed = ssipRateToSpeed(opt.rate);
   const double basePitchHz = sliderPitchToBaseHz(opt.pitch);
@@ -648,7 +666,8 @@ int main(int argc, char** argv) {
 
   const char* clauseTypeUtf8 = nullptr;
 
-  if (!nvspFrontend_queueIPA(
+  // Use the extended API to get per-phoneme FrameEx (e.g. Danish stød creakiness)
+  if (!nvspFrontend_queueIPA_Ex(
     fe,
     ipa.c_str(),
     speed,
@@ -656,10 +675,10 @@ int main(int argc, char** argv) {
     inflection,
     clauseTypeUtf8,
     /*userIndexBase=*/0,
-    &onFrontendFrame,
+    &onFrontendFrameEx,
     &cbCtx
   )) {
-    std::cerr << "nvspFrontend_queueIPA failed\n";
+    std::cerr << "nvspFrontend_queueIPA_Ex failed\n";
     const char* err = nvspFrontend_getLastError(fe);
     if (err && *err) std::cerr << "  " << err << "\n";
     nvspFrontend_destroy(fe);
