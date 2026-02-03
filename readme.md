@@ -746,19 +746,92 @@ These are “compat switches” for behavior that existed in the legacy Python p
 - `toneContoursAbsolute` (bool, default `true`): Low-level switch used by the code; `toneContoursMode` is the recommended YAML knob.
 
 #### Other pack sections (not in settings)
-`normalization`:
-- `aliases`: map one IPA key to another (single-token remap)
-- `classes`: named sets used by `when: beforeClass/afterClass`
-- `preReplacements`: ordered replacements applied early
-- `replacements`: ordered replacements applied after `preReplacements`
-- Each replacement can have an optional `when`:
-  - `atWordStart`: true/false
-  - `atWordEnd`: true/false
-  - `beforeClass`: NAME
-  - `afterClass`: NAME
 
-Note: stress markers (`ˈ`, `ˌ`) are treated as transparent for `beforeClass` / `afterClass` checks.
-This lets rules match segment clusters like `rˈa` the same way they match `ra`.
+### Normalization
+
+The `normalization` section controls how raw IPA from eSpeak is transformed before phoneme lookup. This is where you handle dialect differences, allophonic variation, and phoneme mappings.
+
+```yaml
+normalization:
+  aliases:
+    "ɾ": "ɹ"  # map tap to approximant
+  
+  classes:
+    VOWELS: ["a", "e", "i", "o", "u", "ə", "ɪ", "ʊ", "ɛ", "ɔ", "æ"]
+    CONSONANTS: ["b", "d", "f", "g", "k", "l", "m", "n", "p", "s", "t", "v", "z", "ɹ"]
+  
+  preReplacements:
+    - from: "oːɹ"
+      to:   "oɹ"
+      when:
+        beforeClass: CONSONANTS
+  
+  replacements:
+    - from: "ɔ"
+      to:   "ᴐ"
+```
+
+#### preReplacements vs replacements: Order Matters!
+
+**This is critical for language pack authors to understand.**
+
+The normalization pipeline runs in this order:
+1. **`preReplacements`** — runs on raw IPA, before any other transforms
+2. Internal processing (tie-bar handling, phoneme-specific transforms like ᵊ insertion)
+3. **`replacements`** — runs after internal processing
+
+**Why does this matter?** Some internal transforms insert characters (like the schwa-glide `ᵊ`) or modify tie bars (`͡`). If your rule depends on matching a specific pattern like `ɔːɹ`, it **must** run in `preReplacements` — otherwise internal transforms may have already changed the text to `ɔːᵊɹ` and your pattern won't match.
+
+**Rule of thumb:**
+- Use `preReplacements` for rules that must see the **original eSpeak IPA** before any modifications
+- Use `replacements` for rules that should run **after** internal phoneme transforms
+
+**Example:** FORCE vowel shortening in American English
+
+The goal: shorten the vowel in "short", "sport", "report" (where ɹ is followed by a consonant) but keep it long in "door", "for", "score" (where ɹ is word-final).
+
+```yaml
+preReplacements:
+  # Must be in preReplacements! By the time replacements runs,
+  # internal transforms may have inserted ᵊ, changing ɔːɹ → ɔːᵊɹ
+  - from: "ɔːɹ"
+    to:   "ɔɹ"
+    when:
+      beforeClass: CONSONANTS
+```
+
+#### Replacement conditions (`when`)
+
+Each replacement can have an optional `when` block with these conditions:
+
+| Condition | Description |
+|-----------|-------------|
+| `atWordStart: true` | Match only at the beginning of a word |
+| `atWordEnd: true` | Match only at the end of a word |
+| `beforeClass: NAME` | Match only if the **next** character is in the named class |
+| `afterClass: NAME` | Match only if the **previous** character is in the named class |
+| `notBeforeClass: NAME` | Match only if the **next** character is **NOT** in the named class (or at end of string) |
+| `notAfterClass: NAME` | Match only if the **previous** character is **NOT** in the named class (or at start of string) |
+
+**Positive vs Negative conditions:**
+- `beforeClass` / `afterClass` — rule applies **only if** the adjacent character is in the class
+- `notBeforeClass` / `notAfterClass` — rule applies **only if** the adjacent character is **not** in the class (or there is no adjacent character)
+
+**Example: Lengthening open syllables only**
+
+```yaml
+classes:
+  CONSONANTS: ["b", "d", "f", "g", "k", "l", "m", "n", "p", "s", "t", "ɹ"]
+
+replacements:
+  # Add length mark to FORCE vowel, but NOT when followed by a consonant
+  - from: "ɔːɹ"
+    to:   "ɔːːɹ"
+    when:
+      notBeforeClass: CONSONANTS  # matches "door" (word-final) but not "short" (followed by t)
+```
+
+**Note:** Stress markers (`ˈ`, `ˌ`) are treated as transparent for all class checks. This lets rules match segment clusters like `rˈa` the same way they match `ra`.
 
 `transforms`:
 - Rules that match phonemes by properties (`isVowel`, `isStop`, etc.) and then modify fields:
@@ -961,6 +1034,19 @@ settings:
     schwaScale: 0.80
 ```
 
+### Word-final schwa reduction
+
+Independent of speech rate, word-final schwas can optionally be shortened. This is useful for languages like Danish, German, French, and Portuguese where unstressed final syllables are naturally reduced.
+
+```yaml
+settings:
+  wordFinalSchwaReductionEnabled: true
+  wordFinalSchwaScale: 0.6           # 0.0–1.0, lower = shorter
+  wordFinalSchwaMinDurationMs: 8.0   # floor to avoid total silence
+```
+
+Unlike rate-dependent schwa reduction (which activates at high speeds), this applies at all speech rates.
+
 ### Anticipatory nasalization
 
 Anticipatory nasalization partially nasalizes a vowel shortly before a nasal consonant. This is optional and language-dependent.
@@ -1060,6 +1146,10 @@ settings:
   # Extra hold to add to the final voiced vowel/liquid/nasal (ms at speed=1.0).
   singleWordFinalHoldMs: 45
 
+  # Scale factor for liquid hold (R, L). Liquids can sound "pirate-y" when held
+  # too long. Use 0.3–0.5 for US English to reduce the exaggerated R sound.
+  singleWordFinalLiquidHoldScale: 1.0
+
   # Fade to silence to append after single-word utterances (ms at speed=1.0).
   singleWordFinalFadeMs: 18
 
@@ -1073,6 +1163,7 @@ settings:
 |-----------|---------|-------------|
 | `singleWordTuningEnabled` | `true` | Enables single-word specific prosody adjustments |
 | `singleWordFinalHoldMs` | `45` | Extra hold added to the final voiced vowel/liquid/nasal (ms at speed=1.0) |
+| `singleWordFinalLiquidHoldScale` | `1.0` | Scale factor for liquid (R/L) hold. Use 0.3–0.5 for US English to avoid "pirate R" |
 | `singleWordFinalFadeMs` | `18` | Fade-to-silence appended after single-word utterances (ms at speed=1.0) |
 | `singleWordClauseTypeOverride` | `"."` | Override clause type for isolated words/letters |
 | `singleWordClauseTypeOverrideCommaOnly` | `true` | Only apply the override when caller uses clauseType `','` (avoids the odd "comma rise" on continuations) |
