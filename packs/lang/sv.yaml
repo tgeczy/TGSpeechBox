@@ -6,6 +6,11 @@ settings:
   primaryStressDiv: 1.30
   secondaryStressDiv: 1.10
 
+  # Swedish has some word-final schwa reduction (mild compared to Danish/German)
+  wordFinalSchwaReductionEnabled: true
+  wordFinalSchwaScale: 0.65
+  wordFinalSchwaMinDurationMs: 8.0
+
   # Swedish has strict quantity requirements:
   # Stressed syllables must be heavy (long vowel OR short vowel + long consonant)
   # This creates the "sing-song" rhythm

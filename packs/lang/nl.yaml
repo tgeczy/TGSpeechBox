@@ -7,6 +7,11 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.10
 
+  # Dutch reduces word-final schwas (similar to German)
+  wordFinalSchwaReductionEnabled: true
+  wordFinalSchwaScale: 0.55
+  wordFinalSchwaMinDurationMs: 6.0
+
   # Dutch has tense/lax vowel contrast (like German)
   # Tense vowels are longer in stressed syllables - keep subtle
   lengthenedScale: 1.15

@@ -1,0 +1,13 @@
+# Portuguese (Portugal) (pt-pt)
+# Inherits from: default.yaml -> pt.yaml
+# European Portuguese is famous for heavy vowel reduction - sometimes called
+# the "Slavic-sounding Romance language" because unstressed vowels nearly disappear.
+
+settings:
+  # European Portuguese heavily reduces word-final schwas
+  wordFinalSchwaReductionEnabled: true
+  wordFinalSchwaScale: 0.30
+  wordFinalSchwaMinDurationMs: 5.0
+
+  # European Portuguese tends to be faster/more clipped than Brazilian
+  lengthenedScale: 1.10

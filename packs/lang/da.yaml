@@ -1,104 +1,83 @@
 # Danish (da)
-# Enhanced with stød (laryngealization), extensive vowel handling, and prosody
+# Now with proper creaky voice stød using FrameEx parameters!
 
 settings:
-  # Danish has fixed first-syllable stress (like Hungarian/Finnish)
-  # Keep subtle to preserve vowel quality distinctions
-  primaryStressDiv: 1.15
-  secondaryStressDiv: 1.05
+  primaryStressDiv: 1.25
+  secondaryStressDiv: 1.07
 
-  # Danish has phonemic vowel length - keep it subtle
-  lengthenedScale: 1.15
-
-  # Vowel length contrast - moderate values
-  lengthContrastEnabled: true
-  lengthContrastShortVowelCeilingMs: 70
-  lengthContrastLongVowelFloorMs: 85
-
-  # Danish consonants are often soft/lenited - avoid harsh clicks
-  stopClosureMode: vowel-and-cluster
-  stopClosureVowelGapMs: 18
-  stopClosureVowelFadeMs: 8
-  stopClosureClusterGapMs: 14
-  stopClosureClusterFadeMs: 6
-
-  # Danish "soft d" (ð) and other lenited consonants need smooth transitions
-  boundarySmoothingEnabled: true
+  # Moderate vowel length for Danish
+  lengthenedScale: 1.20
 
   # Single-word tuning for screen reader navigation
   singleWordTuningEnabled: true
-  singleWordFinalHoldMs: 40
-  singleWordFinalFadeMs: 15
+  singleWordFinalHoldMs: 45
+  singleWordFinalFadeMs: 18
 
-  # Uvular R trill settings
+  # Smooth transitions
+  boundarySmoothingEnabled: true
+
+  # Uvular R trill
   trillModulationMs: 38
-  trillModulationFadeMs: 4
 
-  # Danish has extensive schwa usage - keep it clear
-  microprosodyEnabled: true
+  # Danish heavily reduces word-final schwas (e.g., "klamme" -> klam')
+  wordFinalSchwaReductionEnabled: true
+  wordFinalSchwaScale: 0.35
+  wordFinalSchwaMinDurationMs: 6.0
 
+  spellingDiphthongMode: none
+  stopClosureAfterNasalsEnabled: false
+  segmentBoundarySkipVowelToLiquid: false
+  postStopAspirationEnabled: false
+  coarticulationEnabled: false
+  coarticulationFadeIntoConsonants: false
+  coarticulationVelarPinchEnabled: false
+  coarticulationGraduated: false
+  coarticulationAdjacencyMaxConsonants: 2
+  phraseFinalLengtheningEnabled: false
+  phraseFinalLengtheningNucleusOnlyMode: false
+  singleWordClauseTypeOverrideCommaOnly: true
+  microprosodyEnabled: false
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicedF0LowerEnabled: false
+  rateReductionEnabled: false
+  nasalizationAnticipatoryEnabled: false
+  liquidDynamics:
+    enabled: false
+  lengthContrast:
+    enabled: false
+  positionalAllophones:
+    enabled: false
+    glottalReinforcement:
+      enabled: false
+  boundarySmoothing:
+    enabled: false
+  trajectoryLimit:
+    enabled: false
+    applyAcrossWordBoundary: false
 normalization:
   preReplacements:
-    # Stød handling - the ˀ diacritic indicates laryngealization/creaky voice
-    # Map it to glottal stop approximation for now (frontend treats ʔ as brief closure)
-    # This creates the characteristic "catch" in Danish speech
-    - from: "ˀ"
-      to: "ʔ"
+    # Danish stød: eSpeak outputs both ASCII '?' and IPA 'ʔ' inconsistently.
+    # Route both to ˀ (creaky voice stød) instead of the English glottal stop.
+    - from: "?"
+      to: "ˀ"
+    - from: "ʔ"
+      to: "ˀ"
 
-    # eSpeak sometimes outputs Greek epsilon instead of IPA ɛ
+  replacements:
+    # eSpeak da sometimes outputs Greek epsilon (ε) where IPA would normally use ɛ.
     - from: "ε"
       to: "ɛ"
 
-    # Mnemonic fallbacks
-    - from: "?"
-      to: "ʔ"
+    # R normalization
     - from: "R"
       to: "ʁ"
 
-    # Danish uvular R - ensure consistency
-    - from: "r"
-      to: "ʁ"
-    - from: "ɾ"
-      to: "ʁ"
+    # Split diphthong - use 'a' instead of 'ɑ' to prevent combined phoneme lookup.
+    # There's no "aj" combined phoneme, so "a" + "j" get processed separately
+    # and coarticulation creates the natural glide.
+    - from: "ɑj"
+      to: "aj"
 
-    # Danish "soft d" - sometimes transcribed various ways
-    # Keep as ð (dental fricative approximation)
-    - from: "d̥"
-      to: "ð"
-
-    # Danish has many vowel distinctions - some eSpeak normalization
-    # The weak/unstressed vowels ɐ, ɪ, ʊ, ɤ
-    - from: "ɐ̯"
-      to: "ɐ"
-
-    # Ensure proper schwa handling
-    - from: "ǝ"
-      to: "ə"
-
-  replacements:
-    # Word-final schwa often gets elided in Danish casual speech
-    # But for TTS clarity, keep it
-
-intonation:
-  # Danish declaratives - relatively flat compared to Swedish/Norwegian
-  # (no tonal accent system like Swedish)
-  ".":
-    preHeadStart: 65
-    preHeadEnd: 55
-    nucleus0Start: 60
-    nucleus0End: 25
-    nucleusStart: 58
-    nucleusEnd: 20
-    tailStart: 22
-    tailEnd: 10
-
-  # Danish questions - moderate rise
-  "?":
-    preHeadStart: 55
-    preHeadEnd: 60
-    nucleus0Start: 55
-    nucleus0End: 75
-    nucleusStart: 50
-    nucleusEnd: 80
-    tailStart: 75
-    tailEnd: 85
+# Note: Danish stød uses ˀ (creaky voice) defined in phonemes.yaml.
+# The ʔ symbol is reserved for English glottal stops (button, kitten).
+# da.yaml normalizes both ? and ʔ to ˀ in preReplacements above.

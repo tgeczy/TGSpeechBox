@@ -1461,6 +1461,7 @@ phonemes:
     pf6: 5250
     voiceAmplitude: 0
   t:
+    # Alveolar stop - increased fricationAmplitude for sharper burst
     _isLiquid: false
     _isNasal: false
     _isStop: true
@@ -1484,10 +1485,10 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.80
-    pa1: 0.10
-    pa2: 0.45
-    pa3: 0.35
+    fricationAmplitude: 0.92
+    pa1: 0.12
+    pa2: 0.50
+    pa3: 0.40
     pa4: 0.10
     pa5: 0
     pa6: 0.40
@@ -5045,24 +5046,27 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ʔ":
+    # Glottal stop - used in English "button", "kitten", etc.
+    # This is a real stop with closure, NOT Danish stød (use ˀ for that).
+    # Formants are neutral (schwa-like) since there's no oral constriction.
     _isLiquid: false
     _isNasal: false
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0.7
+    aspirationAmplitude: 0
     caNP: 0
-    cb1: 66
-    cb2: 67.5
-    cb3: 90
+    cb1: 130
+    cb2: 100
+    cb3: 160
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 100
-    cf2: 150
-    cf3: 200
+    cf1: 500
+    cf2: 1500
+    cf3: 2500
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -5076,19 +5080,33 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 60
-    pb2: 90
-    pb3: 120
+    pb1: 130
+    pb2: 100
+    pb3: 160
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 100
-    pf2: 150
-    pf3: 200
+    pf1: 500
+    pf2: 1500
+    pf3: 2500
     pf4: 3300
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0
+  "ˀ":
+    # Danish stød: laryngealized voice quality (creaky voice)
+    # Uses _copyAdjacent to inherit formants from neighboring vowel/sonorant
+    # The frameEx parameters provide the characteristic irregular phonation
+    _copyAdjacent: true
+    _isVoiced: true
+    _isVowel: false
+    _isStop: false
+    voiceAmplitude: 0.9
+    aspirationAmplitude: 0
+    fricationAmplitude: 0
+    frameEx:
+      creakiness: 0.55
+      jitter: 0.12
   "ʝ":
     _isLiquid: false
     _isNasal: false
@@ -5770,6 +5788,9 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ᵒ":
+    # US English GOAT vowel - tuned for neutral American quality.
+    # F1=500 was too open (Minnesota), F1=470+F2=1100 was too front (French ö).
+    # Compromise: F1=480 (higher vowel), F2=1050 (still back, not fronted).
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -5777,17 +5798,17 @@ phonemes:
     _isVowel: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 120
-    cb2: 120
+    cb1: 110
+    cb2: 110
     cb3: 120
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 540
-    cf2: 1100
-    cf3: 2300
+    cf1: 480
+    cf2: 1050
+    cf3: 2350
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -5801,15 +5822,15 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 120
-    pb2: 120
+    pb1: 110
+    pb2: 110
     pb3: 120
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 540
-    pf2: 1100
-    pf3: 2300
+    pf1: 480
+    pf2: 1050
+    pf3: 2350
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -5905,6 +5926,8 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 1
   "ᵿ":
+    # US English GOOSE vowel - tuned for clear "oo" (Eloquence-ish),
+    # not Mid-Atlantic / Scottish "ʉ"/"ü" quality. F2 moderately fronted.
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -5921,7 +5944,7 @@ phonemes:
     cbN0: 100
     cbNP: 100
     cf1: 290
-    cf2: 1150
+    cf2: 1250
     cf3: 2280
     cf4: 3300
     cf5: 3750
@@ -5943,7 +5966,7 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 350
-    pf2: 1150
+    pf2: 1200
     pf3: 2200
     pf4: 3300
     pf5: 3750
@@ -6047,12 +6070,12 @@ phonemes:
 voiceProfiles:
   Beth:
     voicingTone:
-      voicingPeakPos: 0.88
-      voicedPreEmphA: 0.9
-      voicedPreEmphMix: 0.22
-      highShelfFcHz: 2200
-      highShelfGainDb: 1.5
-      highShelfQ: 0.7
+      voicedTiltDbPerOct: -14.40
+      noiseGlottalModDepth: 0.00
+      pitchSyncF1DeltaHz: 0.0
+      pitchSyncB1DeltaHz: 0.0
+      speedQuotient: 2.00
+      aspirationTiltDbPerOct: 0.00
     classScales:
       vowel:
         voicePitch_mul: 1.25
