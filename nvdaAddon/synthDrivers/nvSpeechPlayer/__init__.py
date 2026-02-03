@@ -88,7 +88,7 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
         NumericDriverSetting("speedQuotient", "Speed quotient (voice gender)", defaultVal=50),
         NumericDriverSetting("aspirationTilt", "Aspiration tilt (breath color)", defaultVal=50),
-        # FrameEx voice quality params (DSP v5+) - for testing creaky voice, etc.
+        # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
         NumericDriverSetting("frameExCreakiness", "Creakiness (laryngealization)", defaultVal=0),
         NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
         NumericDriverSetting("frameExJitter", "Jitter (pitch variation)", defaultVal=0),
@@ -97,77 +97,15 @@ class SynthDriver(SynthDriver):
         DriverSetting("pauseMode", "Pause mode"),
         DriverSetting("sampleRate", "Sample rate"),
         DriverSetting("language", "Language"),
-
-        # --- Language-pack quick settings (YAML: packs/lang/*.yaml -> settings:) ---
+        # Runtime language adjustments (other settings are YAML-only now)
         DriverSetting("stopClosureMode", "Stop closure mode"),
-        # Newer setting: how diphthongs are handled in spelled-out text.
-        # (Supported values: none, monophthong)
         DriverSetting("spellingDiphthongMode", "Spelling diphthong mode"),
     ]
 
+    # Only expose legacyPitchMode checkbox - all other booleans are YAML-only.
     if BooleanDriverSetting is not None:
-        _supportedSettings.extend(
-            [
-                BooleanDriverSetting("stopClosureClusterGapsEnabled", "Insert brief closure pauses in consonant clusters"),  # type: ignore
-                BooleanDriverSetting("stopClosureAfterNasalsEnabled", "Insert stop closure after nasal sounds"),  # type: ignore
-                BooleanDriverSetting("autoTieDiphthongs", "Treat diphthongs as a single connected sound"),  # type: ignore
-                BooleanDriverSetting("autoDiphthongOffglideToSemivowel", "Convert diphthong offglides into smoother semivowels"),  # type: ignore
-                BooleanDriverSetting("segmentBoundarySkipVowelToVowel", "Skip join gap between speech chunks when a vowel follows a vowel"),  # type: ignore
-                BooleanDriverSetting("segmentBoundarySkipVowelToLiquid", "Skip join gap between speech chunks when a liquid follows a vowel"),  # type: ignore
-                BooleanDriverSetting("postStopAspirationEnabled", "Add aspiration after unvoiced stop consonants"),  # type: ignore
-                # --- Coarticulation settings ---
-                BooleanDriverSetting("coarticulationEnabled", "Enable formant coarticulation"),  # type: ignore
-                BooleanDriverSetting("coarticulationFadeIntoConsonants", "Fade coarticulation into consonants"),  # type: ignore
-                BooleanDriverSetting("coarticulationVelarPinchEnabled", "Enable velar pinch effect for coarticulation"),  # type: ignore
-                BooleanDriverSetting("coarticulationGraduated", "Use graduated coarticulation blending"),  # type: ignore
-            ]
-        )
-        # Coarticulation adjacency combo-box (grouped with coarticulation settings)
-        _supportedSettings.append(DriverSetting("coarticulationAdjacencyMaxConsonants", "Coarticulation adjacency range"))
-
-    if BooleanDriverSetting is not None:
-        _supportedSettings.extend(
-            [
-                # --- Phrase-final lengthening settings ---
-                BooleanDriverSetting("phraseFinalLengtheningEnabled", "Enable phrase-final lengthening"),  # type: ignore
-                BooleanDriverSetting("phraseFinalLengtheningNucleusOnlyMode", "Apply phrase-final lengthening to nucleus only"),  # type: ignore
-                # --- Single-word tuning settings ---
-                BooleanDriverSetting("singleWordTuningEnabled", "Enable single-word prosody tuning"),  # type: ignore
-                BooleanDriverSetting("singleWordClauseTypeOverrideCommaOnly", "Override clause type for comma only"),  # type: ignore
-                # --- Microprosody settings ---
-                BooleanDriverSetting("microprosodyEnabled", "Enable microprosody adjustments"),  # type: ignore
-                BooleanDriverSetting("microprosodyVoicelessF0RaiseEnabled", "Raise F0 for voiceless consonants"),  # type: ignore
-                BooleanDriverSetting("microprosodyVoicedF0LowerEnabled", "Lower F0 for voiced consonants"),  # type: ignore
-                # --- Rate reduction settings ---
-                BooleanDriverSetting("rateReductionEnabled", "Enable rate-dependent reduction"),  # type: ignore
-                # --- Nasalization settings ---
-                BooleanDriverSetting("nasalizationAnticipatoryEnabled", "Enable anticipatory nasalization"),  # type: ignore
-                # --- Liquid dynamics settings ---
-                BooleanDriverSetting("liquidDynamicsEnabled", "Enable liquid dynamics (lateral onglide transitions)"),  # type: ignore
-                # --- Length contrast settings ---
-                BooleanDriverSetting("lengthContrastEnabled", "Enable phonemic length contrast"),  # type: ignore
-                # --- Positional allophones settings ---
-                BooleanDriverSetting("positionalAllophonesEnabled", "Enable positional allophone variation"),  # type: ignore
-                BooleanDriverSetting("positionalAllophonesGlottalReinforcementEnabled", "Enable glottal reinforcement for stops"),  # type: ignore
-                # --- Boundary smoothing settings ---
-                BooleanDriverSetting("boundarySmoothingEnabled", "Enable boundary smoothing between sounds"),  # type: ignore
-                # --- Trajectory limit settings ---
-                BooleanDriverSetting("trajectoryLimitEnabled", "Enable formant trajectory rate limiting"),  # type: ignore
-                BooleanDriverSetting("trajectoryLimitApplyAcrossWordBoundary", "Apply trajectory limit across word boundaries"),  # type: ignore
-                BooleanDriverSetting("legacyPitchMode", "Use classic pitch and intonation style"),  # type: ignore
-                BooleanDriverSetting("tonal", "Enable tonal language behavior"),  # type: ignore
-                BooleanDriverSetting("toneDigitsEnabled", "Interpret tone numbers in text"),  # type: ignore
-            ]
-        )
-
-    _supportedSettings.append(DriverSetting("toneContoursMode", "Tone contour mode"))
-
-    if BooleanDriverSetting is not None:
-        _supportedSettings.extend(
-            [
-                BooleanDriverSetting("stripAllophoneDigits", "Strip allophone digits"),  # type: ignore
-                BooleanDriverSetting("stripHyphen", "Strip hyphens from IPA output"),  # type: ignore
-            ]
+        _supportedSettings.append(
+            BooleanDriverSetting("legacyPitchMode", "Use classic pitch and intonation style"),  # type: ignore
         )
 
     supportedSettings = tuple(_supportedSettings)
@@ -1419,7 +1357,11 @@ class SynthDriver(SynthDriver):
                 # Put None to wake up the queue.get() if it's blocking
                 try:
                     self._bgQueue.put_nowait(None)
-                except Exception:
+                except queue.Full:
+                    # Queue is full - thread should wake up anyway when processing items
+                    pass
+                except (AttributeError, TypeError):
+                    # Queue not properly initialized
                     pass
             
             # Terminate audio thread FIRST (it uses the player)
