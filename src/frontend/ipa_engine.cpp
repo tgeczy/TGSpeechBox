@@ -454,6 +454,19 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
             ok = classContainsPrev(pack.lang.classes, rule.when.afterClass, text, matchStart - 1);
           }
         }
+        // Negative class conditions: fail if char IS in the forbidden class
+        if (ok && !rule.when.notBeforeClass.empty()) {
+          // Fail if next char exists AND is in the forbidden class
+          if (classContainsNext(pack.lang.classes, rule.when.notBeforeClass, text, matchEnd)) {
+            ok = false;
+          }
+        }
+        if (ok && !rule.when.notAfterClass.empty()) {
+          // Fail if prev char exists AND is in the forbidden class
+          if (matchStart > 0 && classContainsPrev(pack.lang.classes, rule.when.notAfterClass, text, matchStart - 1)) {
+            ok = false;
+          }
+        }
 
         if (ok) {
           out.append(to);
@@ -784,14 +797,14 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     }
 
     // Hungarian short vowel tweak (defaults to enabled, safe to disable).
-    if (lang.huShortAVowelEnabled && tokenIsVowel(t) && !t.lengthened && t.baseChar != 0) {
+    if (lang.huShortAVowelEnabled && tokenIsVowel(t) && t.lengthened == 0 && t.baseChar != 0) {
       if (t.baseChar == (lang.huShortAVowelKey.empty() ? U'\0' : lang.huShortAVowelKey[0])) {
         dur *= lang.huShortAVowelScale;
       }
     }
 
     // English word-final long /uː/ shortening.
-    if (lang.englishLongUShortenEnabled && tokenIsVowel(t) && t.lengthened && t.baseChar != 0) {
+    if (lang.englishLongUShortenEnabled && tokenIsVowel(t) && t.lengthened > 0 && t.baseChar != 0) {
       if (t.baseChar == (lang.englishLongUKey.empty() ? U'\0' : lang.englishLongUKey[0])) {
         if (!next || next->wordStart) {
           dur *= lang.englishLongUWordFinalScale;
@@ -801,10 +814,12 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     }
 
     // Lengthened scaling.
-    if (t.lengthened) {
+    // Multiple length marks (ːː) now stack multiplicatively.
+    if (t.lengthened > 0) {
       if (!lang.applyLengthenedScaleToVowelsOnly || tokenIsVowel(t)) {
         const bool isHu = (lang.langTag.rfind("hu", 0) == 0);
-        dur *= (isHu ? lang.lengthenedScaleHu : lang.lengthenedScale);
+        const double scale = isHu ? lang.lengthenedScaleHu : lang.lengthenedScale;
+        dur *= std::pow(scale, t.lengthened);
       }
     }
 
@@ -815,7 +830,7 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     // later vowels before the next word boundary, which avoids false positives
     // in words where a consonant cluster is actually the onset of the next
     // syllable (e.g. "apricot" /ˈeɪprɪ.../).
-    if (lang.lengthenedVowelFinalCodaScale != 1.0 && t.lengthened && tokenIsVowel(t)) {
+    if (lang.lengthenedVowelFinalCodaScale != 1.0 && t.lengthened > 0 && tokenIsVowel(t)) {
       // Find the next non-silence token.
       size_t j = i + 1;
       while (j < tokens.size() && tokens[j].silence) ++j;
@@ -1450,7 +1465,7 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
     const PhonemeDef* def = nullptr;
     size_t consumed = 0;
     bool tiedTo = false;
-    bool lengthened = false;
+    int lengthened = 0;  // count of length marks
     char32_t baseChar = c;
 
     // Use greedy longest-match tokenization.
@@ -1458,29 +1473,28 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
     
     if (def && consumed > 0) {
       // Check if this match includes or is followed by a tie bar (for tiedTo flag).
-      // Also check for length mark.
+      // Also count length marks within the match.
       for (size_t j = i; j < i + consumed; ++j) {
         if (isTieBar(text[j])) tiedTo = true;
-        if (text[j] == U'\u02D0') lengthened = true; // ː
+        if (text[j] == U'\u02D0') ++lengthened; // ː
       }
       // Check if next char after match is a tie bar.
       if (i + consumed < n && isTieBar(text[i + consumed])) {
         tiedTo = true;
       }
-      // Check if there's a length mark immediately after the match.
-      if (!lengthened && i + consumed < n && text[i + consumed] == U'\u02D0') {
-        // Try to find a lengthened version of this phoneme.
-        std::u32string lenKey = def->key;
-        lenKey.push_back(U'\u02D0');
-        const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
-        if (lenDef) {
-          def = lenDef;
-          consumed += 1;
-          lengthened = true;
-        } else {
-          // Just mark as lengthened without changing the phoneme.
-          lengthened = true;
+      // Consume ALL consecutive length marks after the match.
+      while (i + consumed < n && text[i + consumed] == U'\u02D0') {
+        // Try to find a lengthened version of this phoneme (only on first extra mark).
+        if (lengthened == 0) {
+          std::u32string lenKey = def->key;
+          lenKey.push_back(U'\u02D0');
+          const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
+          if (lenDef) {
+            def = lenDef;
+          }
         }
+        ++consumed;
+        ++lengthened;
       }
     } else {
       // No greedy match found - try single character as fallback.
@@ -1489,21 +1503,22 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
       def = findPhoneme(pack, k);
       if (def) {
         consumed = 1;
-        // Check for length mark.
-        if (i + 1 < n && text[i + 1] == U'\u02D0') {
-          std::u32string lenKey = k;
-          lenKey.push_back(U'\u02D0');
-          const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
-          if (lenDef) {
-            def = lenDef;
-            consumed = 2;
-            lengthened = true;
-          } else {
-            lengthened = true;
+        // Consume ALL consecutive length marks after the character.
+        while (i + consumed < n && text[i + consumed] == U'\u02D0') {
+          // Try to find a lengthened version of this phoneme (only on first mark).
+          if (lengthened == 0) {
+            std::u32string lenKey = k;
+            lenKey.push_back(U'\u02D0');
+            const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
+            if (lenDef) {
+              def = lenDef;
+            }
           }
+          ++consumed;
+          ++lengthened;
         }
         // Check for tie bar.
-        if (i + 1 < n && isTieBar(text[i + 1])) {
+        if (i + consumed < n && isTieBar(text[i + consumed])) {
           tiedTo = true;
         }
       } else {
@@ -1747,7 +1762,7 @@ static void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
       // etc.), treat it as hiatus instead.
       if (prevVowelLike && curVowelLike && !cur.wordStart && !cur.syllableStart) {
         // Skip if the IPA already encoded tying, or the vowel is explicitly long.
-        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && !cur.lengthened) {
+        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && cur.lengthened == 0) {
           // Only auto-tie when the second vowel is a common offglide candidate.
           if (isAutoDiphthongOffglideCandidate(cur.baseChar)) {
             prev.tiedTo = true;
@@ -1853,7 +1868,7 @@ static void applySpellingDiphthongMode(const PackSet& pack, std::vector<Token>& 
               if (k >= wordEnd || tokens[k].syllableStart) {
                 // Monophthongize: keep the /e/ nucleus, drop the offglide.
                 // Mark the nucleus as lengthened to preserve a letter-name feel.
-                t.lengthened = true;
+                t.lengthened = 1;
                 t.tiedTo = false;
                 t.tiedFrom = false;
 

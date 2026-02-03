@@ -110,8 +110,10 @@ struct PhonemeDef {
 struct RuleWhen {
   bool atWordStart = false;
   bool atWordEnd = false;
-  std::string beforeClass; // name from classes
-  std::string afterClass;
+  std::string beforeClass;    // name from classes - match only if next char is in class
+  std::string afterClass;     // name from classes - match only if prev char is in class
+  std::string notBeforeClass; // name from classes - match only if next char is NOT in class
+  std::string notAfterClass;  // name from classes - match only if prev char is NOT in class
 };
 
 struct ReplacementRule {

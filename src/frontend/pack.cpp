@@ -784,6 +784,14 @@ static void parseWhen(const yaml_min::Node& whenNode, RuleWhen& when) {
     const yaml_min::Node* n = whenNode.get("afterClass");
     if (n && n->isScalar()) when.afterClass = n->scalar;
   }
+  {
+    const yaml_min::Node* n = whenNode.get("notBeforeClass");
+    if (n && n->isScalar()) when.notBeforeClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("notAfterClass");
+    if (n && n->isScalar()) when.notAfterClass = n->scalar;
+  }
 }
 
 static bool parseReplacementList(const yaml_min::Node& node, std::vector<ReplacementRule>& out) {

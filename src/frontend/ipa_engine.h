@@ -30,7 +30,7 @@ struct Token {
 
   bool tiedTo = false;
   bool tiedFrom = false;
-  bool lengthened = false;
+  int lengthened = 0;  // count of length marks (ː) - 0=none, 1=one, 2=double, etc.
 
   // Base char used for some tweaks (like Hungarian short vowel checks).
   char32_t baseChar = 0;
