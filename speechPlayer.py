@@ -216,6 +216,18 @@ class SpeechPlayer(object):
 
         self._dll = cdll.LoadLibrary(dllPath)
         self._setupPrototypes()
+        
+        # Sanity check: verify Frame struct size matches expected layout.
+        # If this fails, the Python struct is out of sync with the DLL's C++ struct,
+        # which would cause memory corruption, crashes, or weird audio artifacts.
+        _expectedFrameSize = len(Frame._fields_) * ctypes.sizeof(c_double)
+        _actualFrameSize = ctypes.sizeof(Frame)
+        if _actualFrameSize != _expectedFrameSize:
+            log.warning(
+                f"nvSpeechPlayer: Frame struct size mismatch! "
+                f"Expected {_expectedFrameSize} bytes ({len(Frame._fields_)} fields), "
+                f"got {_actualFrameSize}. This may indicate ABI incompatibility."
+            )
 
         self._speechHandle = self._dll.speechPlayer_initialize(self.sampleRate)
         if not self._speechHandle:
@@ -445,16 +457,22 @@ class SpeechPlayer(object):
         if getattr(self, "_speechHandle", None):
             try:
                 self._dll.speechPlayer_terminate(self._speechHandle)
-            except Exception:
+            except (OSError, AttributeError):
+                # OSError: DLL call failed (DLL already unloaded)
+                # AttributeError: _dll is None
                 pass
+            except Exception:
+                log.debug("nvSpeechPlayer: speechPlayer_terminate raised unexpected error", exc_info=True)
             self._speechHandle = None
 
         # Close the DLL directory cookie (Python 3.8+)
         if getattr(self, "_dllDirCookie", None):
             try:
                 self._dllDirCookie.close()
-            except Exception:
+            except (OSError, AttributeError):
                 pass
+            except Exception:
+                log.debug("nvSpeechPlayer: DLL directory cookie close failed", exc_info=True)
             self._dllDirCookie = None
 
         # Unload the DLL so the file can be replaced/deleted
@@ -463,13 +481,17 @@ class SpeechPlayer(object):
             try:
                 from ._dll_utils import freeDll
                 freeDll(self._dll)
+            except (ImportError, OSError, AttributeError):
+                # ImportError: module not available during shutdown
+                # OSError: FreeLibrary failed
+                # AttributeError: dll._handle is None
+                pass
             except Exception:
                 # Non-fatal - DLL will be unloaded when NVDA exits
                 log.debug("nvSpeechPlayer: freeDll failed for speechPlayer.dll", exc_info=True)
         self._dll = None
 
-    def __del__(self):
-        try:
-            self.terminate()
-        except Exception:
-            pass
+    # NOTE: We intentionally do NOT implement __del__.
+    # Python's __del__ is unreliable during interpreter shutdown (globals may be None).
+    # Instead, we rely on NVDA calling terminate() explicitly during normal shutdown.
+    # If NVDA dies rudely, the OS will reclaim our memory - that's fine.
