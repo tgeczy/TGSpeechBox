@@ -15,9 +15,12 @@ struct ReplacementWhen {
   bool atWordEnd = false;
   std::string beforeClass; // name from normalization.classes
   std::string afterClass;
+  std::string notBeforeClass; // negative condition: match only if next char NOT in class
+  std::string notAfterClass;  // negative condition: match only if prev char NOT in class
 
   bool isEmpty() const {
-    return (!atWordStart) && (!atWordEnd) && beforeClass.empty() && afterClass.empty();
+    return (!atWordStart) && (!atWordEnd) && beforeClass.empty() && afterClass.empty()
+        && notBeforeClass.empty() && notAfterClass.empty();
   }
 };
 

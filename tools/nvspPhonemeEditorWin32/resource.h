@@ -71,6 +71,8 @@
 #define IDC_MAP_WORDEND           2104
 #define IDC_MAP_BEFORECLASS       2105
 #define IDC_MAP_AFTERCLASS        2106
+#define IDC_MAP_NOTBEFORECLASS    2107
+#define IDC_MAP_NOTAFTERCLASS     2108
 
 // -----------------
 // Dialog controls: Clone phoneme

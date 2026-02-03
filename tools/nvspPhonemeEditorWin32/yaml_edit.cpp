@@ -196,6 +196,12 @@ std::vector<ReplacementRule> LanguageYaml::replacements() const {
       if (const Node* n = whenN->get("afterClass")) {
         if (n->isScalar()) r.when.afterClass = n->scalar;
       }
+      if (const Node* n = whenN->get("notBeforeClass")) {
+        if (n->isScalar()) r.when.notBeforeClass = n->scalar;
+      }
+      if (const Node* n = whenN->get("notAfterClass")) {
+        if (n->isScalar()) r.when.notAfterClass = n->scalar;
+      }
     }
 
     out.push_back(std::move(r));
@@ -259,6 +265,18 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
         s.type = Node::Type::Scalar;
         s.scalar = r.when.afterClass;
         when.map["afterClass"] = std::move(s);
+      }
+      if (!r.when.notBeforeClass.empty()) {
+        Node s;
+        s.type = Node::Type::Scalar;
+        s.scalar = r.when.notBeforeClass;
+        when.map["notBeforeClass"] = std::move(s);
+      }
+      if (!r.when.notAfterClass.empty()) {
+        Node s;
+        s.type = Node::Type::Scalar;
+        s.scalar = r.when.notAfterClass;
+        when.map["notAfterClass"] = std::move(s);
       }
 
       item.map["when"] = std::move(when);

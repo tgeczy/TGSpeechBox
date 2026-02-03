@@ -143,23 +143,35 @@ static INT_PTR CALLBACK AddMappingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
 
       HWND before = GetDlgItem(hDlg, IDC_MAP_BEFORECLASS);
       HWND after = GetDlgItem(hDlg, IDC_MAP_AFTERCLASS);
+      HWND notBefore = GetDlgItem(hDlg, IDC_MAP_NOTBEFORECLASS);
+      HWND notAfter = GetDlgItem(hDlg, IDC_MAP_NOTAFTERCLASS);
 
       comboAddNone(before);
       comboAddNone(after);
+      comboAddNone(notBefore);
+      comboAddNone(notAfter);
 
       int idxBefore = 0;
       int idxAfter = 0;
+      int idxNotBefore = 0;
+      int idxNotAfter = 0;
 
       for (size_t i = 0; i < st->classNames.size(); ++i) {
         std::wstring w = utf8ToWide(st->classNames[i]);
         int posB = static_cast<int>(SendMessageW(before, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
         int posA = static_cast<int>(SendMessageW(after, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
+        int posNB = static_cast<int>(SendMessageW(notBefore, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
+        int posNA = static_cast<int>(SendMessageW(notAfter, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
         if (!st->rule.when.beforeClass.empty() && st->classNames[i] == st->rule.when.beforeClass) idxBefore = posB;
         if (!st->rule.when.afterClass.empty() && st->classNames[i] == st->rule.when.afterClass) idxAfter = posA;
+        if (!st->rule.when.notBeforeClass.empty() && st->classNames[i] == st->rule.when.notBeforeClass) idxNotBefore = posNB;
+        if (!st->rule.when.notAfterClass.empty() && st->classNames[i] == st->rule.when.notAfterClass) idxNotAfter = posNA;
       }
 
       SendMessageW(before, CB_SETCURSEL, idxBefore, 0);
       SendMessageW(after, CB_SETCURSEL, idxAfter, 0);
+      SendMessageW(notBefore, CB_SETCURSEL, idxNotBefore, 0);
+      SendMessageW(notAfter, CB_SETCURSEL, idxNotAfter, 0);
 
       return TRUE;
     }
@@ -186,6 +198,8 @@ static INT_PTR CALLBACK AddMappingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
 
         readCombo(IDC_MAP_BEFORECLASS, st->rule.when.beforeClass);
         readCombo(IDC_MAP_AFTERCLASS, st->rule.when.afterClass);
+        readCombo(IDC_MAP_NOTBEFORECLASS, st->rule.when.notBeforeClass);
+        readCombo(IDC_MAP_NOTAFTERCLASS, st->rule.when.notAfterClass);
 
         if (st->rule.from.empty() || st->rule.to.empty()) {
           msgBox(hDlg, L"Both 'From' and 'To' are required.", L"Add mapping", MB_ICONERROR);

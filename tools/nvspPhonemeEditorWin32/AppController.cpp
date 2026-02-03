@@ -741,6 +741,11 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "segmentBoundarySkipVowelToLiquid",
     "segmentBoundarySkipVowelToVowel",
     "semivowelOffglideScale",
+    "singleWordClauseTypeOverride",
+    "singleWordClauseTypeOverrideCommaOnly",
+    "singleWordFinalFadeMs",
+    "singleWordFinalHoldMs",
+    "singleWordFinalLiquidHoldScale",
     "spellingDiphthongMode",
     "stopClosureAfterNasalsEnabled",
     "stopClosureClusterFadeMs",
@@ -767,6 +772,9 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "trajectoryLimitWindowMs",
     "trillModulationFadeMs",
     "trillModulationMs",
+    "wordFinalSchwaMinDurationMs",
+    "wordFinalSchwaReductionEnabled",
+    "wordFinalSchwaScale",
   };
 }
 
