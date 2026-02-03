@@ -413,6 +413,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Single-word utterance tuning (key echo / word-by-word reading).
   getBool("singleWordTuningEnabled", lp.singleWordTuningEnabled);
   getNum("singleWordFinalHoldMs", lp.singleWordFinalHoldMs);
+  getNum("singleWordFinalLiquidHoldScale", lp.singleWordFinalLiquidHoldScale);
   getNum("singleWordFinalFadeMs", lp.singleWordFinalFadeMs);
   getBool("singleWordClauseTypeOverrideCommaOnly", lp.singleWordClauseTypeOverrideCommaOnly);
   {

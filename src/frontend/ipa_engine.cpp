@@ -757,9 +757,9 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     // Optional: semivowel offglide shortening.
     //
     // Some packs render diphthongs as vowel+semivowel sequences (e.g. eɪ -> ej).
-    // When that semivowel is followed by a vowel or liquid-like consonant within
-    // the same word, giving it a full consonant duration can sound like an
-    // unintended micro-break (e.g. "player", "later").
+    // When that semivowel is followed by another segment within the same word,
+    // giving it a full consonant duration can sound like an unintended micro-break
+    // or over-emphasized glide (e.g. "player", "later", "application", "vacation").
     if (lang.semivowelOffglideScale != 1.0 && tokenIsSemivowel(t)) {
       double s = lang.semivowelOffglideScale;
       if (s <= 0.0) s = 1.0;
@@ -768,10 +768,12 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       if (s > 3.0) s = 3.0;
 
       const bool prevIsVowel = (last && !last->silence && tokenIsVowel(*last));
-      const bool nextOk = (next && !next->silence && !next->wordStart &&
-                           (tokenIsVowel(*next) || tokenIsLiquid(*next) || tokenIsTap(*next) || tokenIsTrill(*next)));
+      // Shorten semivowel offglides before any non-silence segment within the word.
+      // Previously this only applied before vowels/liquids, which left -ation words
+      // with over-long glides before fricatives like ʃ.
+      const bool nextInWord = (next && !next->silence && !next->wordStart);
 
-      if (prevIsVowel && nextOk) {
+      if (prevIsVowel && nextInWord) {
         dur *= s;
         fade *= s;
         // Avoid zero/negative durations.
@@ -1996,13 +1998,19 @@ bool convertIpaToTokens(
     if (lastReal >= 0) {
       const Token& lt = outTokens[static_cast<size_t>(lastReal)];
       const bool voiced = tokenIsVoiced(lt);
-      const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) || tokenIsLiquid(lt) || tokenIsTap(lt) || tokenIsTrill(lt) || tokenIsNasal(lt);
+      const bool isLiquid = tokenIsLiquid(lt);
+      const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) || isLiquid || tokenIsTap(lt) || tokenIsTrill(lt) || tokenIsNasal(lt);
 
       if (voiced && tailSensitive) {
         const double sp = (speed > 0.0) ? speed : 1.0;
 
         if (pack.lang.singleWordFinalHoldMs > 0.0) {
-          outTokens[static_cast<size_t>(lastReal)].durationMs += (pack.lang.singleWordFinalHoldMs / sp);
+          double holdMs = pack.lang.singleWordFinalHoldMs;
+          // Reduce hold for liquids (like R, L) which can sound unnatural when held.
+          if (isLiquid && pack.lang.singleWordFinalLiquidHoldScale != 1.0) {
+            holdMs *= pack.lang.singleWordFinalLiquidHoldScale;
+          }
+          outTokens[static_cast<size_t>(lastReal)].durationMs += (holdMs / sp);
         }
 
         if (pack.lang.singleWordFinalFadeMs > 0.0) {

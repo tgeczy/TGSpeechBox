@@ -256,6 +256,12 @@ struct LanguagePack {
   // This is in addition to any prosody / phrase lengthening.
   double singleWordFinalHoldMs = 0.0;
 
+  // Scale factor for singleWordFinalHoldMs when the final segment is a liquid
+  // (like R or L). Liquids can sound unnatural when held too long due to their
+  // extreme formant positions. Default 1.0 = no reduction. Use 0.3-0.5 for
+  // languages like US English where word-final R sounds "pirate-y" when held.
+  double singleWordFinalLiquidHoldScale = 1.0;
+
   // If >0, append a final silence frame with this fade time (ms at speed=1.0)
   // to avoid abrupt cutoffs at the end of single-word utterances.
   double singleWordFinalFadeMs = 0.0;
