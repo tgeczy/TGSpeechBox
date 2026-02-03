@@ -16,12 +16,64 @@ from logHandler import log
 from . import speechPlayer
 
 
+# FrameEx struct matching nvspFrontend_FrameEx in the DLL (ABI v2+)
+class FrameEx(ctypes.Structure):
+    _fields_ = [
+        ("creakiness", ctypes.c_double),
+        ("breathiness", ctypes.c_double),
+        ("jitter", ctypes.c_double),
+        ("shimmer", ctypes.c_double),
+        ("sharpness", ctypes.c_double),
+    ]
+
+
+# VoicingTone struct matching nvspFrontend_VoicingTone in the DLL (ABI v2+)
+class VoicingTone(ctypes.Structure):
+    _fields_ = [
+        # V1 parameters
+        ("voicingPeakPos", ctypes.c_double),
+        ("voicedPreEmphA", ctypes.c_double),
+        ("voicedPreEmphMix", ctypes.c_double),
+        ("highShelfGainDb", ctypes.c_double),
+        ("highShelfFcHz", ctypes.c_double),
+        ("highShelfQ", ctypes.c_double),
+        ("voicedTiltDbPerOct", ctypes.c_double),
+        # V2 parameters
+        ("noiseGlottalModDepth", ctypes.c_double),
+        ("pitchSyncF1DeltaHz", ctypes.c_double),
+        ("pitchSyncB1DeltaHz", ctypes.c_double),
+        # V3 parameters
+        ("speedQuotient", ctypes.c_double),
+        ("aspirationTiltDbPerOct", ctypes.c_double),
+    ]
+
+
+# VoiceProfileSliders struct - the 11 user-adjustable slider values (ABI v2+)
+class VoiceProfileSliders(ctypes.Structure):
+    _fields_ = [
+        # VoicingTone sliders (6)
+        ("voicedTiltDbPerOct", ctypes.c_double),
+        ("noiseGlottalModDepth", ctypes.c_double),
+        ("pitchSyncF1DeltaHz", ctypes.c_double),
+        ("pitchSyncB1DeltaHz", ctypes.c_double),
+        ("speedQuotient", ctypes.c_double),
+        ("aspirationTiltDbPerOct", ctypes.c_double),
+        # FrameEx sliders (5)
+        ("creakiness", ctypes.c_double),
+        ("breathiness", ctypes.c_double),
+        ("jitter", ctypes.c_double),
+        ("shimmer", ctypes.c_double),
+        ("sharpness", ctypes.c_double),
+    ]
+
+
 class NvspFrontend(object):
     """Thin ctypes wrapper around nvspFrontend.dll.
 
     - create(packDir) makes a handle.
     - setLanguage(langTag) loads packs for that language.
     - queueIPA() converts IPA -> frames and calls you back per frame.
+    - queueIPA_Ex() is the extended version that also emits FrameEx data.
 
     All strings are UTF-8.
     """
@@ -32,6 +84,7 @@ class NvspFrontend(object):
         self._dll = None
         self._h = None
         self._dllDirCookie = None
+        self._abiVersion = 1  # assume v1 until we check
 
         # Python 3.8+ tightened Windows DLL search rules. If nvspFrontend.dll ever
         # grows extra local dependencies, keeping its directory on the DLL search
@@ -126,6 +179,82 @@ class NvspFrontend(object):
         except AttributeError:
             pass
 
+        # FrameEx API (ABI v2+) - optional, may not exist in older DLLs
+        self._hasFrameExApi = False
+        try:
+            # int nvspFrontend_getABIVersion(void);
+            self._dll.nvspFrontend_getABIVersion.argtypes = []
+            self._dll.nvspFrontend_getABIVersion.restype = ctypes.c_int
+            self._abiVersion = self._dll.nvspFrontend_getABIVersion()
+            
+            if self._abiVersion >= 2:
+                # void nvspFrontend_setFrameExDefaults(handle, creak, breath, jitter, shimmer, sharp);
+                self._dll.nvspFrontend_setFrameExDefaults.argtypes = [
+                    ctypes.c_void_p,  # handle
+                    ctypes.c_double,  # creakiness
+                    ctypes.c_double,  # breathiness
+                    ctypes.c_double,  # jitter
+                    ctypes.c_double,  # shimmer
+                    ctypes.c_double,  # sharpness
+                ]
+                self._dll.nvspFrontend_setFrameExDefaults.restype = None
+
+                # int nvspFrontend_getFrameExDefaults(handle, outDefaults);
+                self._dll.nvspFrontend_getFrameExDefaults.argtypes = [
+                    ctypes.c_void_p,  # handle
+                    ctypes.POINTER(FrameEx),  # outDefaults
+                ]
+                self._dll.nvspFrontend_getFrameExDefaults.restype = ctypes.c_int
+
+                # Extended callback type: includes FrameEx pointer
+                self._CBTYPE_EX = ctypes.CFUNCTYPE(
+                    None,
+                    ctypes.c_void_p,  # userData
+                    ctypes.POINTER(speechPlayer.Frame),  # frameOrNull
+                    ctypes.POINTER(FrameEx),  # frameExOrNull
+                    ctypes.c_double,  # durationMs
+                    ctypes.c_double,  # fadeMs
+                    ctypes.c_int,  # userIndexBase
+                )
+
+                # int nvspFrontend_queueIPA_Ex(...);
+                self._dll.nvspFrontend_queueIPA_Ex.argtypes = [
+                    ctypes.c_void_p,  # handle
+                    ctypes.c_char_p,  # ipaUtf8
+                    ctypes.c_double,  # speed
+                    ctypes.c_double,  # basePitch
+                    ctypes.c_double,  # inflection
+                    ctypes.c_char_p,  # clauseTypeUtf8
+                    ctypes.c_int,  # userIndexBase
+                    self._CBTYPE_EX,  # cb
+                    ctypes.c_void_p,  # userData
+                ]
+                self._dll.nvspFrontend_queueIPA_Ex.restype = ctypes.c_int
+
+                # int nvspFrontend_getVoicingTone(handle, outTone);
+                self._dll.nvspFrontend_getVoicingTone.argtypes = [
+                    ctypes.c_void_p,  # handle
+                    ctypes.POINTER(VoicingTone),  # outTone
+                ]
+                self._dll.nvspFrontend_getVoicingTone.restype = ctypes.c_int
+
+                # const char* nvspFrontend_getVoiceProfileNames(handle);
+                self._dll.nvspFrontend_getVoiceProfileNames.argtypes = [ctypes.c_void_p]
+                self._dll.nvspFrontend_getVoiceProfileNames.restype = ctypes.c_char_p
+
+                # int nvspFrontend_saveVoiceProfileSliders(handle, profileNameUtf8, sliders);
+                self._dll.nvspFrontend_saveVoiceProfileSliders.argtypes = [
+                    ctypes.c_void_p,  # handle
+                    ctypes.c_char_p,  # profileNameUtf8
+                    ctypes.POINTER(VoiceProfileSliders),  # sliders
+                ]
+                self._dll.nvspFrontend_saveVoiceProfileSliders.restype = ctypes.c_int
+
+                self._hasFrameExApi = True
+                log.debug("nvSpeechPlayer: frontend ABI v%d, FrameEx API available", self._abiVersion)
+        except AttributeError:
+            log.debug("nvSpeechPlayer: frontend FrameEx API not available (older DLL)")
+
     def terminate(self) -> None:
         # First destroy the frontend handle
         if self._dll and self._h:
@@ -166,6 +295,14 @@ class NvspFrontend(object):
         except Exception:
             log.debug("nvSpeechPlayer: getLastError failed", exc_info=True)
             return ""
+
+    def getABIVersion(self) -> int:
+        """Get the ABI version of the loaded frontend DLL."""
+        return self._abiVersion
+
+    def hasFrameExSupport(self) -> bool:
+        """Check if the DLL supports FrameEx API (ABI v2+)."""
+        return self._hasFrameExApi
 
     def setLanguage(self, langTag: str) -> bool:
         if not self._dll or not self._h:
@@ -229,6 +366,67 @@ class NvspFrontend(object):
         """Check if the DLL supports voice profiles."""
         return getattr(self, "_hasVoiceProfileApi", False)
 
+    def setFrameExDefaults(
+        self,
+        creakiness: float = 0.0,
+        breathiness: float = 0.0,
+        jitter: float = 0.0,
+        shimmer: float = 0.0,
+        sharpness: float = 1.0,
+    ) -> bool:
+        """Set user-level FrameEx defaults for voice quality.
+        
+        These values are mixed with per-phoneme values when emitting frames.
+        Call this when the user adjusts voice quality sliders.
+        
+        Args:
+            creakiness: 0.0-1.0, laryngealization/creaky voice
+            breathiness: 0.0-1.0, breath noise in voicing
+            jitter: 0.0-1.0, pitch period variation
+            shimmer: 0.0-1.0, amplitude variation
+            sharpness: multiplier (0.5-2.0 typical), glottal closure sharpness
+            
+        Returns:
+            True on success, False if API not available.
+        """
+        if not self._dll or not self._h:
+            return False
+        if not self._hasFrameExApi:
+            return False
+        try:
+            self._dll.nvspFrontend_setFrameExDefaults(
+                self._h,
+                float(creakiness),
+                float(breathiness),
+                float(jitter),
+                float(shimmer),
+                float(sharpness),
+            )
+            return True
+        except Exception:
+            log.debug("nvSpeechPlayer: setFrameExDefaults failed", exc_info=True)
+            return False
+
+    def getFrameExDefaults(self) -> Optional[FrameEx]:
+        """Get the current FrameEx defaults.
+        
+        Returns:
+            FrameEx struct with current defaults, or None if API not available.
+        """
+        if not self._dll or not self._h:
+            return None
+        if not self._hasFrameExApi:
+            return None
+        try:
+            defaults = FrameEx()
+            ok = self._dll.nvspFrontend_getFrameExDefaults(self._h, ctypes.byref(defaults))
+            if ok:
+                return defaults
+            return None
+        except Exception:
+            log.debug("nvSpeechPlayer: getFrameExDefaults failed", exc_info=True)
+            return None
+
     def queueIPA(
         self,
         ipaText: str,
@@ -240,7 +438,11 @@ class NvspFrontend(object):
         userIndex: Optional[int],
         onFrame,
     ) -> bool:
-        """Call onFrame(framePtrOrNone, durationMs, fadeMs, indexOrNone) for each frame."""
+        """Call onFrame(framePtrOrNone, durationMs, fadeMs, indexOrNone) for each frame.
+        
+        This is the legacy API that does not emit FrameEx data.
+        Use queueIPA_Ex for the extended version.
+        """
         if not self._dll or not self._h:
             return False
 
@@ -281,3 +483,216 @@ class NvspFrontend(object):
             )
         )
         return bool(ok)
+
+    def queueIPA_Ex(
+        self,
+        ipaText: str,
+        *,
+        speed: float,
+        basePitch: float,
+        inflection: float,
+        clauseType: Optional[str],
+        userIndex: Optional[int],
+        onFrame,
+    ) -> bool:
+        """Call onFrame(framePtrOrNone, frameExPtrOrNone, durationMs, fadeMs, indexOrNone) for each frame.
+        
+        This is the extended API (ABI v2+) that emits FrameEx data alongside Frame data.
+        The FrameEx values are the result of mixing per-phoneme values with user defaults
+        set via setFrameExDefaults().
+        
+        Falls back to queueIPA (without FrameEx) if the DLL doesn't support it.
+        
+        Args:
+            ipaText: IPA string to convert
+            speed: Speech speed multiplier
+            basePitch: Base pitch in Hz
+            inflection: Pitch range scaling (0-1)
+            clauseType: Punctuation type (".", ",", "?", "!")
+            userIndex: NVDA index for text position mapping
+            onFrame: Callback with signature (framePtr, frameExPtr, durationMs, fadeMs, index)
+        """
+        if not self._dll or not self._h:
+            return False
+
+        # Fall back to legacy API if FrameEx not supported
+        if not self._hasFrameExApi:
+            # Wrap callback to match legacy signature (no frameEx)
+            def legacyOnFrame(framePtr, durationMs, fadeMs, idx):
+                onFrame(framePtr, None, durationMs, fadeMs, idx)
+            return self.queueIPA(
+                ipaText,
+                speed=speed,
+                basePitch=basePitch,
+                inflection=inflection,
+                clauseType=clauseType,
+                userIndex=userIndex,
+                onFrame=legacyOnFrame,
+            )
+
+        ipaUtf8 = (ipaText or "").encode("utf-8")
+        clauseUtf8 = None
+        if clauseType:
+            clauseUtf8 = str(clauseType)[0].encode("ascii", errors="ignore") or b"."
+
+        first = True
+
+        @self._CBTYPE_EX
+        def _cb(userData, framePtr, frameExPtr, durationMs, fadeMs, userIndexBase):
+            nonlocal first
+
+            idx = None
+            if framePtr:
+                if first and userIndex is not None:
+                    idx = userIndex
+                first = False
+
+            onFrame(framePtr, frameExPtr, float(durationMs), float(fadeMs), idx)
+
+        ok = int(
+            self._dll.nvspFrontend_queueIPA_Ex(
+                self._h,
+                ipaUtf8,
+                float(speed),
+                float(basePitch),
+                float(inflection),
+                clauseUtf8,
+                int(-1),
+                _cb,
+                None,
+            )
+        )
+        return bool(ok)
+
+    def getVoicingTone(self) -> Optional[VoicingTone]:
+        """Get the voicing tone parameters for the current voice profile (ABI v2+).
+        
+        Returns:
+            VoicingTone struct with DSP-level voice parameters, or None if:
+            - API not available (older DLL)
+            - No voice profile is active
+            - Profile doesn't have voicingTone settings
+            
+        The returned struct contains the 12 voicing tone parameters that control
+        glottal pulse shape, spectral tilt, and EQ at the DSP level.
+        """
+        if not self._dll or not self._h:
+            return None
+        if not self._hasFrameExApi:
+            return None
+        try:
+            tone = VoicingTone()
+            hasExplicit = self._dll.nvspFrontend_getVoicingTone(self._h, ctypes.byref(tone))
+            # Return the tone even if hasExplicit is 0 (defaults are valid)
+            # Caller can check hasExplicitVoicingTone() to know if profile had settings
+            return tone
+        except Exception:
+            log.debug("nvSpeechPlayer: getVoicingTone failed", exc_info=True)
+            return None
+
+    def hasExplicitVoicingTone(self) -> bool:
+        """Check if the current voice profile has explicit voicingTone settings.
+        
+        Returns True if the active profile has a voicingTone: block in YAML.
+        This can be used to decide whether to use frontend voicing tone or
+        fall back to Python-side defaults.
+        """
+        if not self._dll or not self._h:
+            return False
+        if not self._hasFrameExApi:
+            return False
+        try:
+            tone = VoicingTone()
+            hasExplicit = self._dll.nvspFrontend_getVoicingTone(self._h, ctypes.byref(tone))
+            return bool(hasExplicit)
+        except Exception:
+            log.debug("nvSpeechPlayer: hasExplicitVoicingTone failed", exc_info=True)
+            return False
+
+    def getVoiceProfileNames(self) -> list:
+        """Get list of voice profile names from the frontend (ABI v2+).
+        
+        Returns:
+            List of profile name strings, or empty list if API not available.
+            
+        This can replace the Python-side discoverVoiceProfiles() function.
+        """
+        if not self._dll or not self._h:
+            return []
+        if not self._hasFrameExApi:
+            return []
+        try:
+            result = self._dll.nvspFrontend_getVoiceProfileNames(self._h)
+            if not result:
+                return []
+            # Parse newline-separated string
+            names = result.decode("utf-8", errors="replace").strip().split('\n')
+            return [n for n in names if n]  # Filter empty strings
+        except Exception:
+            log.debug("nvSpeechPlayer: getVoiceProfileNames failed", exc_info=True)
+            return []
+
+    def saveVoiceProfileSliders(
+        self,
+        profileName: str,
+        voicedTiltDbPerOct: float,
+        noiseGlottalModDepth: float,
+        pitchSyncF1DeltaHz: float,
+        pitchSyncB1DeltaHz: float,
+        speedQuotient: float,
+        aspirationTiltDbPerOct: float,
+        creakiness: float,
+        breathiness: float,
+        jitter: float,
+        shimmer: float,
+        sharpness: float,
+    ) -> bool:
+        """Save voice profile slider values to phonemes.yaml (ABI v2+).
+        
+        Writes the 11 user-adjustable slider values to the voicingTone block
+        for the specified profile in phonemes.yaml.
+        
+        Args:
+            profileName: Name of the profile (e.g., "Adam", "Beth")
+            voicedTiltDbPerOct: Spectral tilt in dB/octave
+            noiseGlottalModDepth: Noise modulation (0.0-1.0)
+            pitchSyncF1DeltaHz: Pitch-sync F1 delta in Hz
+            pitchSyncB1DeltaHz: Pitch-sync B1 delta in Hz
+            speedQuotient: Glottal speed quotient (0.5-4.0)
+            aspirationTiltDbPerOct: Aspiration tilt in dB/octave
+            creakiness: Laryngealization (0.0-1.0)
+            breathiness: Breathiness (0.0-1.0)
+            jitter: Pitch variation (0.0-1.0)
+            shimmer: Amplitude variation (0.0-1.0)
+            sharpness: Glottal sharpness multiplier (0.5-2.0)
+            
+        Returns:
+            True on success, False on failure (check getLastError for details)
+        """
+        if not self._dll or not self._h:
+            return False
+        if not self._hasFrameExApi:
+            return False
+        try:
+            profileNameUtf8 = (profileName or "").encode("utf-8")
+            
+            sliders = VoiceProfileSliders()
+            sliders.voicedTiltDbPerOct = float(voicedTiltDbPerOct)
+            sliders.noiseGlottalModDepth = float(noiseGlottalModDepth)
+            sliders.pitchSyncF1DeltaHz = float(pitchSyncF1DeltaHz)
+            sliders.pitchSyncB1DeltaHz = float(pitchSyncB1DeltaHz)
+            sliders.speedQuotient = float(speedQuotient)
+            sliders.aspirationTiltDbPerOct = float(aspirationTiltDbPerOct)
+            sliders.creakiness = float(creakiness)
+            sliders.breathiness = float(breathiness)
+            sliders.jitter = float(jitter)
+            sliders.shimmer = float(shimmer)
+            sliders.sharpness = float(sharpness)
+            
+            result = self._dll.nvspFrontend_saveVoiceProfileSliders(
+                self._h, profileNameUtf8, ctypes.byref(sliders)
+            )
+            return bool(result)
+        except Exception:
+            log.debug("nvSpeechPlayer: saveVoiceProfileSliders failed", exc_info=True)
+            return False

@@ -243,6 +243,12 @@ def _getPanelClass():
             )
             self.resetDefaultsButton.Bind(wx.EVT_BUTTON, self._onResetDefaultsClick)
 
+            # --- Save Voice Profile Settings button ---
+            self.saveVoiceProfileButton = sHelper.addItem(
+                wx.Button(self, label=_("Save Voice Profile Sliders to YAML..."))
+            )
+            self.saveVoiceProfileButton.Bind(wx.EVT_BUTTON, self._onSaveVoiceProfileClick)
+
             # --- Common quick settings ---
             sHelper.addItem(wx.StaticText(self, label=_("Common settings (applied on OK):")))
             self._addQuickTextField(
@@ -424,6 +430,42 @@ def _getPanelClass():
                 sHelper,
                 label=_("Schwa scale (rateReductionSchwaScale):"),
                 key="rateReductionSchwaScale",
+            )
+
+            # --- Word-final schwa reduction settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Word-final schwa reduction:")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Enabled (wordFinalSchwaReductionEnabled):"),
+                key="wordFinalSchwaReductionEnabled",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Scale (wordFinalSchwaScale):"),
+                key="wordFinalSchwaScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Min duration ms (wordFinalSchwaMinDurationMs):"),
+                key="wordFinalSchwaMinDurationMs",
+            )
+
+            # --- Single-word final settings ---
+            sHelper.addItem(wx.StaticText(self, label=_("Single-word final (isolated words):")))
+            self._addQuickTextField(
+                sHelper,
+                label=_("Hold ms (singleWordFinalHoldMs):"),
+                key="singleWordFinalHoldMs",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Liquid hold scale (singleWordFinalLiquidHoldScale):"),
+                key="singleWordFinalLiquidHoldScale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Fade ms (singleWordFinalFadeMs):"),
+                key="singleWordFinalFadeMs",
             )
 
             # --- Nasalization settings ---
@@ -641,6 +683,14 @@ def _getPanelClass():
                 "rateReductionSchwaReductionThreshold",
                 "rateReductionSchwaMinDurationMs",
                 "rateReductionSchwaScale",
+                # --- Word-final schwa reduction settings ---
+                "wordFinalSchwaReductionEnabled",
+                "wordFinalSchwaScale",
+                "wordFinalSchwaMinDurationMs",
+                # --- Single-word final settings ---
+                "singleWordFinalHoldMs",
+                "singleWordFinalLiquidHoldScale",
+                "singleWordFinalFadeMs",
                 # --- Nasalization settings ---
                 "nasalizationAnticipatoryEnabled",
                 "nasalizationAnticipatoryAmplitude",
@@ -1149,6 +1199,176 @@ def _getPanelClass():
                         synth.reloadLanguagePack()
             except Exception:
                 pass
+
+            evt.Skip()
+
+        def _onSaveVoiceProfileClick(self, evt):
+            """Save current voice profile slider values to phonemes.yaml via frontend API."""
+            try:
+                import wx
+            except Exception:
+                evt.Skip()
+                return
+
+            # Get the current synth
+            try:
+                import synthDriverHandler
+                synth = synthDriverHandler.getSynth()
+                if not synth or not synth.__class__.__module__.endswith("nvSpeechPlayer"):
+                    wx.MessageBox(
+                        _("NV Speech Player must be the active synthesizer to save voice profile settings."),
+                        _("Cannot Save"),
+                        wx.OK | wx.ICON_WARNING,
+                        self,
+                    )
+                    evt.Skip()
+                    return
+            except Exception as e:
+                wx.MessageBox(
+                    _("Error accessing synthesizer: {}").format(str(e)),
+                    _("Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            # Check if frontend supports saving
+            frontend = getattr(synth, "_frontend", None)
+            if not frontend or not frontend.hasFrameExSupport():
+                wx.MessageBox(
+                    _("This feature requires a newer version of the frontend DLL."),
+                    _("Not Supported"),
+                    wx.OK | wx.ICON_WARNING,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            # Get current voice - works for both profiles AND built-in voices
+            curVoice = getattr(synth, "_curVoice", "") or "Adam"
+            VOICE_PROFILE_PREFIX = "profile:"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = curVoice  # Built-in voice like "Adam"
+
+            # Get current slider values and convert to DSP values
+            tiltSlider = getattr(synth, "_curVoiceTilt", 50)
+            noiseModSlider = getattr(synth, "_curNoiseGlottalMod", 0)
+            f1Slider = getattr(synth, "_curPitchSyncF1", 50)
+            b1Slider = getattr(synth, "_curPitchSyncB1", 50)
+            sqSlider = getattr(synth, "_curSpeedQuotient", 50)
+            aspTiltSlider = getattr(synth, "_curAspirationTilt", 50)
+            creakSlider = getattr(synth, "_curFrameExCreakiness", 0)
+            breathSlider = getattr(synth, "_curFrameExBreathiness", 0)
+            jitterSlider = getattr(synth, "_curFrameExJitter", 0)
+            shimmerSlider = getattr(synth, "_curFrameExShimmer", 0)
+            sharpnessSlider = getattr(synth, "_curFrameExSharpness", 50)
+
+            # Convert VoicingTone sliders to DSP values
+            tiltDbPerOct = (tiltSlider - 50.0) * (24.0 / 50.0)
+            noiseModDepth = noiseModSlider / 100.0
+            f1DeltaHz = (f1Slider - 50.0) * 1.2
+            b1DeltaHz = (b1Slider - 50.0) * 1.0
+            if sqSlider <= 50.0:
+                speedQuotient = 0.5 + (sqSlider / 50.0) * 1.5
+            else:
+                speedQuotient = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
+            aspTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
+
+            # Convert FrameEx sliders to DSP values
+            creakiness = creakSlider / 100.0
+            breathiness = breathSlider / 100.0
+            jitter = jitterSlider / 100.0
+            shimmer = shimmerSlider / 100.0
+            sharpness = 0.5 + (sharpnessSlider / 100.0) * 1.5  # 0-100 -> 0.5-2.0
+
+            # Build confirmation message
+            msg = _(
+                "Save the following slider settings to profile '{}'?\n\n"
+                "VoicingTone:\n"
+                "  voicedTiltDbPerOct: {:.2f}\n"
+                "  noiseGlottalModDepth: {:.2f}\n"
+                "  pitchSyncF1DeltaHz: {:.1f}\n"
+                "  pitchSyncB1DeltaHz: {:.1f}\n"
+                "  speedQuotient: {:.2f}\n"
+                "  aspirationTiltDbPerOct: {:.2f}\n\n"
+                "FrameEx:\n"
+                "  creakiness: {:.2f}\n"
+                "  breathiness: {:.2f}\n"
+                "  jitter: {:.2f}\n"
+                "  shimmer: {:.2f}\n"
+                "  sharpness: {:.2f}\n\n"
+                "This will update packs/phonemes.yaml."
+            ).format(
+                profileName,
+                tiltDbPerOct, noiseModDepth, f1DeltaHz, b1DeltaHz, speedQuotient, aspTiltDbPerOct,
+                creakiness, breathiness, jitter, shimmer, sharpness,
+            )
+
+            result = wx.MessageBox(
+                msg,
+                _("Save Voice Profile Settings"),
+                wx.YES_NO | wx.ICON_QUESTION,
+                self,
+            )
+
+            if result != wx.YES:
+                evt.Skip()
+                return
+
+            # Call frontend API to save
+            try:
+                success = frontend.saveVoiceProfileSliders(
+                    profileName=profileName,
+                    voicedTiltDbPerOct=tiltDbPerOct,
+                    noiseGlottalModDepth=noiseModDepth,
+                    pitchSyncF1DeltaHz=f1DeltaHz,
+                    pitchSyncB1DeltaHz=b1DeltaHz,
+                    speedQuotient=speedQuotient,
+                    aspirationTiltDbPerOct=aspTiltDbPerOct,
+                    creakiness=creakiness,
+                    breathiness=breathiness,
+                    jitter=jitter,
+                    shimmer=shimmer,
+                    sharpness=sharpness,
+                )
+
+                if success:
+                    wx.MessageBox(
+                        _("Successfully saved slider settings for profile '{}'.\n\n"
+                          "The frontend will reload the settings on next speech.").format(profileName),
+                        _("Save Complete"),
+                        wx.OK | wx.ICON_INFORMATION,
+                        self,
+                    )
+
+                    # Trigger frontend reload and re-apply voice profile
+                    try:
+                        langTag = getattr(synth, "_language", "en-us")
+                        frontend.setLanguage(langTag)
+                        if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                            frontend.setVoiceProfile(profileName)
+                            synth._applyVoicingTone(profileName)
+                    except Exception:
+                        pass
+                else:
+                    errMsg = frontend.getLastError() or "Unknown error"
+                    wx.MessageBox(
+                        _("Failed to save settings: {}").format(errMsg),
+                        _("Error"),
+                        wx.OK | wx.ICON_ERROR,
+                        self,
+                    )
+
+            except Exception as e:
+                wx.MessageBox(
+                    _("Error saving to phonemes.yaml: {}").format(str(e)),
+                    _("Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
 
             evt.Skip()
 
