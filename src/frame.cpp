@@ -29,7 +29,13 @@ struct frameRequest_t {
 	speechPlayer_frameEx_t frameEx;
 
 	speechPlayer_frame_t frame;
-	double voicePitchInc; 
+	double voicePitchInc;
+	
+	// Formant increments for within-frame ramping (like voicePitchInc but for formants)
+	// These are calculated from frameEx endCf1/2/3, endPf1/2/3
+	double cf1Inc, cf2Inc, cf3Inc;  // Cascade formant increments (Hz per sample)
+	double pf1Inc, pf2Inc, pf3Inc;  // Parallel formant increments (Hz per sample)
+	
 	int userIndex;
 };
 
@@ -122,8 +128,24 @@ class FrameManagerImpl: public FrameManager {
 				oldFrameRequest->NULLFrame = true;
 			}
 		} else {
+			// Per-sample pitch ramping
 			curFrame.voicePitch+=oldFrameRequest->voicePitchInc;
 			oldFrameRequest->frame.voicePitch=curFrame.voicePitch;
+			
+			// Per-sample formant ramping (DECTalk-style within-frame transitions)
+			curFrame.cf1+=oldFrameRequest->cf1Inc;
+			curFrame.cf2+=oldFrameRequest->cf2Inc;
+			curFrame.cf3+=oldFrameRequest->cf3Inc;
+			curFrame.pf1+=oldFrameRequest->pf1Inc;
+			curFrame.pf2+=oldFrameRequest->pf2Inc;
+			curFrame.pf3+=oldFrameRequest->pf3Inc;
+			// Update stored frame values so crossfades start from correct position
+			oldFrameRequest->frame.cf1=curFrame.cf1;
+			oldFrameRequest->frame.cf2=curFrame.cf2;
+			oldFrameRequest->frame.cf3=curFrame.cf3;
+			oldFrameRequest->frame.pf1=curFrame.pf1;
+			oldFrameRequest->frame.pf2=curFrame.pf2;
+			oldFrameRequest->frame.pf3=curFrame.pf3;
 		}
 	}
 
@@ -143,6 +165,12 @@ class FrameManagerImpl: public FrameManager {
 		memset(&(oldFrameRequest->frame), 0, sizeof(speechPlayer_frame_t));
 		oldFrameRequest->frameEx = speechPlayer_frameEx_defaults;
 		oldFrameRequest->voicePitchInc=0;
+		oldFrameRequest->cf1Inc=0;
+		oldFrameRequest->cf2Inc=0;
+		oldFrameRequest->cf3Inc=0;
+		oldFrameRequest->pf1Inc=0;
+		oldFrameRequest->pf2Inc=0;
+		oldFrameRequest->pf3Inc=0;
 		oldFrameRequest->userIndex=-1;
 	}
 
@@ -166,6 +194,14 @@ class FrameManagerImpl: public FrameManager {
 			memset(&(frameRequest->frame), 0, sizeof(speechPlayer_frame_t));
 			frameRequest->voicePitchInc=0;
 		}
+		
+		// Initialize formant increments to 0 (no ramping by default)
+		frameRequest->cf1Inc = 0.0;
+		frameRequest->cf2Inc = 0.0;
+		frameRequest->cf3Inc = 0.0;
+		frameRequest->pf1Inc = 0.0;
+		frameRequest->pf2Inc = 0.0;
+		frameRequest->pf3Inc = 0.0;
 
 		// Copy frameEx safely: start with defaults, then overlay caller's data.
 		// This allows older callers with smaller structs to work with newer DLLs,
@@ -175,6 +211,29 @@ class FrameManagerImpl: public FrameManager {
 			frameRequest->frameEx = speechPlayer_frameEx_defaults;
 			unsigned int copySize = frameExSize < sizeof(speechPlayer_frameEx_t) ? frameExSize : sizeof(speechPlayer_frameEx_t);
 			memcpy(&(frameRequest->frameEx), frameEx, copySize);
+			
+			// Calculate formant increments if end targets are set (not NAN)
+			// This enables DECTalk-style within-frame formant ramping
+			if(frame && minNumSamples > 0) {
+				if(!std::isnan(frameRequest->frameEx.endCf1)) {
+					frameRequest->cf1Inc = (frameRequest->frameEx.endCf1 - frame->cf1) / minNumSamples;
+				}
+				if(!std::isnan(frameRequest->frameEx.endCf2)) {
+					frameRequest->cf2Inc = (frameRequest->frameEx.endCf2 - frame->cf2) / minNumSamples;
+				}
+				if(!std::isnan(frameRequest->frameEx.endCf3)) {
+					frameRequest->cf3Inc = (frameRequest->frameEx.endCf3 - frame->cf3) / minNumSamples;
+				}
+				if(!std::isnan(frameRequest->frameEx.endPf1)) {
+					frameRequest->pf1Inc = (frameRequest->frameEx.endPf1 - frame->pf1) / minNumSamples;
+				}
+				if(!std::isnan(frameRequest->frameEx.endPf2)) {
+					frameRequest->pf2Inc = (frameRequest->frameEx.endPf2 - frame->pf2) / minNumSamples;
+				}
+				if(!std::isnan(frameRequest->frameEx.endPf3)) {
+					frameRequest->pf3Inc = (frameRequest->frameEx.endPf3 - frame->pf3) / minNumSamples;
+				}
+			}
 		} else {
 			frameRequest->hasFrameEx=false;
 			frameRequest->frameEx = speechPlayer_frameEx_defaults;

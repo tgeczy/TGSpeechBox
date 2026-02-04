@@ -84,6 +84,24 @@ const double kAspBurstFc_44k = 2500.0;   // 44100 Hz
 const double kBurstinessScale = 25.0;
 
 // ------------------------------------------------------------
+// Breathiness macro tuning (per-frame tilt offset)
+// ------------------------------------------------------------
+// Breathiness already drives turbulence, OQ, and pulse shape.
+// This adds per-frame spectral TILT offset for true airy voice quality.
+// Without tilt, you get "noisy voicing" (hoarseness).
+// With tilt, you get "breathy voicing" (airy, soft highs).
+
+// Max tilt offset at breathiness=1.0 (positive = darker/softer highs for VOICED)
+const double kBreathinessTiltMaxDb = 6.0;
+
+// Max aspiration tilt offset at breathiness=1.0 (NEGATIVE = darker/softer noise)
+// This makes the breath noise spectrally match the softened voice
+const double kBreathinessAspTiltMaxDb = -8.0;
+
+// Smoothing time constant to prevent clicks when breathiness changes
+const double kBreathinessTiltSmoothMs = 8.0;
+
+// ------------------------------------------------------------
 // Fast thread-local PRNG (replaces stdlib rand() for audio thread safety)
 // ------------------------------------------------------------
 // Linear Congruential Generator - fast, no locking, good enough spectral
@@ -230,12 +248,22 @@ private:
     double tiltRefHz;
     double tiltLastTlForTargets;
 
+    // Per-frame tilt offset from breathiness (stacks with global tilt)
+    double perFrameTiltOffset;        // current smoothed value
+    double perFrameTiltOffsetTarget;  // target from current frame's breathiness
+    double perFrameTiltOffsetAlpha;   // smoothing coefficient
+
     // Aspiration/frication tilt (LP/HP crossfade for noise color)
     double aspTiltTargetDb;      // target from slider
     double aspTiltSmoothedDb;    // smoothed value (prevents clicks)
     double aspTiltSmoothAlpha;   // smoothing coefficient
     double aspLpState;           // lowpass state for aspiration tilt filter
     double fricLpState;          // lowpass state for frication tilt (same tilt value)
+    
+    // Per-frame aspiration tilt offset from breathiness (makes noise softer too)
+    double perFrameAspTiltOffset;
+    double perFrameAspTiltOffsetTarget;
+    double perFrameAspTiltOffsetAlpha;
 
     // Radiation Gain (Applied ONLY to dFlow)
     double radiationDerivGain;
@@ -310,7 +338,13 @@ return clampDouble(a, 0.0, 0.9999);
     }
 
     double applyTilt(double in) {
-        tiltTlDb += (tiltTargetTlDb - tiltTlDb) * tiltTlAlpha;
+        // Smooth the per-frame tilt offset (prevents clicks when breathiness changes)
+        perFrameTiltOffset += (perFrameTiltOffsetTarget - perFrameTiltOffset) * perFrameTiltOffsetAlpha;
+        
+        // Effective tilt = global (speaker identity) + per-frame offset (phonation state)
+        double effectiveTilt = tiltTargetTlDb + perFrameTiltOffset;
+        
+        tiltTlDb += (effectiveTilt - tiltTlDb) * tiltTlAlpha;
         if (fabs(tiltTlDb - tiltLastTlForTargets) > 0.01) {
             updateTiltTargets(tiltTlDb);
             tiltLastTlForTargets = tiltTlDb;
@@ -338,9 +372,14 @@ return clampDouble(a, 0.0, 0.9999);
     }
 
     double applyAspirationTilt(double x) {
-        // Smooth the tilt parameter (prevents clicks from instant slider changes)
+        // Smooth the per-frame aspiration tilt offset (from breathiness)
+        perFrameAspTiltOffset += (perFrameAspTiltOffsetTarget - perFrameAspTiltOffset) * perFrameAspTiltOffsetAlpha;
+        
+        // Smooth the global tilt parameter (prevents clicks from instant slider changes)
         aspTiltSmoothedDb += (aspTiltTargetDb - aspTiltSmoothedDb) * aspTiltSmoothAlpha;
-        double t = aspTiltSmoothedDb;
+        
+        // Effective tilt = global (speaker setting) + per-frame (breathiness)
+        double t = aspTiltSmoothedDb + perFrameAspTiltOffset;
 
         // Effect amount 0..1, with perceptual curve
         double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
@@ -400,8 +439,10 @@ public:
         tiltTlAlpha(0.0), tiltPoleAlpha(0.0),
         tiltRefHz(3000.0),
         tiltLastTlForTargets(1e9),
+        perFrameTiltOffset(0.0), perFrameTiltOffsetTarget(0.0), perFrameTiltOffsetAlpha(0.0),
         aspTiltTargetDb(0.0), aspTiltSmoothedDb(0.0), aspTiltSmoothAlpha(0.0),
         aspLpState(0.0), fricLpState(0.0),
+        perFrameAspTiltOffset(0.0), perFrameAspTiltOffsetTarget(0.0), perFrameAspTiltOffsetAlpha(0.0),
         radiationDerivGain(1.0),
         radiationMix(0.0) {
 
@@ -410,6 +451,10 @@ public:
 
         tiltTlAlpha = 1.0 - exp(-1.0 / (sampleRate * (tlSmoothMs * 0.001)));
         tiltPoleAlpha = 1.0 - exp(-1.0 / (sampleRate * (poleSmoothMs * 0.001)));
+        
+        // Per-frame tilt offset smoothing (for breathiness on both voice and aspiration)
+        perFrameTiltOffsetAlpha = 1.0 - exp(-1.0 / (sampleRate * (kBreathinessTiltSmoothMs * 0.001)));
+        perFrameAspTiltOffsetAlpha = 1.0 - exp(-1.0 / (sampleRate * (kBreathinessTiltSmoothMs * 0.001)));
 
         // Aspiration tilt smoothing (10ms removes clicks without feeling laggy)
         const double aspTiltSmoothMs = 10.0;
@@ -463,6 +508,10 @@ public:
         fricLpState = 0.0;
         aspTiltSmoothedDb = aspTiltTargetDb;  // Snap to target on reset
         tiltState = 0.0;  // Reset voiced tilt IIR state to prevent transient
+        perFrameTiltOffset = 0.0;
+        perFrameTiltOffsetTarget = 0.0;
+        perFrameAspTiltOffset = 0.0;
+        perFrameAspTiltOffsetTarget = 0.0;
     }
 
     void setTiltDbPerOct(double tiltVal) {
@@ -529,6 +578,18 @@ public:
             if (breathiness > 0.0) {
                 breathiness = pow(breathiness, 0.55);
             }
+            
+            // Breathiness drives per-frame tilt offset (softer highs = airy quality)
+            // VOICED: Positive tilt = darker/softer. breathiness 1.0 -> +6 dB/oct darker
+            perFrameTiltOffsetTarget = breathiness * kBreathinessTiltMaxDb;
+            
+            // ASPIRATION/NOISE: Negative tilt = darker. breathiness 1.0 -> -8 dB/oct darker
+            // This makes the breath noise spectrally match the softened voice
+            perFrameAspTiltOffsetTarget = breathiness * kBreathinessAspTiltMaxDb;
+        } else {
+            // No frameEx: reset tilt offsets to zero
+            perFrameTiltOffsetTarget = 0.0;
+            perFrameAspTiltOffsetTarget = 0.0;
         }
 
         double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
@@ -610,10 +671,14 @@ public:
             if (effectiveOQ > 0.95) effectiveOQ = 0.95;
         }
         
-        // Breathiness: longer open phase (opens earlier, incomplete closure)
+        // Breathiness: much longer open phase (glottis barely closes)
+        // True breathy voice = glottis open 85-95% of cycle, not just 70%
         if (breathiness > 0.0) {
-            effectiveOQ -= 0.12 * breathiness;
-            if (effectiveOQ < 0.10) effectiveOQ = 0.10;
+            // Push OQ down toward 0.05 at full breathiness
+            // From 0.4 default: 0.4 - (0.35 * 1.0) = 0.05
+            effectiveOQ -= 0.35 * breathiness;
+            // Allow very low OQ for breathiness (nearly always open)
+            if (effectiveOQ < 0.05) effectiveOQ = 0.05;
         }
 
         glottisOpen = (pitchHz > 0.0) && (cyclePos >= effectiveOQ);
@@ -787,7 +852,9 @@ public:
         if (!std::isfinite(voiceTurbAmp)) voiceTurbAmp = 0.0;
         voiceTurbAmp = clampDouble(voiceTurbAmp, 0.0, 1.0);
         if (breathiness > 0.0) {
-            voiceTurbAmp = clampDouble(voiceTurbAmp + (1.0 * breathiness), 0.0, 1.0);
+            // Moderate turbulence increase (glottal-gated noise is the key breathy component)
+            // Reduced from 1.0 to 0.5 - we want "weak airy voice" not "noise drowning voice"
+            voiceTurbAmp = clampDouble(voiceTurbAmp + (0.5 * breathiness), 0.0, 1.0);
         }
 
         double turbulence = aspiration * voiceTurbAmp;
@@ -808,12 +875,18 @@ public:
             voiceAmp *= (1.0 - (0.35 * creakiness));
         }
         if (breathiness > 0.0) {
-            // Breathy voice has weaker vocal fold vibration
-            voiceAmp *= (1.0 - (0.25 * breathiness));
+            // TRUE breathy voice: the voiced component nearly disappears.
+            // At full breathiness, only 15% of voice remains (85% reduction).
+            // This makes turbulent noise the PRIMARY sound, not an additive layer.
+            voiceAmp *= (1.0 - (0.95 * breathiness));
         }
         voiceAmp *= shimmerMul;
 
-        double voicedIn = (voicedSrc + turbulence) * voiceAmp;
+        // CRITICAL: Apply voiceAmp ONLY to the voiced pulse, NOT to turbulence.
+        // For breathiness: voice gets quiet while turbulence stays strong.
+        // OLD: (voicedSrc + turbulence) * voiceAmp  <-- killed turbulence too!
+        // NEW: (voicedSrc * voiceAmp) + turbulence  <-- turbulence independent
+        double voicedIn = (voicedSrc * voiceAmp) + turbulence;
         const double dcPole = 0.9995;
         double voiced = voicedIn - lastVoicedIn + (dcPole * lastVoicedOut);
         lastVoicedIn = voicedIn;
