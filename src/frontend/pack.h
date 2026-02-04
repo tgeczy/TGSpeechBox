@@ -1,6 +1,7 @@
 #ifndef NVSP_FRONTEND_PACK_H
 #define NVSP_FRONTEND_PACK_H
 
+#include <cmath>
 #include <cstdint>
 #include <array>
 #include <memory>
@@ -99,11 +100,27 @@ struct PhonemeDef {
   bool hasShimmer = false;
   bool hasSharpness = false;
   
+  // Formant end targets (for within-frame ramping)
+  bool hasEndCf1 = false;
+  bool hasEndCf2 = false;
+  bool hasEndCf3 = false;
+  bool hasEndPf1 = false;
+  bool hasEndPf2 = false;
+  bool hasEndPf3 = false;
+  
   double creakiness = 0.0;    // 0.0-1.0, additive with user default
   double breathiness = 0.0;   // 0.0-1.0, additive with user default
   double jitter = 0.0;        // 0.0-1.0, additive with user default
   double shimmer = 0.0;       // 0.0-1.0, additive with user default
   double sharpness = 1.0;     // multiplier (1.0 = neutral, only >= 1.0 used)
+  
+  // Formant end targets in Hz (NAN = no ramping)
+  double endCf1 = NAN;
+  double endCf2 = NAN;
+  double endCf3 = NAN;
+  double endPf1 = NAN;
+  double endPf2 = NAN;
+  double endPf3 = NAN;
 };
 
 // In YAML we keep replacements in UTF-8; we convert to UTF-32 during load.

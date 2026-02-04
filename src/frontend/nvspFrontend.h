@@ -70,7 +70,8 @@ typedef struct nvspFrontend_Frame {
   the DSP DLL.
   
   All fields are in range [0.0, 1.0] except sharpness which is a multiplier
-  (typically 0.5-2.0, where 1.0 is neutral).
+  (typically 0.5-2.0, where 1.0 is neutral), and endCf/endPf which are Hz
+  (or NAN for no ramping).
 */
 typedef struct nvspFrontend_FrameEx {
   double creakiness;      /* laryngealization / creaky voice (e.g. Danish stød) */
@@ -78,10 +79,20 @@ typedef struct nvspFrontend_FrameEx {
   double jitter;          /* pitch period variation (irregular F0) */
   double shimmer;         /* amplitude variation (irregular loudness) */
   double sharpness;       /* glottal closure sharpness multiplier (1.0 = neutral) */
+  
+  /* Formant end targets for within-frame ramping (DECTalk-style transitions).
+     NAN = no ramping (use base formant value throughout frame).
+     Any other value = ramp from base to this value over the frame duration. */
+  double endCf1;          /* Cascade F1 end target (Hz), NAN = no ramp */
+  double endCf2;          /* Cascade F2 end target (Hz), NAN = no ramp */
+  double endCf3;          /* Cascade F3 end target (Hz), NAN = no ramp */
+  double endPf1;          /* Parallel F1 end target (Hz), NAN = no ramp */
+  double endPf2;          /* Parallel F2 end target (Hz), NAN = no ramp */
+  double endPf3;          /* Parallel F3 end target (Hz), NAN = no ramp */
 } nvspFrontend_FrameEx;
 
 /* Number of fields in FrameEx struct (for size validation) */
-#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 5
+#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 11
 
 /*
   VoicingTone parameters for DSP-level voice quality (ABI v2+).

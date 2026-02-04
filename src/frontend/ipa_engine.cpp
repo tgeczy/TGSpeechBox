@@ -2354,6 +2354,7 @@ void emitFramesEx(
     // The mixing formula:
     //   - creakiness, breathiness, jitter, shimmer: additive, clamped to [0,1]
     //   - sharpness: multiplicative (phoneme * user), clamped to reasonable range
+    //   - endCf1/2/3, endPf1/2/3: direct values (Hz), NAN if not set
     // Per-phoneme values override only if explicitly set (has* flags).
     nvspFrontend_FrameEx frameEx;
     
@@ -2374,6 +2375,15 @@ void emitFramesEx(
     frameEx.jitter = clamp01(phonemeJitter + frameExDefaults.jitter);
     frameEx.shimmer = clamp01(phonemeShimmer + frameExDefaults.shimmer);
     frameEx.sharpness = clampSharpness(phonemeSharpness * frameExDefaults.sharpness);
+    
+    // Formant end targets: direct values from phoneme, NAN if not set
+    // These enable DECTalk-style within-frame formant ramping
+    frameEx.endCf1 = (t.def && t.def->hasEndCf1) ? t.def->endCf1 : NAN;
+    frameEx.endCf2 = (t.def && t.def->hasEndCf2) ? t.def->endCf2 : NAN;
+    frameEx.endCf3 = (t.def && t.def->hasEndCf3) ? t.def->endCf3 : NAN;
+    frameEx.endPf1 = (t.def && t.def->hasEndPf1) ? t.def->endPf1 : NAN;
+    frameEx.endPf2 = (t.def && t.def->hasEndPf2) ? t.def->endPf2 : NAN;
+    frameEx.endPf3 = (t.def && t.def->hasEndPf3) ? t.def->endPf3 : NAN;
 
     // Handle trill modulation (simplified version - emits micro-frames)
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {

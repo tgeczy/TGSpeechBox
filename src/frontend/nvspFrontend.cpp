@@ -1,5 +1,6 @@
 #include "nvspFrontend.h"
 
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <mutex>
@@ -308,6 +309,13 @@ NVSP_FRONTEND_API int nvspFrontend_getFrameExDefaults(
   outDefaults->jitter = h->frameExJitter;
   outDefaults->shimmer = h->frameExShimmer;
   outDefaults->sharpness = h->frameExSharpness;
+  // Formant end targets: NAN means "no ramping" - per-phoneme only
+  outDefaults->endCf1 = NAN;
+  outDefaults->endCf2 = NAN;
+  outDefaults->endCf3 = NAN;
+  outDefaults->endPf1 = NAN;
+  outDefaults->endPf2 = NAN;
+  outDefaults->endPf3 = NAN;
   return 1;
 }
 
@@ -410,6 +418,13 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
   frameExDefaults.jitter = h->frameExJitter;
   frameExDefaults.shimmer = h->frameExShimmer;
   frameExDefaults.sharpness = h->frameExSharpness;
+  // Formant end targets: NAN means "no ramping" - per-phoneme only, no user defaults
+  frameExDefaults.endCf1 = NAN;
+  frameExDefaults.endCf2 = NAN;
+  frameExDefaults.endCf3 = NAN;
+  frameExDefaults.endPf1 = NAN;
+  frameExDefaults.endPf2 = NAN;
+  frameExDefaults.endPf3 = NAN;
 
   emitFramesEx(h->pack, tokens, userIndexBase, frameExDefaults, &h->trajectoryState, cb, userData);
   

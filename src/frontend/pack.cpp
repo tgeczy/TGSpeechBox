@@ -169,6 +169,24 @@ static bool loadPhonemes(const fs::path& packsRoot, PackSet& out, std::string& o
           } else if (fxKey == "sharpness") {
             def.hasSharpness = true;
             def.sharpness = fxVal;
+          } else if (fxKey == "endCf1") {
+            def.hasEndCf1 = true;
+            def.endCf1 = fxVal;
+          } else if (fxKey == "endCf2") {
+            def.hasEndCf2 = true;
+            def.endCf2 = fxVal;
+          } else if (fxKey == "endCf3") {
+            def.hasEndCf3 = true;
+            def.endCf3 = fxVal;
+          } else if (fxKey == "endPf1") {
+            def.hasEndPf1 = true;
+            def.endPf1 = fxVal;
+          } else if (fxKey == "endPf2") {
+            def.hasEndPf2 = true;
+            def.endPf2 = fxVal;
+          } else if (fxKey == "endPf3") {
+            def.hasEndPf3 = true;
+            def.endPf3 = fxVal;
           }
         }
         continue;
@@ -1058,6 +1076,24 @@ static bool mergeLanguageFile(const fs::path& path, PackSet& out, std::string& o
               } else if (fxKey == "sharpness") {
                 def.hasSharpness = true;
                 def.sharpness = fxVal;
+              } else if (fxKey == "endCf1") {
+                def.hasEndCf1 = true;
+                def.endCf1 = fxVal;
+              } else if (fxKey == "endCf2") {
+                def.hasEndCf2 = true;
+                def.endCf2 = fxVal;
+              } else if (fxKey == "endCf3") {
+                def.hasEndCf3 = true;
+                def.endCf3 = fxVal;
+              } else if (fxKey == "endPf1") {
+                def.hasEndPf1 = true;
+                def.endPf1 = fxVal;
+              } else if (fxKey == "endPf2") {
+                def.hasEndPf2 = true;
+                def.endPf2 = fxVal;
+              } else if (fxKey == "endPf3") {
+                def.hasEndPf3 = true;
+                def.endPf3 = fxVal;
               }
             }
             continue;
