@@ -71,32 +71,76 @@ class FrameEx(Structure):
     These parameters are kept separate from Frame so the original 47-parameter
     ABI stays stable. All fields are expected in range [0.0, 1.0] unless noted.
     
-    Use with queueFrameEx() for features like Danish stød (creaky voice).
+    Use with queueFrameEx() for features like Danish stød (creaky voice),
+    formant ramping (DECTalk-style transitions), and Fujisaki pitch contours.
     If you don't need these, just use queueFrame() as before.
+    
+    IMPORTANT: This struct must match nvspFrontend_FrameEx / speechPlayer_frameEx_t
+    exactly (18 doubles = 144 bytes). Field order matters for ctypes.memmove().
     """
     _fields_ = [
+        # Voice quality parameters (DSP v5)
         ("creakiness", c_double),   # Laryngealization / creaky voice (e.g. Danish stød)
         ("breathiness", c_double),  # Breath noise mixed into voicing
         ("jitter", c_double),       # Pitch period variation (irregular F0)
         ("shimmer", c_double),      # Amplitude variation (irregular loudness)
         ("sharpness", c_double),    # Glottal sharpness MULTIPLIER (0=SR default, 0.5-2.0 typical)
+        
+        # Formant end targets for within-frame ramping (DECTalk-style transitions)
+        # NAN = no ramping (use base formant value throughout frame)
+        # Any other value = ramp from base to this value over the frame duration
+        ("endCf1", c_double),       # Cascade F1 end target (Hz), NAN = no ramp
+        ("endCf2", c_double),       # Cascade F2 end target (Hz), NAN = no ramp
+        ("endCf3", c_double),       # Cascade F3 end target (Hz), NAN = no ramp
+        ("endPf1", c_double),       # Parallel F1 end target (Hz), NAN = no ramp
+        ("endPf2", c_double),       # Parallel F2 end target (Hz), NAN = no ramp
+        ("endPf3", c_double),       # Parallel F3 end target (Hz), NAN = no ramp
+        
+        # Fujisaki-Bartman pitch contour model (DSP v6+)
+        # Enables Eloquence-style phrase/accent pitch shaping in the DSP
+        ("fujisakiEnabled", c_double),   # 0.0 = off, >0.5 = on
+        ("fujisakiReset", c_double),     # Rising edge resets model state
+        ("fujisakiPhraseAmp", c_double), # Phrase command amplitude (e.g. 1.3)
+        ("fujisakiPhraseLen", c_double), # Phrase filter L (samples). 0 = use default
+        ("fujisakiAccentAmp", c_double), # Accent command amplitude (e.g. 0.4)
+        ("fujisakiAccentDur", c_double), # Accent duration D (samples). 0 = use default
+        ("fujisakiAccentLen", c_double), # Accent filter L (samples). 0 = use default
     ]
     
     @classmethod
     def create(cls, creakiness: float = 0.0, breathiness: float = 0.0,
                jitter: float = 0.0, shimmer: float = 0.0,
                sharpness: float = 0.0) -> "FrameEx":
-        """Create a FrameEx with specified values (all default to 0.0).
+        """Create a FrameEx with specified voice quality values (all default to 0.0).
         
         Note: sharpness is a MULTIPLIER on the sample-rate-appropriate base value.
         0.0 = use SR default, 0.5 = softer, 1.0 = default, 2.0 = sharper.
+        
+        Formant end targets and Fujisaki fields are set to their neutral defaults
+        (NAN for formants, 0.0 for Fujisaki = disabled).
         """
+        import math
         ex = cls()
         ex.creakiness = creakiness
         ex.breathiness = breathiness
         ex.jitter = jitter
         ex.shimmer = shimmer
         ex.sharpness = sharpness
+        # Formant end targets: NAN = no ramping
+        ex.endCf1 = math.nan
+        ex.endCf2 = math.nan
+        ex.endCf3 = math.nan
+        ex.endPf1 = math.nan
+        ex.endPf2 = math.nan
+        ex.endPf3 = math.nan
+        # Fujisaki: 0.0 = disabled
+        ex.fujisakiEnabled = 0.0
+        ex.fujisakiReset = 0.0
+        ex.fujisakiPhraseAmp = 0.0
+        ex.fujisakiPhraseLen = 0.0
+        ex.fujisakiAccentAmp = 0.0
+        ex.fujisakiAccentDur = 0.0
+        ex.fujisakiAccentLen = 0.0
         return ex
 
 
