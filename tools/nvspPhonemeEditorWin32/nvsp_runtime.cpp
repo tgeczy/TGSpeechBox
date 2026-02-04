@@ -357,6 +357,7 @@ static EditorFrameEx buildFrameEx(const std::vector<int>& sliders, bool& outHasE
 // Same mixing logic as frontend:
 //   - creakiness, breathiness, jitter, shimmer: additive, clamped to [0,1]
 //   - sharpness: multiplicative, phoneme >= 1.0 (boost only)
+//   - endCf1-3, endPf1-3: absolute Hz values from phoneme (NAN = no ramp)
 static EditorFrameEx mixPhonemeFrameEx(const Node& phonemeMap, const EditorFrameEx& userDefaults) {
   EditorFrameEx mixed = userDefaults;
   
@@ -394,6 +395,15 @@ static EditorFrameEx mixPhonemeFrameEx(const Node& phonemeMap, const EditorFrame
   mixed.jitter = clampDouble(phonemeJitter + userDefaults.jitter, 0.0, 1.0);
   mixed.shimmer = clampDouble(phonemeShimmer + userDefaults.shimmer, 0.0, 1.0);
   mixed.sharpness = clampDouble(phonemeSharpness * userDefaults.sharpness, 0.1, 5.0);
+  
+  // Formant end targets: absolute Hz values from phoneme (0.0 = no ramp for DSP)
+  // These are per-phoneme coarticulation targets, not mixed with user defaults
+  mixed.endCf1 = getDouble("endCf1", 0.0);
+  mixed.endCf2 = getDouble("endCf2", 0.0);
+  mixed.endCf3 = getDouble("endCf3", 0.0);
+  mixed.endPf1 = getDouble("endPf1", 0.0);
+  mixed.endPf2 = getDouble("endPf2", 0.0);
+  mixed.endPf3 = getDouble("endPf3", 0.0);
   
   return mixed;
 }
@@ -1103,14 +1113,12 @@ static void __cdecl frameExCallback(
       ctx->runtime->applySpeechSettingsToFrame(f);
     }
 
-    // Use the MIXED FrameEx from frontend (phoneme + user defaults)
+    // Use the MIXED FrameEx from frontend (phoneme + user defaults + Fujisaki pitch)
     if (ctx->queueFrameEx && frameExOrNull) {
       EditorFrameEx mixedEx{};
-      mixedEx.creakiness = frameExOrNull->creakiness;
-      mixedEx.breathiness = frameExOrNull->breathiness;
-      mixedEx.jitter = frameExOrNull->jitter;
-      mixedEx.shimmer = frameExOrNull->shimmer;
-      mixedEx.sharpness = frameExOrNull->sharpness;
+      // Copy all 18 fields - includes formant ramping and Fujisaki pitch model
+      static_assert(sizeof(EditorFrameEx) == sizeof(nvspFrontend_FrameEx), "EditorFrameEx size mismatch");
+      std::memcpy(&mixedEx, frameExOrNull, sizeof(EditorFrameEx));
       ctx->queueFrameEx(ctx->player, &f, &mixedEx, 
                         static_cast<unsigned int>(sizeof(EditorFrameEx)),
                         durS, fadeS, userIndex, ctx->first);

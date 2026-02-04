@@ -87,12 +87,29 @@ struct EditorVoicingToneV1 {
 };
 
 // FrameEx struct - per-frame voice quality extensions (DSP v5+)
+// Must match nvspFrontend_FrameEx / speechPlayer_frameEx_t exactly (18 doubles = 144 bytes)
 struct EditorFrameEx {
+  // Voice quality parameters (DSP v5)
   double creakiness;      // laryngealization / creaky voice
   double breathiness;     // breath noise mixed into voicing
   double jitter;          // pitch period variation
   double shimmer;         // amplitude variation
   double sharpness;       // glottal closure sharpness MULTIPLIER (0=SR default, 0.5-2.0)
+  // Formant end targets (DECTalk-style ramping)
+  double endCf1;          // Cascade F1 end target (Hz), NAN = no ramp
+  double endCf2;          // Cascade F2 end target (Hz), NAN = no ramp
+  double endCf3;          // Cascade F3 end target (Hz), NAN = no ramp
+  double endPf1;          // Parallel F1 end target (Hz), NAN = no ramp
+  double endPf2;          // Parallel F2 end target (Hz), NAN = no ramp
+  double endPf3;          // Parallel F3 end target (Hz), NAN = no ramp
+  // Fujisaki pitch model (DSP v6+)
+  double fujisakiEnabled;     // 0.0 = off, >0.5 = on
+  double fujisakiReset;       // rising edge resets model state
+  double fujisakiPhraseAmp;   // phrase command amplitude
+  double fujisakiPhraseLen;   // phrase filter L (samples). 0 = use default
+  double fujisakiAccentAmp;   // accent command amplitude
+  double fujisakiAccentDur;   // accent duration D (samples). 0 = use default
+  double fujisakiAccentLen;   // accent filter L (samples). 0 = use default
 };
 
 // speechPlayer.dll API

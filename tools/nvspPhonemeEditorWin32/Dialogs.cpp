@@ -773,7 +773,14 @@ static const std::vector<std::string>& getStandardPhonemeTypeFlags() {
     "frameEx.breathiness",
     "frameEx.jitter",
     "frameEx.shimmer",
-    "frameEx.sharpness"
+    "frameEx.sharpness",
+    // Formant end targets for within-frame ramping (DECTalk-style coarticulation)
+    "frameEx.endCf1",
+    "frameEx.endCf2",
+    "frameEx.endCf3",
+    "frameEx.endPf1",
+    "frameEx.endPf2",
+    "frameEx.endPf3"
   };
   return flags;
 }
