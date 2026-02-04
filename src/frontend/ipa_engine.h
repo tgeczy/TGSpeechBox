@@ -85,6 +85,25 @@ struct Token {
   double fujisakiAccentAmp = 0.0;     // Accent command amplitude (0 = no command)
 };
 
+// ============================================================================
+// Token helper functions (inline for use across translation units)
+// ============================================================================
+inline bool tokenIsTrill(const Token& t) {
+  return t.def && ((t.def->flags & kIsTrill) != 0);
+}
+
+inline bool tokenIsVowel(const Token& t) {
+  return t.def && ((t.def->flags & kIsVowel) != 0);
+}
+
+inline bool tokenIsSemivowel(const Token& t) {
+  return t.def && ((t.def->flags & kIsSemivowel) != 0);
+}
+
+inline bool tokenIsLiquid(const Token& t) {
+  return t.def && ((t.def->flags & kIsLiquid) != 0);
+}
+
 // Convert IPA -> tokens.
 // This runs:
 //  1) normalization (pack rules)
