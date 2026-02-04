@@ -4,6 +4,10 @@ A Klatt-based speech synthesis engine written in C++.
 
 Author: Original project by NV Access Limited. This repository is maintained as a community fork by Tamas Geczy.
 
+### Acknowledgments
+Special thanks to:
+- **Rommix** for extensive testing, feedback, and collaboration on the Fujisaki pitch model implementation and DSP timing parameters.
+
 ## Project status (fork + naming)
 NV Access is not actively maintaining the original NV Speech Player project.
 
@@ -97,7 +101,7 @@ The `speechPlayer.dll` now exports additional functions for real-time control of
 
 ### VoicingTone struct parameters
 
-The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 5, there are **12 parameters** plus a version detection header.
+The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 6, there are **12 parameters** plus a version detection header.
 
 #### Version detection (v3 struct)
 
@@ -108,7 +112,7 @@ The v3 struct includes a header for backward compatibility:
 | `magic` | uint32 | Magic number `0x32544F56` ("VOT2" in little-endian) |
 | `structSize` | uint32 | Size of the struct in bytes |
 | `structVersion` | uint32 | Struct version (currently 3) |
-| `dspVersion` | uint32 | DSP version (currently 5) |
+| `dspVersion` | uint32 | DSP version (currently 6) |
 
 When the DLL receives a `VoicingTone` struct, it checks the magic number:
 - **If magic matches**: Uses the full v3 struct with all 12 parameters
@@ -145,13 +149,15 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 
 ### FrameEx struct (DSP version 5+)
 
-DSP version 5 introduces an optional per-frame extension struct for voice quality parameters that vary during speech (e.g., Danish stød). This keeps the original 47-parameter frame ABI stable.
+DSP version 5 introduced an optional per-frame extension struct for voice quality parameters that vary during speech (e.g., Danish stød). DSP version 6 adds formant end targets and Fujisaki pitch model parameters. This keeps the original 47-parameter frame ABI stable.
 
 #### New API function
 
 - `speechPlayer_queueFrameEx(handle, frame*, frameEx*, frameExSize, minDuration, fadeDuration, userIndex, purgeQueue)` — Queue a frame with optional extended parameters. The `frameExSize` parameter enables forward compatibility. If `frameEx` is NULL, behaves identically to `speechPlayer_queueFrame()`.
 
 #### FrameEx parameters
+
+##### Voice quality (DSP v5+)
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
@@ -160,6 +166,33 @@ DSP version 5 introduces an optional per-frame extension struct for voice qualit
 | `jitter` | double | 0.0 | 0.0–1.0 | Pitch perturbation (cycle-to-cycle F0 variation). Adds random pitch wobble for more natural or pathological voice quality. |
 | `shimmer` | double | 0.0 | 0.0–1.0 | Amplitude perturbation (cycle-to-cycle intensity variation). Adds random amplitude wobble. |
 | `sharpness` | double | 0.0 | 0.0–15.0 | Glottal closure sharpness multiplier. When non-zero, multiplies the sample-rate-appropriate base sharpness (e.g., 10.0 at 44100 Hz, 3.0 at 16000 Hz). Values 0.5–2.0 are typical slider range. 0 = use default. Higher values create crisper, more "Eloquence-like" attacks. |
+
+##### Formant end targets (DSP v6+)
+
+These enable DECTalk-style within-frame formant ramping for smoother CV transitions:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `endCf1` | double | NAN | End target for cascade F1 (Hz). NAN = no ramping. |
+| `endCf2` | double | NAN | End target for cascade F2 (Hz). NAN = no ramping. |
+| `endCf3` | double | NAN | End target for cascade F3 (Hz). NAN = no ramping. |
+| `endPf1` | double | NAN | End target for parallel F1 (Hz). NAN = no ramping. |
+| `endPf2` | double | NAN | End target for parallel F2 (Hz). NAN = no ramping. |
+| `endPf3` | double | NAN | End target for parallel F3 (Hz). NAN = no ramping. |
+
+##### Fujisaki pitch model (DSP v6+)
+
+The Fujisaki pitch model provides natural-sounding intonation with phrase-level declination and accent peaks. This is used when `legacyPitchMode: "fujisaki_style"` is set in the language pack.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `fujisakiEnabled` | double | 0.0 | 1.0 to enable Fujisaki processing, 0.0 to disable. |
+| `fujisakiReset` | double | 0.0 | 1.0 to reset model state (at clause start). |
+| `fujisakiPhraseAmp` | double | 0.0 | Phrase command amplitude (log-F0 domain). Triggers phrase arc on rising edge. |
+| `fujisakiPhraseLen` | double | 0.0 | Phrase filter length in samples. 0 = use DSP default (~4250 @ 22050 Hz). |
+| `fujisakiAccentAmp` | double | 0.0 | Accent command amplitude (log-F0 domain). Triggers accent peak on rising edge. |
+| `fujisakiAccentDur` | double | 0.0 | Accent pulse duration in samples. 0 = use DSP default (~7500 @ 22050 Hz). |
+| `fujisakiAccentLen` | double | 0.0 | Accent filter length in samples. 0 = use DSP default (~1024 @ 22050 Hz). |
 
 These parameters are interpolated during frame crossfades, just like the core frame parameters.
 
@@ -202,7 +235,7 @@ class VoicingTone(Structure):
         tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC
         tone.structSize = sizeof(cls)
         tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION
-        tone.dspVersion = 5
+        tone.dspVersion = 6
         tone.voicingPeakPos = 0.91
         tone.voicedPreEmphA = 0.92
         tone.voicedPreEmphMix = 0.35
@@ -729,13 +762,56 @@ These are “compat switches” for behavior that existed in the legacy Python p
 - `stripHyphen` (bool, default `true`): Removes hyphens in IPA streams.
 
 #### Pitch model selection
-- By default, the frontend uses the table-based intonation model (same contours as `ipa.py`).
-- If you prefer the older, more time-based pitch curves (ported from the ee80f4d-era `ipa.py`), you can enable legacy pitch mode per language.
-- `legacyPitchMode` (bool, default `false`): If true, use the legacy pitch curve model.
-- `legacyPitchInflectionScale` (number, default `0.58`): When `legacyPitchMode` is enabled, the engine multiplies the caller-provided `inflection` (0..1) by this value before applying the legacy math.
-  - Why: historical NVSpeechPlayer defaults used a lower inflection setting (e.g. 35) than many modern configs (often 60), and the legacy math can sound overly “excited” when fed higher inflection values.
-  - Set to `1.0` to preserve the historical behavior exactly.
 
+The frontend supports three pitch models, selected via `legacyPitchMode`:
+
+- `legacyPitchMode: "espeak_style"` (default) — Table-based intonation model (same contours as `ipa.py`).
+- `legacyPitchMode: "legacy"` — Older time-based pitch curves ported from the ee80f4d-era `ipa.py`.
+- `legacyPitchMode: "fujisaki_style"` — Fujisaki pitch model with natural declination and accent peaks. This provides Eloquence-like intonation with phrase-level pitch fall and stressed syllable peaks.
+
+Additional pitch settings:
+
+- `legacyPitchInflectionScale` (number, default `0.58`): Multiplier for the caller-provided `inflection` (0..1) before applying pitch math. Historical NVSpeechPlayer used lower inflection values; this scaling prevents overly "excited" speech with modern configs.
+
+##### Fujisaki pitch model settings
+
+When `legacyPitchMode: "fujisaki_style"` is enabled, these settings control the intonation:
+
+**Amplitude settings:**
+- `fujisakiPhraseAmp` (number, default `0.24`): Phrase command amplitude in log-F0 domain. Controls the overall phrase arc.
+- `fujisakiPrimaryAccentAmp` (number, default `0.24`): Primary stress accent amplitude. Creates pitch peaks on stressed syllables.
+- `fujisakiSecondaryAccentAmp` (number, default `0.12`): Secondary stress accent amplitude.
+- `fujisakiAccentMode` (string, default `"all"`): Which syllables get accents: `"all"`, `"first_only"`, or `"off"`.
+
+**Timing settings (DSP filter lengths):**
+- `fujisakiPhraseLen` (number, default `0`): Phrase filter length in samples. 0 = DSP default (~4250 @ 22050 Hz = 193ms).
+- `fujisakiAccentLen` (number, default `0`): Accent filter attack time in samples. 0 = DSP default (~1024 @ 22050 Hz = 46ms).
+- `fujisakiAccentDur` (number, default `0`): Accent pulse duration in samples. 0 = DSP default (~7500 @ 22050 Hz = 340ms).
+
+**Declination settings (linear pitch fall across utterance):**
+- `fujisakiDeclinationScale` (number, default `25.0`): How fast pitch falls. Lower = gentler slope.
+- `fujisakiDeclinationMax` (number, default `1.25`): Maximum declination ratio (floor). 1.25 means pitch can't drop below ~80% of base. Lower values = shallower floor.
+- `fujisakiDeclinationPostFloor` (number, default `0.15`): Continued slope after hitting floor (0-1). 0 = flat after floor, 0.15 = continue at 15% rate.
+
+**Clause-type prosody:**
+The Fujisaki model automatically adjusts prosody based on punctuation:
+- `.` (period): Full declarative fall (default behavior)
+- `?` (question): Higher pitch, less declination, strong final rise
+- `!` (exclamation): Punchy accents, dramatic fall
+- `,` (comma): Less declination, continuation feel
+
+Example configuration for Eloquence-like prosody:
+```yaml
+settings:
+  legacyPitchMode: "fujisaki_style"
+  fujisakiPhraseAmp: 0.24
+  fujisakiPrimaryAccentAmp: 0.24
+  fujisakiSecondaryAccentAmp: 0.12
+  fujisakiDeclinationScale: 25.0
+  fujisakiDeclinationMax: 1.25
+```
+
+*Note: The Fujisaki pitch model implementation was developed with assistance from Rommix, whose extensive testing and feedback on timing parameters helped shape the final behavior.*
 
 #### Tonal language support
 - `tonal` (bool, default `false`): Enables tone parsing / tone contours.
@@ -923,6 +999,47 @@ settings:
 
   # Target F3 to blend toward during pinch.
   coarticulationVelarPinchF3: 2400
+```
+
+#### Per-formant scaling
+
+Control how much each formant is affected by coarticulation:
+
+```yaml
+settings:
+  coarticulationF1Scale: 0.6   # F1 gets 60% of coarticulation effect
+  coarticulationF2Scale: 1.0   # F2 gets full effect (most important for place)
+  coarticulationF3Scale: 0.5   # F3 gets 50% of effect
+```
+
+#### Mitalk-K locus weighting
+
+The `coarticulationMitalkK` parameter controls how strongly consonant locus targets pull the formants vs. how strongly vowel targets pull:
+
+```yaml
+settings:
+  coarticulationMitalkK: 0.42  # 0.0 = all vowel, 1.0 = all consonant locus
+```
+
+#### Alveolar back-vowel enhancement
+
+Strengthens coarticulation for alveolars before back vowels (helps /t/ sound less fronted before /u/, /o/):
+
+```yaml
+settings:
+  coarticulationAlveolarBackVowelEnabled: true
+  coarticulationBackVowelF2Threshold: 1400      # F2 < this = "back vowel"
+  coarticulationAlveolarBackVowelStrengthBoost: 1.25
+```
+
+#### Labialized fricative fronting
+
+Pulls F2 forward slightly for fricatives before rounded vowels:
+
+```yaml
+settings:
+  coarticulationLabializedFricativeFrontingEnabled: true
+  coarticulationLabializedFricativeF2Pull: 0.15
 ```
 
 Tuning notes:
