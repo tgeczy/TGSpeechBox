@@ -102,11 +102,10 @@ class SynthDriver(SynthDriver):
         DriverSetting("spellingDiphthongMode", "Spelling diphthong mode"),
     ]
 
-    # Only expose legacyPitchMode checkbox - all other booleans are YAML-only.
-    if BooleanDriverSetting is not None:
-        _supportedSettings.append(
-            BooleanDriverSetting("legacyPitchMode", "Use classic pitch and intonation style"),  # type: ignore
-        )
+    # Only expose legacyPitchMode combo - all other booleans are YAML-only.
+    _supportedSettings.append(
+        DriverSetting("legacyPitchMode", "Pitch mode"),
+    )
 
     supportedSettings = tuple(_supportedSettings)
 
@@ -834,6 +833,14 @@ class SynthDriver(SynthDriver):
         )
     )
 
+    _LEGACY_PITCH_MODES = OrderedDict(
+        (
+            ("espeak_style", VoiceInfo("espeak_style", "eSpeak style")),
+            ("fujisaki_style", VoiceInfo("fujisaki_style", "Fujisaki")),
+            ("legacy", VoiceInfo("legacy", "Classic")),
+        )
+    )
+
     def _makeLangPackAccessors(attrName, yamlKey, kind="str", default=None, choices=None):
         """Generate _get/_set (and available* when needed) methods for YAML-backed settings."""
 
@@ -922,7 +929,7 @@ class SynthDriver(SynthDriver):
         # --- Trajectory limit settings ---
         ("trajectoryLimitEnabled", "trajectoryLimit.enabled", "bool", False, None),
         ("trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit.applyAcrossWordBoundary", "bool", False, None),
-        ("legacyPitchMode", "legacyPitchMode", "bool", False, None),
+        # legacyPitchMode has custom accessors below (for bool→enum migration)
         ("tonal", "tonal", "bool", False, None),
         ("toneDigitsEnabled", "toneDigitsEnabled", "bool", False, None),
         ("toneContoursMode", "toneContoursMode", "enum", "absolute", _TONE_CONTOURS_MODES),
@@ -942,6 +949,40 @@ class SynthDriver(SynthDriver):
 
     # Clean up generator helpers so they don't become part of the public driver API.
     del _makeLangPackAccessors, _LANG_PACK_SPECS, _attrName, _yamlKey, _kind, _default, _choices, _methName, _meth
+
+    # Override legacyPitchMode accessor to handle migration from old boolean format.
+    # Old YAML had: legacyPitchMode: false/true
+    # New YAML has: legacyPitchMode: "espeak_style"/"fujisaki_style"/"legacy"
+    def _get_legacyPitchMode(self):
+        try:
+            val = self._getLangPackStr("legacyPitchMode", default="")
+            # Handle missing/empty value
+            if not val:
+                return "espeak_style"
+            # Handle old boolean values (YAML bools become "True"/"False" strings)
+            if val in ("true", "True", "1"):
+                return "legacy"  # Old "true" meant classic/legacy mode
+            if val in ("false", "False", "0"):
+                return "espeak_style"  # Old "false" meant espeak style
+            # Check if it's a valid new-style value
+            if val in ("espeak_style", "fujisaki_style", "legacy"):
+                return val
+            # Unknown value, return default
+            return "espeak_style"
+        except Exception:
+            return "espeak_style"
+
+    def _set_legacyPitchMode(self, val):
+        try:
+            self._setLangPackSetting("legacyPitchMode", self._choiceToIdStr(val))
+        except Exception:
+            pass
+
+    def _get_availableLegacyPitchModes(self):
+        return self._LEGACY_PITCH_MODES
+
+    def _get_availableLegacypitchmodes(self):
+        return self._LEGACY_PITCH_MODES
 
     def _enqueue(self, func, *args, **kwargs):
         if self._bgStop.is_set():

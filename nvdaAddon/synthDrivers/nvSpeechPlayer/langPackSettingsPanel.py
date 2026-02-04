@@ -339,6 +339,31 @@ def _getPanelClass():
             )
             self._addQuickTextField(
                 sHelper,
+                label=_("Adjacency max consonants (coarticulationAdjacencyMaxConsonants):"),
+                key="coarticulationAdjacencyMaxConsonants",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Mitalk-K locus weight (coarticulationMitalkK):"),
+                key="coarticulationMitalkK",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("F1 scale (coarticulationF1Scale):"),
+                key="coarticulationF1Scale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("F2 scale (coarticulationF2Scale):"),
+                key="coarticulationF2Scale",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("F3 scale (coarticulationF3Scale):"),
+                key="coarticulationF3Scale",
+            )
+            self._addQuickTextField(
+                sHelper,
                 label=_("Labial F2 locus (coarticulationLabialF2Locus):"),
                 key="coarticulationLabialF2Locus",
             )
@@ -351,6 +376,21 @@ def _getPanelClass():
                 sHelper,
                 label=_("Velar F2 locus (coarticulationVelarF2Locus):"),
                 key="coarticulationVelarF2Locus",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Back vowel F2 threshold (coarticulationBackVowelF2Threshold):"),
+                key="coarticulationBackVowelF2Threshold",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Alveolar back vowel boost (coarticulationAlveolarBackVowelStrengthBoost):"),
+                key="coarticulationAlveolarBackVowelStrengthBoost",
+            )
+            self._addQuickTextField(
+                sHelper,
+                label=_("Labialized fric F2 pull (coarticulationLabializedFricativeF2Pull):"),
+                key="coarticulationLabializedFricativeF2Pull",
             )
             self._addQuickTextField(
                 sHelper,
@@ -434,11 +474,6 @@ def _getPanelClass():
 
             # --- Word-final schwa reduction settings ---
             sHelper.addItem(wx.StaticText(self, label=_("Word-final schwa reduction:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Enabled (wordFinalSchwaReductionEnabled):"),
-                key="wordFinalSchwaReductionEnabled",
-            )
             self._addQuickTextField(
                 sHelper,
                 label=_("Scale (wordFinalSchwaScale):"),
@@ -640,6 +675,7 @@ def _getPanelClass():
                 "stopClosureVowelFadeMs",
                 "stopClosureClusterGapMs",
                 "stopClosureClusterFadeMs",
+                "postStopAspirationEnabled",
                 "stressedVowelHiatusGapMs",
                 "stressedVowelHiatusFadeMs",
                 "semivowelOffglideScale",
@@ -663,6 +699,29 @@ def _getPanelClass():
                 "coarticulationVelarPinchF3",
                 "coarticulationGraduated",
                 "coarticulationAdjacencyMaxConsonants",
+                "coarticulationMitalkK",
+                "coarticulationF1Scale",
+                "coarticulationF2Scale",
+                "coarticulationF3Scale",
+                "coarticulationAlveolarBackVowelEnabled",
+                "coarticulationBackVowelF2Threshold",
+                "coarticulationAlveolarBackVowelStrengthBoost",
+                "coarticulationLabializedFricativeFrontingEnabled",
+                "coarticulationLabializedFricativeF2Pull",
+                # --- Pitch model settings ---
+                "legacyPitchMode",
+                "legacyPitchInflectionScale",
+                # --- Fujisaki pitch model settings ---
+                "fujisakiPhraseAmp",
+                "fujisakiPrimaryAccentAmp",
+                "fujisakiSecondaryAccentAmp",
+                "fujisakiAccentMode",
+                "fujisakiPhraseLen",
+                "fujisakiAccentLen",
+                "fujisakiAccentDur",
+                "fujisakiDeclinationScale",
+                "fujisakiDeclinationMax",
+                "fujisakiDeclinationPostFloor",
                 # --- Phrase-final lengthening settings ---
                 "phraseFinalLengtheningEnabled",
                 "phraseFinalLengtheningFinalSyllableScale",
@@ -744,8 +803,14 @@ def _getPanelClass():
                     "stopClosureMode",
                     "stopClosureVowelGapMs",
                     "stopClosureVowelFadeMs",
+                    "postStopAspirationEnabled",
                     "semivowelOffglideScale",
                     "legacyPitchMode",
+                    "legacyPitchInflectionScale",
+                    "fujisakiPhraseAmp",
+                    "fujisakiPrimaryAccentAmp",
+                    "fujisakiDeclinationScale",
+                    "fujisakiDeclinationMax",
                     "stripAllophoneDigits",
                     "coarticulationEnabled",
                     "coarticulationStrength",

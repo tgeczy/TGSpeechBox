@@ -17,13 +17,30 @@ from . import speechPlayer
 
 
 # FrameEx struct matching nvspFrontend_FrameEx in the DLL (ABI v2+)
+# IMPORTANT: Must match speechPlayer.FrameEx exactly (18 doubles = 144 bytes)
 class FrameEx(ctypes.Structure):
     _fields_ = [
+        # Voice quality parameters (DSP v5)
         ("creakiness", ctypes.c_double),
         ("breathiness", ctypes.c_double),
         ("jitter", ctypes.c_double),
         ("shimmer", ctypes.c_double),
         ("sharpness", ctypes.c_double),
+        # Formant end targets (DECTalk-style ramping)
+        ("endCf1", ctypes.c_double),
+        ("endCf2", ctypes.c_double),
+        ("endCf3", ctypes.c_double),
+        ("endPf1", ctypes.c_double),
+        ("endPf2", ctypes.c_double),
+        ("endPf3", ctypes.c_double),
+        # Fujisaki pitch model (DSP v6+)
+        ("fujisakiEnabled", ctypes.c_double),
+        ("fujisakiReset", ctypes.c_double),
+        ("fujisakiPhraseAmp", ctypes.c_double),
+        ("fujisakiPhraseLen", ctypes.c_double),
+        ("fujisakiAccentAmp", ctypes.c_double),
+        ("fujisakiAccentDur", ctypes.c_double),
+        ("fujisakiAccentLen", ctypes.c_double),
     ]
 
 
