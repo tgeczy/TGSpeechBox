@@ -29,7 +29,46 @@ Based on klsyn-88, found at http://linguistics.berkeley.edu/phonlab/resources/
 
 using namespace std;
 
+// -----------------------------------------------------------------------------
+// Formant sweep bandwidth handling
+//
+// Sweeping a resonator's center frequency while holding bandwidth constant changes
+// effective Q (= F/B). For upward sweeps this narrows the resonance and can yield
+// a "whistly / boxy" quality as individual harmonics get over-emphasized.
+// To keep sweeps sounding speech-like we cap Q by widening bandwidth as needed.
+//
+// Applied only when the current frame provides endCf/endPf targets (diphthongs etc.).
+// -----------------------------------------------------------------------------
+
+static inline double clampDouble(double v, double lo, double hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+
+static inline double bandwidthForSweep(double freqHz, double baseBwHz, double qMax, double bwMinHz, double bwMaxHz) {
+    if (!std::isfinite(freqHz) || !std::isfinite(baseBwHz) || freqHz <= 0.0 || baseBwHz <= 0.0) {
+        return baseBwHz;
+    }
+    // Enforce minimum bandwidth (and thus a maximum Q).
+    double bw = baseBwHz;
+    double bwFromQ = freqHz / qMax;
+    if (bwFromQ > bw) bw = bwFromQ;
+    return clampDouble(bw, bwMinHz, bwMaxHz);
+}
+
 const double PITWO=M_PI*2;
+
+// Limits used only during within-phoneme formant sweeps (endCf/endPf).
+// These keep resonators from becoming ultra-high-Q as formants move upward.
+const double kSweepQMaxF1 = 10.0;
+const double kSweepQMaxF2 = 18.0;
+const double kSweepQMaxF3 = 20.0;
+
+const double kSweepBwMinF1 = 30.0;
+const double kSweepBwMinF2 = 40.0;
+const double kSweepBwMinF3 = 60.0;
+const double kSweepBwMax = 1000.0;
 
 // ------------------------------------------------------------
 // Tuning knobs (DSP-layer).
@@ -878,7 +917,7 @@ public:
             // TRUE breathy voice: the voiced component nearly disappears.
             // At full breathiness, only 15% of voice remains (85% reduction).
             // This makes turbulent noise the PRIMARY sound, not an additive layer.
-            voiceAmp *= (1.0 - (0.95 * breathiness));
+            voiceAmp *= (1.0 - (0.98 * breathiness));
         }
         voiceAmp *= shimmerMul;
 
@@ -1125,7 +1164,7 @@ public:
         r1.setPitchSyncParams(f1DeltaHz, b1DeltaHz);
     }
 
-    double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
+    double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {
         input/=2.0;
         // Klatt cascade: N0 (antiresonator) -> NP (resonator), then cascade formants.
         // NOTE: Our phoneme tables were tuned with the classic high-to-low cascade order
@@ -1141,13 +1180,24 @@ public:
             frame->caNP
         );
 
+        // During within-phoneme formant sweeps (diphthongs), widen bandwidth as needed
+        // to keep resonators from becoming ultra-high-Q as formants move upward.
+        double cb1 = frame->cb1;
+        double cb2 = frame->cb2;
+        double cb3 = frame->cb3;
+        if (frameEx) {
+            if (!std::isnan(frameEx->endCf1)) cb1 = bandwidthForSweep(frame->cf1, cb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
+            if (!std::isnan(frameEx->endCf2)) cb2 = bandwidthForSweep(frame->cf2, cb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
+            if (!std::isnan(frameEx->endCf3)) cb3 = bandwidthForSweep(frame->cf3, cb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
+        }
+
         output = r6.resonate(output, frame->cf6, frame->cb6);
         output = r5.resonate(output, frame->cf5, frame->cb5);
         output = r4.resonate(output, frame->cf4, frame->cb4);
-        output = r3.resonate(output, frame->cf3, frame->cb3);
-        output = r2.resonate(output, frame->cf2, frame->cb2);
+        output = r3.resonate(output, frame->cf3, cb3);
+        output = r2.resonate(output, frame->cf2, cb2);
         // F1 uses pitch-synchronous resonator without Fujisaki compensation (dropped as we don't have F1 spikes it worked with.)
-        output = r1.resonate(output, frame->cf1, frame->cb1, glottisOpen);
+        output = r1.resonate(output, frame->cf1, cb1, glottisOpen);
         return output;
     }
 };
@@ -1164,13 +1214,24 @@ public:
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset();
     }
 
-    double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
+    double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {
         input/=2.0;
         (void)glottisOpen;
         double output=0;
-        output+=(r1.resonate(input,frame->pf1,frame->pb1)-input)*frame->pa1;
-        output+=(r2.resonate(input,frame->pf2,frame->pb2)-input)*frame->pa2;
-        output+=(r3.resonate(input,frame->pf3,frame->pb3)-input)*frame->pa3;
+
+        // Same Q-capping logic for parallel formants when their frequencies are swept.
+        double pb1 = frame->pb1;
+        double pb2 = frame->pb2;
+        double pb3 = frame->pb3;
+        if (frameEx) {
+            if (!std::isnan(frameEx->endPf1)) pb1 = bandwidthForSweep(frame->pf1, pb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
+            if (!std::isnan(frameEx->endPf2)) pb2 = bandwidthForSweep(frame->pf2, pb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
+            if (!std::isnan(frameEx->endPf3)) pb3 = bandwidthForSweep(frame->pf3, pb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
+        }
+
+        output+=(r1.resonate(input,frame->pf1,pb1)-input)*frame->pa1;
+        output+=(r2.resonate(input,frame->pf2,pb2)-input)*frame->pa2;
+        output+=(r3.resonate(input,frame->pf3,pb3)-input)*frame->pa3;
         output+=(r4.resonate(input,frame->pf4,frame->pb4)-input)*frame->pa4;
         output+=(r5.resonate(input,frame->pf5,frame->pb5)-input)*frame->pa5;
         output+=(r6.resonate(input,frame->pf6,frame->pb6)-input)*frame->pa6;
@@ -1514,7 +1575,7 @@ public:
                 asp = asp + burstiness * (aspFilt - asp);
                 double voiceForCascade = voicedOnly + asp;
 
-                double cascadeOut = cascade.getNext(frame, voiceGenerator.glottisOpen, voiceForCascade * smoothPreGain);
+                double cascadeOut = cascade.getNext(frame, frameEx, voiceGenerator.glottisOpen, voiceForCascade * smoothPreGain);
 
                 // Generate raw frication noise
                 double fricNoise = fricGenerator.getNext() * kFricNoiseScale * fricAmp * bypassGain * bypassVoicedDuck * voicedFricScale;
@@ -1537,7 +1598,7 @@ public:
                 // burstiness=1 -> use burst (darker), burstiness=0 -> use sustain (brighter)
                 double fric = fricSustain + burstiness * (fricBurst - fricSustain);
 
-                double parallelOut=parallel.getNext(frame,voiceGenerator.glottisOpen,fric*smoothPreGain);
+                double parallelOut=parallel.getNext(frame, frameEx, voiceGenerator.glottisOpen, fric*smoothPreGain);
                 double out=(cascadeOut+parallelOut)*frame->outputGain;
 
                 // DC blocking
