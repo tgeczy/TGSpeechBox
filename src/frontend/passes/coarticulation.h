@@ -5,7 +5,8 @@
 
 namespace nvsp_frontend::passes {
 
-// Locus-based coarticulation tweaks (formant targets + optional velar pinch).
+// DECTalk-style coarticulation: shifts vowel START formants toward consonant
+// locus, sets endCf to canonical target. DSP ramps smoothly within vowel.
 bool runCoarticulation(
     PassContext& ctx,
     std::vector<Token>& tokens,

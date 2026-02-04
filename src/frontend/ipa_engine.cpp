@@ -2376,14 +2376,21 @@ void emitFramesEx(
     frameEx.shimmer = clamp01(phonemeShimmer + frameExDefaults.shimmer);
     frameEx.sharpness = clampSharpness(phonemeSharpness * frameExDefaults.sharpness);
     
-    // Formant end targets: direct values from phoneme, NAN if not set
-    // These enable DECTalk-style within-frame formant ramping
-    frameEx.endCf1 = (t.def && t.def->hasEndCf1) ? t.def->endCf1 : NAN;
-    frameEx.endCf2 = (t.def && t.def->hasEndCf2) ? t.def->endCf2 : NAN;
-    frameEx.endCf3 = (t.def && t.def->hasEndCf3) ? t.def->endCf3 : NAN;
-    frameEx.endPf1 = (t.def && t.def->hasEndPf1) ? t.def->endPf1 : NAN;
-    frameEx.endPf2 = (t.def && t.def->hasEndPf2) ? t.def->endPf2 : NAN;
-    frameEx.endPf3 = (t.def && t.def->hasEndPf3) ? t.def->endPf3 : NAN;
+    // Formant end targets: token-level (from coarticulation) takes priority,
+    // then phoneme-level, otherwise NAN (no ramping).
+    // This enables DECTalk-style within-frame formant ramping for CV transitions.
+    frameEx.endCf1 = t.hasEndCf1 ? t.endCf1 : 
+                     (t.def && t.def->hasEndCf1) ? t.def->endCf1 : NAN;
+    frameEx.endCf2 = t.hasEndCf2 ? t.endCf2 : 
+                     (t.def && t.def->hasEndCf2) ? t.def->endCf2 : NAN;
+    frameEx.endCf3 = t.hasEndCf3 ? t.endCf3 : 
+                     (t.def && t.def->hasEndCf3) ? t.def->endCf3 : NAN;
+    frameEx.endPf1 = t.hasEndCf1 ? t.endCf1 :  // Parallel uses same as cascade for coart
+                     (t.def && t.def->hasEndPf1) ? t.def->endPf1 : NAN;
+    frameEx.endPf2 = t.hasEndCf2 ? t.endCf2 :
+                     (t.def && t.def->hasEndPf2) ? t.def->endPf2 : NAN;
+    frameEx.endPf3 = t.hasEndCf3 ? t.endCf3 :
+                     (t.def && t.def->hasEndPf3) ? t.def->endPf3 : NAN;
 
     // Handle trill modulation (simplified version - emits micro-frames)
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {

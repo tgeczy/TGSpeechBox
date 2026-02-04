@@ -1,70 +1,61 @@
-#include "coarticulation.h"
+// =============================================================================
+// Coarticulation Pass - DECTalk-style START/END formant transitions
+// =============================================================================
+//
+// This approach shifts vowel START formants toward the preceding consonant's
+// locus, then sets endCf to the canonical vowel target. The DSP ramps smoothly
+// from start to end within the vowel, creating natural CV transitions.
+//
+// This is how DECTalk/Klatt handle coarticulation: each vowel has both START
+// and END formant targets, with the START influenced by consonant context.
+//
+// Rules:
+// 1. Find vowels with consonants to the left
+// 2. Shift vowel's START F1/F2 toward consonant's locus
+// 3. Set endCf1/2 to the vowel's canonical (original) values
+// 4. DSP exponentially smooths from start → end over vowel duration
+//
 
+#include "coarticulation.h"
+#include "../pack.h"
+#include "../ipa_engine.h"
 #include <algorithm>
 #include <cmath>
 
 namespace nvsp_frontend::passes {
 
-namespace {
-
 // -----------------------------------------------------------------------------
-// Field helpers
-// -----------------------------------------------------------------------------
-
-static inline bool hasField(const Token& t, FieldId id) {
-  return (t.setMask & (1ULL << static_cast<int>(id))) != 0;
-}
-
-static inline double getField(const Token& t, FieldId id) {
-  // Returns the token's field value if set, otherwise the def's value.
-  const int idx = static_cast<int>(id);
-  if (hasField(t, id)) {
-    return t.field[idx];
-  }
-  // Fall back to phoneme def if it has the field.
-  if (t.def && (t.def->setMask & (1ULL << idx))) {
-    return t.def->field[idx];
-  }
-  return 0.0;
-}
-
-static inline void setField(Token& t, FieldId id, double value) {
-  // Set the field value AND mark it in setMask so emitFrames will use it.
-  const int idx = static_cast<int>(id);
-  t.field[idx] = value;
-  t.setMask |= (1ULL << idx);
-}
-
-// -----------------------------------------------------------------------------
-// Phoneme classification
+// Helper functions
 // -----------------------------------------------------------------------------
 
 static inline bool isVowel(const Token& t) {
   return t.def && ((t.def->flags & kIsVowel) != 0);
 }
 
-static inline bool isSilenceOrMissing(const Token& t) {
-  return t.silence || !t.def;
-}
-
 static inline bool isConsonant(const Token& t) {
   if (!t.def) return false;
-  // Anything that's not a vowel and not silence.
   return (t.def->flags & kIsVowel) == 0;
 }
 
-static inline bool isStopLike(const Token& t) {
+static inline bool isStop(const Token& t) {
+  return t.def && ((t.def->flags & kIsStop) != 0);
+}
+
+static inline bool isAfricate(const Token& t) {
+  return t.def && ((t.def->flags & kIsAfricate) != 0);
+}
+
+static inline bool isFricative(const Token& t) {
   if (!t.def) return false;
-  const uint32_t f = t.def->flags;
-  return ((f & kIsStop) != 0) || ((f & kIsAfricate) != 0);
-}
-
-static inline bool isNasal(const Token& t) {
-  return t.def && ((t.def->flags & kIsNasal) != 0);
-}
-
-static inline bool isLiquid(const Token& t) {
-  return t.def && ((t.def->flags & kIsLiquid) != 0);
+  if (isStop(t) || isAfricate(t)) return false;
+  const int idx = static_cast<int>(FieldId::fricationAmplitude);
+  double fric = 0.0;
+  if ((t.setMask & (1ULL << idx)) != 0) {
+    fric = t.field[idx];
+  } else if (t.def->setMask & (1ULL << idx)) {
+    fric = t.def->field[idx];
+  }
+  return fric > 0.05;
 }
 
 static inline bool isSemivowel(const Token& t) {
@@ -75,175 +66,122 @@ static inline bool isVowelLike(const Token& t) {
   return isVowel(t) || isSemivowel(t);
 }
 
+// Does this consonant trigger coarticulation on an adjacent vowel?
+static inline bool triggersCoarticulation(const Token& t) {
+  return isFricative(t) || isStop(t) || isAfricate(t);
+}
+
 // -----------------------------------------------------------------------------
-// Place of articulation detection
+// Place of articulation
 // -----------------------------------------------------------------------------
 
-enum class PlaceOfArticulation {
+enum class Place {
   Unknown,
   Labial,
   Alveolar,
+  Palatal,
   Velar,
-  // Could add: Palatal, Glottal, etc.
 };
 
-static PlaceOfArticulation getPlaceOfArticulation(const std::u32string& key) {
+static Place getPlace(const std::u32string& key) {
   // Labials
   if (key == U"p" || key == U"b" || key == U"m" ||
       key == U"f" || key == U"v" || key == U"w" ||
-      key == U"ʍ") {
-    return PlaceOfArticulation::Labial;
+      key == U"ʍ" || key == U"ɸ" || key == U"β") {
+    return Place::Labial;
   }
   
   // Alveolars
   if (key == U"t" || key == U"d" || key == U"n" ||
       key == U"s" || key == U"z" || key == U"l" ||
-      key == U"r" || key == U"ɾ" || key == U"ɹ" ||
-      key == U"ɬ" || key == U"ɮ") {
-    return PlaceOfArticulation::Alveolar;
+      key == U"r" || key == U"ɹ" || key == U"ɾ" ||
+      key == U"θ" || key == U"ð" || key == U"ɬ" ||
+      key == U"ɮ" || key == U"ɻ" || key == U"ɖ" ||
+      key == U"ʈ" || key == U"ɳ" || key == U"ɽ") {
+    return Place::Alveolar;
+  }
+  
+  // Palatals / Postalveolars
+  if (key == U"ʃ" || key == U"ʒ" || key == U"tʃ" ||
+      key == U"dʒ" || key == U"j" || key == U"ɲ" ||
+      key == U"ç" || key == U"ʝ" || key == U"c" ||
+      key == U"ɟ" || key == U"ʎ") {
+    return Place::Palatal;
   }
   
   // Velars
   if (key == U"k" || key == U"g" || key == U"ŋ" ||
-      key == U"x" || key == U"ɣ") {
-    return PlaceOfArticulation::Velar;
+      key == U"x" || key == U"ɣ" || key == U"ɰ") {
+    return Place::Velar;
   }
   
-  return PlaceOfArticulation::Unknown;
+  return Place::Unknown;
 }
 
 // -----------------------------------------------------------------------------
-// Vowel lookup helpers
+// Locus values by place (F2 targets where consonant "points")
 // -----------------------------------------------------------------------------
 
-struct VowelHit {
-  const Token* tok = nullptr;
-  int consonantsAway = 0;  // 0 = immediately adjacent (ignoring silences)
-};
-
-static VowelHit findNearestVowelLeft(
-    const std::vector<Token>& tokens,
-    size_t i,
-    bool crossWord,
-    int maxConsonants) {
-  VowelHit out;
-  int cons = 0;
-
-  for (size_t j = i; j > 0; --j) {
-    const Token& prev = tokens[j - 1];
-
-    // Silence breaks coarticulation context.
-    if (isSilenceOrMissing(prev)) break;
-
-    if (isVowelLike(prev)) {
-      out.tok = &prev;
-      out.consonantsAway = cons;
-      return out;
-    }
-
-    // Consonant.
-    cons += 1;
-    if (cons > maxConsonants) break;
-
-    // If we've reached the start of the current word, don't cross further.
-    if (!crossWord && prev.wordStart) break;
+static double getLocusF2(Place place) {
+  switch (place) {
+    case Place::Labial:   return 900.0;   // Lips - low F2
+    case Place::Alveolar: return 1700.0;  // Tongue tip - mid-high F2
+    case Place::Palatal:  return 2300.0;  // Palate - high F2
+    case Place::Velar:    return 1500.0;  // Back - variable, use mid
+    default:              return 0.0;
   }
-
-  return out;
 }
 
-static VowelHit findNearestVowelRight(
-    const std::vector<Token>& tokens,
-    size_t i,
-    bool crossWord,
-    int maxConsonants) {
-  VowelHit out;
-  int cons = 0;
-
-  for (size_t j = i + 1; j < tokens.size(); ++j) {
-    const Token& next = tokens[j];
-
-    // Silence breaks coarticulation context.
-    if (isSilenceOrMissing(next)) break;
-
-    // Stop at word boundary unless explicitly crossing.
-    if (!crossWord && next.wordStart) break;
-
-    if (isVowelLike(next)) {
-      out.tok = &next;
-      out.consonantsAway = cons;
-      return out;
-    }
-
-    // Consonant.
-    cons += 1;
-    if (cons > maxConsonants) break;
+// F1 locus is generally constricted (low) for all consonants
+static double getLocusF1(Place place) {
+  switch (place) {
+    case Place::Labial:   return 300.0;
+    case Place::Alveolar: return 350.0;
+    case Place::Palatal:  return 280.0;
+    case Place::Velar:    return 320.0;
+    default:              return 0.0;
   }
-
-  return out;
-}
-
-static inline double hitWeight(const VowelHit& h) {
-  if (!h.tok) return 0.0;
-  return 1.0 / (static_cast<double>(h.consonantsAway) + 1.0);
 }
 
 // -----------------------------------------------------------------------------
-// Core coarticulation logic
+// Field access helpers
 // -----------------------------------------------------------------------------
 
-static void applyLocusShift(
-    Token& c,
-    FieldId formantId,
-    double locus,
-    double strength,
-    const Token* adjacentVowel) {
-  
-  // Get the current formant value (from token or def).
-  double current = getField(c, formantId);
-  
-  // If the consonant has no formant value at all, use the locus as a starting point.
-  // This handles stops that only have parallel (burst) formants defined.
-  if (current <= 0.0) {
-    // Try to get a reasonable starting value from the adjacent vowel.
-    if (adjacentVowel) {
-      current = getField(*adjacentVowel, formantId);
-    }
-    // If still zero, use the locus itself as the base.
-    if (current <= 0.0) {
-      current = locus;
-    }
+static double getField(const Token& t, FieldId id) {
+  const int idx = static_cast<int>(id);
+  if ((t.setMask & (1ULL << idx)) != 0) {
+    return t.field[idx];
   }
-  
-  // Interpolate toward the locus.
-  double shifted = current + (locus - current) * strength;
-  
-  // Write back with setMask so emitFrames will use it.
-  setField(c, formantId, shifted);
+  if (t.def && (t.def->setMask & (1ULL << idx)) != 0) {
+    return t.def->field[idx];
+  }
+  return 0.0;
 }
 
-static void applyVelarPinch(
-    Token& c,
-    const Token& nextVowel,
-    const LanguagePack& lang,
-    double strength) {
+static void setField(Token& t, FieldId id, double val) {
+  const int idx = static_cast<int>(id);
+  t.field[idx] = val;
+  t.setMask |= (1ULL << idx);
+}
 
-  strength = std::clamp(strength, 0.0, 1.0);
-  if (strength <= 0.0) return;
+// -----------------------------------------------------------------------------
+// Velar pinch (modify consonant formants before front vowels)
+// -----------------------------------------------------------------------------
+
+static bool isFrontVowel(double f2) {
+  return f2 > 1600.0;  // Front vowels have high F2
+}
+
+static void applyVelarPinch(Token& c, const Token& vowel, 
+                            const LanguagePack& lang, double strength) {
+  double vowelF2 = getField(vowel, FieldId::cf2);
+  if (vowelF2 <= 0.0) vowelF2 = getField(vowel, FieldId::pf2);
   
-  // Velar pinch: before front vowels, F2 and F3 converge.
-  // This makes /ki/ sound different from /ku/.
-  double vowelF2 = getField(nextVowel, FieldId::cf2);
-  if (vowelF2 <= 0.0) {
-    vowelF2 = getField(nextVowel, FieldId::pf2);
+  if (!isFrontVowel(vowelF2)) {
+    return;  // Back vowel - no pinch
   }
   
-  if (vowelF2 < lang.coarticulationVelarPinchThreshold) {
-    // Back vowel - no pinch needed.
-    return;
-  }
-  
-  // Front vowel - apply pinch.
+  // Front vowel - F2 and F3 converge
   const double pinchF2 = vowelF2 * lang.coarticulationVelarPinchF2Scale;
   const double pinchF3 = lang.coarticulationVelarPinchF3;
 
@@ -262,7 +200,9 @@ static void applyVelarPinch(
   }
 }
 
-}  // namespace
+// =============================================================================
+// Main coarticulation pass - DECTalk-style START/END transitions
+// =============================================================================
 
 bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string& outError) {
   (void)outError;
@@ -272,103 +212,86 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
 
   const double strength = std::clamp(lang.coarticulationStrength, 0.0, 1.0);
   if (strength <= 0.0) return true;
-  
-  const double extent = std::clamp(lang.coarticulationTransitionExtent, 0.0, 1.0);
 
   for (size_t i = 0; i < tokens.size(); ++i) {
-    Token& c = tokens[i];
-    if (isSilenceOrMissing(c)) continue;
-    if (!isConsonant(c)) continue;  // Only coarticulate consonants.
+    Token& t = tokens[i];
+    if (t.silence) continue;
 
-    const std::u32string& key = c.def->key;
-    PlaceOfArticulation place = getPlaceOfArticulation(key);
+    // ----- Velar pinch (modify consonant before front vowels) -----
+    if (isConsonant(t) && t.def) {
+      Place place = getPlace(t.def->key);
+      if (place == Place::Velar && lang.coarticulationVelarPinchEnabled) {
+        // Find vowel to the right
+        for (size_t j = i + 1; j < tokens.size(); ++j) {
+          const Token& next = tokens[j];
+          if (next.silence) continue;
+          if (isVowelLike(next)) {
+            applyVelarPinch(t, next, lang, strength);
+          }
+          break;
+        }
+      }
+    }
+
+    // ----- Vowel coarticulation (DECTalk-style start/end) -----
+    if (!isVowelLike(t)) continue;
     
-    if (place == PlaceOfArticulation::Unknown) {
-      // No locus data for this consonant - skip.
-      continue;
-    }
-
-    // Determine F2 locus based on place of articulation.
-    double locusF2 = 0.0;
-    switch (place) {
-      case PlaceOfArticulation::Labial:
-        locusF2 = lang.coarticulationLabialF2Locus;
+    // Find consonant immediately to the left
+    const Token* leftCons = nullptr;
+    Place leftPlace = Place::Unknown;
+    
+    for (size_t j = i; j > 0; --j) {
+      const Token& prev = tokens[j - 1];
+      if (prev.silence) break;  // Hit silence, stop looking
+      if (isConsonant(prev) && prev.def && triggersCoarticulation(prev)) {
+        leftCons = &prev;
+        leftPlace = getPlace(prev.def->key);
         break;
-      case PlaceOfArticulation::Alveolar:
-        locusF2 = lang.coarticulationAlveolarF2Locus;
-        break;
-      case PlaceOfArticulation::Velar:
-        locusF2 = lang.coarticulationVelarF2Locus;
-        break;
-      default:
-        continue;
-    }
-
-    // Find nearby vowel-like segments for context.
-    //
-    // When coarticulationGraduated is enabled, we scale the strength based on
-    // how "close" the nearest vowel is. This avoids a hard on/off feeling in
-    // clusters.
-    const int maxCons = std::clamp(
-        static_cast<int>(std::round(lang.coarticulationAdjacencyMaxConsonants)),
-        0,
-        6);
-    const VowelHit left = findNearestVowelLeft(tokens, i, /*crossWord=*/false, maxCons);
-    const VowelHit right = findNearestVowelRight(tokens, i, /*crossWord=*/false, maxCons);
-
-    double w = 1.0;
-    if (lang.coarticulationGraduated) {
-      w = std::max(hitWeight(left), hitWeight(right));
-      if (w <= 0.0) {
-        // No nearby vowel => don't apply locus shaping.
-        continue;
       }
+      if (isVowelLike(prev)) break;  // Hit another vowel, stop
     }
-
-    const double effStrength = strength * std::clamp(w, 0.0, 1.0);
-
-    // Prefer the nearest vowel, biasing to the right (anticipatory) on ties.
-    const Token* adjacentVowel = nullptr;
-    if (right.tok && (!left.tok || right.consonantsAway <= left.consonantsAway)) {
-      adjacentVowel = right.tok;
-    } else {
-      adjacentVowel = left.tok;
+    
+    if (!leftCons || leftPlace == Place::Unknown) continue;
+    
+    // Get locus values for this place
+    double locusF2 = getLocusF2(leftPlace);
+    double locusF1 = getLocusF1(leftPlace);
+    if (locusF2 <= 0.0) continue;
+    
+    // Get vowel's canonical (original) formants
+    double canonicalF2 = getField(t, FieldId::cf2);
+    if (canonicalF2 <= 0.0) canonicalF2 = getField(t, FieldId::pf2);
+    if (canonicalF2 <= 0.0) continue;
+    
+    double canonicalF1 = getField(t, FieldId::cf1);
+    if (canonicalF1 <= 0.0) canonicalF1 = getField(t, FieldId::pf1);
+    
+    // Calculate START formants (shifted toward locus)
+    // Use conservative strength - too much makes vowels sound wrong
+    // e.g., "chevron" becoming "chayvron" if palatal locus pulls too hard
+    double startF2 = canonicalF2 + (locusF2 - canonicalF2) * strength * 0.25;
+    double startF1 = canonicalF1;
+    if (canonicalF1 > 0.0 && locusF1 > 0.0) {
+      startF1 = canonicalF1 + (locusF1 - canonicalF1) * strength * 0.15;
     }
-
-    // Special case: velar pinch before *immediately-adjacent* front vowel-like.
-    if (place == PlaceOfArticulation::Velar &&
-        lang.coarticulationVelarPinchEnabled &&
-        right.tok &&
-        right.consonantsAway == 0) {
-      applyVelarPinch(c, *right.tok, lang, effStrength);
-    } else {
-      // Normal locus-based coarticulation.
-      // Apply to both cascade and parallel F2 (whichever is active).
-      applyLocusShift(c, FieldId::cf2, locusF2, effStrength, adjacentVowel);
-      applyLocusShift(c, FieldId::pf2, locusF2, effStrength, adjacentVowel);
+    
+    // Set START formants (the token's main formant values)
+    setField(t, FieldId::cf2, startF2);
+    setField(t, FieldId::pf2, startF2);
+    if (canonicalF1 > 0.0) {
+      setField(t, FieldId::cf1, startF1);
+      setField(t, FieldId::pf1, startF1);
     }
-
-    // Optional: longer fade INTO consonants for smoother transitions.
-    if (lang.coarticulationFadeIntoConsonants && extent > 0.0 && c.durationMs > 0.0) {
-      double minFade = c.durationMs * extent;
-
-      // If we're using graduated coarticulation, don't force a large fade when
-      // there's no close vowel context.
-      if (lang.coarticulationGraduated) {
-        minFade *= std::clamp(w, 0.0, 1.0);
-      }
-      
-      // Keep word-initial consonants crisper.
-      if (c.wordStart) {
-        minFade *= lang.coarticulationWordInitialFadeScale;
-      }
-      
-      c.fadeMs = std::max(c.fadeMs, minFade);
-      
-      // Don't let fade exceed duration.
-      if (c.fadeMs > c.durationMs) {
-        c.fadeMs = c.durationMs;
-      }
+    
+    // Set END formants (DSP will ramp from start to end)
+    // Only set if there's meaningful movement (avoid overhead for tiny changes)
+    if (std::abs(canonicalF2 - startF2) > 20.0) {
+      t.hasEndCf2 = true;
+      t.endCf2 = canonicalF2;
+    }
+    if (canonicalF1 > 0.0 && std::abs(canonicalF1 - startF1) > 15.0) {
+      t.hasEndCf1 = true;
+      t.endCf1 = canonicalF1;
     }
   }
 

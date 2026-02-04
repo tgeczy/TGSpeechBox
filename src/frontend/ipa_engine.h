@@ -65,6 +65,16 @@ struct Token {
 
   // Tonal marker captured for this syllable start (UTF-32 string), if any.
   std::u32string tone;
+  
+  // DECTalk-style formant end targets (set by coarticulation pass)
+  // These allow within-phoneme formant ramping for CV transitions.
+  // If hasEndCf* is true, the token-level value overrides PhonemeDef.
+  bool hasEndCf1 = false;
+  bool hasEndCf2 = false;
+  bool hasEndCf3 = false;
+  double endCf1 = 0.0;
+  double endCf2 = 0.0;
+  double endCf3 = 0.0;
 };
 
 // Convert IPA -> tokens.
