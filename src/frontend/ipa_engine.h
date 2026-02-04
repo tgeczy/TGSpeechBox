@@ -47,6 +47,7 @@ struct Token {
   bool clusterGap = false;
   bool postStopAspiration = false;
   bool vowelHiatusGap = false;
+  bool voicedClosure = false;  // Voice bar: maintain low-amplitude voicing during closure
 
   bool wordStart = false;
   bool syllableStart = false;

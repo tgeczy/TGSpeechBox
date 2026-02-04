@@ -245,18 +245,23 @@ struct LanguagePack {
   // A value around 0.58 maps 0.60 -> 0.35.
   double legacyPitchInflectionScale = 0.58;
 
-  // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style")
-  // These control the DSP-level phrase and accent commands.
-  // Defaults tuned for Eloquence-like flat prosody with gentle declination.
-  double fujisakiPhraseAmp = 0.2;            // Gentle phrase declination arc
-  double fujisakiPrimaryAccentAmp = 0.1;     // Very subtle accent on primary stress
-  double fujisakiSecondaryAccentAmp = 0.05;  // Barely perceptible secondary accent
+  // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style").
+  //
+  // These control the DSP-level phrase + accent commands in a Fujisaki-Bartman
+  // style model (i.e., we keep per-phoneme pitch targets flat and let the DSP
+  // synthesize the contour).
+  //
+  // The defaults aim for a classic screen-reader feel (Eloquence-ish) while
+  // avoiding a fully "dead flat" contour.
+  double fujisakiPhraseAmp = 0.24;            // Phrase declination arc (log-F0 domain)
+  double fujisakiPrimaryAccentAmp = 0.24;     // Primary-stress accent (log-F0 domain)
+  double fujisakiSecondaryAccentAmp = 0.12;   // Secondary-stress accent
   
   // Controls which syllables get accent commands:
-  //   "all" = every stressed syllable (singsongy - not recommended)
-  //   "first_only" = only first primary stress per utterance
-  //   "off" = no accents, just phrase declination (most Eloquence-like)
-  std::string fujisakiAccentMode = "off";
+  //   "all" = every stressed syllable (can get singsongy if amps are too high)
+  //   "first_only" = only first primary stress per utterance (very flat)
+  //   "off" = no accents, just phrase declination (monotone)
+  std::string fujisakiAccentMode = "all";
 
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";
@@ -486,7 +491,29 @@ double lengthContrastPreGeminateVowelScale = 0.85;
 
   double coarticulationLabialF2Locus = 800.0;
   double coarticulationAlveolarF2Locus = 1800.0;
-  double coarticulationVelarF2Locus = 2200.0;
+  // Velar F2 locus is typically mid (contextualized further by velar pinch).
+  double coarticulationVelarF2Locus = 1200.0;
+
+  // MITalk-style locus interpolation weight (k).
+  // locus = src + k * (trg - src)
+  // A value around 0.42 is commonly used and keeps the locus closer to the
+  // consonant while still reflecting vowel context.
+  double coarticulationMitalkK = 0.42;
+
+  // Per-formant scaling on top of coarticulationStrength.
+  // F2 carries most of the perceptual load; F1/F3 are typically kept gentler.
+  double coarticulationF1Scale = 0.6;
+  double coarticulationF2Scale = 1.0;
+  double coarticulationF3Scale = 0.5;
+
+  // Special-case: alveolar consonants can front back vowels (e.g. "new", "suzie").
+  bool coarticulationAlveolarBackVowelEnabled = true;
+  double coarticulationBackVowelF2Threshold = 1400.0;           // F2 < threshold => "back"
+  double coarticulationAlveolarBackVowelStrengthBoost = 1.25;   // additional boost
+
+  // Small consonant-side exception: ʃ/ʒ can sound slightly "higher" next to front vowels.
+  bool coarticulationLabializedFricativeFrontingEnabled = true;
+  double coarticulationLabializedFricativeF2Pull = 0.15;        // 0..1
 
   bool coarticulationVelarPinchEnabled = true;
   double coarticulationVelarPinchThreshold = 1800.0;

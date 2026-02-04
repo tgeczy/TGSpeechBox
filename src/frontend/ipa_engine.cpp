@@ -1201,31 +1201,32 @@ static void calculatePitchesFujisaki(std::vector<Token>& tokens, const PackSet& 
   const int vp = static_cast<int>(FieldId::voicePitch);
   const int evp = static_cast<int>(FieldId::endVoicePitch);
 
-  // First pass: find last syllable start for question rise
-  int lastSyllableIdx = -1;
+  // First pass: for question rise, target the last vowel nucleus when possible.
+  int lastVowelIdx = -1;
   if (finalRiseAmp > 0.0) {
     for (int i = static_cast<int>(tokens.size()) - 1; i >= 0; --i) {
       const Token& t = tokens[static_cast<size_t>(i)];
       if (t.silence || !t.def) continue;
-      if (t.syllableStart) {
-        lastSyllableIdx = i;
+      if (tokenIsVowel(t)) {
+        lastVowelIdx = i;
         break;
       }
     }
-    // If no syllable start found, use last voiced token
-    if (lastSyllableIdx < 0) {
+    // Fallback: if we somehow have no vowel, use the last non-silence token.
+    if (lastVowelIdx < 0) {
       for (int i = static_cast<int>(tokens.size()) - 1; i >= 0; --i) {
         const Token& t = tokens[static_cast<size_t>(i)];
         if (!t.silence && t.def) {
-          lastSyllableIdx = i;
+          lastVowelIdx = i;
           break;
         }
       }
     }
   }
 
-  bool isFirstVoiced = true;
+  bool isFirstFrame = true;
   bool hadFirstAccent = false;  // Track if we've placed the first accent
+  int pendingStress = 0;        // Stress carried from syllableStart to vowel nucleus
   
   for (size_t i = 0; i < tokens.size(); ++i) {
     Token& t = tokens[i];
@@ -1236,48 +1237,55 @@ static void calculatePitchesFujisaki(std::vector<Token>& tokens, const PackSet& 
     t.field[evp] = basePitch;
     t.setMask |= (1ull << vp) | (1ull << evp);
 
-    // Enable Fujisaki on all voiced tokens
+    // Enable Fujisaki on all phonetic tokens.
+    // Even during unvoiced segments, we still want time to advance so the
+    // contour is ready when voicing resumes.
     t.fujisakiEnabled = true;
 
-    // First voiced token gets phrase command and reset
-    if (isFirstVoiced) {
+    // First phonetic token gets phrase command and reset.
+    if (isFirstFrame) {
       t.fujisakiReset = true;
       t.fujisakiPhraseAmp = effectivePhraseAmp;
-      isFirstVoiced = false;
+      isFirstFrame = false;
     }
 
-    // Stressed syllables get accent commands (respecting accent mode)
-    if (accentsEnabled && t.syllableStart) {
+    // Track syllable stress at the syllable boundary...
+    if (t.syllableStart) {
+      pendingStress = t.stress;
+    }
+
+    // ...but place the accent command on the vowel nucleus.
+    if (accentsEnabled && pendingStress != 0 && tokenIsVowel(t)) {
       bool shouldAccent = false;
       double accentAmp = 0.0;
-      
-      if (t.stress == 1) {
+
+      if (pendingStress == 1) {
         // Primary stress
         if (firstOnly) {
-          // Only accent the first primary stress
           if (!hadFirstAccent) {
             shouldAccent = true;
             hadFirstAccent = true;
           }
         } else {
-          // Accent all primary stresses
           shouldAccent = true;
         }
         accentAmp = primaryAccentAmp * accentBoost;
-      } else if (t.stress == 2 && !firstOnly) {
+      } else if (pendingStress == 2 && !firstOnly) {
         // Secondary stress - only in "all" mode
         shouldAccent = true;
         accentAmp = secondaryAccentAmp * accentBoost;
       }
-      
+
       if (shouldAccent) {
         t.fujisakiAccentAmp = accentAmp;
       }
+
+      // One accent per syllable.
+      pendingStress = 0;
     }
 
-    // Question rise: strong accent on final syllable (always, regardless of mode)
-    if (static_cast<int>(i) == lastSyllableIdx && finalRiseAmp > 0.0) {
-      // Override or add to any existing accent
+    // Question rise: strong accent on final vowel (always, regardless of mode).
+    if (static_cast<int>(i) == lastVowelIdx && finalRiseAmp > 0.0) {
       t.fujisakiAccentAmp = std::max(t.fujisakiAccentAmp, finalRiseAmp);
     }
   }
@@ -1781,6 +1789,15 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
         // Preserve word boundary information for timing tweaks.
         // The gap is inserted *before* the stop/affricate token `t`.
         gap.wordStart = t.wordStart;
+
+        // For voiced stops/affricates, mark as voiced closure so the frame emitter
+        // can output a voice bar (low-frequency murmur) instead of true silence.
+        // This maintains continuous voicing through the closure while letting
+        // formants interpolate naturally (no abrupt formant discontinuity).
+        if (tokenIsVoiced(t)) {
+          gap.voicedClosure = true;
+        }
+
         outTokens.push_back(gap);
         // IMPORTANT: do NOT update lastIndex here; Python keeps lastPhoneme as the
         // previous *real* phoneme, not the inserted gap.
@@ -2223,8 +2240,68 @@ void emitFrames(
   const LanguagePack& lang = pack.lang;
   trajectoryState->hasPrevFrame = false;
 
+  // Track previous frame values for voiced closure continuation
+  double prevVoicePitch = 120.0;
+  double prevCf1 = 500.0, prevCf2 = 1500.0, prevCf3 = 2500.0;
+  double prevPf1 = 500.0, prevPf2 = 1500.0, prevPf3 = 2500.0;
+  bool hadPrevFrame = false;
+
   for (const Token& t : tokens) {
     if (t.silence || !t.def) {
+      // Check for voiced closure (voice bar)
+      if (t.voicedClosure && hadPrevFrame) {
+        nvspFrontend_Frame vbFrame = {};
+        vbFrame.voicePitch = prevVoicePitch;
+        vbFrame.endVoicePitch = prevVoicePitch;
+        vbFrame.voiceAmplitude = 0.12;  // ~18 dB down - barely audible murmur
+        vbFrame.aspirationAmplitude = 0.0;
+        vbFrame.fricationAmplitude = 0.0;
+        vbFrame.glottalOpenQuotient = 0.60;
+        vbFrame.voiceTurbulenceAmplitude = 0.0;
+        vbFrame.cf1 = prevCf1;
+        vbFrame.cf2 = prevCf2;
+        vbFrame.cf3 = prevCf3;
+        vbFrame.cf4 = 3300.0;
+        vbFrame.cf5 = 3750.0;
+        vbFrame.cf6 = 4900.0;
+        vbFrame.cfN0 = 250.0;
+        vbFrame.cfNP = 200.0;
+        vbFrame.cb1 = 150.0;
+        vbFrame.cb2 = 180.0;
+        vbFrame.cb3 = 250.0;
+        vbFrame.cb4 = 300.0;
+        vbFrame.cb5 = 250.0;
+        vbFrame.cb6 = 1000.0;
+        vbFrame.cbN0 = 150.0;
+        vbFrame.cbNP = 150.0;
+        vbFrame.caNP = 0.0;
+        vbFrame.pf1 = prevPf1;
+        vbFrame.pf2 = prevPf2;
+        vbFrame.pf3 = prevPf3;
+        vbFrame.pf4 = 3300.0;
+        vbFrame.pf5 = 3750.0;
+        vbFrame.pf6 = 4900.0;
+        vbFrame.pb1 = 150.0;
+        vbFrame.pb2 = 180.0;
+        vbFrame.pb3 = 250.0;
+        vbFrame.pb4 = 300.0;
+        vbFrame.pb5 = 250.0;
+        vbFrame.pb6 = 1000.0;
+        vbFrame.pa1 = 0.0;
+        vbFrame.pa2 = 0.0;
+        vbFrame.pa3 = 0.0;
+        vbFrame.pa4 = 0.0;
+        vbFrame.pa5 = 0.0;
+        vbFrame.pa6 = 0.0;
+        vbFrame.parallelBypass = 0.0;
+        vbFrame.preFormantGain = 1.0;
+        vbFrame.outputGain = 1.0;
+        // Ensure minimum fade time for smooth amplitude transition
+        double vbFadeMs = t.fadeMs;
+        if (vbFadeMs < 8.0) vbFadeMs = 8.0;
+        cb(userData, &vbFrame, t.durationMs, vbFadeMs, userIndexBase);
+        continue;
+      }
       cb(userData, nullptr, t.durationMs, t.fadeMs, userIndexBase);
       continue;
     }
@@ -2325,6 +2402,16 @@ void emitFrames(
         if (fadeIn > phaseDur) fadeIn = phaseDur;
 
         cb(userData, &frame, phaseDur, fadeIn, userIndexBase);
+        
+        // Update previous values for voiced closure continuation
+        prevVoicePitch = frame.endVoicePitch;
+        prevCf1 = frame.cf1;
+        prevCf2 = frame.cf2;
+        prevCf3 = frame.cf3;
+        prevPf1 = frame.pf1;
+        prevPf2 = frame.pf2;
+        prevPf3 = frame.pf3;
+        hadPrevFrame = true;
 
         remaining -= phaseDur;
         pos += phaseDur;
@@ -2408,6 +2495,16 @@ void emitFrames(
     trajectoryState->hasPrevFrame = true;
 
     cb(userData, &frame, t.durationMs, t.fadeMs, userIndexBase);
+    
+    // Update previous values for voiced closure continuation
+    prevVoicePitch = frame.endVoicePitch;
+    prevCf1 = frame.cf1;
+    prevCf2 = frame.cf2;
+    prevCf3 = frame.cf3;
+    prevPf1 = frame.pf1;
+    prevPf2 = frame.pf2;
+    prevPf3 = frame.pf3;
+    hadPrevFrame = true;
   }
 }
 
@@ -2461,9 +2558,103 @@ void emitFramesEx(
   const LanguagePack& lang = pack.lang;
   trajectoryState->hasPrevFrame = false;
 
+  // Track previous frame values for voiced closure continuation
+  double prevVoicePitch = 120.0;  // Fallback if no previous
+  double prevCf1 = 500.0, prevCf2 = 1500.0, prevCf3 = 2500.0;
+  double prevPf1 = 500.0, prevPf2 = 1500.0, prevPf3 = 2500.0;
+  bool hadPrevFrame = false;
+
   for (const Token& t : tokens) {
     if (t.silence || !t.def) {
-      // Silence frame - no FrameEx
+      // Check for voiced closure (voice bar) - maintain low-amplitude voicing
+      // instead of true silence, letting formants interpolate naturally.
+      if (t.voicedClosure && hadPrevFrame) {
+        // Build a minimal voice bar frame: very low voicing, no frication,
+        // formants carried over from previous frame for smooth transition.
+        nvspFrontend_Frame vbFrame = {};
+        vbFrame.voicePitch = prevVoicePitch;
+        vbFrame.endVoicePitch = prevVoicePitch;
+        vbFrame.voiceAmplitude = 0.12;  // ~18 dB down - barely audible murmur
+        vbFrame.aspirationAmplitude = 0.0;
+        vbFrame.fricationAmplitude = 0.0;
+        vbFrame.glottalOpenQuotient = 0.60;  // more relaxed
+        vbFrame.voiceTurbulenceAmplitude = 0.0;
+        
+        // Use previous formants for smooth transition (closed tract mostly
+        // attenuates higher formants anyway due to low amplitude)
+        vbFrame.cf1 = prevCf1;
+        vbFrame.cf2 = prevCf2;
+        vbFrame.cf3 = prevCf3;
+        vbFrame.cf4 = 3300.0;
+        vbFrame.cf5 = 3750.0;
+        vbFrame.cf6 = 4900.0;
+        vbFrame.cfN0 = 250.0;
+        vbFrame.cfNP = 200.0;
+        
+        // Very wide bandwidths to heavily damp resonances (anti-thump)
+        vbFrame.cb1 = 150.0;
+        vbFrame.cb2 = 180.0;
+        vbFrame.cb3 = 250.0;
+        vbFrame.cb4 = 300.0;
+        vbFrame.cb5 = 250.0;
+        vbFrame.cb6 = 1000.0;
+        vbFrame.cbN0 = 150.0;
+        vbFrame.cbNP = 150.0;
+        vbFrame.caNP = 0.0;
+        
+        // Parallel formants (same as cascade for consistency)
+        vbFrame.pf1 = prevPf1;
+        vbFrame.pf2 = prevPf2;
+        vbFrame.pf3 = prevPf3;
+        vbFrame.pf4 = 3300.0;
+        vbFrame.pf5 = 3750.0;
+        vbFrame.pf6 = 4900.0;
+        vbFrame.pb1 = 150.0;
+        vbFrame.pb2 = 180.0;
+        vbFrame.pb3 = 250.0;
+        vbFrame.pb4 = 300.0;
+        vbFrame.pb5 = 250.0;
+        vbFrame.pb6 = 1000.0;
+        vbFrame.pa1 = 0.0;
+        vbFrame.pa2 = 0.0;
+        vbFrame.pa3 = 0.0;
+        vbFrame.pa4 = 0.0;
+        vbFrame.pa5 = 0.0;
+        vbFrame.pa6 = 0.0;
+        vbFrame.parallelBypass = 0.0;
+        vbFrame.preFormantGain = 1.0;
+        vbFrame.outputGain = 1.0;
+        
+        // Minimal FrameEx (no special voice quality for voice bar)
+        nvspFrontend_FrameEx vbFrameEx = {};
+        vbFrameEx.creakiness = 0.0;
+        vbFrameEx.breathiness = 0.0;
+        vbFrameEx.jitter = 0.0;
+        vbFrameEx.shimmer = 0.0;
+        vbFrameEx.sharpness = 1.0;
+        vbFrameEx.endCf1 = NAN;
+        vbFrameEx.endCf2 = NAN;
+        vbFrameEx.endCf3 = NAN;
+        vbFrameEx.endPf1 = NAN;
+        vbFrameEx.endPf2 = NAN;
+        vbFrameEx.endPf3 = NAN;
+        vbFrameEx.fujisakiEnabled = 0.0;
+        vbFrameEx.fujisakiReset = 0.0;
+        vbFrameEx.fujisakiPhraseAmp = 0.0;
+        vbFrameEx.fujisakiPhraseLen = 0.0;
+        vbFrameEx.fujisakiAccentAmp = 0.0;
+        vbFrameEx.fujisakiAccentDur = 0.0;
+        vbFrameEx.fujisakiAccentLen = 0.0;
+        
+        // Ensure minimum fade time for smooth amplitude transition
+        double vbFadeMs = t.fadeMs;
+        if (vbFadeMs < 8.0) vbFadeMs = 8.0;
+        
+        cb(userData, &vbFrame, &vbFrameEx, t.durationMs, vbFadeMs, userIndexBase);
+        continue;
+      }
+      
+      // True silence frame - no FrameEx
       cb(userData, nullptr, nullptr, t.durationMs, t.fadeMs, userIndexBase);
       continue;
     }
@@ -2596,6 +2787,16 @@ void emitFramesEx(
         if (fadeIn > phaseDur) fadeIn = phaseDur;
 
         cb(userData, &frame, &frameEx, phaseDur, fadeIn, userIndexBase);
+        
+        // Update previous values for voiced closure continuation
+        prevVoicePitch = frame.endVoicePitch;
+        prevCf1 = frame.cf1;
+        prevCf2 = frame.cf2;
+        prevCf3 = frame.cf3;
+        prevPf1 = frame.pf1;
+        prevPf2 = frame.pf2;
+        prevPf3 = frame.pf3;
+        hadPrevFrame = true;
 
         remaining -= phaseDur;
         pos += phaseDur;
@@ -2667,6 +2868,16 @@ void emitFramesEx(
     trajectoryState->hasPrevFrame = true;
 
     cb(userData, &frame, &frameEx, t.durationMs, t.fadeMs, userIndexBase);
+    
+    // Update previous values for voiced closure (voice bar) continuation
+    prevVoicePitch = frame.endVoicePitch;
+    prevCf1 = frame.cf1;
+    prevCf2 = frame.cf2;
+    prevCf3 = frame.cf3;
+    prevPf1 = frame.pf1;
+    prevPf2 = frame.pf2;
+    prevPf3 = frame.pf3;
+    hadPrevFrame = true;
   }
 }
 
