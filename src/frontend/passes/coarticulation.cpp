@@ -119,15 +119,18 @@ static Place getPlace(const std::u32string& key) {
 }
 
 // -----------------------------------------------------------------------------
-// Locus values by place (F2 targets where consonant "points")
+// Locus values by place - now uses lang pack settings with fallback defaults
 // -----------------------------------------------------------------------------
 
-static double getLocusF2(Place place) {
+static double getLocusF2(Place place, const LanguagePack& lang) {
   switch (place) {
-    case Place::Labial:   return 900.0;   // Lips - low F2
-    case Place::Alveolar: return 1700.0;  // Tongue tip - mid-high F2
-    case Place::Palatal:  return 2300.0;  // Palate - high F2
-    case Place::Velar:    return 1500.0;  // Back - variable, use mid
+    case Place::Labial:   return lang.coarticulationLabialF2Locus > 0 ? 
+                                 lang.coarticulationLabialF2Locus : 900.0;
+    case Place::Alveolar: return lang.coarticulationAlveolarF2Locus > 0 ? 
+                                 lang.coarticulationAlveolarF2Locus : 1700.0;
+    case Place::Palatal:  return 2300.0;  // TODO: add to lang pack if needed
+    case Place::Velar:    return lang.coarticulationVelarF2Locus > 0 ? 
+                                 lang.coarticulationVelarF2Locus : 1500.0;
     default:              return 0.0;
   }
 }
@@ -236,9 +239,10 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
     // ----- Vowel coarticulation (DECTalk-style start/end) -----
     if (!isVowelLike(t)) continue;
     
-    // Find consonant immediately to the left
+    // Find consonant immediately to the left, counting distance
     const Token* leftCons = nullptr;
     Place leftPlace = Place::Unknown;
+    int consonantDistance = 0;  // How many consonants between vowel and triggering consonant
     
     for (size_t j = i; j > 0; --j) {
       const Token& prev = tokens[j - 1];
@@ -248,13 +252,28 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
         leftPlace = getPlace(prev.def->key);
         break;
       }
+      if (isConsonant(prev)) {
+        consonantDistance++;  // Count intervening consonants
+      }
       if (isVowelLike(prev)) break;  // Hit another vowel, stop
     }
     
     if (!leftCons || leftPlace == Place::Unknown) continue;
     
+    // Apply graduated strength if enabled
+    double effectiveStrength = strength;
+    if (lang.coarticulationGraduated && consonantDistance > 0) {
+      // Scale down strength based on distance
+      // At max consonants, strength drops to ~30% of original
+      double maxCons = lang.coarticulationAdjacencyMaxConsonants;
+      if (maxCons > 0) {
+        double distanceFactor = 1.0 - (0.7 * std::min((double)consonantDistance, maxCons) / maxCons);
+        effectiveStrength *= distanceFactor;
+      }
+    }
+    
     // Get locus values for this place
-    double locusF2 = getLocusF2(leftPlace);
+    double locusF2 = getLocusF2(leftPlace, lang);
     double locusF1 = getLocusF1(leftPlace);
     if (locusF2 <= 0.0) continue;
     
@@ -269,10 +288,10 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
     // Calculate START formants (shifted toward locus)
     // Use conservative strength - too much makes vowels sound wrong
     // e.g., "chevron" becoming "chayvron" if palatal locus pulls too hard
-    double startF2 = canonicalF2 + (locusF2 - canonicalF2) * strength * 0.25;
+    double startF2 = canonicalF2 + (locusF2 - canonicalF2) * effectiveStrength * 0.25;
     double startF1 = canonicalF1;
     if (canonicalF1 > 0.0 && locusF1 > 0.0) {
-      startF1 = canonicalF1 + (locusF1 - canonicalF1) * strength * 0.15;
+      startF1 = canonicalF1 + (locusF1 - canonicalF1) * effectiveStrength * 0.15;
     }
     
     // Set START formants (the token's main formant values)

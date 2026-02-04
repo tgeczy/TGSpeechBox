@@ -89,10 +89,22 @@ typedef struct nvspFrontend_FrameEx {
   double endPf1;          /* Parallel F1 end target (Hz), NAN = no ramp */
   double endPf2;          /* Parallel F2 end target (Hz), NAN = no ramp */
   double endPf3;          /* Parallel F3 end target (Hz), NAN = no ramp */
+
+  /* Optional pitch contour model (DSP v6+)
+     Fujisaki-Bartman / DECTalk-style pitch contour model.
+
+     IMPORTANT: All time units for this model are in *samples* (not milliseconds). */
+  double fujisakiEnabled;     /* 0.0 = off, >0.5 = on */
+  double fujisakiReset;       /* rising edge resets model state */
+  double fujisakiPhraseAmp;   /* phrase command amplitude (e.g. 1.3) */
+  double fujisakiPhraseLen;   /* phrase filter L (samples). 0 = use default */
+  double fujisakiAccentAmp;   /* accent command amplitude (e.g. 0.4) */
+  double fujisakiAccentDur;   /* accent duration D (samples). 0 = use default */
+  double fujisakiAccentLen;   /* accent filter L (samples). 0 = use default */
 } nvspFrontend_FrameEx;
 
 /* Number of fields in FrameEx struct (for size validation) */
-#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 11
+#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 18
 
 /*
   VoicingTone parameters for DSP-level voice quality (ABI v2+).

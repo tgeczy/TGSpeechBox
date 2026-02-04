@@ -227,10 +227,15 @@ struct LanguagePack {
   // from the ee80f4d-era ipa.py (sometimes referred to as ipa-older.py).
   // This tends to sound more like classic screen-reader prosody at higher
   // rates than the newer table-based intonation model.
-  bool legacyPitchMode = false;
+  //
+  // Values:
+  //   "espeak_style" (default, same as false) - ToBI-based intonation regions
+  //   "legacy" (same as true) - older time-based pitch curve
+  //   "fujisaki_style" - Eloquence-style flat base + DSP phrase/accent contours
+  std::string legacyPitchMode = "espeak_style";
 
   // Optional scaling applied to the caller-provided inflection (0..1) when
-  // legacyPitchMode is enabled.
+  // legacyPitchMode is "legacy".
   //
   // Historical NVSpeechPlayer defaults used a lower inflection setting (e.g. 35)
   // than modern defaults (e.g. 60). Feeding those higher values into the legacy
@@ -239,6 +244,19 @@ struct LanguagePack {
   // 1.0 preserves the historical behavior exactly.
   // A value around 0.58 maps 0.60 -> 0.35.
   double legacyPitchInflectionScale = 0.58;
+
+  // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style")
+  // These control the DSP-level phrase and accent commands.
+  // Defaults tuned for Eloquence-like flat prosody with gentle declination.
+  double fujisakiPhraseAmp = 0.2;            // Gentle phrase declination arc
+  double fujisakiPrimaryAccentAmp = 0.1;     // Very subtle accent on primary stress
+  double fujisakiSecondaryAccentAmp = 0.05;  // Barely perceptible secondary accent
+  
+  // Controls which syllables get accent commands:
+  //   "all" = every stressed syllable (singsongy - not recommended)
+  //   "first_only" = only first primary stress per utterance
+  //   "off" = no accents, just phrase declination (most Eloquence-like)
+  std::string fujisakiAccentMode = "off";
 
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";

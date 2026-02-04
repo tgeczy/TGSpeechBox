@@ -75,6 +75,13 @@ struct Token {
   double endCf1 = 0.0;
   double endCf2 = 0.0;
   double endCf3 = 0.0;
+
+  // Fujisaki pitch model markers (set by calculatePitchesFujisaki)
+  // These are passed through to frameEx for DSP-level pitch contour generation.
+  bool fujisakiEnabled = false;
+  bool fujisakiReset = false;         // Reset model state (at clause start)
+  double fujisakiPhraseAmp = 0.0;     // Phrase command amplitude (0 = no command)
+  double fujisakiAccentAmp = 0.0;     // Accent command amplitude (0 = no command)
 };
 
 // Convert IPA -> tokens.

@@ -398,11 +398,34 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getStr("voiceProfileName", lp.voiceProfileName);
 
   // Legacy pitch mode (ported from the ee80f4d-era ipa.py / ipa-older.py).
-  // Enable per-language in packs via:
-  //   legacyPitchMode: true
-  getBool("legacyPitchMode", lp.legacyPitchMode);
-  // Optional: scale applied to the caller-provided inflection (0..1) when legacyPitchMode is enabled.
+  // Supports both legacy bool syntax and new string enum:
+  //   legacyPitchMode: true          -> "legacy"
+  //   legacyPitchMode: false         -> "espeak_style"
+  //   legacyPitchMode: "legacy"      -> "legacy"
+  //   legacyPitchMode: "espeak_style"-> "espeak_style"
+  //   legacyPitchMode: "fujisaki_style" -> "fujisaki_style"
+  {
+    const yaml_min::Node* n = settings.get("legacyPitchMode");
+    if (n && n->isScalar()) {
+      const std::string& val = n->scalar;
+      if (val == "true" || val == "1") {
+        lp.legacyPitchMode = "legacy";
+      } else if (val == "false" || val == "0") {
+        lp.legacyPitchMode = "espeak_style";
+      } else {
+        // Direct string value: "legacy", "espeak_style", "fujisaki_style"
+        lp.legacyPitchMode = val;
+      }
+    }
+  }
+  // Optional: scale applied to the caller-provided inflection (0..1) when legacyPitchMode is "legacy".
   getNum("legacyPitchInflectionScale", lp.legacyPitchInflectionScale);
+
+  // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style")
+  getNum("fujisakiPhraseAmp", lp.fujisakiPhraseAmp);
+  getNum("fujisakiPrimaryAccentAmp", lp.fujisakiPrimaryAccentAmp);
+  getNum("fujisakiSecondaryAccentAmp", lp.fujisakiSecondaryAccentAmp);
+  getStr("fujisakiAccentMode", lp.fujisakiAccentMode);
 
   getBool("postStopAspirationEnabled", lp.postStopAspirationEnabled);
   {
