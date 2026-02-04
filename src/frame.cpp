@@ -148,27 +148,27 @@ class FrameManagerImpl: public FrameManager {
 			// Per-sample formant ramping with exponential smoothing
 			// This mimics articulatory inertia - fast initial movement, gentle settling
 			double alpha = oldFrameRequest->formantAlpha;
-			if(!std::isnan(oldFrameRequest->endCf1)) {
+			if(std::isfinite(oldFrameRequest->endCf1)) {
 				curFrame.cf1 += alpha * (oldFrameRequest->endCf1 - curFrame.cf1);
 				oldFrameRequest->frame.cf1 = curFrame.cf1;
 			}
-			if(!std::isnan(oldFrameRequest->endCf2)) {
+			if(std::isfinite(oldFrameRequest->endCf2)) {
 				curFrame.cf2 += alpha * (oldFrameRequest->endCf2 - curFrame.cf2);
 				oldFrameRequest->frame.cf2 = curFrame.cf2;
 			}
-			if(!std::isnan(oldFrameRequest->endCf3)) {
+			if(std::isfinite(oldFrameRequest->endCf3)) {
 				curFrame.cf3 += alpha * (oldFrameRequest->endCf3 - curFrame.cf3);
 				oldFrameRequest->frame.cf3 = curFrame.cf3;
 			}
-			if(!std::isnan(oldFrameRequest->endPf1)) {
+			if(std::isfinite(oldFrameRequest->endPf1)) {
 				curFrame.pf1 += alpha * (oldFrameRequest->endPf1 - curFrame.pf1);
 				oldFrameRequest->frame.pf1 = curFrame.pf1;
 			}
-			if(!std::isnan(oldFrameRequest->endPf2)) {
+			if(std::isfinite(oldFrameRequest->endPf2)) {
 				curFrame.pf2 += alpha * (oldFrameRequest->endPf2 - curFrame.pf2);
 				oldFrameRequest->frame.pf2 = curFrame.pf2;
 			}
-			if(!std::isnan(oldFrameRequest->endPf3)) {
+			if(std::isfinite(oldFrameRequest->endPf3)) {
 				curFrame.pf3 += alpha * (oldFrameRequest->endPf3 - curFrame.pf3);
 				oldFrameRequest->frame.pf3 = curFrame.pf3;
 			}
@@ -247,27 +247,27 @@ class FrameManagerImpl: public FrameManager {
 			const double kFormantAlpha = 0.004;  // ~10-15ms time constant
 			
 			bool hasAnyFormantTarget = false;
-			if(!std::isnan(frameRequest->frameEx.endCf1)) {
+			if(std::isfinite(frameRequest->frameEx.endCf1)) {
 				frameRequest->endCf1 = frameRequest->frameEx.endCf1;
 				hasAnyFormantTarget = true;
 			}
-			if(!std::isnan(frameRequest->frameEx.endCf2)) {
+			if(std::isfinite(frameRequest->frameEx.endCf2)) {
 				frameRequest->endCf2 = frameRequest->frameEx.endCf2;
 				hasAnyFormantTarget = true;
 			}
-			if(!std::isnan(frameRequest->frameEx.endCf3)) {
+			if(std::isfinite(frameRequest->frameEx.endCf3)) {
 				frameRequest->endCf3 = frameRequest->frameEx.endCf3;
 				hasAnyFormantTarget = true;
 			}
-			if(!std::isnan(frameRequest->frameEx.endPf1)) {
+			if(std::isfinite(frameRequest->frameEx.endPf1)) {
 				frameRequest->endPf1 = frameRequest->frameEx.endPf1;
 				hasAnyFormantTarget = true;
 			}
-			if(!std::isnan(frameRequest->frameEx.endPf2)) {
+			if(std::isfinite(frameRequest->frameEx.endPf2)) {
 				frameRequest->endPf2 = frameRequest->frameEx.endPf2;
 				hasAnyFormantTarget = true;
 			}
-			if(!std::isnan(frameRequest->frameEx.endPf3)) {
+			if(std::isfinite(frameRequest->frameEx.endPf3)) {
 				frameRequest->endPf3 = frameRequest->frameEx.endPf3;
 				hasAnyFormantTarget = true;
 			}

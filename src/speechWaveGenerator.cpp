@@ -1415,9 +1415,9 @@ public:
         double cb2 = frame->cb2;
         double cb3 = frame->cb3;
         if (frameEx) {
-            if (!std::isnan(frameEx->endCf1)) cb1 = bandwidthForSweep(frame->cf1, cb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
-            if (!std::isnan(frameEx->endCf2)) cb2 = bandwidthForSweep(frame->cf2, cb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
-            if (!std::isnan(frameEx->endCf3)) cb3 = bandwidthForSweep(frame->cf3, cb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
+            if (std::isfinite(frameEx->endCf1)) cb1 = bandwidthForSweep(frame->cf1, cb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
+            if (std::isfinite(frameEx->endCf2)) cb2 = bandwidthForSweep(frame->cf2, cb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
+            if (std::isfinite(frameEx->endCf3)) cb3 = bandwidthForSweep(frame->cf3, cb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
         }
 
         output = r6.resonate(output, frame->cf6, frame->cb6);
@@ -1453,9 +1453,9 @@ public:
         double pb2 = frame->pb2;
         double pb3 = frame->pb3;
         if (frameEx) {
-            if (!std::isnan(frameEx->endPf1)) pb1 = bandwidthForSweep(frame->pf1, pb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
-            if (!std::isnan(frameEx->endPf2)) pb2 = bandwidthForSweep(frame->pf2, pb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
-            if (!std::isnan(frameEx->endPf3)) pb3 = bandwidthForSweep(frame->pf3, pb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
+            if (std::isfinite(frameEx->endPf1)) pb1 = bandwidthForSweep(frame->pf1, pb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
+            if (std::isfinite(frameEx->endPf2)) pb2 = bandwidthForSweep(frame->pf2, pb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
+            if (std::isfinite(frameEx->endPf3)) pb3 = bandwidthForSweep(frame->pf3, pb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
         }
 
         output+=(r1.resonate(input,frame->pf1,pb1)-input)*frame->pa1;
@@ -1665,6 +1665,8 @@ public:
             startFadeTotal = (int)(sampleRate * 0.004); // 6 ms - longer for higher sample rates
             if (startFadeTotal < 64) startFadeTotal = 64;
             startFadeRemaining = startFadeTotal;
+            // Force full reset on next frame (clears Fujisaki IIR filter state)
+            wasSilence = true;
         }
         
         for(unsigned int i=0;i<sampleCount;++i) {
