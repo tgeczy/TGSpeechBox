@@ -537,10 +537,10 @@ void emitFramesEx(
     frameEx.fujisakiEnabled = t.fujisakiEnabled ? 1.0 : 0.0;
     frameEx.fujisakiReset = t.fujisakiReset ? 1.0 : 0.0;
     frameEx.fujisakiPhraseAmp = t.fujisakiPhraseAmp;
-    frameEx.fujisakiPhraseLen = 0.0;  // Use DSP default
+    frameEx.fujisakiPhraseLen = lang.fujisakiPhraseLen;  // 0 = DSP default
     frameEx.fujisakiAccentAmp = t.fujisakiAccentAmp;
-    frameEx.fujisakiAccentDur = 0.0;  // Use DSP default
-    frameEx.fujisakiAccentLen = 0.0;  // Use DSP default
+    frameEx.fujisakiAccentDur = lang.fujisakiAccentDur;  // 0 = DSP default
+    frameEx.fujisakiAccentLen = lang.fujisakiAccentLen;  // 0 = DSP default
 
     // Handle trill modulation (simplified version - emits micro-frames)
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {

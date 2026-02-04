@@ -426,6 +426,12 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("fujisakiPrimaryAccentAmp", lp.fujisakiPrimaryAccentAmp);
   getNum("fujisakiSecondaryAccentAmp", lp.fujisakiSecondaryAccentAmp);
   getStr("fujisakiAccentMode", lp.fujisakiAccentMode);
+  getNum("fujisakiPhraseLen", lp.fujisakiPhraseLen);
+  getNum("fujisakiAccentLen", lp.fujisakiAccentLen);
+  getNum("fujisakiAccentDur", lp.fujisakiAccentDur);
+  getNum("fujisakiDeclinationScale", lp.fujisakiDeclinationScale);
+  getNum("fujisakiDeclinationMax", lp.fujisakiDeclinationMax);
+  getNum("fujisakiDeclinationPostFloor", lp.fujisakiDeclinationPostFloor);
 
   getBool("postStopAspirationEnabled", lp.postStopAspirationEnabled);
   {

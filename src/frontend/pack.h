@@ -263,6 +263,16 @@ struct LanguagePack {
   //   "off" = no accents, just phrase declination (monotone)
   std::string fujisakiAccentMode = "all";
 
+  // Fujisaki timing parameters (samples @ 22050 Hz). 0 = use DSP default.
+  // Lower values = faster/punchier pitch movements (Eloquence-like).
+  // DSP defaults: phraseLen=4250 (~193ms), accentLen=1024 (~46ms), accentDur=7500 (~340ms)
+  double fujisakiPhraseLen = 0.0;    // Phrase filter rise time (samples)
+  double fujisakiAccentLen = 0.0;    // Accent filter attack time (samples)
+  double fujisakiAccentDur = 0.0;    // Accent pulse duration (samples)
+  double fujisakiDeclinationScale = 25.0;  // Scale for linear pitch declination (lower = gentler slope)
+  double fujisakiDeclinationMax = 1.25;    // Max declination ratio (1.25 = pitch can't drop below ~80% of base)
+  double fujisakiDeclinationPostFloor = 0.15; // Continued gentle slope after hitting floor (0 = flat)
+
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";
 
