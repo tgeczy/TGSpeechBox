@@ -241,7 +241,7 @@ public:
 // ------------------------------------------------------------
 // Fujisaki-Bartman pitch contour model (DECTalk-style)
 // ------------------------------------------------------------
-// Ported from reference and help from Rommix, this was all his work.
+// Ported from the provided reference Python (fujisaki_bartman_pitch.py).
 // Time units are in *samples*.
 //
 // The model outputs a multiplicative contour multiplier:

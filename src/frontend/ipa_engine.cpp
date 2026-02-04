@@ -1172,15 +1172,23 @@ static void calculatePitchesFujisaki(std::vector<Token>& tokens, const PackSet& 
   double effectivePhraseAmp = phraseAmp;
   double accentBoost = 1.0;
   double finalRiseAmp = 0.0;  // For questions: accent on final syllable
+  double declinationMul = 1.0;  // Clause-type multiplier for linear declination
   
   if (clauseType == '?') {
-    effectivePhraseAmp *= 0.5;   // Less declination for questions
+    effectivePhraseAmp *= 0.5;   // Less phrase arc for questions
     accentBoost = 1.1;           // Slightly stronger accents
     finalRiseAmp = primaryAccentAmp * 1.5;  // Strong rise at the end
+    declinationMul = 0.1;        // DEBUG: Almost no declination for questions
+    basePitch *= 1.15;           // DEBUG: Raise base pitch 15% for questions
   } else if (clauseType == '!') {
-    effectivePhraseAmp *= 1.3;   // Stronger declination for exclamations
+    effectivePhraseAmp *= 1.3;   // Stronger phrase arc for exclamations
     accentBoost = 1.4;           // Much stronger accents
+    declinationMul = 1.2;        // Slightly more declination
+  } else if (clauseType == ',') {
+    effectivePhraseAmp *= 0.7;   // Less phrase arc for commas (continuation)
+    declinationMul = 0.6;        // Less declination - commas are incomplete thoughts
   }
+  // '.' uses defaults (declinationMul = 1.0) - full declarative fall
 
   const int vp = static_cast<int>(FieldId::voicePitch);
   const int evp = static_cast<int>(FieldId::endVoicePitch);
@@ -1220,7 +1228,7 @@ static void calculatePitchesFujisaki(std::vector<Token>& tokens, const PackSet& 
   if (inflScale > 2.0) inflScale = 2.0;
   double declinScale = lang.fujisakiDeclinationScale;
   if (declinScale <= 0.0) declinScale = 25.0;  // Default: gentler slope
-  const double scaledInflection = inflection * inflScale * declinScale;
+  const double scaledInflection = inflection * inflScale * declinScale * declinationMul;
   
   // Max declination ratio - prevents pitch from falling too deep on long utterances.
   // 1.25 means pitch can't drop below ~80% of base (basePitch / 1.25)
