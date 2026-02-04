@@ -20,6 +20,11 @@
     - Voice profile support via nvspFrontend_setVoiceProfile
     - --list-voices to show available profiles for speech-dispatcher config
     - Automatic voicing tone loading from YAML when --voice is specified
+    
+  DSP V6 Features:
+    - Formant end targets for within-frame ramping (DECTalk-style transitions)
+    - Fujisaki-Bartman pitch model for Eloquence-style prosody contours
+    - FrameEx extended to 18 fields (144 bytes)
 */
 
 #include <cmath>
@@ -80,15 +85,31 @@ struct VoicingToneV3 {
 };
 
 // ============================================================================
-// FrameEx structure (must match frame.h)
+// FrameEx structure (must match frame.h - 18 doubles = 144 bytes)
 // ============================================================================
 
 struct FrameEx {
+  // Voice quality parameters (DSP v5)
   double creakiness;
   double breathiness;
   double jitter;
   double shimmer;
   double sharpness;
+  // Formant end targets (DECTalk-style ramping)
+  double endCf1;
+  double endCf2;
+  double endCf3;
+  double endPf1;
+  double endPf2;
+  double endPf3;
+  // Fujisaki pitch model (DSP v6+)
+  double fujisakiEnabled;
+  double fujisakiReset;
+  double fujisakiPhraseAmp;
+  double fujisakiPhraseLen;
+  double fujisakiAccentAmp;
+  double fujisakiAccentDur;
+  double fujisakiAccentLen;
 };
 
 // ============================================================================
@@ -431,24 +452,26 @@ static void onFrontendFrameEx(
     if (frameExOrNull || ctx->hasUserFrameEx) {
       FrameEx merged{};
       
-      // Start with per-phoneme values (from YAML, e.g. Danish stød creakiness)
+      // Start with per-phoneme values from frontend (includes Fujisaki pitch model)
       if (frameExOrNull) {
-        merged.creakiness = frameExOrNull->creakiness;
-        merged.breathiness = frameExOrNull->breathiness;
-        merged.jitter = frameExOrNull->jitter;
-        merged.shimmer = frameExOrNull->shimmer;
-        merged.sharpness = frameExOrNull->sharpness;
+        // Copy all 18 fields - frontend provides formant ramping and Fujisaki data
+        std::memcpy(&merged, frameExOrNull, sizeof(FrameEx));
       } else {
-        merged.sharpness = 1.0;  // Neutral default
+        merged.sharpness = 1.0;  // Neutral default for sharpness
+        // Formant end targets: 0.0 is fine (DSP treats as "no target")
+        // Fujisaki fields: 0.0 means disabled
       }
       
-      // Add user CLI overrides (additive for 0-1 params, multiplicative for sharpness)
+      // Add user CLI overrides for voice quality params only
+      // (additive for 0-1 params, multiplicative for sharpness)
       if (ctx->hasUserFrameEx) {
         merged.creakiness = std::min(1.0, merged.creakiness + ctx->userFrameEx.creakiness);
         merged.breathiness = std::min(1.0, merged.breathiness + ctx->userFrameEx.breathiness);
         merged.jitter = std::min(1.0, merged.jitter + ctx->userFrameEx.jitter);
         merged.shimmer = std::min(1.0, merged.shimmer + ctx->userFrameEx.shimmer);
         merged.sharpness *= ctx->userFrameEx.sharpness;
+        // Note: formant end targets and Fujisaki params come from frontend only,
+        // no CLI overrides for those (they're per-phoneme/per-utterance)
       }
       
       speechPlayer_queueFrameEx(ctx->player, &f,
