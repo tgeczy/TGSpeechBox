@@ -1171,31 +1171,35 @@ static void calculatePitchesFujisaki(std::vector<Token>& tokens, const PackSet& 
   // Clause-type modifiers
   double effectivePhraseAmp = phraseAmp;
   double accentBoost = 1.0;
-  double finalRiseAmp = 0.0;  // For questions: accent on final syllable
+  double finalRiseAmp = 0.0;   // For questions: accent on final syllable
+  double finalDropScale = 0.0; // For exclamations: pitch drop on final syllable
   double declinationMul = 1.0;  // Clause-type multiplier for linear declination
   
   if (clauseType == '?') {
-    effectivePhraseAmp *= 0.5;   // Less phrase arc for questions
-    accentBoost = 1.1;           // Slightly stronger accents
-    finalRiseAmp = primaryAccentAmp * 1.5;  // Strong rise at the end
-    declinationMul = 0.1;        // DEBUG: Almost no declination for questions
-    basePitch *= 1.15;           // DEBUG: Raise base pitch 15% for questions
+    effectivePhraseAmp *= 0.3;   // Much less phrase arc for questions
+    accentBoost = 1.3;           // Stronger accents
+    finalRiseAmp = primaryAccentAmp * 2.5;  // Very strong rise at the end
+    declinationMul = 0.15;       // Almost flat - questions stay high
+    basePitch *= 1.18;           // HIGH pitch for questions (contrast with !)
   } else if (clauseType == '!') {
-    effectivePhraseAmp *= 1.3;   // Stronger phrase arc for exclamations
-    accentBoost = 1.4;           // Much stronger accents
-    declinationMul = 1.2;        // Slightly more declination
+    effectivePhraseAmp *= 2.5;   // Strong phrase arc for exclamations
+    accentBoost = 1.8;           // Strong accents but not overwhelming
+    declinationMul = 2.5;        // STEEP declination - dramatic fall
+    basePitch *= 1.15;           // Start HIGH - burst of emotion, then fall
+    finalDropScale = 0.12;       // SNAP DOWN at end - definitive ending
   } else if (clauseType == ',') {
-    effectivePhraseAmp *= 0.7;   // Less phrase arc for commas (continuation)
-    declinationMul = 0.6;        // Less declination - commas are incomplete thoughts
+    effectivePhraseAmp *= 0.5;   // Less phrase arc for commas (continuation)
+    declinationMul = 0.4;        // Less declination - incomplete thought stays up
+    basePitch *= 1.04;           // Slight raise - continuation feel
   }
   // '.' uses defaults (declinationMul = 1.0) - full declarative fall
 
   const int vp = static_cast<int>(FieldId::voicePitch);
   const int evp = static_cast<int>(FieldId::endVoicePitch);
 
-  // First pass: for question rise, target the last vowel nucleus when possible.
+  // First pass: for question rise or exclamation drop, target the last vowel nucleus.
   int lastVowelIdx = -1;
-  if (finalRiseAmp > 0.0) {
+  if (finalRiseAmp > 0.0 || finalDropScale > 0.0) {
     for (int i = static_cast<int>(tokens.size()) - 1; i >= 0; --i) {
       const Token& t = tokens[static_cast<size_t>(i)];
       if (t.silence || !t.def) continue;
@@ -1323,6 +1327,14 @@ static void calculatePitchesFujisaki(std::vector<Token>& tokens, const PackSet& 
     // Question rise: strong accent on final vowel (always, regardless of mode).
     if (static_cast<int>(i) == lastVowelIdx && finalRiseAmp > 0.0) {
       t.fujisakiAccentAmp = std::max(t.fujisakiAccentAmp, finalRiseAmp);
+    }
+
+    // Exclamation drop: snap pitch DOWN on final vowel for definitive ending.
+    if (static_cast<int>(i) == lastVowelIdx && finalDropScale > 0.0) {
+      t.fujisakiAccentAmp = 0.0;  // Suppress any accent on final syllable
+      double dropFactor = 1.0 + finalDropScale;      // e.g., 1.12 for 0.12 scale
+      t.field[vp] /= dropFactor;                     // Drop start pitch
+      t.field[evp] /= (dropFactor * 1.3);            // Drop end pitch MORE for snap
     }
   }
 }
