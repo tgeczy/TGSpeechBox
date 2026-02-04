@@ -57,7 +57,7 @@ settings:
   # === TRAJECTORY LIMITING ===
   # Limit how fast formants can change - prevents muddy clusters
   trajectoryLimit:
-    enabled: true
+    enabled: false
     applyTo: [cf2, cf3]
     maxHzPerMs:
       cf2: 22
@@ -139,8 +139,7 @@ normalization:
     # Strip stray palatalization markers
     - from: "ʲ"
       to: ""
-    - from: "n͡"
-      to: "ɲ"
+    # NOTE: Removed "n͡" → "ɲ" rule that was incorrectly converting plain n to ɲ
 
     # Hungarian "gy" /ɟ/ stress handling
     # Move stress after word-initial gy so it gets proper closure
@@ -158,6 +157,80 @@ normalization:
       to: ""
 
   replacements:
+    # === PALATAL STOP OFF-GLIDES ===
+    # Palatal stops (ty/gy) benefit from a tiny palatal off-glide (j) before vowels.
+    # This reinforces the palatal "y" quality that distinguishes them from t/g.
+    
+    # --- ty (c) + vowel → tyj + vowel ---
+    - from: "cᴒ"
+      to: "cjᴒ"
+    - from: "ca"
+      to: "cja"
+    - from: "cɑ"
+      to: "cjɑ"
+    - from: "cu"
+      to: "cju"
+    - from: "co"
+      to: "cjo"
+    - from: "ce"
+      to: "cje"
+    - from: "ci"
+      to: "cji"
+    - from: "cy"
+      to: "cjy"
+    - from: "cø"
+      to: "cjø"
+    - from: "cá"
+      to: "cjá"
+    - from: "cé"
+      to: "cjé"
+    - from: "cí"
+      to: "cjí"
+    - from: "có"
+      to: "cjó"
+    - from: "cő"
+      to: "cjő"
+    - from: "cú"
+      to: "cjú"
+    - from: "cű"
+      to: "cjű"
+
+    # --- gy (ɟ) + vowel → gyj + vowel ---
+    - from: "ɟᴒ"
+      to: "ɟjᴒ"
+    - from: "ɟa"
+      to: "ɟja"
+    - from: "ɟɑ"
+      to: "ɟjɑ"
+    - from: "ɟu"
+      to: "ɟju"
+    - from: "ɟo"
+      to: "ɟjo"
+    - from: "ɟe"
+      to: "ɟje"
+    - from: "ɟɛ"
+      to: "ɟjɛ"
+    - from: "ɟi"
+      to: "ɟji"
+    - from: "ɟy"
+      to: "ɟjy"
+    - from: "ɟø"
+      to: "ɟjø"
+    - from: "ɟá"
+      to: "ɟjá"
+    - from: "ɟé"
+      to: "ɟjé"
+    - from: "ɟí"
+      to: "ɟjí"
+    - from: "ɟó"
+      to: "ɟjó"
+    - from: "ɟő"
+      to: "ɟjő"
+    - from: "ɟú"
+      to: "ɟjú"
+    - from: "ɟű"
+      to: "ɟjű"
+
     # Separate difficult clusters with micro-schwa for clarity
     # "megszülettek" has ɡs cluster
     - from: "ɡs"

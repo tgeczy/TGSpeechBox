@@ -49,9 +49,16 @@ settings:
   # Shorten semivowel offglides in diphthongs (e.g. the "j" in FACE eɪ→ej).
   # This makes diphthongs like "applications" sound more staccato/natural.
   semivowelOffglideScale: 0.65
-
-  # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
   coarticulationEnabled: false
+  # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
+  coarticulationStrength: 0.5        # Higher = stronger locus effect
+  coarticulationF1Locus: 250         # F1 during constriction
+  coarticulationMitalkK: 0.42  # 0.0 = all vowel, 1.0 = all consonant locus  
+  #  F2 locus by place:
+  coarticulationLabialF2Locus: 1200      # /p/ /b/ /f/ /v/ /m/
+  coarticulationAlveolarF2Locus: 1800   # /t/ /d/ /s/ /z/ /n/ /l/
+  coarticulationPalatalF2Locus: 2200    # /ʃ/ /ʒ/ /tʃ/ /dʒ/
+  coarticulationVelarF2Locus: 2200      # /k/ /g/ /ŋ/
   boundarySmoothingEnabled: false
   trajectoryLimitEnabled: false
   microprosodyEnabled: true
@@ -86,7 +93,7 @@ settings:
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: true
-  legacyPitchMode: false
+  legacyPitchMode: espeak_style
   singleWordClauseTypeOverrideCommaOnly: false
 normalization:
   preReplacements:
