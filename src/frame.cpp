@@ -14,6 +14,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
 #include <queue>
 #include <cstring>
+#include <cstddef>  // offsetof
 #include "utils.h"
 #include "frame.h"
 
@@ -31,10 +32,11 @@ struct frameRequest_t {
 	speechPlayer_frame_t frame;
 	double voicePitchInc;
 	
-	// Formant increments for within-frame ramping (like voicePitchInc but for formants)
-	// These are calculated from frameEx endCf1/2/3, endPf1/2/3
-	double cf1Inc, cf2Inc, cf3Inc;  // Cascade formant increments (Hz per sample)
-	double pf1Inc, pf2Inc, pf3Inc;  // Parallel formant increments (Hz per sample)
+	// Formant end targets for exponential smoothing (DECTalk-style transitions)
+	// NAN = no ramping for that formant
+	double endCf1, endCf2, endCf3;  // Cascade formant targets (Hz)
+	double endPf1, endPf2, endPf3;  // Parallel formant targets (Hz)
+	double formantAlpha;            // Exponential smoothing coefficient
 	
 	int userIndex;
 };
@@ -71,8 +73,19 @@ class FrameManagerImpl: public FrameManager {
 				}
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
 					curHasFrameEx = true;
+
+					// Some FrameEx fields are *command-like* and must not be interpolated.
+					// In particular, the Fujisaki pitch model triggers (amp/len/dur) must be
+					// applied with their exact values at the start of a transition; otherwise
+					// fades would scale them down and cause incorrect trigger timing.
+					const int pitchStartIdx = (int)(offsetof(speechPlayer_frameEx_t, fujisakiEnabled) / sizeof(double));
 					for(int i=0;i<speechPlayer_frameEx_numParams;++i) {
-						((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],curFadeRatio);
+						if (i >= pitchStartIdx) {
+							// Step to the NEW values immediately (no interpolation).
+							((double*)&curFrameEx)[i]=((double*)&(newFrameRequest->frameEx))[i];
+						} else {
+							((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],curFadeRatio);
+						}
 					}
 					} else {
 						curHasFrameEx = false;
@@ -128,24 +141,37 @@ class FrameManagerImpl: public FrameManager {
 				oldFrameRequest->NULLFrame = true;
 			}
 		} else {
-			// Per-sample pitch ramping
+			// Per-sample pitch ramping (linear)
 			curFrame.voicePitch+=oldFrameRequest->voicePitchInc;
 			oldFrameRequest->frame.voicePitch=curFrame.voicePitch;
 			
-			// Per-sample formant ramping (DECTalk-style within-frame transitions)
-			curFrame.cf1+=oldFrameRequest->cf1Inc;
-			curFrame.cf2+=oldFrameRequest->cf2Inc;
-			curFrame.cf3+=oldFrameRequest->cf3Inc;
-			curFrame.pf1+=oldFrameRequest->pf1Inc;
-			curFrame.pf2+=oldFrameRequest->pf2Inc;
-			curFrame.pf3+=oldFrameRequest->pf3Inc;
-			// Update stored frame values so crossfades start from correct position
-			oldFrameRequest->frame.cf1=curFrame.cf1;
-			oldFrameRequest->frame.cf2=curFrame.cf2;
-			oldFrameRequest->frame.cf3=curFrame.cf3;
-			oldFrameRequest->frame.pf1=curFrame.pf1;
-			oldFrameRequest->frame.pf2=curFrame.pf2;
-			oldFrameRequest->frame.pf3=curFrame.pf3;
+			// Per-sample formant ramping with exponential smoothing
+			// This mimics articulatory inertia - fast initial movement, gentle settling
+			double alpha = oldFrameRequest->formantAlpha;
+			if(!std::isnan(oldFrameRequest->endCf1)) {
+				curFrame.cf1 += alpha * (oldFrameRequest->endCf1 - curFrame.cf1);
+				oldFrameRequest->frame.cf1 = curFrame.cf1;
+			}
+			if(!std::isnan(oldFrameRequest->endCf2)) {
+				curFrame.cf2 += alpha * (oldFrameRequest->endCf2 - curFrame.cf2);
+				oldFrameRequest->frame.cf2 = curFrame.cf2;
+			}
+			if(!std::isnan(oldFrameRequest->endCf3)) {
+				curFrame.cf3 += alpha * (oldFrameRequest->endCf3 - curFrame.cf3);
+				oldFrameRequest->frame.cf3 = curFrame.cf3;
+			}
+			if(!std::isnan(oldFrameRequest->endPf1)) {
+				curFrame.pf1 += alpha * (oldFrameRequest->endPf1 - curFrame.pf1);
+				oldFrameRequest->frame.pf1 = curFrame.pf1;
+			}
+			if(!std::isnan(oldFrameRequest->endPf2)) {
+				curFrame.pf2 += alpha * (oldFrameRequest->endPf2 - curFrame.pf2);
+				oldFrameRequest->frame.pf2 = curFrame.pf2;
+			}
+			if(!std::isnan(oldFrameRequest->endPf3)) {
+				curFrame.pf3 += alpha * (oldFrameRequest->endPf3 - curFrame.pf3);
+				oldFrameRequest->frame.pf3 = curFrame.pf3;
+			}
 		}
 	}
 
@@ -165,12 +191,13 @@ class FrameManagerImpl: public FrameManager {
 		memset(&(oldFrameRequest->frame), 0, sizeof(speechPlayer_frame_t));
 		oldFrameRequest->frameEx = speechPlayer_frameEx_defaults;
 		oldFrameRequest->voicePitchInc=0;
-		oldFrameRequest->cf1Inc=0;
-		oldFrameRequest->cf2Inc=0;
-		oldFrameRequest->cf3Inc=0;
-		oldFrameRequest->pf1Inc=0;
-		oldFrameRequest->pf2Inc=0;
-		oldFrameRequest->pf3Inc=0;
+		oldFrameRequest->endCf1=NAN;
+		oldFrameRequest->endCf2=NAN;
+		oldFrameRequest->endCf3=NAN;
+		oldFrameRequest->endPf1=NAN;
+		oldFrameRequest->endPf2=NAN;
+		oldFrameRequest->endPf3=NAN;
+		oldFrameRequest->formantAlpha=0;
 		oldFrameRequest->userIndex=-1;
 	}
 
@@ -195,13 +222,14 @@ class FrameManagerImpl: public FrameManager {
 			frameRequest->voicePitchInc=0;
 		}
 		
-		// Initialize formant increments to 0 (no ramping by default)
-		frameRequest->cf1Inc = 0.0;
-		frameRequest->cf2Inc = 0.0;
-		frameRequest->cf3Inc = 0.0;
-		frameRequest->pf1Inc = 0.0;
-		frameRequest->pf2Inc = 0.0;
-		frameRequest->pf3Inc = 0.0;
+		// Initialize formant end targets to NAN (no ramping by default)
+		frameRequest->endCf1 = NAN;
+		frameRequest->endCf2 = NAN;
+		frameRequest->endCf3 = NAN;
+		frameRequest->endPf1 = NAN;
+		frameRequest->endPf2 = NAN;
+		frameRequest->endPf3 = NAN;
+		frameRequest->formantAlpha = 0.0;
 
 		// Copy frameEx safely: start with defaults, then overlay caller's data.
 		// This allows older callers with smaller structs to work with newer DLLs,
@@ -212,27 +240,40 @@ class FrameManagerImpl: public FrameManager {
 			unsigned int copySize = frameExSize < sizeof(speechPlayer_frameEx_t) ? frameExSize : sizeof(speechPlayer_frameEx_t);
 			memcpy(&(frameRequest->frameEx), frameEx, copySize);
 			
-			// Calculate formant increments if end targets are set (not NAN)
-			// This enables DECTalk-style within-frame formant ramping
-			if(frame && minNumSamples > 0) {
-				if(!std::isnan(frameRequest->frameEx.endCf1)) {
-					frameRequest->cf1Inc = (frameRequest->frameEx.endCf1 - frame->cf1) / minNumSamples;
-				}
-				if(!std::isnan(frameRequest->frameEx.endCf2)) {
-					frameRequest->cf2Inc = (frameRequest->frameEx.endCf2 - frame->cf2) / minNumSamples;
-				}
-				if(!std::isnan(frameRequest->frameEx.endCf3)) {
-					frameRequest->cf3Inc = (frameRequest->frameEx.endCf3 - frame->cf3) / minNumSamples;
-				}
-				if(!std::isnan(frameRequest->frameEx.endPf1)) {
-					frameRequest->pf1Inc = (frameRequest->frameEx.endPf1 - frame->pf1) / minNumSamples;
-				}
-				if(!std::isnan(frameRequest->frameEx.endPf2)) {
-					frameRequest->pf2Inc = (frameRequest->frameEx.endPf2 - frame->pf2) / minNumSamples;
-				}
-				if(!std::isnan(frameRequest->frameEx.endPf3)) {
-					frameRequest->pf3Inc = (frameRequest->frameEx.endPf3 - frame->pf3) / minNumSamples;
-				}
+			// Store formant end targets for exponential smoothing
+			// Tau of ~10ms gives smooth articulatory movement that mimics real speech
+			// At 22050 Hz: tau=220 samples; at 44100 Hz: tau=440 samples
+			// We use a fixed alpha that works well across sample rates
+			const double kFormantAlpha = 0.004;  // ~10-15ms time constant
+			
+			bool hasAnyFormantTarget = false;
+			if(!std::isnan(frameRequest->frameEx.endCf1)) {
+				frameRequest->endCf1 = frameRequest->frameEx.endCf1;
+				hasAnyFormantTarget = true;
+			}
+			if(!std::isnan(frameRequest->frameEx.endCf2)) {
+				frameRequest->endCf2 = frameRequest->frameEx.endCf2;
+				hasAnyFormantTarget = true;
+			}
+			if(!std::isnan(frameRequest->frameEx.endCf3)) {
+				frameRequest->endCf3 = frameRequest->frameEx.endCf3;
+				hasAnyFormantTarget = true;
+			}
+			if(!std::isnan(frameRequest->frameEx.endPf1)) {
+				frameRequest->endPf1 = frameRequest->frameEx.endPf1;
+				hasAnyFormantTarget = true;
+			}
+			if(!std::isnan(frameRequest->frameEx.endPf2)) {
+				frameRequest->endPf2 = frameRequest->frameEx.endPf2;
+				hasAnyFormantTarget = true;
+			}
+			if(!std::isnan(frameRequest->frameEx.endPf3)) {
+				frameRequest->endPf3 = frameRequest->frameEx.endPf3;
+				hasAnyFormantTarget = true;
+			}
+			
+			if(hasAnyFormantTarget) {
+				frameRequest->formantAlpha = kFormantAlpha;
 			}
 		} else {
 			frameRequest->hasFrameEx=false;
