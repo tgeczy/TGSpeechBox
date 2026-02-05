@@ -132,7 +132,9 @@ void emitFrames(
         vbFrame.pa6 = 0.0;
         vbFrame.parallelBypass = 0.0;
         vbFrame.preFormantGain = 1.0;
-        vbFrame.outputGain = 1.0;
+        // Inherit outputGain from pack defaults to avoid amplitude discontinuity.
+        // Hardcoding 1.0 when pack default is 1.5 causes a 33% volume jump/drop.
+        vbFrame.outputGain = lang.defaultOutputGain;
         // Ensure minimum fade time for smooth amplitude transition
         double vbFadeMs = t.fadeMs;
         if (vbFadeMs < 8.0) vbFadeMs = 8.0;
@@ -446,7 +448,9 @@ void emitFramesEx(
         vbFrame.pa6 = 0.0;
         vbFrame.parallelBypass = 0.0;
         vbFrame.preFormantGain = 1.0;
-        vbFrame.outputGain = 1.0;
+        // Inherit outputGain from pack defaults to avoid amplitude discontinuity.
+        // Hardcoding 1.0 when pack default is 1.5 causes a 33% volume jump/drop.
+        vbFrame.outputGain = lang.defaultOutputGain;
         
         // Minimal FrameEx (no special voice quality for voice bar)
         nvspFrontend_FrameEx vbFrameEx = {};
@@ -454,7 +458,10 @@ void emitFramesEx(
         vbFrameEx.breathiness = 0.0;
         vbFrameEx.jitter = 0.0;
         vbFrameEx.shimmer = 0.0;
-        vbFrameEx.sharpness = 1.0;
+        // Use 0.0 (meaning "inherit SR default") to avoid interpolation discontinuity.
+        // When user slider is at 0, fading from 0→1.0 causes sharpness to DIP mid-fade
+        // because values 0<x<1 are treated as multipliers while 0 means "use default".
+        vbFrameEx.sharpness = 0.0;
         vbFrameEx.endCf1 = NAN;
         vbFrameEx.endCf2 = NAN;
         vbFrameEx.endCf3 = NAN;
