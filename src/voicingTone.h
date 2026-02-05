@@ -220,7 +220,10 @@ typedef struct {
     /**
      * Speed quotient: ratio controlling glottal pulse asymmetry.
      * 
-     * Affects both the opening curve steepness and closing sharpness.
+     * Affects peak position (primary, per LF model), opening curve
+     * steepness, and closing sharpness.  This is the main "voice gender"
+     * control: lower values produce softer, breathier voice quality;
+     * higher values produce buzzier, more pressed voice quality.
      * 
      * Range: 0.5 to 4.0 (values outside this are clamped)
      *   - 0.5-1.0: Very soft/breathy (slow open, slow close)
@@ -248,6 +251,33 @@ typedef struct {
      */
     double aspirationTiltDbPerOct;
 
+    /**
+     * Global cascade formant bandwidth multiplier.
+     * 
+     * Scales all cascade resonator bandwidths (B1-B6), changing the
+     * fundamental resonance character of the vocal tract model.
+     * This is an "instrument" knob rather than a "voice" knob -- it
+     * changes how sharply defined each formant peak is.
+     * 
+     * Narrower bandwidths (< 1.0) produce sharper, more defined formant
+     * peaks where each vowel rings more distinctly (Eloquence-like clarity).
+     * Wider bandwidths (> 1.0) blur formant peaks together, producing a
+     * softer, more muffled quality (some DECTalk-like warmth).
+     * 
+     * The effect is subtle but pervasive -- it changes the entire
+     * character of voiced sounds without affecting fricatives (which
+     * use the parallel path).
+     * 
+     * Range: 0.5 to 1.3 (clamped by DSP)
+     *   - 0.5: Very sharp/ringy formants, crystalline, may ring on transitions
+     *   - 0.7: Noticeably sharper, clear vowel definition
+     *   - 1.0: Default (no change, preserves original behavior)
+     *   - 1.2-1.3: Softer, warmer, formants blend more
+     * 
+     * Default: 1.0 (no scaling, preserves original behavior)
+     */
+    double cascadeBwScale;
+
 } speechPlayer_voicingTone_t;
 
 /**
@@ -270,7 +300,8 @@ typedef struct {
     0.0,    /* pitchSyncF1DeltaHz (off by default) */ \
     0.0,    /* pitchSyncB1DeltaHz (off by default) */ \
     2.0,    /* speedQuotient (neutral, matches original behavior) */ \
-    0.0     /* aspirationTiltDbPerOct (no tilt by default) */ \
+    0.0,    /* aspirationTiltDbPerOct (no tilt by default) */ \
+    1.0     /* cascadeBwScale (no scaling by default) */ \
 }
 
 /**

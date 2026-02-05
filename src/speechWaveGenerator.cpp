@@ -1403,10 +1403,11 @@ private:
     // Pitch-sync params from voicingTone
     double pitchSyncF1Delta;
     double pitchSyncB1Delta;
+    double bwScale;  // Global cascade bandwidth multiplier from voicingTone
 
 public:
     CascadeFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), rN0(sr,true), rNP(sr),
-        pitchSyncF1Delta(0.0), pitchSyncB1Delta(0.0) {}
+        pitchSyncF1Delta(0.0), pitchSyncB1Delta(0.0), bwScale(1.0) {}
 
     void reset() {
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset(); rN0.reset(); rNP.reset();
@@ -1416,6 +1417,13 @@ public:
         pitchSyncF1Delta = f1DeltaHz;
         pitchSyncB1Delta = b1DeltaHz;
         r1.setPitchSyncParams(f1DeltaHz, b1DeltaHz);
+    }
+
+    void setCascadeBwScale(double scale) {
+        // Clamp to safe range: too narrow risks instability, too wide loses vowel identity
+        if (scale < 0.5) scale = 0.5;
+        if (scale > 1.3) scale = 1.3;
+        bwScale = scale;
     }
 
     double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {
@@ -1445,6 +1453,17 @@ public:
             if (std::isfinite(frameEx->endCf3)) cb3 = bandwidthForSweep(frame->cf3, cb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
         }
 
+        // --- Global cascade bandwidth scaling ---
+        // Multiplier < 1.0 = narrower bandwidths = sharper/ringy-er formant peaks (Eloquence-like)
+        // Multiplier > 1.0 = wider bandwidths = softer/warmer blended formants (DECTalk-like)
+        // This changes the fundamental resonance character of the entire instrument.
+        const double cascadeBwScale = bwScale;
+        cb1 *= cascadeBwScale;
+        cb2 *= cascadeBwScale;
+        cb3 *= cascadeBwScale;
+        double cb4 = frame->cb4 * cascadeBwScale;
+        double cb5 = frame->cb5 * cascadeBwScale;
+        double cb6 = frame->cb6 * cascadeBwScale;
         // --- Nyquist-proximity fade for upper cascade formants ---
         // At low sample rates (e.g. 11025 Hz, Nyquist = 5512 Hz), the cascade
         // resonators for F5/F6 sit close to Nyquist and amplify harmonic energy
@@ -1470,17 +1489,17 @@ public:
         };
 
         double preR6 = output;
-        output = r6.resonate(output, frame->cf6, frame->cb6);
+        output = r6.resonate(output, frame->cf6, cb6);
         double fade6 = cascadeFade(frame->cf6);
         output = preR6 + fade6 * (output - preR6);
 
         double preR5 = output;
-        output = r5.resonate(output, frame->cf5, frame->cb5);
+        output = r5.resonate(output, frame->cf5, cb5);
         double fade5 = cascadeFade(frame->cf5);
         output = preR5 + fade5 * (output - preR5);
 
         double preR4 = output;
-        output = r4.resonate(output, frame->cf4, frame->cb4);
+        output = r4.resonate(output, frame->cf4, cb4);
         double fade4 = cascadeFade(frame->cf4);
         output = preR4 + fade4 * (output - preR4);
         output = r3.resonate(output, frame->cf3, cb3);
@@ -2052,6 +2071,7 @@ public:
         
         // Update pitch-sync F1 modulation params
         cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz, currentTone.pitchSyncB1DeltaHz);
+        cascade.setCascadeBwScale(currentTone.cascadeBwScale);
     }
 
     void getVoicingTone(speechPlayer_voicingTone_t* tone) {
