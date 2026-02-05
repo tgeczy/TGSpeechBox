@@ -268,11 +268,11 @@ typedef struct {
      * character of voiced sounds without affecting fricatives (which
      * use the parallel path).
      * 
-     * Range: 0.5 to 1.3 (clamped by DSP)
-     *   - 0.5: Very sharp/ringy formants, crystalline, may ring on transitions
+     * Range: 0.4 to 1.4 (clamped by DSP)
+     *   - 0.4: Very sharp/ringy formants, crystalline, may ring on transitions
      *   - 0.7: Noticeably sharper, clear vowel definition
      *   - 1.0: Default (no change, preserves original behavior)
-     *   - 1.2-1.3: Softer, warmer, formants blend more
+     *   - 1.2-1.4: Softer, warmer, formants blend more
      * 
      * Default: 1.0 (no scaling, preserves original behavior)
      */

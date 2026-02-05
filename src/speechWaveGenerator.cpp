@@ -1421,8 +1421,8 @@ public:
 
     void setCascadeBwScale(double scale) {
         // Clamp to safe range: too narrow risks instability, too wide loses vowel identity
-        if (scale < 0.5) scale = 0.5;
-        if (scale > 1.3) scale = 1.3;
+        if (scale < 0.4) scale = 0.4;
+        if (scale > 1.4) scale = 1.4;
         bwScale = scale;
     }
 
