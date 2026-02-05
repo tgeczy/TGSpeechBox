@@ -32,7 +32,7 @@ The `speechPlayer.dll` now exports additional functions for real-time control of
 
 ### VoicingTone struct parameters
 
-The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 6, there are **12 parameters** plus a version detection header.
+The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 6, there are **13 parameters** plus a version detection header.
 
 #### Version detection (v3 struct)
 
@@ -68,15 +68,18 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `noiseGlottalModDepth` | double | 0.0 | 0.0–1.0 | Modulates noise sources (aspiration, frication) by the glottal cycle. Higher values create more "buzzy" noise that pulses with voicing. |
-| `pitchSyncF1DeltaHz` | double | 0.0 | -60 to +60 | Pitch-synchronous F1 modulation. During the glottal open phase, F1 is shifted by this amount. Can add naturalness or remove subtle clicks. |
-| `pitchSyncB1DeltaHz` | double | 0.0 | -50 to +50 | Pitch-synchronous B1 (F1 bandwidth) modulation. During the glottal open phase, B1 is widened by this amount. Works with `pitchSyncF1DeltaHz`. |
 
-#### V3 parameters (DSP version 5+)
+#### V3 parameters (VoicingTone struct v3)
+
+These are the extra fields that exist when the caller passes the versioned VoicingTone header (`magic` + `structSize`) and the DLL accepts the full v3 layout. They’re meant to let you shape voice character *without* touching per-frame data.
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `speedQuotient` | double | 2.0 | 0.5–4.0 | Glottal pulse asymmetry (ratio of opening to closing time). Lower values (0.5–1.5) create softer, more female-like voices. Higher values (2.5–4.0) create sharper, more male/pressed voices. Default 2.0 matches original behavior. |
+| `pitchSyncF1DeltaHz` | double | 0.0 | -60 to +60 | Pitch-synchronous F1 modulation. During the glottal open phase, F1 is shifted by this amount. Can add clarity, or reduce subtle clicks depending on the voice. |
+| `pitchSyncB1DeltaHz` | double | 0.0 | -50 to +50 | Pitch-synchronous B1 (F1 bandwidth) modulation. During the glottal open phase, B1 is widened by this amount. Works with `pitchSyncF1DeltaHz`. |
+| `speedQuotient` | double | 2.0 | 0.5–4.0 | Glottal pulse asymmetry (ratio of opening to closing time). Lower values (0.5–1.5) sound softer/more breathy. Higher values (2.5–4.0) sound sharper/more pressed. Default 2.0 matches original behavior. |
 | `aspirationTiltDbPerOct` | double | 0.0 | -12 to +12 | Spectral tilt for aspiration/breath noise in dB/octave. Negative values make breath brighter; positive values make it darker/more muffled. Independent of `voicedTiltDbPerOct`. |
+| `cascadeBwScale` | double | 1.0 | 0.4–1.4 | **Formant sharpness / vocal-tract “ring”.** Multiplies *cascade* bandwidths (B1–B6). Lower values = narrower BWs = sharper, more defined vowels. Higher values = wider BWs = softer/warmer vowels. This does **not** affect frication resonance (parallel path). |
 
 ### FrameEx struct (DSP version 5+)
 
@@ -153,11 +156,12 @@ class VoicingTone(Structure):
         ("voicedTiltDbPerOct", c_double),
         # V2 parameters
         ("noiseGlottalModDepth", c_double),
+        # V3 parameters
         ("pitchSyncF1DeltaHz", c_double),
         ("pitchSyncB1DeltaHz", c_double),
-        # V3 parameters
         ("speedQuotient", c_double),
         ("aspirationTiltDbPerOct", c_double),
+        ("cascadeBwScale", c_double),
     ]
     
     @classmethod
@@ -179,6 +183,7 @@ class VoicingTone(Structure):
         tone.pitchSyncB1DeltaHz = 0.0
         tone.speedQuotient = 2.0
         tone.aspirationTiltDbPerOct = 0.0
+        tone.cascadeBwScale = 1.0
         return tone
 
 # Set up function prototypes
@@ -189,6 +194,7 @@ dll.speechPlayer_setVoicingTone.restype = None
 tone = VoicingTone.defaults()
 tone.voicedTiltDbPerOct = -6.0  # Brighter tilt (Eloquence-like)
 tone.speedQuotient = 1.2  # Softer, more female-like pulse
+tone.cascadeBwScale = 0.85  # Sharper cascade formants (clearer vowels)
 
 # Apply to running synthesizer
 dll.speechPlayer_setVoicingTone(handle, byref(tone))
@@ -196,7 +202,7 @@ dll.speechPlayer_setVoicingTone(handle, byref(tone))
 
 ### NVDA driver sliders
 
-The driver exposes 10 sliders for real-time voice tuning:
+The driver exposes 12 sliders for real-time voice tuning:
 
 #### VoicingTone sliders (global voice character)
 
@@ -207,6 +213,8 @@ The driver exposes 10 sliders for real-time voice tuning:
 | Pitch-sync F1 delta | 0–100 | 50 | `pitchSyncF1DeltaHz` (-60 to +60 Hz) |
 | Pitch-sync B1 delta | 0–100 | 50 | `pitchSyncB1DeltaHz` (-50 to +50 Hz) |
 | Speed quotient | 0–100 | 50 | `speedQuotient` (0.5–4.0) |
+| Aspiration tilt (breath color) | 0–100 | 50 | `aspirationTiltDbPerOct` (-12 to +12 dB/oct) |
+| Formant sharpness (cascade bandwidth) | 0–100 | 50 | `cascadeBwScale` (0.4–1.4, where 50 = 1.0) |
 
 #### FrameEx sliders (per-frame voice quality)
 
