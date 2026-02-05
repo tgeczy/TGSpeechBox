@@ -459,6 +459,7 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   outTone->speedQuotient = 2.0;  // neutral default
   outTone->aspirationTiltDbPerOct = 0.0;
   outTone->cascadeBwScale = 1.0; // neutral default
+  outTone->tremorDepth = 0.0;    // no tremor by default
 
   // Check if we have a voice profile with voicing tone
   const std::string& profileName = h->pack.lang.voiceProfileName;
@@ -484,6 +485,7 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   if (vt.speedQuotient_set) outTone->speedQuotient = vt.speedQuotient;
   if (vt.aspirationTiltDbPerOct_set) outTone->aspirationTiltDbPerOct = vt.aspirationTiltDbPerOct;
   if (vt.cascadeBwScale_set) outTone->cascadeBwScale = vt.cascadeBwScale;
+  if (vt.tremorDepth_set) outTone->tremorDepth = vt.tremorDepth;
 
   return 1;  // Profile has explicit voicing tone
 }
@@ -564,6 +566,7 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
     {"speedQuotient", sliders->speedQuotient, 2},
     {"aspirationTiltDbPerOct", sliders->aspirationTiltDbPerOct, 2},
     {"cascadeBwScale", sliders->cascadeBwScale, 2},
+    {"tremorDepth", sliders->tremorDepth, 2},
     {"creakiness", sliders->creakiness, 2},
     {"breathiness", sliders->breathiness, 2},
     {"jitter", sliders->jitter, 2},

@@ -133,10 +133,11 @@ typedef struct nvspFrontend_VoicingTone {
   double speedQuotient;         /* Glottal speed quotient (2.0 = neutral) */
   double aspirationTiltDbPerOct; /* Aspiration spectral tilt */
   double cascadeBwScale;        /* Global cascade bandwidth multiplier (1.0 = neutral) */
+  double tremorDepth;           /* Tremor depth for elderly/shaky voice (0-0.5) */
 } nvspFrontend_VoicingTone;
 
 /* Number of fields in VoicingTone struct */
-#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 13
+#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 14
 
 /*
   VoiceProfileSliders - the 12 user-adjustable slider values (ABI v2+).
@@ -149,7 +150,7 @@ typedef struct nvspFrontend_VoicingTone {
   back to phonemes.yaml.
 */
 typedef struct nvspFrontend_VoiceProfileSliders {
-  /* VoicingTone sliders (7) */
+  /* VoicingTone sliders (8) */
   double voicedTiltDbPerOct;      /* Spectral tilt in dB/octave */
   double noiseGlottalModDepth;    /* Noise modulation by glottal cycle (0.0-1.0) */
   double pitchSyncF1DeltaHz;      /* Pitch-synchronous F1 delta */
@@ -157,6 +158,7 @@ typedef struct nvspFrontend_VoiceProfileSliders {
   double speedQuotient;           /* Glottal speed quotient (0.5-4.0, 2.0 = neutral) */
   double aspirationTiltDbPerOct;  /* Aspiration spectral tilt */
   double cascadeBwScale;          /* Global cascade bandwidth multiplier (0.4-1.4, 1.0 = neutral) */
+  double tremorDepth;             /* Tremor depth for elderly/shaky voice (0-0.5) */
   
   /* FrameEx sliders (5) */
   double creakiness;              /* Laryngealization (0.0-1.0) */
@@ -167,7 +169,7 @@ typedef struct nvspFrontend_VoiceProfileSliders {
 } nvspFrontend_VoiceProfileSliders;
 
 /* Number of fields in VoiceProfileSliders struct */
-#define NVSP_FRONTEND_VOICEPROFILESLIDERS_NUM_PARAMS 12
+#define NVSP_FRONTEND_VOICEPROFILESLIDERS_NUM_PARAMS 13
 
 /*
   Callback invoked for each frame (legacy, ABI v1).

@@ -113,6 +113,7 @@ struct VoicingTone {
   double speedQuotient = 2.0;        // Glottal speed quotient (default 2.0 = neutral)
   double aspirationTiltDbPerOct = 0.0; // Aspiration spectral tilt
   double cascadeBwScale = 1.0;       // Global cascade bandwidth multiplier (1.0 = neutral)
+  double tremorDepth = 0.0;          // Tremor depth for elderly/shaky voice (0-0.5)
   
   // Track which fields were explicitly set in YAML
   bool voicingPeakPos_set = false;
@@ -128,6 +129,7 @@ struct VoicingTone {
   bool speedQuotient_set = false;
   bool aspirationTiltDbPerOct_set = false;
   bool cascadeBwScale_set = false;
+  bool tremorDepth_set = false;
 };
 
 // A single voice profile definition.
