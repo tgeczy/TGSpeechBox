@@ -165,6 +165,86 @@ sudo dnf install espeak-ng
 sudo pacman -S espeak-ng
 ```
 
+## Using Third-Party Phonemizers
+
+NV Speech Player is an IPA-to-audio engine – it doesn't do text-to-IPA conversion itself. You can pair it with any phonemizer that outputs IPA to stdout.
+
+### eSpeak-ng (recommended)
+
+eSpeak-ng is fast, widely available, and supports many languages:
+```bash
+espeak-ng --ipa=1 -v en-us "Hello world" 2>/dev/null | \
+    ./bin/nvsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
+```
+
+The `--ipa=1` flag outputs IPA with stress markers. Use `--ipa=3` for more detail (includes tie bars).
+
+### Phonemizer (Python)
+
+The [phonemizer](https://github.com/bootphon/phonemizer) package wraps multiple backends and offers fine control over IPA output:
+```bash
+pip install phonemizer
+
+echo "Hello world" | phonemizer -l en-us -b espeak --strip | \
+    ./bin/nvsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
+```
+
+Phonemizer can also use festival or segments backends for languages where eSpeak coverage is limited.
+
+### Other phonemizers
+
+Any tool that outputs IPA to stdout will work. Some options:
+
+| Tool | Notes |
+|------|-------|
+| [Epitran](https://github.com/dmort27/epitran) | Rule-based G2P for many languages |
+| [DeepPhonemizer](https://github.com/as-ideas/DeepPhonemizer) | Neural G2P, good for English |
+| [Gruut](https://github.com/rhasspy/gruut) | Designed for TTS pipelines |
+| [lexconvert](http://ssb22.user.srcf.net/gradint/lexconvert.html) | Convert between phoneme formats |
+
+### Building a wrapper script
+
+For convenience, create a wrapper that chains your preferred phonemizer:
+```bash
+#!/bin/bash
+# nvsp-say: text-to-speech via eSpeak-ng + NVSpeechPlayer
+
+LANG="${1:-en-us}"
+RATE="${2:-0}"
+shift 2 2>/dev/null
+
+espeak-ng --ipa=1 -v "$LANG" "$@" 2>/dev/null | \
+    nvsp --lang "$LANG" --rate "$RATE" | \
+    aplay -q -r 16000 -f S16_LE -t raw -
+```
+
+Usage: `nvsp-say en-us 20 "Hello world"`
+
+### Handling IPA dialect differences
+
+Different phonemizers produce slightly different IPA. NV Speech Player's normalization layer handles most variations, but you may need to adjust:
+
+- **Tie bars**: eSpeak uses `t͡ʃ`, some tools output `tʃ` – both work
+- **Stress markers**: NV Speech Player expects `ˈ` (primary) and `ˌ` (secondary) before the stressed syllable
+- **Length marks**: Use `ː` for long vowels
+- **Word boundaries**: Spaces or `‖` between words
+
+If your phonemizer outputs a format that doesn't work well, you can preprocess with `sed`:
+```bash
+# Example: convert X-SAMPA to IPA (simplified)
+my-phonemizer "hello" | sed 's/"/ˈ/g; s/%/ˌ/g; s/:/ː/g' | ./bin/nvsp --lang en-us
+```
+
+### Streaming long text
+
+For long documents, process line-by-line to avoid buffering delays:
+```bash
+cat document.txt | while IFS= read -r line; do
+    espeak-ng --ipa=1 -v en-us "$line" 2>/dev/null | \
+        ./bin/nvsp --lang en-us
+done | aplay -q -r 16000 -f S16_LE -t raw -
+```
+
 ## Speech Dispatcher Integration
 
 NV Speech Player can be used as a Speech Dispatcher voice for desktop accessibility.
@@ -276,5 +356,5 @@ This is a community-maintained fork. The original project was created by NV Acce
 
 ## Links
 
-- Source: https://github.com/TamasGeczy/NVSpeechPlayer
+- Source: https://github.com/TGeczy/NVSpeechPlayer
 - Original project: https://github.com/nvaccess/nvSpeechPlayer
