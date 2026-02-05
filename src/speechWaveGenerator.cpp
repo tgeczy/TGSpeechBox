@@ -1445,9 +1445,44 @@ public:
             if (std::isfinite(frameEx->endCf3)) cb3 = bandwidthForSweep(frame->cf3, cb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
         }
 
+        // --- Nyquist-proximity fade for upper cascade formants ---
+        // At low sample rates (e.g. 11025 Hz, Nyquist = 5512 Hz), the cascade
+        // resonators for F5/F6 sit close to Nyquist and amplify harmonic energy
+        // by 12-21 dB at the folding frequency.  Because voiced sounds are
+        // periodic, this aliased energy creates audible beating ("swirly" /
+        // "cell phone" artifacts).
+        //
+        // Critically, this is ONLY applied to the CASCADE path (voiced sounds).
+        // The PARALLEL path (fricatives) is left untouched because fricative
+        // noise is aperiodic — aliased noise is still noise, with no beating.
+        // This is why DECTalk sounds clean at 11025: its cascade has only 5
+        // formants (no F6), and its parallel branch has independent gains.
+        //
+        // Fade: ratio = cf/nyquist.  <0.65 → full, >0.85 → bypass, linear between.
+        // At 22050+ Hz all fades are 1.0 → zero cost / unchanged behaviour.
+        const double nyquist = 0.5 * (double)sampleRate;
+        auto cascadeFade = [&](double cf) -> double {
+            if (cf <= 0.0 || !std::isfinite(cf)) return 1.0;
+            double ratio = cf / nyquist;
+            if (ratio < 0.65) return 1.0;
+            if (ratio > 0.85) return 0.0;
+            return 1.0 - (ratio - 0.65) / 0.20;
+        };
+
+        double preR6 = output;
         output = r6.resonate(output, frame->cf6, frame->cb6);
+        double fade6 = cascadeFade(frame->cf6);
+        output = preR6 + fade6 * (output - preR6);
+
+        double preR5 = output;
         output = r5.resonate(output, frame->cf5, frame->cb5);
+        double fade5 = cascadeFade(frame->cf5);
+        output = preR5 + fade5 * (output - preR5);
+
+        double preR4 = output;
         output = r4.resonate(output, frame->cf4, frame->cb4);
+        double fade4 = cascadeFade(frame->cf4);
+        output = preR4 + fade4 * (output - preR4);
         output = r3.resonate(output, frame->cf3, cb3);
         output = r2.resonate(output, frame->cf2, cb2);
         // F1 uses pitch-synchronous resonator without Fujisaki compensation (dropped as we don't have F1 spikes it worked with.)
