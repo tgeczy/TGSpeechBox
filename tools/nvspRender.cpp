@@ -83,6 +83,7 @@ struct VoicingToneV3 {
   double speedQuotient;
   double aspirationTiltDbPerOct;
   double cascadeBwScale;
+  double tremorDepth;
 };
 
 // ============================================================================
@@ -155,6 +156,7 @@ struct Options {
   int speedQuotient = 50;         // 0.5-4.0, default 2.0
   int aspirationTiltDbPerOct = 50; // -12 to +12, default 0
   int cascadeBwScale = 50;        // 0.4-1.4, default 1.0
+  int tremor = 0;                 // 0.0-0.4, default 0 (no tremor)
 
   // -------------------------------------------------------------------------
   // FrameEx parameters (0-100 sliders)
@@ -203,6 +205,7 @@ static void printHelp(const char* argv0) {
     << "  --aspiration-tilt <int>        Aspiration spectral tilt (default: 50)\n"
     << "  --cascade-bw-scale <int>       Formant sharpness (cascade bandwidth) (default: 50)\n"
     << "  --formant-sharpness <int>      Formant sharpness (cascade bandwidth, default: 50)\n"
+    << "  --tremor <int>                 Voice tremor / shakiness (default: 0)\n"
     << "\n"
     << "FrameEx voice quality parameters (0-100 sliders):\n"
     << "  --creakiness <int>    Laryngealization / creaky voice (default: 0)\n"
@@ -330,6 +333,7 @@ static Options parseArgs(int argc, char** argv) {
     if (a == "--speed-quotient") { parseIntArg(a.c_str(), opt.speedQuotient); continue; }
     if (a == "--aspiration-tilt") { parseIntArg(a.c_str(), opt.aspirationTiltDbPerOct); continue; }
     if (a == "--cascade-bw-scale" || a == "--formant-sharpness") { parseIntArg(a.c_str(), opt.cascadeBwScale); continue; }
+    if (a == "--tremor") { parseIntArg(a.c_str(), opt.tremor); continue; }
 
     // FrameEx parameters
     if (a == "--creakiness") { parseIntArg(a.c_str(), opt.creakiness); continue; }
@@ -392,6 +396,8 @@ static VoicingToneV3 buildVoicingTone(const Options& opt) {
     if (s <= 50) tone.cascadeBwScale = 0.4 + (static_cast<double>(s) / 50.0) * 0.6;
     else tone.cascadeBwScale = 1.0 + (static_cast<double>(s - 50) / 50.0) * 0.4;
   }
+  // tremorDepth: 0-100 maps to 0.0-0.4
+  tone.tremorDepth = slider(opt.tremor) * 0.4;
 
   return tone;
 }
@@ -520,7 +526,7 @@ static bool hasVoicingToneEffect(const Options& opt) {
           opt.voicedTiltDbPerOct != 50 || opt.noiseGlottalModDepth != 0 ||
           opt.pitchSyncF1DeltaHz != 50 || opt.pitchSyncB1DeltaHz != 50 ||
           opt.speedQuotient != 50 || opt.aspirationTiltDbPerOct != 50 ||
-          opt.cascadeBwScale != 50);
+          opt.cascadeBwScale != 50 || opt.tremor != 0);
 }
 
 }  // namespace
@@ -645,6 +651,7 @@ int main(int argc, char** argv) {
     tone.speedQuotient = 2.0;
     tone.aspirationTiltDbPerOct = 0.0;
     tone.cascadeBwScale = 1.0;
+    tone.tremorDepth = 0.0;
     
     // Try to get voicing tone from YAML (if voice profile has one)
     nvspFrontend_VoicingTone yamlTone{};
@@ -663,6 +670,7 @@ int main(int argc, char** argv) {
       tone.speedQuotient = yamlTone.speedQuotient;
       tone.aspirationTiltDbPerOct = yamlTone.aspirationTiltDbPerOct;
       tone.cascadeBwScale = yamlTone.cascadeBwScale;
+      tone.tremorDepth = yamlTone.tremorDepth;
     }
     
     // Apply CLI overrides (only if non-default)
@@ -682,6 +690,7 @@ int main(int argc, char** argv) {
       if (opt.speedQuotient != 50) tone.speedQuotient = cliTone.speedQuotient;
       if (opt.aspirationTiltDbPerOct != 50) tone.aspirationTiltDbPerOct = cliTone.aspirationTiltDbPerOct;
       if (opt.cascadeBwScale != 50) tone.cascadeBwScale = cliTone.cascadeBwScale;
+      if (opt.tremor != 0) tone.tremorDepth = cliTone.tremorDepth;
     }
     
     speechPlayer_setVoicingTone(player, reinterpret_cast<const speechPlayer_voicingTone_t*>(&tone));
