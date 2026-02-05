@@ -71,6 +71,8 @@
 #define IDC_MAP_WORDEND           2104
 #define IDC_MAP_BEFORECLASS       2105
 #define IDC_MAP_AFTERCLASS        2106
+#define IDC_MAP_NOTBEFORECLASS    2107
+#define IDC_MAP_NOTAFTERCLASS     2108
 
 // -----------------
 // Dialog controls: Clone phoneme
@@ -130,6 +132,16 @@
 #define IDC_SPEECH_VOICING_RESET_ALL  2724
 #define IDC_SPEECH_RESET_ALL          2714
 
+// FrameEx voice quality controls
+#define IDC_SPEECH_FRAMEEX_LIST       2730
+#define IDC_SPEECH_FRAMEEX_SLIDER     2731
+#define IDC_SPEECH_FRAMEEX_VAL        2732
+#define IDC_SPEECH_FRAMEEX_RESET      2733
+#define IDC_SPEECH_FRAMEEX_RESET_ALL  2734
+
+// Save to profile button
+#define IDC_SPEECH_SAVE_TO_PROFILE    2740
+
 
 // -----------------
 // Dialog controls: Phonemizer settings
@@ -185,3 +197,18 @@
 // Menu command: Edit Voices
 // -----------------
 #define IDM_SETTINGS_EDIT_VOICES     40105
+
+// -----------------
+// Dialog: Class Editor (for normalization classes)
+// -----------------
+#define IDD_CLASS_EDITOR             212
+#define IDC_CE_CLASS_LIST            3201
+#define IDC_CE_CLASS_ADD             3202
+#define IDC_CE_CLASS_REMOVE          3203
+#define IDC_CE_MEMBERS_LABEL         3204
+#define IDC_CE_MEMBERS_EDIT          3205
+
+// -----------------
+// Add Mapping dialog: Edit Classes button
+// -----------------
+#define IDC_MAP_EDIT_CLASSES         2109

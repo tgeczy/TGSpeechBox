@@ -21,12 +21,41 @@ Based on klsyn-88, found at http://linguistics.berkeley.edu/phonlab/resources/
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include "debug.h"
 #include "utils.h"
 #include "speechWaveGenerator.h"
 
 using namespace std;
+
+// -----------------------------------------------------------------------------
+// Formant sweep bandwidth handling
+//
+// Sweeping a resonator's center frequency while holding bandwidth constant changes
+// effective Q (= F/B). For upward sweeps this narrows the resonance and can yield
+// a "whistly / boxy" quality as individual harmonics get over-emphasized.
+// To keep sweeps sounding speech-like we cap Q by widening bandwidth as needed.
+//
+// Applied only when the current frame provides endCf/endPf targets (diphthongs etc.).
+// -----------------------------------------------------------------------------
+
+static inline double clampDouble(double v, double lo, double hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+
+static inline double bandwidthForSweep(double freqHz, double baseBwHz, double qMax, double bwMinHz, double bwMaxHz) {
+    if (!std::isfinite(freqHz) || !std::isfinite(baseBwHz) || freqHz <= 0.0 || baseBwHz <= 0.0) {
+        return baseBwHz;
+    }
+    // Enforce minimum bandwidth (and thus a maximum Q).
+    double bw = baseBwHz;
+    double bwFromQ = freqHz / qMax;
+    if (bwFromQ > bw) bw = bwFromQ;
+    return clampDouble(bw, bwMinHz, bwMaxHz);
+}
 
 const double PITWO=M_PI*2;
 // ------------------------------------------------------------
@@ -143,6 +172,17 @@ static inline double lookupRealGlottal(double phase) {
 
 
 
+// Limits used only during within-phoneme formant sweeps (endCf/endPf).
+// These keep resonators from becoming ultra-high-Q as formants move upward.
+const double kSweepQMaxF1 = 10.0;
+const double kSweepQMaxF2 = 18.0;
+const double kSweepQMaxF3 = 20.0;
+
+const double kSweepBwMinF1 = 30.0;
+const double kSweepBwMinF2 = 40.0;
+const double kSweepBwMinF3 = 60.0;
+const double kSweepBwMax = 1000.0;
+
 // ------------------------------------------------------------
 // Tuning knobs (DSP-layer).
 // ------------------------------------------------------------
@@ -195,12 +235,59 @@ const double kAspBurstFc_44k = 2500.0;   // 44100 Hz
 // Burstiness detection sensitivity (higher = more sensitive to fast rises)
 const double kBurstinessScale = 25.0;
 
+// ------------------------------------------------------------
+// Breathiness macro tuning (per-frame tilt offset)
+// ------------------------------------------------------------
+// Breathiness already drives turbulence, OQ, and pulse shape.
+// This adds per-frame spectral TILT offset for true airy voice quality.
+// Without tilt, you get "noisy voicing" (hoarseness).
+// With tilt, you get "breathy voicing" (airy, soft highs).
+
+// Max tilt offset at breathiness=1.0 (positive = darker/softer highs for VOICED)
+const double kBreathinessTiltMaxDb = 6.0;
+
+// Max aspiration tilt offset at breathiness=1.0 (NEGATIVE = darker/softer noise)
+// This makes the breath noise spectrally match the softened voice
+const double kBreathinessAspTiltMaxDb = -8.0;
+
+// Smoothing time constant to prevent clicks when breathiness changes
+const double kBreathinessTiltSmoothMs = 8.0;
+
+// ------------------------------------------------------------
+// Fast thread-local PRNG (replaces stdlib rand() for audio thread safety)
+// ------------------------------------------------------------
+// Linear Congruential Generator - fast, no locking, good enough spectral
+// properties for audio noise. Each NoiseGenerator/VoiceGenerator instance
+// gets its own state, eliminating thread contention.
+class FastRandom {
+private:
+    uint32_t seed;
+
+public:
+    FastRandom(uint32_t s = 12345): seed(s) {}
+
+    void setSeed(uint32_t s) { seed = s; }
+
+    // Returns [0, 1)
+    inline double nextDouble() {
+        seed = seed * 1664525u + 1013904223u;  // LCG constants from Numerical Recipes
+        return (double)(seed >> 1) * (1.0 / 2147483648.0);
+    }
+
+    // Returns [-1, 1)
+    inline double nextBipolar() {
+        seed = seed * 1664525u + 1013904223u;
+        return (double)((int32_t)seed) * (1.0 / 2147483648.0);
+    }
+};
+
 class NoiseGenerator {
 private:
     double lastValue;
+    FastRandom rng;
 
 public:
-    NoiseGenerator(): lastValue(0.0) {}
+    NoiseGenerator(): lastValue(0.0), rng(54321) {}
 
     void reset() {
         lastValue=0.0;
@@ -208,13 +295,13 @@ public:
 
     // Brownish noise (smoothed random) - original behavior for frication etc.
     double getNext() {
-        lastValue=(((double)rand()/(double)RAND_MAX)-0.5)+0.75*lastValue;
+        lastValue=(rng.nextDouble()-0.5)+0.75*lastValue;
         return lastValue;
     }
     
     // White noise - flat spectrum, better for aspiration tilt to act on
-    static inline double white() {
-        return ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+    double white() {
+        return rng.nextBipolar();
     }
 };
 
@@ -264,12 +351,156 @@ public:
     void reset() { z = 0.0; }
 };
 
+// ------------------------------------------------------------
+// Fujisaki-Bartman pitch contour model (DECTalk-style)
+// ------------------------------------------------------------
+// Ported from the provided reference Python (fujisaki_bartman_pitch.py).
+// Time units are in *samples*.
+//
+// The model outputs a multiplicative contour multiplier:
+//   F0 = basePitchHz * exp(phraseState + accentState)
+//
+// Phrase command: impulse (one-sample) of amplitude A.
+// Accent command: rectangular pulse of amplitude A for D samples.
+class FujisakiBartmanPitch {
+private:
+    // Filter coefficients
+    double pa, pb, pc;
+    double aa, ab, ac;
+
+    // Past output samples
+    double px1, px2;
+    double ax1, ax2;
+
+    // Impulse variables
+    double phr;
+    double acc;
+    int countdown;
+
+    // Defaults (scaled for sample rate to preserve timing in seconds)
+    int defaultPhraseLen;
+    int defaultAccentLen;
+    int defaultAccentDur;
+
+    static inline int clampInt(int v, int lo, int hi) {
+        if (v < lo) return lo;
+        if (v > hi) return hi;
+        return v;
+    }
+
+    void designPhrase(int l) {
+        // l is length to reach the peak (in samples)
+        if (l < 1) l = 1;
+        const double nf = -1.0 / (double)l;
+        const double r = exp(nf);
+        const double c = -(r * r);
+        const double b = 2.0 * r;
+        const double p = exp(exp(1.0) * nf); // gain compensation
+        const double a = 1.0 - b * p - c * p;
+        pa = a; pb = b; pc = c;
+    }
+
+    void designAccent(int l) {
+        // l is length to reach the peak (in samples)
+        if (l < 1) l = 1;
+        const double nf = -1.0 / (double)l;
+        const double r = exp(nf);
+        const double c = -(r * r);
+        const double b = 2.0 * r;
+        const double a = 1.0 - b - c;
+        aa = a; ab = b; ac = c;
+    }
+
+public:
+    explicit FujisakiBartmanPitch(int sampleRate)
+        : pa(0.0), pb(0.0), pc(0.0), aa(0.0), ab(0.0), ac(0.0),
+          px1(0.0), px2(0.0), ax1(0.0), ax2(0.0),
+          phr(0.0), acc(0.0), countdown(0),
+          defaultPhraseLen(4250), defaultAccentLen(1024), defaultAccentDur(7500) {
+
+        // Reference values come from a DECTalk-style model tuned around 22050 Hz.
+        // Scale defaults so that the same *time* (seconds) is preserved across SR.
+        const double refSr = 22050.0;
+        if (sampleRate > 0) {
+            const double scale = (double)sampleRate / refSr;
+            defaultPhraseLen = (int)floor(0.5 + 4250.0 * scale);
+            defaultAccentLen = (int)floor(0.5 + 1024.0 * scale);
+            defaultAccentDur = (int)floor(0.5 + 7500.0 * scale);
+        }
+        // Keep in sane ranges.
+        defaultPhraseLen = clampInt(defaultPhraseLen, 1, 200000);
+        defaultAccentLen = clampInt(defaultAccentLen, 1, 200000);
+        defaultAccentDur = clampInt(defaultAccentDur, 1, 200000);
+
+        designPhrase(defaultPhraseLen);
+        designAccent(defaultAccentLen);
+    }
+
+    void resetPast() {
+        px1 = 0.0; px2 = 0.0;
+        ax1 = 0.0; ax2 = 0.0;
+        phr = 0.0;
+        acc = 0.0;
+        countdown = 0;
+    }
+
+    void phrase(double a, int phraseLenSamples) {
+        // Trigger phrase command (one-sample impulse)
+        if (!(a > 0.0)) return;
+        phr = a;
+        if (phraseLenSamples > 0) {
+            designPhrase(phraseLenSamples);
+        }
+    }
+
+    void accent(double a, int durationSamples, int accentLenSamples) {
+        // Trigger accent command (rectangular pulse)
+        if (!(a > 0.0)) return;
+        acc = a;
+        countdown = (durationSamples > 0) ? durationSamples : defaultAccentDur;
+        if (accentLenSamples > 0) {
+            designAccent(accentLenSamples);
+        }
+    }
+
+    double processMultiplier() {
+        // Phrase command
+        const double y1 = pa * phr + pb * px1 + pc * px2;
+        px2 = px1;
+        px1 = y1;
+        phr = 0.0;
+
+        // Accent command
+        double aimp = 0.0;
+        if (countdown > 0) {
+            aimp = acc;
+            countdown -= 1;
+        }
+        const double y2 = aa * aimp + ab * ax1 + ac * ax2;
+        ax2 = ax1;
+        ax1 = y2;
+
+        // Multiplier = exp(y1 + y2)
+        const double e = y1 + y2;
+        // Avoid overflow/inf if someone feeds insane command magnitudes.
+        const double eClamped = clampDouble(e, -24.0, 24.0);
+        return exp(eClamped);
+    }
+};
+
 class VoiceGenerator {
 private:
     int sampleRate;
     FrequencyGenerator pitchGen;
     FrequencyGenerator vibratoGen;
     NoiseGenerator aspirationGen;
+
+    // Optional Fujisaki-Bartman pitch contour model (DSP v6+)
+    FujisakiBartmanPitch fujisakiPitch;
+    bool fujisakiWasEnabled;
+    double lastFujisakiReset;
+    double lastFujisakiPhraseAmp;
+    double lastFujisakiAccentAmp;
     double lastFlow;
     double lastVoicedIn;
     double lastVoicedOut;
@@ -290,6 +521,7 @@ private:
     double lastCyclePos;
     double jitterMul;
     double shimmerMul;
+    FastRandom jitterShimmerRng;  // dedicated PRNG for jitter/shimmer
 
     double voicingPeakPos;
     double voicedPreEmphA;
@@ -312,12 +544,22 @@ private:
     double tiltRefHz;
     double tiltLastTlForTargets;
 
+    // Per-frame tilt offset from breathiness (stacks with global tilt)
+    double perFrameTiltOffset;        // current smoothed value
+    double perFrameTiltOffsetTarget;  // target from current frame's breathiness
+    double perFrameTiltOffsetAlpha;   // smoothing coefficient
+
     // Aspiration/frication tilt (LP/HP crossfade for noise color)
     double aspTiltTargetDb;      // target from slider
     double aspTiltSmoothedDb;    // smoothed value (prevents clicks)
     double aspTiltSmoothAlpha;   // smoothing coefficient
     double aspLpState;           // lowpass state for aspiration tilt filter
     double fricLpState;          // lowpass state for frication tilt (same tilt value)
+    
+    // Per-frame aspiration tilt offset from breathiness (makes noise softer too)
+    double perFrameAspTiltOffset;
+    double perFrameAspTiltOffsetTarget;
+    double perFrameAspTiltOffsetAlpha;
 
     // Radiation Gain (Applied ONLY to dFlow)
     double radiationDerivGain;
@@ -395,7 +637,13 @@ return clampDouble(a, 0.0, 0.9999);
     }
 
     double applyTilt(double in) {
-        tiltTlDb += (tiltTargetTlDb - tiltTlDb) * tiltTlAlpha;
+        // Smooth the per-frame tilt offset (prevents clicks when breathiness changes)
+        perFrameTiltOffset += (perFrameTiltOffsetTarget - perFrameTiltOffset) * perFrameTiltOffsetAlpha;
+        
+        // Effective tilt = global (speaker identity) + per-frame offset (phonation state)
+        double effectiveTilt = tiltTargetTlDb + perFrameTiltOffset;
+        
+        tiltTlDb += (effectiveTilt - tiltTlDb) * tiltTlAlpha;
         if (fabs(tiltTlDb - tiltLastTlForTargets) > 0.01) {
             updateTiltTargets(tiltTlDb);
             tiltLastTlForTargets = tiltTlDb;
@@ -423,9 +671,14 @@ return clampDouble(a, 0.0, 0.9999);
     }
 
     double applyAspirationTilt(double x) {
-        // Smooth the tilt parameter (prevents clicks from instant slider changes)
+        // Smooth the per-frame aspiration tilt offset (from breathiness)
+        perFrameAspTiltOffset += (perFrameAspTiltOffsetTarget - perFrameAspTiltOffset) * perFrameAspTiltOffsetAlpha;
+        
+        // Smooth the global tilt parameter (prevents clicks from instant slider changes)
         aspTiltSmoothedDb += (aspTiltTargetDb - aspTiltSmoothedDb) * aspTiltSmoothAlpha;
-        double t = aspTiltSmoothedDb;
+        
+        // Effective tilt = global (speaker setting) + per-frame (breathiness)
+        double t = aspTiltSmoothedDb + perFrameAspTiltOffset;
 
         // Effect amount 0..1, with perceptual curve
         double amt = clampDouble(fabs(t) / 18.0, 0.0, 1.0);
@@ -473,11 +726,13 @@ public:
     }
 
     VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
+        fujisakiPitch(sr), fujisakiWasEnabled(false),
+        lastFujisakiReset(0.0), lastFujisakiPhraseAmp(0.0), lastFujisakiAccentAmp(0.0),
         lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
         noiseGlottalModDepth(0.0), lastNoiseMod(1.0),
         smoothAspAmp(0.0), smoothAspAmpInit(false),
         aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
-        lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0),
+        lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0), jitterShimmerRng(98765),
         glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
         tiltTargetTlDb(0.0), tiltTlDb(0.0),
@@ -485,8 +740,10 @@ public:
         tiltTlAlpha(0.0), tiltPoleAlpha(0.0),
         tiltRefHz(3000.0),
         tiltLastTlForTargets(1e9),
+        perFrameTiltOffset(0.0), perFrameTiltOffsetTarget(0.0), perFrameTiltOffsetAlpha(0.0),
         aspTiltTargetDb(0.0), aspTiltSmoothedDb(0.0), aspTiltSmoothAlpha(0.0),
         aspLpState(0.0), fricLpState(0.0),
+        perFrameAspTiltOffset(0.0), perFrameAspTiltOffsetTarget(0.0), perFrameAspTiltOffsetAlpha(0.0),
         radiationDerivGain(1.0),
         radiationMix(0.0),
         useRealGlottal(true) {  // ENABLED: uses extracted human glottal flow table
@@ -496,6 +753,10 @@ public:
 
         tiltTlAlpha = 1.0 - exp(-1.0 / (sampleRate * (tlSmoothMs * 0.001)));
         tiltPoleAlpha = 1.0 - exp(-1.0 / (sampleRate * (poleSmoothMs * 0.001)));
+        
+        // Per-frame tilt offset smoothing (for breathiness on both voice and aspiration)
+        perFrameTiltOffsetAlpha = 1.0 - exp(-1.0 / (sampleRate * (kBreathinessTiltSmoothMs * 0.001)));
+        perFrameAspTiltOffsetAlpha = 1.0 - exp(-1.0 / (sampleRate * (kBreathinessTiltSmoothMs * 0.001)));
 
         // Aspiration tilt smoothing (10ms removes clicks without feeling laggy)
         const double aspTiltSmoothMs = 10.0;
@@ -533,6 +794,14 @@ public:
         pitchGen.reset();
         vibratoGen.reset();
         aspirationGen.reset();
+
+        // Reset Fujisaki pitch model state so new utterances start clean.
+        fujisakiPitch.resetPast();
+        fujisakiWasEnabled = false;
+        lastFujisakiReset = 0.0;
+        lastFujisakiPhraseAmp = 0.0;
+        lastFujisakiAccentAmp = 0.0;
+
         lastFlow=0.0;
         lastVoicedIn=0.0;
         lastVoicedOut=0.0;
@@ -549,6 +818,10 @@ public:
         fricLpState = 0.0;
         aspTiltSmoothedDb = aspTiltTargetDb;  // Snap to target on reset
         tiltState = 0.0;  // Reset voiced tilt IIR state to prevent transient
+        perFrameTiltOffset = 0.0;
+        perFrameTiltOffsetTarget = 0.0;
+        perFrameAspTiltOffset = 0.0;
+        perFrameAspTiltOffsetTarget = 0.0;
     }
 
     void setTiltDbPerOct(double tiltVal) {
@@ -595,30 +868,121 @@ public:
         double breathiness = 0.0;
         double jitter = 0.0;
         double shimmer = 0.0;
+        double frameExSharpness = 0.0;  // 0 = use SR default, >0 = override
         if (frameEx) {
             creakiness = frameEx->creakiness;
             breathiness = frameEx->breathiness;
             jitter = frameEx->jitter;
             shimmer = frameEx->shimmer;
+            frameExSharpness = frameEx->sharpness;
 
             if (!std::isfinite(creakiness)) creakiness = 0.0;
             if (!std::isfinite(breathiness)) breathiness = 0.0;
             if (!std::isfinite(jitter)) jitter = 0.0;
             if (!std::isfinite(shimmer)) shimmer = 0.0;
+            if (!std::isfinite(frameExSharpness)) frameExSharpness = 0.0;
 
             creakiness = clampDouble(creakiness, 0.0, 1.0);
             breathiness = clampDouble(breathiness, 0.0, 1.0);
             jitter = clampDouble(jitter, 0.0, 1.0);
             shimmer = clampDouble(shimmer, 0.0, 1.0);
+            frameExSharpness = clampDouble(frameExSharpness, 0.0, 15.0);  // Allow up to 15 for extreme effects
             
             // Perceptual curve for breathiness: makes 0.2–0.6 slider range useful
             if (breathiness > 0.0) {
                 breathiness = pow(breathiness, 0.55);
             }
+            
+            // Breathiness drives per-frame tilt offset (softer highs = airy quality)
+            // VOICED: Positive tilt = darker/softer. breathiness 1.0 -> +6 dB/oct darker
+            perFrameTiltOffsetTarget = breathiness * kBreathinessTiltMaxDb;
+            
+            // ASPIRATION/NOISE: Negative tilt = darker. breathiness 1.0 -> -8 dB/oct darker
+            // This makes the breath noise spectrally match the softened voice
+            perFrameAspTiltOffsetTarget = breathiness * kBreathinessAspTiltMaxDb;
+        } else {
+            // No frameEx: reset tilt offsets to zero
+            perFrameTiltOffsetTarget = 0.0;
+            perFrameAspTiltOffsetTarget = 0.0;
         }
 
+        // ------------------------------------------------------------
+        // Pitch (F0)
+        // ------------------------------------------------------------
+        // Base pitch comes from the frame (and can still be linearly ramped via
+        // endVoicePitch in FrameManager). Optionally, we can modulate that base
+        // pitch with the Fujisaki-Bartman pitch contour model.
+
+        double basePitchHz = frame->voicePitch;
+        if (!std::isfinite(basePitchHz) || basePitchHz < 0.0) basePitchHz = 0.0;
+
+        // Fujisaki-Bartman pitch contour (optional)
+        double pitchContourMul = 1.0;
+        bool useFujisaki = false;
+        if (frameEx) {
+            double en = frameEx->fujisakiEnabled;
+            if (std::isfinite(en) && en > 0.5) {
+                useFujisaki = true;
+            }
+        }
+
+        if (useFujisaki) {
+            // Reset model state on rising edge.
+            double resetVal = frameEx ? frameEx->fujisakiReset : 0.0;
+            if (!std::isfinite(resetVal)) resetVal = 0.0;
+            if (resetVal > 0.5 && lastFujisakiReset <= 0.5) {
+                fujisakiPitch.resetPast();
+                lastFujisakiPhraseAmp = 0.0;
+                lastFujisakiAccentAmp = 0.0;
+            }
+            lastFujisakiReset = resetVal;
+
+            // Phrase trigger: rising edge of fujisakiPhraseAmp.
+            double phraseAmp = frameEx ? frameEx->fujisakiPhraseAmp : 0.0;
+            if (!std::isfinite(phraseAmp)) phraseAmp = 0.0;
+            if (phraseAmp > 0.0 && lastFujisakiPhraseAmp <= 0.0) {
+                double pl = frameEx ? frameEx->fujisakiPhraseLen : 0.0;
+                if (!std::isfinite(pl)) pl = 0.0;
+                int plSamples = (pl > 0.0) ? (int)floor(pl + 0.5) : 0;
+                fujisakiPitch.phrase(phraseAmp, plSamples);
+            }
+            lastFujisakiPhraseAmp = phraseAmp;
+
+            // Accent trigger: rising edge of fujisakiAccentAmp.
+            double accentAmp = frameEx ? frameEx->fujisakiAccentAmp : 0.0;
+            if (!std::isfinite(accentAmp)) accentAmp = 0.0;
+            if (accentAmp > 0.0 && lastFujisakiAccentAmp <= 0.0) {
+                double d = frameEx ? frameEx->fujisakiAccentDur : 0.0;
+                double al = frameEx ? frameEx->fujisakiAccentLen : 0.0;
+                if (!std::isfinite(d)) d = 0.0;
+                if (!std::isfinite(al)) al = 0.0;
+                int dSamples = (d > 0.0) ? (int)floor(d + 0.5) : 0;
+                int alSamples = (al > 0.0) ? (int)floor(al + 0.5) : 0;
+                fujisakiPitch.accent(accentAmp, dSamples, alSamples);
+            }
+            lastFujisakiAccentAmp = accentAmp;
+
+            pitchContourMul = fujisakiPitch.processMultiplier();
+            if (!std::isfinite(pitchContourMul) || pitchContourMul <= 0.0) {
+                pitchContourMul = 1.0;
+            }
+            fujisakiWasEnabled = true;
+        } else {
+            // If the model was previously enabled and is now disabled, clear state so
+            // the next enable starts from a clean history.
+            if (fujisakiWasEnabled) {
+                fujisakiPitch.resetPast();
+                fujisakiWasEnabled = false;
+                lastFujisakiReset = 0.0;
+                lastFujisakiPhraseAmp = 0.0;
+                lastFujisakiAccentAmp = 0.0;
+            }
+        }
+
+        // Vibrato (fraction of a semitone)
         double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
-        double pitchHz = frame->voicePitch * vibrato;
+
+        double pitchHz = basePitchHz * pitchContourMul * vibrato;
         if (!std::isfinite(pitchHz) || pitchHz < 0.0) pitchHz = 0.0;
 
         // Creaky voice tends to have slightly lower F0 and more irregularity.
@@ -647,7 +1011,7 @@ public:
             // - shimmer: relative amplitude variation
             double jitterRel = (jitter * 0.15) + (creakiness * 0.05);
             if (jitterRel > 0.0) {
-                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                double r = jitterShimmerRng.nextBipolar();
                 jitterMul = 1.0 + (r * jitterRel);
                 if (jitterMul < 0.2) jitterMul = 0.2;
             } else {
@@ -656,7 +1020,7 @@ public:
 
             double shimmerRel = (shimmer * 0.70) + (creakiness * 0.12);
             if (shimmerRel > 0.0) {
-                double r = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+                double r = jitterShimmerRng.nextBipolar();
                 shimmerMul = 1.0 + (r * shimmerRel);
                 if (shimmerMul < 0.0) shimmerMul = 0.0;
             } else {
@@ -680,7 +1044,7 @@ public:
         // Aspiration noise: use WHITE noise (flat spectrum) so tilt filter can shape it
         // Base gain 0.1, breathiness lifts it up to 0.25
         double aspBase = 0.10 + (0.15 * breathiness);
-        double aspiration = NoiseGenerator::white() * aspBase * noiseMod;
+        double aspiration = aspirationGen.white() * aspBase * noiseMod;
         
         // Apply tilt filter to aspiration (color the noise)
         aspiration = applyAspirationTilt(aspiration);
@@ -696,10 +1060,14 @@ public:
             if (effectiveOQ > 0.95) effectiveOQ = 0.95;
         }
         
-        // Breathiness: longer open phase (opens earlier, incomplete closure)
+        // Breathiness: much longer open phase (glottis barely closes)
+        // True breathy voice = glottis open 85-95% of cycle, not just 70%
         if (breathiness > 0.0) {
-            effectiveOQ -= 0.12 * breathiness;
-            if (effectiveOQ < 0.10) effectiveOQ = 0.10;
+            // Push OQ down toward 0.05 at full breathiness
+            // From 0.4 default: 0.4 - (0.35 * 1.0) = 0.05
+            effectiveOQ -= 0.35 * breathiness;
+            // Allow very low OQ for breathiness (nearly always open)
+            if (effectiveOQ < 0.05) effectiveOQ = 0.05;
         }
 
         glottisOpen = (pitchHz > 0.0) && (cyclePos >= effectiveOQ);
@@ -777,6 +1145,7 @@ public:
                 } else {
                     // Closing phase: sharper fall with "return phase" character
                     double t = (phase - peakPos) / (1.0 - peakPos);
+                    
                     // Sample-rate-dependent base sharpness:
                     // Higher sample rates need sharper closure for fuller harmonics.
                     double baseSharpness;
@@ -791,6 +1160,16 @@ public:
                     } else {
                         baseSharpness = 2.5;
                     }
+                    
+                    // FrameEx sharpness is a MULTIPLIER (0.5 to 2.0), not absolute.
+                    // This keeps the slider SR-agnostic: "1.0" always means "default for this SR".
+                    // A value of 0 means "use default" (no FrameEx override).
+                    if (frameExSharpness > 0.0) {
+                        baseSharpness *= frameExSharpness;
+                        // Clamp to safe range: too low = no closure, too high = just harsh
+                        baseSharpness = clampDouble(baseSharpness, 1.0, 15.0);
+                    }
+                    
                     // Speed quotient modulates the closing sharpness:
                     //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
                     //   SQ=2.0: sharpness * 1.0 (default)
@@ -816,6 +1195,26 @@ public:
                 // Linear interpolation between 11025 and 16000
                 lfBlend = 0.30 + 0.70 * (double)(sampleRate - 11025) / (16000.0 - 11025.0);
             }
+
+
+            // Scale LF mixing with user-facing glottal sharpness (frameExSharpness) while keeping
+            // the neutral/default behavior unchanged.
+            //
+            // - frameExSharpness == 0.0: use the sample-rate default LF blend (backward compatible)
+            // - frameExSharpness  < 1.0: smoother (less LF)
+            // - frameExSharpness  > 1.0: sharper (more LF), capped per sample rate to avoid aliasy crunch
+            const double lfBlendBase = lfBlend;
+
+            const double sharpMul = (frameExSharpness > 0.0) ? frameExSharpness : 1.0;
+            const double sharpClamped = clampDouble(sharpMul, 0.25, 3.0);
+            const double lfScale = pow(sharpClamped, 0.25); // gentle curve: 0.5->~0.84, 2.0->~1.19
+
+            double lfCap = 1.0;
+            if (sampleRate <= 11025) lfCap = 0.35;
+            else if (sampleRate < 16000) lfCap = 0.85;
+
+            lfBlend = clampDouble(lfBlendBase * lfScale, 0.0, lfCap);
+
 
             flow = (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
         }
@@ -854,7 +1253,9 @@ public:
         if (!std::isfinite(voiceTurbAmp)) voiceTurbAmp = 0.0;
         voiceTurbAmp = clampDouble(voiceTurbAmp, 0.0, 1.0);
         if (breathiness > 0.0) {
-            voiceTurbAmp = clampDouble(voiceTurbAmp + (1.0 * breathiness), 0.0, 1.0);
+            // Moderate turbulence increase (glottal-gated noise is the key breathy component)
+            // Reduced from 1.0 to 0.5 - we want "weak airy voice" not "noise drowning voice"
+            voiceTurbAmp = clampDouble(voiceTurbAmp + (0.5 * breathiness), 0.0, 1.0);
         }
 
         double turbulence = aspiration * voiceTurbAmp;
@@ -875,12 +1276,18 @@ public:
             voiceAmp *= (1.0 - (0.35 * creakiness));
         }
         if (breathiness > 0.0) {
-            // Breathy voice has weaker vocal fold vibration
-            voiceAmp *= (1.0 - (0.25 * breathiness));
+            // TRUE breathy voice: the voiced component nearly disappears.
+            // At full breathiness, only 15% of voice remains (85% reduction).
+            // This makes turbulent noise the PRIMARY sound, not an additive layer.
+            voiceAmp *= (1.0 - (0.98 * breathiness));
         }
         voiceAmp *= shimmerMul;
 
-        double voicedIn = (voicedSrc + turbulence) * voiceAmp;
+        // CRITICAL: Apply voiceAmp ONLY to the voiced pulse, NOT to turbulence.
+        // For breathiness: voice gets quiet while turbulence stays strong.
+        // OLD: (voicedSrc + turbulence) * voiceAmp  <-- killed turbulence too!
+        // NEW: (voicedSrc * voiceAmp) + turbulence  <-- turbulence independent
+        double voicedIn = (voicedSrc * voiceAmp) + turbulence;
         const double dcPole = 0.9995;
         double voiced = voicedIn - lastVoicedIn + (dcPole * lastVoicedOut);
         lastVoicedIn = voicedIn;
@@ -1119,7 +1526,7 @@ public:
         r1.setPitchSyncParams(f1DeltaHz, b1DeltaHz);
     }
 
-    double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
+    double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {
         input/=2.0;
         // Klatt cascade: N0 (antiresonator) -> NP (resonator), then cascade formants.
         // NOTE: Our phoneme tables were tuned with the classic high-to-low cascade order
@@ -1135,13 +1542,24 @@ public:
             frame->caNP
         );
 
+        // During within-phoneme formant sweeps (diphthongs), widen bandwidth as needed
+        // to keep resonators from becoming ultra-high-Q as formants move upward.
+        double cb1 = frame->cb1;
+        double cb2 = frame->cb2;
+        double cb3 = frame->cb3;
+        if (frameEx) {
+            if (std::isfinite(frameEx->endCf1)) cb1 = bandwidthForSweep(frame->cf1, cb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
+            if (std::isfinite(frameEx->endCf2)) cb2 = bandwidthForSweep(frame->cf2, cb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
+            if (std::isfinite(frameEx->endCf3)) cb3 = bandwidthForSweep(frame->cf3, cb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
+        }
+
         output = r6.resonate(output, frame->cf6, frame->cb6);
         output = r5.resonate(output, frame->cf5, frame->cb5);
         output = r4.resonate(output, frame->cf4, frame->cb4);
-        output = r3.resonate(output, frame->cf3, frame->cb3);
-        output = r2.resonate(output, frame->cf2, frame->cb2);
+        output = r3.resonate(output, frame->cf3, cb3);
+        output = r2.resonate(output, frame->cf2, cb2);
         // F1 uses pitch-synchronous resonator without Fujisaki compensation (dropped as we don't have F1 spikes it worked with.)
-        output = r1.resonate(output, frame->cf1, frame->cb1, glottisOpen);
+        output = r1.resonate(output, frame->cf1, cb1, glottisOpen);
         return output;
     }
 };
@@ -1158,13 +1576,24 @@ public:
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset();
     }
 
-    double getNext(const speechPlayer_frame_t* frame, bool glottisOpen, double input) {
+    double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {
         input/=2.0;
         (void)glottisOpen;
         double output=0;
-        output+=(r1.resonate(input,frame->pf1,frame->pb1)-input)*frame->pa1;
-        output+=(r2.resonate(input,frame->pf2,frame->pb2)-input)*frame->pa2;
-        output+=(r3.resonate(input,frame->pf3,frame->pb3)-input)*frame->pa3;
+
+        // Same Q-capping logic for parallel formants when their frequencies are swept.
+        double pb1 = frame->pb1;
+        double pb2 = frame->pb2;
+        double pb3 = frame->pb3;
+        if (frameEx) {
+            if (std::isfinite(frameEx->endPf1)) pb1 = bandwidthForSweep(frame->pf1, pb1, kSweepQMaxF1, kSweepBwMinF1, kSweepBwMax);
+            if (std::isfinite(frameEx->endPf2)) pb2 = bandwidthForSweep(frame->pf2, pb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
+            if (std::isfinite(frameEx->endPf3)) pb3 = bandwidthForSweep(frame->pf3, pb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
+        }
+
+        output+=(r1.resonate(input,frame->pf1,pb1)-input)*frame->pa1;
+        output+=(r2.resonate(input,frame->pf2,pb2)-input)*frame->pa2;
+        output+=(r3.resonate(input,frame->pf3,pb3)-input)*frame->pa3;
         output+=(r4.resonate(input,frame->pf4,frame->pb4)-input)*frame->pa4;
         output+=(r5.resonate(input,frame->pf5,frame->pb5)-input)*frame->pa5;
         output+=(r6.resonate(input,frame->pf6,frame->pb6)-input)*frame->pa6;
@@ -1369,6 +1798,8 @@ public:
             startFadeTotal = (int)(sampleRate * 0.004); // 6 ms - longer for higher sample rates
             if (startFadeTotal < 64) startFadeTotal = 64;
             startFadeRemaining = startFadeTotal;
+            // Force full reset on next frame (clears Fujisaki IIR filter state)
+            wasSilence = true;
         }
         
         for(unsigned int i=0;i<sampleCount;++i) {
@@ -1508,7 +1939,7 @@ public:
                 asp = asp + burstiness * (aspFilt - asp);
                 double voiceForCascade = voicedOnly + asp;
 
-                double cascadeOut = cascade.getNext(frame, voiceGenerator.glottisOpen, voiceForCascade * smoothPreGain);
+                double cascadeOut = cascade.getNext(frame, frameEx, voiceGenerator.glottisOpen, voiceForCascade * smoothPreGain);
 
                 // Generate raw frication noise
                 double fricNoise = fricGenerator.getNext() * kFricNoiseScale * fricAmp * bypassGain * bypassVoicedDuck * voicedFricScale;
@@ -1531,7 +1962,7 @@ public:
                 // burstiness=1 -> use burst (darker), burstiness=0 -> use sustain (brighter)
                 double fric = fricSustain + burstiness * (fricBurst - fricSustain);
 
-                double parallelOut=parallel.getNext(frame,voiceGenerator.glottisOpen,fric*smoothPreGain);
+                double parallelOut=parallel.getNext(frame, frameEx, voiceGenerator.glottisOpen, fric*smoothPreGain);
                 double out=(cascadeOut+parallelOut)*frame->outputGain;
 
                 // DC blocking
@@ -1607,6 +2038,11 @@ public:
                 stopFadeRemaining = 0;
                 // Reset high-shelf biquad state so next utterance starts clean
                 hsIn1 = hsIn2 = hsOut1 = hsOut2 = 0.0;
+                // Zero-fill remainder of buffer to prevent garbage audio if caller
+                // plays the full buffer regardless of return value
+                if (i < sampleCount) {
+                    memset(&sampleBuf[i], 0, (sampleCount - i) * sizeof(sample));
+                }
                 return i;
             }
         }

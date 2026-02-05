@@ -196,6 +196,12 @@ std::vector<ReplacementRule> LanguageYaml::replacements() const {
       if (const Node* n = whenN->get("afterClass")) {
         if (n->isScalar()) r.when.afterClass = n->scalar;
       }
+      if (const Node* n = whenN->get("notBeforeClass")) {
+        if (n->isScalar()) r.when.notBeforeClass = n->scalar;
+      }
+      if (const Node* n = whenN->get("notAfterClass")) {
+        if (n->isScalar()) r.when.notAfterClass = n->scalar;
+      }
     }
 
     out.push_back(std::move(r));
@@ -260,6 +266,18 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
         s.scalar = r.when.afterClass;
         when.map["afterClass"] = std::move(s);
       }
+      if (!r.when.notBeforeClass.empty()) {
+        Node s;
+        s.type = Node::Type::Scalar;
+        s.scalar = r.when.notBeforeClass;
+        when.map["notBeforeClass"] = std::move(s);
+      }
+      if (!r.when.notAfterClass.empty()) {
+        Node s;
+        s.type = Node::Type::Scalar;
+        s.scalar = r.when.notAfterClass;
+        when.map["notAfterClass"] = std::move(s);
+      }
 
       item.map["when"] = std::move(when);
     }
@@ -279,6 +297,55 @@ std::vector<std::string> LanguageYaml::classNamesSorted() const {
   for (const auto& kv : classes->map) out.push_back(kv.first);
   std::sort(out.begin(), out.end());
   return out;
+}
+
+std::map<std::string, std::string> LanguageYaml::classes() const {
+  std::map<std::string, std::string> out;
+  const Node* norm = m_root.get("normalization");
+  if (!norm || !norm->isMap()) return out;
+  const Node* classesNode = norm->get("classes");
+  if (!classesNode || !classesNode->isMap()) return out;
+
+  for (const auto& kv : classesNode->map) {
+    if (kv.second.isScalar()) {
+      out[kv.first] = kv.second.scalar;
+    }
+  }
+  return out;
+}
+
+void LanguageYaml::setClasses(const std::map<std::string, std::string>& classes) {
+  // Ensure normalization exists
+  if (m_root.type != Node::Type::Map) {
+    m_root.type = Node::Type::Map;
+    m_root.map.clear();
+  }
+
+  Node* norm = nullptr;
+  auto it = m_root.map.find("normalization");
+  if (it == m_root.map.end()) {
+    Node n;
+    n.type = Node::Type::Map;
+    m_root.map["normalization"] = std::move(n);
+    norm = &m_root.map["normalization"];
+  } else {
+    norm = &it->second;
+    if (norm->type != Node::Type::Map) {
+      norm->type = Node::Type::Map;
+      norm->map.clear();
+    }
+  }
+
+  // Build the classes node
+  Node classesNode;
+  classesNode.type = Node::Type::Map;
+  for (const auto& kv : classes) {
+    Node val;
+    val.type = Node::Type::Scalar;
+    val.scalar = kv.second;
+    classesNode.map[kv.first] = std::move(val);
+  }
+  norm->map["classes"] = std::move(classesNode);
 }
 
 // Helper to flatten nested settings into dotted/camelCase keys

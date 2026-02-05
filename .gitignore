@@ -7,3 +7,4 @@ vowelcharts/
 *.pyc
 *.pyo
 build/
+build-x64/

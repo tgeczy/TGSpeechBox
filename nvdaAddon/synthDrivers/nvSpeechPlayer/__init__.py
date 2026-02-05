@@ -58,8 +58,7 @@ from .text_utils import (
     re_textPause, normalizeTextForEspeak, looksLikeSentenceEnd
 )
 from .profile_utils import (
-    discoverVoiceProfiles, discoverVoicingTones, 
-    buildVoiceOps, applyVoiceToFrame
+    discoverVoiceProfiles, buildVoiceOps, applyVoiceToFrame
 )
 from .audio import BgThread, AudioThread
 
@@ -89,86 +88,24 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
         NumericDriverSetting("speedQuotient", "Speed quotient (voice gender)", defaultVal=50),
         NumericDriverSetting("aspirationTilt", "Aspiration tilt (breath color)", defaultVal=50),
-        # FrameEx voice quality params (DSP v5+) - for testing creaky voice, etc.
+        # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
         NumericDriverSetting("frameExCreakiness", "Creakiness (laryngealization)", defaultVal=0),
         NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
         NumericDriverSetting("frameExJitter", "Jitter (pitch variation)", defaultVal=0),
         NumericDriverSetting("frameExShimmer", "Shimmer (amplitude variation)", defaultVal=0),
+        NumericDriverSetting("frameExSharpness", "Glottal sharpness", defaultVal=50),
         DriverSetting("pauseMode", "Pause mode"),
         DriverSetting("sampleRate", "Sample rate"),
         DriverSetting("language", "Language"),
-
-        # --- Language-pack quick settings (YAML: packs/lang/*.yaml -> settings:) ---
+        # Runtime language adjustments (other settings are YAML-only now)
         DriverSetting("stopClosureMode", "Stop closure mode"),
-        # Newer setting: how diphthongs are handled in spelled-out text.
-        # (Supported values: none, monophthong)
         DriverSetting("spellingDiphthongMode", "Spelling diphthong mode"),
     ]
 
-    if BooleanDriverSetting is not None:
-        _supportedSettings.extend(
-            [
-                BooleanDriverSetting("stopClosureClusterGapsEnabled", "Insert brief closure pauses in consonant clusters"),  # type: ignore
-                BooleanDriverSetting("stopClosureAfterNasalsEnabled", "Insert stop closure after nasal sounds"),  # type: ignore
-                BooleanDriverSetting("autoTieDiphthongs", "Treat diphthongs as a single connected sound"),  # type: ignore
-                BooleanDriverSetting("autoDiphthongOffglideToSemivowel", "Convert diphthong offglides into smoother semivowels"),  # type: ignore
-                BooleanDriverSetting("segmentBoundarySkipVowelToVowel", "Skip join gap between speech chunks when a vowel follows a vowel"),  # type: ignore
-                BooleanDriverSetting("segmentBoundarySkipVowelToLiquid", "Skip join gap between speech chunks when a liquid follows a vowel"),  # type: ignore
-                BooleanDriverSetting("postStopAspirationEnabled", "Add aspiration after unvoiced stop consonants"),  # type: ignore
-                # --- Coarticulation settings ---
-                BooleanDriverSetting("coarticulationEnabled", "Enable formant coarticulation"),  # type: ignore
-                BooleanDriverSetting("coarticulationFadeIntoConsonants", "Fade coarticulation into consonants"),  # type: ignore
-                BooleanDriverSetting("coarticulationVelarPinchEnabled", "Enable velar pinch effect for coarticulation"),  # type: ignore
-                BooleanDriverSetting("coarticulationGraduated", "Use graduated coarticulation blending"),  # type: ignore
-            ]
-        )
-        # Coarticulation adjacency combo-box (grouped with coarticulation settings)
-        _supportedSettings.append(DriverSetting("coarticulationAdjacencyMaxConsonants", "Coarticulation adjacency range"))
-
-    if BooleanDriverSetting is not None:
-        _supportedSettings.extend(
-            [
-                # --- Phrase-final lengthening settings ---
-                BooleanDriverSetting("phraseFinalLengtheningEnabled", "Enable phrase-final lengthening"),  # type: ignore
-                BooleanDriverSetting("phraseFinalLengtheningNucleusOnlyMode", "Apply phrase-final lengthening to nucleus only"),  # type: ignore
-                # --- Single-word tuning settings ---
-                BooleanDriverSetting("singleWordTuningEnabled", "Enable single-word prosody tuning"),  # type: ignore
-                BooleanDriverSetting("singleWordClauseTypeOverrideCommaOnly", "Override clause type for comma only"),  # type: ignore
-                # --- Microprosody settings ---
-                BooleanDriverSetting("microprosodyEnabled", "Enable microprosody adjustments"),  # type: ignore
-                BooleanDriverSetting("microprosodyVoicelessF0RaiseEnabled", "Raise F0 for voiceless consonants"),  # type: ignore
-                BooleanDriverSetting("microprosodyVoicedF0LowerEnabled", "Lower F0 for voiced consonants"),  # type: ignore
-                # --- Rate reduction settings ---
-                BooleanDriverSetting("rateReductionEnabled", "Enable rate-dependent reduction"),  # type: ignore
-                # --- Nasalization settings ---
-                BooleanDriverSetting("nasalizationAnticipatoryEnabled", "Enable anticipatory nasalization"),  # type: ignore
-                # --- Liquid dynamics settings ---
-                BooleanDriverSetting("liquidDynamicsEnabled", "Enable liquid dynamics (lateral onglide transitions)"),  # type: ignore
-                # --- Length contrast settings ---
-                BooleanDriverSetting("lengthContrastEnabled", "Enable phonemic length contrast"),  # type: ignore
-                # --- Positional allophones settings ---
-                BooleanDriverSetting("positionalAllophonesEnabled", "Enable positional allophone variation"),  # type: ignore
-                BooleanDriverSetting("positionalAllophonesGlottalReinforcementEnabled", "Enable glottal reinforcement for stops"),  # type: ignore
-                # --- Boundary smoothing settings ---
-                BooleanDriverSetting("boundarySmoothingEnabled", "Enable boundary smoothing between sounds"),  # type: ignore
-                # --- Trajectory limit settings ---
-                BooleanDriverSetting("trajectoryLimitEnabled", "Enable formant trajectory rate limiting"),  # type: ignore
-                BooleanDriverSetting("trajectoryLimitApplyAcrossWordBoundary", "Apply trajectory limit across word boundaries"),  # type: ignore
-                BooleanDriverSetting("legacyPitchMode", "Use classic pitch and intonation style"),  # type: ignore
-                BooleanDriverSetting("tonal", "Enable tonal language behavior"),  # type: ignore
-                BooleanDriverSetting("toneDigitsEnabled", "Interpret tone numbers in text"),  # type: ignore
-            ]
-        )
-
-    _supportedSettings.append(DriverSetting("toneContoursMode", "Tone contour mode"))
-
-    if BooleanDriverSetting is not None:
-        _supportedSettings.extend(
-            [
-                BooleanDriverSetting("stripAllophoneDigits", "Strip allophone digits"),  # type: ignore
-                BooleanDriverSetting("stripHyphen", "Strip hyphens from IPA output"),  # type: ignore
-            ]
-        )
+    # Only expose legacyPitchMode combo - all other booleans are YAML-only.
+    _supportedSettings.append(
+        DriverSetting("legacyPitchMode", "Pitch mode"),
+    )
 
     supportedSettings = tuple(_supportedSettings)
 
@@ -203,6 +140,7 @@ class SynthDriver(SynthDriver):
         self._curFrameExBreathiness = 0
         self._curFrameExJitter = 0
         self._curFrameExShimmer = 0
+        self._curFrameExSharpness = 50  # 50 = neutral (1.0x multiplier)
         self._perVoiceTilt = {}  # Per-voice tilt storage: {voiceName: tiltValue}
         self._perVoiceNoiseGlottalMod = {}
         self._perVoicePitchSyncF1 = {}
@@ -213,6 +151,7 @@ class SynthDriver(SynthDriver):
         self._perVoiceFrameExBreathiness = {}
         self._perVoiceFrameExJitter = {}
         self._perVoiceFrameExShimmer = {}
+        self._perVoiceFrameExSharpness = {}
         self._usingVoiceProfile = False
         self._activeProfileName = ""
         self._pauseMode = "short"
@@ -222,7 +161,6 @@ class SynthDriver(SynthDriver):
         
         # Initialize containers immediately to avoid NoneType errors
         self._voiceProfiles = []
-        self._voicingTones = {}
         
         # Suppress YAML writes during NVDA config replay (YAML is source of truth)
         self._suppressLangPackWrites = True
@@ -279,24 +217,23 @@ class SynthDriver(SynthDriver):
         if not self._frontend.setLanguage("default"):
             log.warning(f"nvSpeechPlayer: failed to load default pack: {self._frontend.getLastError()}")
 
-        # 6. Discover voice profiles and voicing tones
+        # Push initial FrameEx defaults to frontend (ABI v2+)
+        self._pushFrameExDefaultsToFrontend()
+
+        # 6. Discover voice profiles
+        #    Try frontend API first (ABI v2+), fall back to Python parsing
         #    This MUST be done before super().__init__() so availableVoices is populated
-        #    Wrapped in try/except so bad YAML doesn't crash init
         try:
-            self._voiceProfiles = discoverVoiceProfiles(packsDir) or []
+            # Try frontend API first
+            self._voiceProfiles = self._frontend.getVoiceProfileNames() if self._frontend.hasFrameExSupport() else []
+            if not self._voiceProfiles:
+                # Fall back to Python parsing
+                self._voiceProfiles = discoverVoiceProfiles(packsDir) or []
             if self._voiceProfiles:
                 log.info(f"nvSpeechPlayer: discovered voice profiles: {self._voiceProfiles}")
         except Exception as e:
             log.error(f"nvSpeechPlayer: error discovering voice profiles: {e}")
             self._voiceProfiles = []
-        
-        try:
-            self._voicingTones = discoverVoicingTones(packsDir) or {}
-            if self._voicingTones:
-                log.info(f"nvSpeechPlayer: discovered voicing tones for profiles: {list(self._voicingTones.keys())}")
-        except Exception as e:
-            log.error(f"nvSpeechPlayer: error discovering voicing tones: {e}")
-            self._voicingTones = {}
 
         # Check for pack warnings
         if self._frontend.hasVoiceProfileSupport():
@@ -896,6 +833,14 @@ class SynthDriver(SynthDriver):
         )
     )
 
+    _LEGACY_PITCH_MODES = OrderedDict(
+        (
+            ("espeak_style", VoiceInfo("espeak_style", "eSpeak style")),
+            ("fujisaki_style", VoiceInfo("fujisaki_style", "Fujisaki")),
+            ("legacy", VoiceInfo("legacy", "Classic")),
+        )
+    )
+
     def _makeLangPackAccessors(attrName, yamlKey, kind="str", default=None, choices=None):
         """Generate _get/_set (and available* when needed) methods for YAML-backed settings."""
 
@@ -984,7 +929,7 @@ class SynthDriver(SynthDriver):
         # --- Trajectory limit settings ---
         ("trajectoryLimitEnabled", "trajectoryLimit.enabled", "bool", False, None),
         ("trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit.applyAcrossWordBoundary", "bool", False, None),
-        ("legacyPitchMode", "legacyPitchMode", "bool", False, None),
+        # legacyPitchMode has custom accessors below (for bool→enum migration)
         ("tonal", "tonal", "bool", False, None),
         ("toneDigitsEnabled", "toneDigitsEnabled", "bool", False, None),
         ("toneContoursMode", "toneContoursMode", "enum", "absolute", _TONE_CONTOURS_MODES),
@@ -1004,6 +949,40 @@ class SynthDriver(SynthDriver):
 
     # Clean up generator helpers so they don't become part of the public driver API.
     del _makeLangPackAccessors, _LANG_PACK_SPECS, _attrName, _yamlKey, _kind, _default, _choices, _methName, _meth
+
+    # Override legacyPitchMode accessor to handle migration from old boolean format.
+    # Old YAML had: legacyPitchMode: false/true
+    # New YAML has: legacyPitchMode: "espeak_style"/"fujisaki_style"/"legacy"
+    def _get_legacyPitchMode(self):
+        try:
+            val = self._getLangPackStr("legacyPitchMode", default="")
+            # Handle missing/empty value
+            if not val:
+                return "espeak_style"
+            # Handle old boolean values (YAML bools become "True"/"False" strings)
+            if val in ("true", "True", "1"):
+                return "legacy"  # Old "true" meant classic/legacy mode
+            if val in ("false", "False", "0"):
+                return "espeak_style"  # Old "false" meant espeak style
+            # Check if it's a valid new-style value
+            if val in ("espeak_style", "fujisaki_style", "legacy"):
+                return val
+            # Unknown value, return default
+            return "espeak_style"
+        except Exception:
+            return "espeak_style"
+
+    def _set_legacyPitchMode(self, val):
+        try:
+            self._setLangPackSetting("legacyPitchMode", self._choiceToIdStr(val))
+        except Exception:
+            pass
+
+    def _get_availableLegacyPitchModes(self):
+        return self._LEGACY_PITCH_MODES
+
+    def _get_availableLegacypitchmodes(self):
+        return self._LEGACY_PITCH_MODES
 
     def _enqueue(self, func, *args, **kwargs):
         if self._bgStop.is_set():
@@ -1256,7 +1235,7 @@ class SynthDriver(SynthDriver):
                         except Exception:
                             extraParamMultipliers = ()
 
-                    def _onFrame(framePtr, frameDuration, fadeDuration, idxToSet):
+                    def _onFrame(framePtr, frameExPtr, frameDuration, fadeDuration, idxToSet):
                         nonlocal queuedCount, hadRealSpeech, sawRealFrameInThisUtterance, sawSilenceAfterVoice, lastStreamWasVoiced
 
                         # Reduce leading silence frames to minimize gaps
@@ -1305,24 +1284,15 @@ class SynthDriver(SynthDriver):
 
                         frame.preFormantGain *= self._curVolume
                         
-                        # Build FrameEx from slider values (0-100 -> 0.0-1.0)
-                        # Only create if any value is non-zero and DLL supports it
+                        # Use FrameEx from frontend callback if available (ABI v2+)
+                        # Frontend has already mixed per-phoneme values with user defaults
                         frameEx = None
-                        creakVal = getattr(self, "_curFrameExCreakiness", 0)
-                        breathVal = getattr(self, "_curFrameExBreathiness", 0)
-                        jitterVal = getattr(self, "_curFrameExJitter", 0)
-                        shimmerVal = getattr(self, "_curFrameExShimmer", 0)
+                        if frameExPtr and getattr(self._player, "hasFrameExSupport", lambda: False)():
+                            # Copy C FrameEx to Python-owned struct
+                            frameEx = speechPlayer.FrameEx()
+                            ctypes.memmove(ctypes.byref(frameEx), frameExPtr, ctypes.sizeof(speechPlayer.FrameEx))
                         
-                        if creakVal or breathVal or jitterVal or shimmerVal:
-                            if getattr(self._player, "hasFrameExSupport", lambda: False)():
-                                frameEx = speechPlayer.FrameEx.create(
-                                    creakiness=creakVal / 100.0,
-                                    breathiness=breathVal / 100.0,
-                                    jitter=jitterVal / 100.0,
-                                    shimmer=shimmerVal / 100.0,
-                                )
-                        
-                        # Use queueFrameEx if available, otherwise fall back
+                        # Use queueFrameEx if we have FrameEx data, otherwise fall back
                         if frameEx is not None:
                             self._player.queueFrameEx(frame, frameEx, frameDuration, fadeDuration, userIndex=idxToSet)
                         else:
@@ -1332,7 +1302,9 @@ class SynthDriver(SynthDriver):
 
                     ok = False
                     try:
-                        ok = self._frontend.queueIPA(
+                        # Use queueIPA_Ex for extended callback with FrameEx support (ABI v2+)
+                        # Falls back to queueIPA internally if frontend doesn't support it
+                        ok = self._frontend.queueIPA_Ex(
                             ipaText,
                             speed=self._curRate,
                             basePitch=basePitch,
@@ -1342,7 +1314,7 @@ class SynthDriver(SynthDriver):
                             onFrame=_onFrame,
                         )
                     except Exception:
-                        log.error("nvSpeechPlayer: frontend queueIPA failed", exc_info=True)
+                        log.error("nvSpeechPlayer: frontend queueIPA_Ex failed", exc_info=True)
                         ok = False
 
                     if not ok:
@@ -1397,7 +1369,7 @@ class SynthDriver(SynthDriver):
                 return
             if not hasattr(self, "_audio") or not self._audio:
                 return
-                
+               
             self._player.queueFrame(None, 3.0, 3.0, purgeQueue=True)
             self._audio.isSpeaking = False
             self._audio.kick()
@@ -1426,7 +1398,11 @@ class SynthDriver(SynthDriver):
                 # Put None to wake up the queue.get() if it's blocking
                 try:
                     self._bgQueue.put_nowait(None)
-                except Exception:
+                except queue.Full:
+                    # Queue is full - thread should wake up anyway when processing items
+                    pass
+                except (AttributeError, TypeError):
+                    # Queue not properly initialized
                     pass
             
             # Terminate audio thread FIRST (it uses the player)
@@ -1708,6 +1684,7 @@ class SynthDriver(SynthDriver):
     def _set_frameExCreakiness(self, val):
         try:
             self._curFrameExCreakiness = int(val)
+            self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
@@ -1717,6 +1694,7 @@ class SynthDriver(SynthDriver):
     def _set_frameExBreathiness(self, val):
         try:
             self._curFrameExBreathiness = int(val)
+            self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
@@ -1726,6 +1704,7 @@ class SynthDriver(SynthDriver):
     def _set_frameExJitter(self, val):
         try:
             self._curFrameExJitter = int(val)
+            self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
@@ -1735,15 +1714,60 @@ class SynthDriver(SynthDriver):
     def _set_frameExShimmer(self, val):
         try:
             self._curFrameExShimmer = int(val)
+            self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
+
+    def _get_frameExSharpness(self):
+        return int(getattr(self, "_curFrameExSharpness", 50))
+
+    def _set_frameExSharpness(self, val):
+        try:
+            self._curFrameExSharpness = int(val)
+            self._pushFrameExDefaultsToFrontend()
+        except Exception:
+            pass
+
+    def _pushFrameExDefaultsToFrontend(self) -> None:
+        """Push current FrameEx slider values to the frontend (ABI v2+).
+        
+        The frontend mixes these user-level defaults with per-phoneme values
+        when emitting frames via queueIPA_Ex(). This must be called:
+        - After frontend initialization
+        - Whenever a FrameEx slider changes
+        - When switching voices (to restore per-voice settings)
+        """
+        if not hasattr(self, "_frontend") or not self._frontend:
+            return
+        if not self._frontend.hasFrameExSupport():
+            return
+        
+        try:
+            creakVal = getattr(self, "_curFrameExCreakiness", 0)
+            breathVal = getattr(self, "_curFrameExBreathiness", 0)
+            jitterVal = getattr(self, "_curFrameExJitter", 0)
+            shimmerVal = getattr(self, "_curFrameExShimmer", 0)
+            sharpnessVal = getattr(self, "_curFrameExSharpness", 50)
+            
+            # Convert slider values (0-100) to FrameEx ranges
+            # Sharpness: 0-100 maps to 0.5-2.0 (50 = 1.0x neutral)
+            sharpnessMul = 0.5 + (sharpnessVal / 100.0) * 1.5
+            
+            self._frontend.setFrameExDefaults(
+                creakiness=creakVal / 100.0,
+                breathiness=breathVal / 100.0,
+                jitter=jitterVal / 100.0,
+                shimmer=shimmerVal / 100.0,
+                sharpness=sharpnessMul,
+            )
+        except Exception:
+            log.debug("nvSpeechPlayer: _pushFrameExDefaultsToFrontend failed", exc_info=True)
 
     def _applyVoicingTone(self, profileName: str) -> None:
         """Apply DSP-level voicing tone parameters safely.
         
-        This sets the wave generator's glottal pulse shape, pre-emphasis, spectral
-        tilt, and high-shelf EQ based on the voicingTone block in the voice profile YAML
-        or from the predefined Python voices dict.
+        Gets base voicing tone from frontend (parses voicingTone: from YAML),
+        then applies slider offsets on top.
         
         ALSO ensures the frontend voice profile (formant transforms) is applied.
         
@@ -1755,11 +1779,8 @@ class SynthDriver(SynthDriver):
             return
         
         # CRITICAL: Catch ALL exceptions here.
-        # If YAML parsing returns a string instead of a float, or if the DLL rejects values,
-        # raising an exception here crashes NVDA's settings application loop.
         try:
             # ALWAYS ensure the frontend has the correct voice profile set
-            # This is critical because loadSettings may call us without going through _set_voice
             if hasattr(self, "_frontend") and self._frontend:
                 self._frontend.setVoiceProfile(profileName or "")
             
@@ -1767,64 +1788,38 @@ class SynthDriver(SynthDriver):
             if not playerHasSupport:
                 return
             
-            # Helper to safely cast config values to float
+            # Build the tone struct with safe defaults
+            tone = speechPlayer.VoicingTone.defaults()
+            
+            # Get base tone from frontend (ABI v2+) - parses voicingTone: from YAML
+            if profileName and hasattr(self, "_frontend") and self._frontend:
+                if self._frontend.hasExplicitVoicingTone():
+                    frontendTone = self._frontend.getVoicingTone()
+                    if frontendTone:
+                        tone.voicingPeakPos = frontendTone.voicingPeakPos
+                        tone.voicedPreEmphA = frontendTone.voicedPreEmphA
+                        tone.voicedPreEmphMix = frontendTone.voicedPreEmphMix
+                        tone.highShelfGainDb = frontendTone.highShelfGainDb
+                        tone.highShelfFcHz = frontendTone.highShelfFcHz
+                        tone.highShelfQ = frontendTone.highShelfQ
+                        tone.voicedTiltDbPerOct = frontendTone.voicedTiltDbPerOct
+                        tone.noiseGlottalModDepth = frontendTone.noiseGlottalModDepth
+                        tone.pitchSyncF1DeltaHz = frontendTone.pitchSyncF1DeltaHz
+                        tone.pitchSyncB1DeltaHz = frontendTone.pitchSyncB1DeltaHz
+                        tone.speedQuotient = frontendTone.speedQuotient
+                        tone.aspirationTiltDbPerOct = frontendTone.aspirationTiltDbPerOct
+            
+            # Helper for slider values
             def safe_float(val, default=0.0):
                 try:
                     return float(val)
                 except (ValueError, TypeError):
                     return default
             
-            toneParams = None
-            
-            # First, check YAML voice profiles (takes priority)
-            if profileName:
-                voicingTones = getattr(self, "_voicingTones", {}) or {}
-                toneParams = voicingTones.get(profileName)
-            
-            # If no YAML tone, check predefined Python voices dict
-            if toneParams is None:
-                curVoice = getattr(self, "_curVoice", "Adam")
-                voiceDict = voices.get(curVoice, {})
-                
-                voicingToneFields = ["voicingPeakPos", "voicedPreEmphA", "voicedPreEmphMix",
-                                     "highShelfGainDb", "highShelfFcHz", "highShelfQ", 
-                                     "voicedTiltDbPerOct"]
-                predefinedTone = {k: v for k, v in voiceDict.items() if k in voicingToneFields}
-                if predefinedTone:
-                    toneParams = predefinedTone
-            
-            # Build the tone struct with safe defaults
-            tone = speechPlayer.VoicingTone.defaults()
-            
-            if toneParams:
-                if "voicingPeakPos" in toneParams:
-                    tone.voicingPeakPos = safe_float(toneParams["voicingPeakPos"], 0.91)
-                if "voicedPreEmphA" in toneParams:
-                    tone.voicedPreEmphA = safe_float(toneParams["voicedPreEmphA"], 0.92)
-                if "voicedPreEmphMix" in toneParams:
-                    tone.voicedPreEmphMix = safe_float(toneParams["voicedPreEmphMix"], 0.35)
-                if "highShelfGainDb" in toneParams:
-                    tone.highShelfGainDb = safe_float(toneParams["highShelfGainDb"], 2.0)
-                if "highShelfFcHz" in toneParams:
-                    tone.highShelfFcHz = safe_float(toneParams["highShelfFcHz"], 2800.0)
-                if "highShelfQ" in toneParams:
-                    tone.highShelfQ = safe_float(toneParams["highShelfQ"], 0.7)
-                if "voicedTiltDbPerOct" in toneParams:
-                    tone.voicedTiltDbPerOct = safe_float(toneParams["voicedTiltDbPerOct"], 0.0)
-                # New v2 params from YAML (if present)
-                if "noiseGlottalModDepth" in toneParams:
-                    tone.noiseGlottalModDepth = safe_float(toneParams["noiseGlottalModDepth"], 0.0)
-                if "pitchSyncF1DeltaHz" in toneParams:
-                    tone.pitchSyncF1DeltaHz = safe_float(toneParams["pitchSyncF1DeltaHz"], 60.0)
-                if "pitchSyncB1DeltaHz" in toneParams:
-                    tone.pitchSyncB1DeltaHz = safe_float(toneParams["pitchSyncB1DeltaHz"], 50.0)
-            
             # Apply voice tilt OFFSET from the slider
             tiltSlider = safe_float(getattr(self, "_curVoiceTilt", 50), 50.0)
             tiltOffset = (tiltSlider - 50.0) * (24.0 / 50.0)
             tone.voicedTiltDbPerOct += tiltOffset
-            
-            # Clamp to valid range
             tone.voicedTiltDbPerOct = max(-24.0, min(24.0, tone.voicedTiltDbPerOct))
             
             # Apply noise glottal modulation from slider (0-100 maps to 0.0-1.0)
@@ -1833,17 +1828,14 @@ class SynthDriver(SynthDriver):
             
             # Apply pitch-sync F1 from slider (0-100 maps to -60 to +60 Hz, centered at 50 = 0)
             f1Slider = safe_float(getattr(self, "_curPitchSyncF1", 50), 50.0)
-            tone.pitchSyncF1DeltaHz = (f1Slider - 50.0) * 1.2  # 0=-60, 50=0, 100=+60 Hz
+            tone.pitchSyncF1DeltaHz = (f1Slider - 50.0) * 1.2
             
             # Apply pitch-sync B1 from slider (0-100 maps to -50 to +50 Hz, centered at 50 = 0)
             b1Slider = safe_float(getattr(self, "_curPitchSyncB1", 50), 50.0)
-            tone.pitchSyncB1DeltaHz = (b1Slider - 50.0) * 1.0  # 0=-50, 50=0, 100=+50 Hz
+            tone.pitchSyncB1DeltaHz = (b1Slider - 50.0) * 1.0
             
             # Apply speed quotient from slider (0-100 maps to 0.5-4.0, centered at 50 = 2.0)
             sqSlider = safe_float(getattr(self, "_curSpeedQuotient", 50), 50.0)
-            # Linear map: 0->0.5, 50->2.0, 100->4.0
-            # 0-50: 0.5 + (slider/50) * 1.5 = 0.5 to 2.0
-            # 50-100: 2.0 + ((slider-50)/50) * 2.0 = 2.0 to 4.0
             if sqSlider <= 50.0:
                 tone.speedQuotient = 0.5 + (sqSlider / 50.0) * 1.5
             else:
@@ -1851,15 +1843,13 @@ class SynthDriver(SynthDriver):
             
             # Apply aspiration tilt from slider (0-100 maps to -12 to +12 dB/oct, centered at 50 = 0)
             aspTiltSlider = safe_float(getattr(self, "_curAspirationTilt", 50), 50.0)
-            tone.aspirationTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24  # 0=-12, 50=0, 100=+12 dB/oct
+            tone.aspirationTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
             
             # Apply to player
             self._player.setVoicingTone(tone)
             self._lastAppliedVoicingTone = tone
             
         except Exception as e:
-            # Log the error but DO NOT CRASH.
-            # This allows the "OK" button to succeed even if audio params are wonky.
             log.error(f"nvSpeechPlayer: _applyVoicingTone failed: {e}", exc_info=True)
 
     def _reapplyVoiceProfile(self):
@@ -1919,6 +1909,8 @@ class SynthDriver(SynthDriver):
                 self._perVoiceFrameExJitter = {}
             if not hasattr(self, "_perVoiceFrameExShimmer"):
                 self._perVoiceFrameExShimmer = {}
+            if not hasattr(self, "_perVoiceFrameExSharpness"):
+                self._perVoiceFrameExSharpness = {}
             
             # Save current slider values for the OLD voice before switching
             if voiceChanged and oldVoice:
@@ -1932,6 +1924,7 @@ class SynthDriver(SynthDriver):
                 self._perVoiceFrameExBreathiness[oldVoice] = getattr(self, "_curFrameExBreathiness", 0)
                 self._perVoiceFrameExJitter[oldVoice] = getattr(self, "_curFrameExJitter", 0)
                 self._perVoiceFrameExShimmer[oldVoice] = getattr(self, "_curFrameExShimmer", 0)
+                self._perVoiceFrameExSharpness[oldVoice] = getattr(self, "_curFrameExSharpness", 50)
             
             self._curVoice = voice
             
@@ -1947,6 +1940,9 @@ class SynthDriver(SynthDriver):
                 self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)
                 self._curFrameExShimmer = self._perVoiceFrameExShimmer.get(voice, 0)
+                self._curFrameExSharpness = self._perVoiceFrameExSharpness.get(voice, 50)
+                # Push restored FrameEx settings to frontend
+                self._pushFrameExDefaultsToFrontend()
             
             # Handle voice profile vs Python preset
             if voice and voice.startswith(VOICE_PROFILE_PREFIX):

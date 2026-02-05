@@ -11,7 +11,6 @@ import ctypes
 import math
 import queue
 import threading
-import time
 import weakref
 
 import config
@@ -164,17 +163,33 @@ class AudioThread(threading.Thread):
         self.isSpeaking = False
         self._wake.set()
         
-        # Join with compatibility for different Python versions
+        # Join with timeout - thread should exit quickly since _keepAlive is False
+        # and we've set the wake event.
         try:
             self.join(timeout=2.0)
-        except (TypeError, AttributeError, Exception):
-            # Fallback for Python versions with different threading internals
-            # Just wait a fixed time and let it die naturally
-            time.sleep(0.5)
+        except TypeError:
+            # Very old Python versions without timeout parameter - just join blocking
+            # This is rare in practice (Python 3.7+ all support timeout)
+            try:
+                self.join()
+            except (RuntimeError, AttributeError):
+                # Thread not started or already dead
+                pass
+        except (RuntimeError, AttributeError):
+            # RuntimeError: cannot join current thread / thread not started
+            # AttributeError: shouldn't happen but be defensive
+            pass
+        except Exception:
+            log.debug("nvSpeechPlayer: AudioThread.join raised unexpected error", exc_info=True)
         
+        # Stop the wave player
         try:
             if self._wavePlayer:
                 self._wavePlayer.stop()
+        except (OSError, AttributeError):
+            # OSError: audio device error
+            # AttributeError: _wavePlayer methods gone
+            pass
         except Exception:
             log.debug("nvSpeechPlayer: WavePlayer.stop failed during terminate", exc_info=True)
 

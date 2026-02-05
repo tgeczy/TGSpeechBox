@@ -596,8 +596,16 @@ static void onAddMapping(AppController& app, const std::string& defaultTo = {}) 
   AddMappingDialogState st;
   st.rule.to = defaultTo;
   st.classNames = app.classNames;
+  st.language = &app.language;
 
   ShowAddMappingDialog(app.hInst, app.wnd, st);
+
+  // Refresh classNames in case classes were edited in dialog
+  if (st.classNames != app.classNames) {
+    app.classNames = st.classNames;
+    app.languageDirty = true;
+  }
+
   if (!st.ok) return;
 
   app.repls.push_back(st.rule);
@@ -616,8 +624,16 @@ static void onEditSelectedMapping(AppController& app) {
   AddMappingDialogState st;
   st.rule = app.repls[static_cast<size_t>(sel)];
   st.classNames = app.classNames;
+  st.language = &app.language;
 
   ShowAddMappingDialog(app.hInst, app.wnd, st);
+
+  // Refresh classNames in case classes were edited in dialog
+  if (st.classNames != app.classNames) {
+    app.classNames = st.classNames;
+    app.languageDirty = true;
+  }
+
   if (!st.ok) return;
 
   app.repls[static_cast<size_t>(sel)] = st.rule;
@@ -653,11 +669,20 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "boundarySmoothingVowelToFricFadeMs",
     "boundarySmoothingVowelToStopFadeMs",
     "coarticulationAdjacencyMaxConsonants",
+    "coarticulationAlveolarBackVowelEnabled",
+    "coarticulationAlveolarBackVowelStrengthBoost",
     "coarticulationAlveolarF2Locus",
+    "coarticulationBackVowelF2Threshold",
     "coarticulationEnabled",
+    "coarticulationF1Scale",
+    "coarticulationF2Scale",
+    "coarticulationF3Scale",
     "coarticulationFadeIntoConsonants",
     "coarticulationGraduated",
     "coarticulationLabialF2Locus",
+    "coarticulationLabializedFricativeF2Pull",
+    "coarticulationLabializedFricativeFrontingEnabled",
+    "coarticulationMitalkK",
     "coarticulationStrength",
     "coarticulationTransitionExtent",
     "coarticulationVelarF2Locus",
@@ -675,6 +700,16 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "englishLongUKey",
     "englishLongUShortenEnabled",
     "englishLongUWordFinalScale",
+    "fujisakiAccentDur",
+    "fujisakiAccentLen",
+    "fujisakiAccentMode",
+    "fujisakiDeclinationMax",
+    "fujisakiDeclinationPostFloor",
+    "fujisakiDeclinationScale",
+    "fujisakiPhraseAmp",
+    "fujisakiPhraseLen",
+    "fujisakiPrimaryAccentAmp",
+    "fujisakiSecondaryAccentAmp",
     "huShortAVowelEnabled",
     "huShortAVowelKey",
     "huShortAVowelScale",
@@ -741,6 +776,11 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "segmentBoundarySkipVowelToLiquid",
     "segmentBoundarySkipVowelToVowel",
     "semivowelOffglideScale",
+    "singleWordClauseTypeOverride",
+    "singleWordClauseTypeOverrideCommaOnly",
+    "singleWordFinalFadeMs",
+    "singleWordFinalHoldMs",
+    "singleWordFinalLiquidHoldScale",
     "spellingDiphthongMode",
     "stopClosureAfterNasalsEnabled",
     "stopClosureClusterFadeMs",
@@ -767,6 +807,9 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "trajectoryLimitWindowMs",
     "trillModulationFadeMs",
     "trillModulationMs",
+    "wordFinalSchwaMinDurationMs",
+    "wordFinalSchwaReductionEnabled",
+    "wordFinalSchwaScale",
   };
 }
 
@@ -1632,11 +1675,17 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         st.settings = app.runtime.getSpeechSettings();
         st.paramNames = std::vector<std::string>(NvspRuntime::frameParamNames().begin(), NvspRuntime::frameParamNames().end());
         st.voicingParamNames = std::vector<std::string>(NvspRuntime::voicingParamNames().begin(), NvspRuntime::voicingParamNames().end());
+        st.frameExParamNames = std::vector<std::string>(NvspRuntime::frameExParamNames().begin(), NvspRuntime::frameExParamNames().end());
         if (st.settings.frameParams.size() != st.paramNames.size()) {
           st.settings.frameParams.assign(st.paramNames.size(), 50);
         }
         if (st.settings.voicingParams.size() != st.voicingParamNames.size()) {
           st.settings.voicingParams.assign(st.voicingParamNames.size(), 50);
+        }
+        if (st.settings.frameExParams.size() != st.frameExParamNames.size()) {
+          // Default: creakiness/breathiness/jitter/shimmer=0, sharpness=50
+          st.settings.frameExParams.assign(st.frameExParamNames.size(), 0);
+          if (st.settings.frameExParams.size() >= 5) st.settings.frameExParams[4] = 50;
         }
         st.runtime = &app.runtime;
         

@@ -24,7 +24,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * to detect (even if the core ABI stays stable).
  */
 #ifndef SPEECHPLAYER_DSP_VERSION
-#define SPEECHPLAYER_DSP_VERSION 5u
+#define SPEECHPLAYER_DSP_VERSION 6u
 #endif
 
 /*

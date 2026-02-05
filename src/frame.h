@@ -16,6 +16,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 #define SPEECHPLAYER_FRAME_H
 
 #include "lock.h"
+#include <limits>
 
 typedef double speechPlayer_frameParam_t;
 
@@ -59,8 +60,67 @@ typedef struct {
 	double breathiness;     // breath noise mixed into voicing
 	double jitter;          // pitch period variation (irregular F0)
 	double shimmer;         // amplitude variation (irregular loudness)
-	// room for more...
+	double sharpness;       // glottal closure sharpness MULTIPLIER (0=use SR default, 0.5-2.0 typical)
+	
+	// Formant end targets for within-frame ramping (like endVoicePitch but for formants)
+	// NAN = no ramping (use base value throughout frame)
+	// Any other value = ramp from base to this value over the frame duration
+	double endCf1;          // Cascade F1 end target (Hz), NAN = no ramp
+	double endCf2;          // Cascade F2 end target (Hz), NAN = no ramp
+	double endCf3;          // Cascade F3 end target (Hz), NAN = no ramp
+	double endPf1;          // Parallel F1 end target (Hz), NAN = no ramp
+	double endPf2;          // Parallel F2 end target (Hz), NAN = no ramp
+	double endPf3;          // Parallel F3 end target (Hz), NAN = no ramp
+
+	/* =========================================================================
+	 * Optional pitch contour model (DSP v6+)
+	 * =========================================================================
+	 *
+	 * Fujisaki-Bartman / DECTalk-style pitch contour model.
+	 *
+	 * IMPORTANT: All time units for this model are in *samples* (not milliseconds).
+	 * This matches the reference Python model you provided.
+	 *
+	 * Behavior:
+	 * - Base pitch still comes from speechPlayer_frame_t::voicePitch (with the existing
+	 *   per-sample ramp toward endVoicePitch).
+	 * - The model outputs a multiplicative contour which modulates that base pitch.
+	 * - Phrase/accent fields act as *triggers* (use rising edges).
+	 */
+	double fujisakiEnabled;     // 0.0 = off (legacy behavior), >0.5 = on
+	double fujisakiReset;       // rising edge resets model filter state
+	double fujisakiPhraseAmp;   // phrase command amplitude (e.g. 1.3)
+	double fujisakiPhraseLen;   // phrase filter L (samples to peak). 0 = use default
+	double fujisakiAccentAmp;   // accent command amplitude (e.g. 0.4)
+	double fujisakiAccentDur;   // accent duration D (samples). 0 = use default
+	double fujisakiAccentLen;   // accent filter L (samples to peak). 0 = use default
 } speechPlayer_frameEx_t;
+
+// Default values for frameEx parameters. Used when:
+// - Old callers pass a smaller struct (partial copy gets padded with these)
+// - No frameEx is provided at all
+// This makes it safe to add new parameters with non-zero defaults in the future.
+#include <cmath>  // for NAN
+static const speechPlayer_frameEx_t speechPlayer_frameEx_defaults = {
+	0.0,  // creakiness: none
+	0.0,  // breathiness: none
+	0.0,  // jitter: none
+	0.0,  // shimmer: none
+	0.0,  // sharpness: 0 means "use sample-rate default"
+	NAN,  // endCf1: no ramping
+	NAN,  // endCf2: no ramping
+	NAN,  // endCf3: no ramping
+	NAN,  // endPf1: no ramping
+	NAN,  // endPf2: no ramping
+	NAN,  // endPf3: no ramping
+	0.0,  // fujisakiEnabled: off
+	0.0,  // fujisakiReset
+	0.0,  // fujisakiPhraseAmp
+	0.0,  // fujisakiPhraseLen
+	0.0,  // fujisakiAccentAmp
+	0.0,  // fujisakiAccentDur
+	0.0   // fujisakiAccentLen
+};
 
 const int speechPlayer_frameEx_numParams=sizeof(speechPlayer_frameEx_t)/sizeof(double);
 

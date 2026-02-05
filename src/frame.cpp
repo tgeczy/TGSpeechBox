@@ -14,6 +14,7 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
 #include <queue>
 #include <cstring>
+#include <cstddef>  // offsetof
 #include "utils.h"
 #include "frame.h"
 
@@ -29,7 +30,14 @@ struct frameRequest_t {
 	speechPlayer_frameEx_t frameEx;
 
 	speechPlayer_frame_t frame;
-	double voicePitchInc; 
+	double voicePitchInc;
+	
+	// Formant end targets for exponential smoothing (DECTalk-style transitions)
+	// NAN = no ramping for that formant
+	double endCf1, endCf2, endCf3;  // Cascade formant targets (Hz)
+	double endPf1, endPf2, endPf3;  // Parallel formant targets (Hz)
+	double formantAlpha;            // Exponential smoothing coefficient
+	
 	int userIndex;
 };
 
@@ -65,13 +73,24 @@ class FrameManagerImpl: public FrameManager {
 				}
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
 					curHasFrameEx = true;
+
+					// Some FrameEx fields are *command-like* and must not be interpolated.
+					// In particular, the Fujisaki pitch model triggers (amp/len/dur) must be
+					// applied with their exact values at the start of a transition; otherwise
+					// fades would scale them down and cause incorrect trigger timing.
+					const int pitchStartIdx = (int)(offsetof(speechPlayer_frameEx_t, fujisakiEnabled) / sizeof(double));
 					for(int i=0;i<speechPlayer_frameEx_numParams;++i) {
-						((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],curFadeRatio);
+						if (i >= pitchStartIdx) {
+							// Step to the NEW values immediately (no interpolation).
+							((double*)&curFrameEx)[i]=((double*)&(newFrameRequest->frameEx))[i];
+						} else {
+							((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],curFadeRatio);
+						}
 					}
-				} else {
-					curHasFrameEx = false;
-					memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
-				}
+					} else {
+						curHasFrameEx = false;
+						curFrameEx = speechPlayer_frameEx_defaults;
+					}
 			}
 		} else if(sampleCounter>(oldFrameRequest->minNumSamples)) {
 			if(!frameRequestQueue.empty()) {
@@ -114,7 +133,7 @@ class FrameManagerImpl: public FrameManager {
 			} else {
 				curFrameIsNULL=true;
 				curHasFrameEx=false;
-				memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
+				curFrameEx = speechPlayer_frameEx_defaults;
 				// FIX: We have run out of frames. Mark the old request as NULL (Silence).
 				// This ensures that when a new frame eventually arrives, the engine treats it
 				// as a "Start from Silence" (triggering the 0-gain fade-in logic) rather than
@@ -122,8 +141,37 @@ class FrameManagerImpl: public FrameManager {
 				oldFrameRequest->NULLFrame = true;
 			}
 		} else {
+			// Per-sample pitch ramping (linear)
 			curFrame.voicePitch+=oldFrameRequest->voicePitchInc;
 			oldFrameRequest->frame.voicePitch=curFrame.voicePitch;
+			
+			// Per-sample formant ramping with exponential smoothing
+			// This mimics articulatory inertia - fast initial movement, gentle settling
+			double alpha = oldFrameRequest->formantAlpha;
+			if(std::isfinite(oldFrameRequest->endCf1)) {
+				curFrame.cf1 += alpha * (oldFrameRequest->endCf1 - curFrame.cf1);
+				oldFrameRequest->frame.cf1 = curFrame.cf1;
+			}
+			if(std::isfinite(oldFrameRequest->endCf2)) {
+				curFrame.cf2 += alpha * (oldFrameRequest->endCf2 - curFrame.cf2);
+				oldFrameRequest->frame.cf2 = curFrame.cf2;
+			}
+			if(std::isfinite(oldFrameRequest->endCf3)) {
+				curFrame.cf3 += alpha * (oldFrameRequest->endCf3 - curFrame.cf3);
+				oldFrameRequest->frame.cf3 = curFrame.cf3;
+			}
+			if(std::isfinite(oldFrameRequest->endPf1)) {
+				curFrame.pf1 += alpha * (oldFrameRequest->endPf1 - curFrame.pf1);
+				oldFrameRequest->frame.pf1 = curFrame.pf1;
+			}
+			if(std::isfinite(oldFrameRequest->endPf2)) {
+				curFrame.pf2 += alpha * (oldFrameRequest->endPf2 - curFrame.pf2);
+				oldFrameRequest->frame.pf2 = curFrame.pf2;
+			}
+			if(std::isfinite(oldFrameRequest->endPf3)) {
+				curFrame.pf3 += alpha * (oldFrameRequest->endPf3 - curFrame.pf3);
+				oldFrameRequest->frame.pf3 = curFrame.pf3;
+			}
 		}
 	}
 
@@ -133,7 +181,7 @@ class FrameManagerImpl: public FrameManager {
 	FrameManagerImpl(): curFrame(), curFrameEx(), curFrameIsNULL(true), curHasFrameEx(false), sampleCounter(0), newFrameRequest(NULL), lastUserIndex(-1), purgeFlag(false)  {
 		// speechPlayer_frame_t is a plain C struct; ensure it starts from a known state.
 		memset(&curFrame, 0, sizeof(speechPlayer_frame_t));
-		memset(&curFrameEx, 0, sizeof(speechPlayer_frameEx_t));
+		curFrameEx = speechPlayer_frameEx_defaults;
 
 		oldFrameRequest=new frameRequest_t();
 		oldFrameRequest->minNumSamples=0;
@@ -141,8 +189,15 @@ class FrameManagerImpl: public FrameManager {
 		oldFrameRequest->NULLFrame=true;
 		oldFrameRequest->hasFrameEx=false;
 		memset(&(oldFrameRequest->frame), 0, sizeof(speechPlayer_frame_t));
-		memset(&(oldFrameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+		oldFrameRequest->frameEx = speechPlayer_frameEx_defaults;
 		oldFrameRequest->voicePitchInc=0;
+		oldFrameRequest->endCf1=NAN;
+		oldFrameRequest->endCf2=NAN;
+		oldFrameRequest->endCf3=NAN;
+		oldFrameRequest->endPf1=NAN;
+		oldFrameRequest->endPf2=NAN;
+		oldFrameRequest->endPf3=NAN;
+		oldFrameRequest->formantAlpha=0;
 		oldFrameRequest->userIndex=-1;
 	}
 
@@ -153,8 +208,10 @@ class FrameManagerImpl: public FrameManager {
 	void queueFrameEx(speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, unsigned int frameExSize, unsigned int minNumSamples, unsigned int numFadeSamples, int userIndex, bool purgeQueue) override {
 		frameLock.acquire();
 		frameRequest_t* frameRequest=new frameRequest_t;
-		frameRequest->minNumSamples=minNumSamples; //max(minNumSamples,1);
-		frameRequest->numFadeSamples=numFadeSamples; //max(numFadeSamples,1);
+		frameRequest->minNumSamples=minNumSamples;
+		// Enforce minimum of 1 to prevent divide-by-zero in updateCurrentFrame().
+		// This makes the class self-protecting rather than relying on callers.
+		frameRequest->numFadeSamples=numFadeSamples > 0 ? numFadeSamples : 1;
 		if(frame) {
 			frameRequest->NULLFrame=false;
 			memcpy(&(frameRequest->frame),frame,sizeof(speechPlayer_frame_t));
@@ -164,17 +221,63 @@ class FrameManagerImpl: public FrameManager {
 			memset(&(frameRequest->frame), 0, sizeof(speechPlayer_frame_t));
 			frameRequest->voicePitchInc=0;
 		}
+		
+		// Initialize formant end targets to NAN (no ramping by default)
+		frameRequest->endCf1 = NAN;
+		frameRequest->endCf2 = NAN;
+		frameRequest->endCf3 = NAN;
+		frameRequest->endPf1 = NAN;
+		frameRequest->endPf2 = NAN;
+		frameRequest->endPf3 = NAN;
+		frameRequest->formantAlpha = 0.0;
 
-		// Copy frameEx safely: only copy min(frameExSize, sizeof) bytes.
-		// This allows older callers with smaller structs to work with newer DLLs.
+		// Copy frameEx safely: start with defaults, then overlay caller's data.
+		// This allows older callers with smaller structs to work with newer DLLs,
+		// and ensures new parameters get sensible defaults (not just zeros).
 		if(frameEx && frameExSize > 0) {
 			frameRequest->hasFrameEx=true;
-			memset(&(frameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+			frameRequest->frameEx = speechPlayer_frameEx_defaults;
 			unsigned int copySize = frameExSize < sizeof(speechPlayer_frameEx_t) ? frameExSize : sizeof(speechPlayer_frameEx_t);
 			memcpy(&(frameRequest->frameEx), frameEx, copySize);
+			
+			// Store formant end targets for exponential smoothing
+			// Tau of ~10ms gives smooth articulatory movement that mimics real speech
+			// At 22050 Hz: tau=220 samples; at 44100 Hz: tau=440 samples
+			// We use a fixed alpha that works well across sample rates
+			const double kFormantAlpha = 0.004;  // ~10-15ms time constant
+			
+			bool hasAnyFormantTarget = false;
+			if(std::isfinite(frameRequest->frameEx.endCf1)) {
+				frameRequest->endCf1 = frameRequest->frameEx.endCf1;
+				hasAnyFormantTarget = true;
+			}
+			if(std::isfinite(frameRequest->frameEx.endCf2)) {
+				frameRequest->endCf2 = frameRequest->frameEx.endCf2;
+				hasAnyFormantTarget = true;
+			}
+			if(std::isfinite(frameRequest->frameEx.endCf3)) {
+				frameRequest->endCf3 = frameRequest->frameEx.endCf3;
+				hasAnyFormantTarget = true;
+			}
+			if(std::isfinite(frameRequest->frameEx.endPf1)) {
+				frameRequest->endPf1 = frameRequest->frameEx.endPf1;
+				hasAnyFormantTarget = true;
+			}
+			if(std::isfinite(frameRequest->frameEx.endPf2)) {
+				frameRequest->endPf2 = frameRequest->frameEx.endPf2;
+				hasAnyFormantTarget = true;
+			}
+			if(std::isfinite(frameRequest->frameEx.endPf3)) {
+				frameRequest->endPf3 = frameRequest->frameEx.endPf3;
+				hasAnyFormantTarget = true;
+			}
+			
+			if(hasAnyFormantTarget) {
+				frameRequest->formantAlpha = kFormantAlpha;
+			}
 		} else {
 			frameRequest->hasFrameEx=false;
-			memset(&(frameRequest->frameEx), 0, sizeof(speechPlayer_frameEx_t));
+			frameRequest->frameEx = speechPlayer_frameEx_defaults;
 		}
 
 		frameRequest->userIndex=userIndex;
@@ -224,12 +327,16 @@ class FrameManagerImpl: public FrameManager {
 	}
 
 	~FrameManagerImpl() override {
+		// Acquire lock during teardown to ensure audio thread isn't mid-read.
+		// Caller should have stopped audio callbacks first, but this is defensive.
+		frameLock.acquire();
 		if(oldFrameRequest) delete oldFrameRequest;
 		if(newFrameRequest) delete newFrameRequest;
 		while(!frameRequestQueue.empty()) {
 			delete frameRequestQueue.front();
 			frameRequestQueue.pop();
 		}
+		frameLock.release();
 	}
 
 };

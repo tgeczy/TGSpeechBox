@@ -30,18 +30,27 @@ struct SpeechSettings {
   std::string pauseMode = "short"; // off | short | long
   std::vector<int> frameParams;   // size == frameParamNames().size()
   std::vector<int> voicingParams; // size == voicingParamNames().size()
+  std::vector<int> frameExParams; // size == frameExParamNames().size() - FrameEx voice quality
 };
 
 // -------------------------
 // Dynamic DLL function types
 // -------------------------
 
-// VoicingTone v2 struct - must match voicingTone.h in speechPlayer (v2+ DLLs)
+// VoicingTone v3 struct - must match voicingTone.h in speechPlayer (v3+ DLLs)
+#ifndef SPEECHPLAYER_VOICINGTONE_MAGIC
 #define SPEECHPLAYER_VOICINGTONE_MAGIC 0x32544F56u   // "VOT2"
-#define SPEECHPLAYER_VOICINGTONE_VERSION 2u
-#define SPEECHPLAYER_DSP_VERSION 4u
+#endif
 
-struct EditorVoicingToneV2 {
+#ifndef SPEECHPLAYER_VOICINGTONE_VERSION
+#define SPEECHPLAYER_VOICINGTONE_VERSION 3u
+#endif
+
+#ifndef SPEECHPLAYER_DSP_VERSION
+#define SPEECHPLAYER_DSP_VERSION 5u
+#endif
+
+struct EditorVoicingToneV3 {
   // ABI header
   uint32_t magic;
   uint32_t structSize;
@@ -58,7 +67,13 @@ struct EditorVoicingToneV2 {
   double noiseGlottalModDepth;
   double pitchSyncF1DeltaHz;
   double pitchSyncB1DeltaHz;
+  // V3 additions
+  double speedQuotient;
+  double aspirationTiltDbPerOct;
 };
+
+// Alias for backward compatibility
+using EditorVoicingToneV2 = EditorVoicingToneV3;
 
 // VoicingTone v1 struct - legacy 7-double layout (no header)
 struct EditorVoicingToneV1 {
@@ -71,9 +86,36 @@ struct EditorVoicingToneV1 {
   double voicedTiltDbPerOct;
 };
 
+// FrameEx struct - per-frame voice quality extensions (DSP v5+)
+// Must match nvspFrontend_FrameEx / speechPlayer_frameEx_t exactly (18 doubles = 144 bytes)
+struct EditorFrameEx {
+  // Voice quality parameters (DSP v5)
+  double creakiness;      // laryngealization / creaky voice
+  double breathiness;     // breath noise mixed into voicing
+  double jitter;          // pitch period variation
+  double shimmer;         // amplitude variation
+  double sharpness;       // glottal closure sharpness MULTIPLIER (0=SR default, 0.5-2.0)
+  // Formant end targets (DECTalk-style ramping)
+  double endCf1;          // Cascade F1 end target (Hz), NAN = no ramp
+  double endCf2;          // Cascade F2 end target (Hz), NAN = no ramp
+  double endCf3;          // Cascade F3 end target (Hz), NAN = no ramp
+  double endPf1;          // Parallel F1 end target (Hz), NAN = no ramp
+  double endPf2;          // Parallel F2 end target (Hz), NAN = no ramp
+  double endPf3;          // Parallel F3 end target (Hz), NAN = no ramp
+  // Fujisaki pitch model (DSP v6+)
+  double fujisakiEnabled;     // 0.0 = off, >0.5 = on
+  double fujisakiReset;       // rising edge resets model state
+  double fujisakiPhraseAmp;   // phrase command amplitude
+  double fujisakiPhraseLen;   // phrase filter L (samples). 0 = use default
+  double fujisakiAccentAmp;   // accent command amplitude
+  double fujisakiAccentDur;   // accent duration D (samples). 0 = use default
+  double fujisakiAccentLen;   // accent filter L (samples). 0 = use default
+};
+
 // speechPlayer.dll API
 using sp_initialize_fn = speechPlayer_handle_t(*)(int);
 using sp_queueFrame_fn = void(*)(speechPlayer_handle_t, speechPlayer_frame_t*, unsigned int, unsigned int, int, bool);
+using sp_queueFrameEx_fn = void(*)(speechPlayer_handle_t, speechPlayer_frame_t*, const EditorFrameEx*, unsigned int, unsigned int, unsigned int, int, bool);
 using sp_synthesize_fn = int(*)(speechPlayer_handle_t, unsigned int, sample*);
 using sp_terminate_fn = void(*)(speechPlayer_handle_t);
 using sp_setVoicingTone_fn = void(*)(speechPlayer_handle_t, const void*);  // void* to accept either v1 or v2
@@ -99,6 +141,37 @@ using fe_setVoiceProfile_fn = int(*)(nvspFrontend_handle_t, const char*);
 using fe_getVoiceProfile_fn = const char*(*)(nvspFrontend_handle_t);
 using fe_getPackWarnings_fn = const char*(*)(nvspFrontend_handle_t);
 
+// FrameExCallback - receives the MIXED FrameEx (phoneme + user defaults)
+using nvspFrontend_FrameExCallback = void(*)(
+  void* userData,
+  const nvspFrontend_Frame* frameOrNull,
+  const nvspFrontend_FrameEx* frameExOrNull,
+  double durationMs,
+  double fadeMs,
+  int userIndex
+);
+
+using fe_setFrameExDefaults_fn = void(*)(
+  nvspFrontend_handle_t,
+  double creakiness,
+  double breathiness,
+  double jitter,
+  double shimmer,
+  double sharpness
+);
+
+using fe_queueIPA_Ex_fn = int(*)(
+  nvspFrontend_handle_t,
+  const char*,
+  double,
+  double,
+  double,
+  const char*,
+  int,
+  nvspFrontend_FrameExCallback,
+  void*
+);
+
 class NvspRuntime {
 public:
   NvspRuntime();
@@ -111,8 +184,11 @@ public:
   // Names of the 47 frame parameters exposed in the NVDA driver.
   static const std::vector<std::string>& frameParamNames();
   
-  // Names of the 10 voicing tone parameters.
+  // Names of the 12 voicing tone parameters.
   static const std::vector<std::string>& voicingParamNames();
+
+  // Names of the 5 FrameEx voice quality parameters.
+  static const std::vector<std::string>& frameExParamNames();
 
   // Directory containing speechPlayer.dll and nvspFrontend.dll.
   bool setDllDirectory(const std::wstring& dllDir, std::string& outError);
@@ -163,6 +239,13 @@ public:
   // Voice profile prefix used to distinguish profiles from Python presets.
   static constexpr const char* kVoiceProfilePrefix = "profile:";
 
+  // Save voicing + FrameEx slider values to YAML for specified profile.
+  // voicingSliders: 12 values (0-100), frameExSliders: 5 values (0-100)
+  bool saveVoiceProfileSliders(const std::string& profileName,
+                               const std::vector<int>& voicingSliders,
+                               const std::vector<int>& frameExSliders,
+                               std::string& outError);
+
   // Apply voice preset + per-field multipliers + volume scaling.
   // Exposed so the free callback helper can reuse the same logic.
   void applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const;
@@ -180,6 +263,7 @@ private:
 
   sp_initialize_fn m_spInitialize = nullptr;
   sp_queueFrame_fn m_spQueueFrame = nullptr;
+  sp_queueFrameEx_fn m_spQueueFrameEx = nullptr;
   sp_synthesize_fn m_spSynthesize = nullptr;
   sp_terminate_fn m_spTerminate = nullptr;
   sp_setVoicingTone_fn m_spSetVoicingTone = nullptr;
@@ -193,6 +277,8 @@ private:
   fe_setVoiceProfile_fn m_feSetVoiceProfile = nullptr;
   fe_getVoiceProfile_fn m_feGetVoiceProfile = nullptr;
   fe_getPackWarnings_fn m_feGetPackWarnings = nullptr;
+  fe_setFrameExDefaults_fn m_feSetFrameExDefaults = nullptr;
+  fe_queueIPA_Ex_fn m_feQueueIPA_Ex = nullptr;
 
   // Runtime state
   nvspFrontend_handle_t m_feHandle = nullptr;

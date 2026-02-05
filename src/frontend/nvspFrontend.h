@@ -31,13 +31,15 @@ extern "C" {
   #define NVSP_FRONTEND_API
 #endif
 
-#define NVSP_FRONTEND_ABI_VERSION 1
+#define NVSP_FRONTEND_ABI_VERSION 2
 
 typedef void* nvspFrontend_handle_t;
 
 /*
   Frame struct. Field order MUST stay in sync with speechPlayer.dll.
   This is intentionally a plain-old-data struct for ABI stability.
+  
+  This struct contains the core 47 parameters that have been stable since v1.
 */
 typedef struct nvspFrontend_Frame {
   double voicePitch;
@@ -61,7 +63,112 @@ typedef struct nvspFrontend_Frame {
 } nvspFrontend_Frame;
 
 /*
-  Callback invoked for each frame.
+  Extended frame parameters (ABI v2+).
+  
+  These voice quality parameters are kept separate from nvspFrontend_Frame
+  to maintain backward compatibility. They match speechPlayer_frameEx_t in
+  the DSP DLL.
+  
+  All fields are in range [0.0, 1.0] except sharpness which is a multiplier
+  (typically 0.5-2.0, where 1.0 is neutral), and endCf/endPf which are Hz
+  (or NAN for no ramping).
+*/
+typedef struct nvspFrontend_FrameEx {
+  double creakiness;      /* laryngealization / creaky voice (e.g. Danish stød) */
+  double breathiness;     /* breath noise mixed into voicing */
+  double jitter;          /* pitch period variation (irregular F0) */
+  double shimmer;         /* amplitude variation (irregular loudness) */
+  double sharpness;       /* glottal closure sharpness multiplier (1.0 = neutral) */
+  
+  /* Formant end targets for within-frame ramping (DECTalk-style transitions).
+     NAN = no ramping (use base formant value throughout frame).
+     Any other value = ramp from base to this value over the frame duration. */
+  double endCf1;          /* Cascade F1 end target (Hz), NAN = no ramp */
+  double endCf2;          /* Cascade F2 end target (Hz), NAN = no ramp */
+  double endCf3;          /* Cascade F3 end target (Hz), NAN = no ramp */
+  double endPf1;          /* Parallel F1 end target (Hz), NAN = no ramp */
+  double endPf2;          /* Parallel F2 end target (Hz), NAN = no ramp */
+  double endPf3;          /* Parallel F3 end target (Hz), NAN = no ramp */
+
+  /* Optional pitch contour model (DSP v6+)
+     Fujisaki-Bartman / DECTalk-style pitch contour model.
+
+     IMPORTANT: All time units for this model are in *samples* (not milliseconds). */
+  double fujisakiEnabled;     /* 0.0 = off, >0.5 = on */
+  double fujisakiReset;       /* rising edge resets model state */
+  double fujisakiPhraseAmp;   /* phrase command amplitude (e.g. 1.3) */
+  double fujisakiPhraseLen;   /* phrase filter L (samples). 0 = use default */
+  double fujisakiAccentAmp;   /* accent command amplitude (e.g. 0.4) */
+  double fujisakiAccentDur;   /* accent duration D (samples). 0 = use default */
+  double fujisakiAccentLen;   /* accent filter L (samples). 0 = use default */
+} nvspFrontend_FrameEx;
+
+/* Number of fields in FrameEx struct (for size validation) */
+#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 18
+
+/*
+  VoicingTone parameters for DSP-level voice quality (ABI v2+).
+  
+  These control the glottal pulse shape, spectral tilt, and EQ at the DSP level.
+  They are read from the voicingTone: block in voice profiles.
+  
+  All fields have defaults that result in neutral/bypass behavior.
+*/
+typedef struct nvspFrontend_VoicingTone {
+  /* V1 parameters */
+  double voicingPeakPos;        /* Glottal pulse peak position (0.0-1.0) */
+  double voicedPreEmphA;        /* Pre-emphasis coefficient A */
+  double voicedPreEmphMix;      /* Pre-emphasis mix (0.0-1.0) */
+  double highShelfGainDb;       /* High shelf EQ gain in dB */
+  double highShelfFcHz;         /* High shelf EQ center frequency */
+  double highShelfQ;            /* High shelf EQ Q factor */
+  double voicedTiltDbPerOct;    /* Spectral tilt in dB/octave */
+  
+  /* V2 parameters */
+  double noiseGlottalModDepth;  /* Noise modulation by glottal cycle */
+  double pitchSyncF1DeltaHz;    /* Pitch-synchronous F1 delta */
+  double pitchSyncB1DeltaHz;    /* Pitch-synchronous B1 delta */
+  
+  /* V3 parameters */
+  double speedQuotient;         /* Glottal speed quotient (2.0 = neutral) */
+  double aspirationTiltDbPerOct; /* Aspiration spectral tilt */
+} nvspFrontend_VoicingTone;
+
+/* Number of fields in VoicingTone struct */
+#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 12
+
+/*
+  VoiceProfileSliders - the 11 user-adjustable slider values (ABI v2+).
+  
+  These are the values exposed to users via NVDA sliders.
+  The 6 "hidden" VoicingTone params (voicingPeakPos, voicedPreEmphA, etc.)
+  are NOT included here - they are preserved if manually edited in YAML.
+  
+  Used by nvspFrontend_saveVoiceProfileSliders() to write user settings
+  back to phonemes.yaml.
+*/
+typedef struct nvspFrontend_VoiceProfileSliders {
+  /* VoicingTone sliders (6) */
+  double voicedTiltDbPerOct;      /* Spectral tilt in dB/octave */
+  double noiseGlottalModDepth;    /* Noise modulation by glottal cycle (0.0-1.0) */
+  double pitchSyncF1DeltaHz;      /* Pitch-synchronous F1 delta */
+  double pitchSyncB1DeltaHz;      /* Pitch-synchronous B1 delta */
+  double speedQuotient;           /* Glottal speed quotient (0.5-4.0, 2.0 = neutral) */
+  double aspirationTiltDbPerOct;  /* Aspiration spectral tilt */
+  
+  /* FrameEx sliders (5) */
+  double creakiness;              /* Laryngealization (0.0-1.0) */
+  double breathiness;             /* Breathiness (0.0-1.0) */
+  double jitter;                  /* Pitch variation (0.0-1.0) */
+  double shimmer;                 /* Amplitude variation (0.0-1.0) */
+  double sharpness;               /* Glottal sharpness multiplier (0.5-2.0, 1.0 = neutral) */
+} nvspFrontend_VoiceProfileSliders;
+
+/* Number of fields in VoiceProfileSliders struct */
+#define NVSP_FRONTEND_VOICEPROFILESLIDERS_NUM_PARAMS 11
+
+/*
+  Callback invoked for each frame (legacy, ABI v1).
   - frameOrNull: NULL means "silence" for the given duration.
   - durationMs and fadeMs are in milliseconds (same units as the Python side today).
   - userIndex is passed through, so callers can map audio back to text positions.
@@ -69,6 +176,22 @@ typedef struct nvspFrontend_Frame {
 typedef void (*nvspFrontend_FrameCallback)(
   void* userData,
   const nvspFrontend_Frame* frameOrNull,
+  double durationMs,
+  double fadeMs,
+  int userIndex
+);
+
+/*
+  Extended callback invoked for each frame (ABI v2+).
+  - frameOrNull: NULL means "silence" for the given duration.
+  - frameExOrNull: Extended parameters, or NULL if not applicable.
+  - durationMs and fadeMs are in milliseconds.
+  - userIndex is passed through for text position mapping.
+*/
+typedef void (*nvspFrontend_FrameExCallback)(
+  void* userData,
+  const nvspFrontend_Frame* frameOrNull,
+  const nvspFrontend_FrameEx* frameExOrNull,
   double durationMs,
   double fadeMs,
   int userIndex
@@ -160,6 +283,138 @@ NVSP_FRONTEND_API const char* nvspFrontend_getPackWarnings(nvspFrontend_handle_t
   The returned pointer is owned by the frontend handle and remains valid until the next call.
 */
 NVSP_FRONTEND_API const char* nvspFrontend_getLastError(nvspFrontend_handle_t handle);
+
+/*
+  Get the ABI version of the loaded DLL.
+  Callers can use this to check for feature availability.
+*/
+NVSP_FRONTEND_API int nvspFrontend_getABIVersion(void);
+
+/* ============================================================================
+ * Extended Frame API (ABI v2+)
+ * ============================================================================
+ *
+ * These functions provide per-frame voice quality control via FrameEx parameters.
+ * The frontend mixes user-level defaults with per-phoneme values from YAML.
+ */
+
+/*
+  Set user-level FrameEx defaults.
+  
+  These values are added to per-phoneme FrameEx values (from YAML) when emitting
+  frames. The result is clamped to valid ranges.
+  
+  This is typically called when the user adjusts voice quality sliders.
+  The defaults persist until changed or the handle is destroyed.
+  
+  Parameters:
+  - creakiness:  0.0-1.0, added to phoneme creakiness
+  - breathiness: 0.0-1.0, added to phoneme breathiness  
+  - jitter:      0.0-1.0, added to phoneme jitter
+  - shimmer:     0.0-1.0, added to phoneme shimmer
+  - sharpness:   multiplier (0.5-2.0 typical), multiplied with phoneme sharpness
+*/
+NVSP_FRONTEND_API void nvspFrontend_setFrameExDefaults(
+  nvspFrontend_handle_t handle,
+  double creakiness,
+  double breathiness,
+  double jitter,
+  double shimmer,
+  double sharpness
+);
+
+/*
+  Get the current FrameEx defaults.
+  
+  Writes the current user-level defaults to the provided struct.
+  Returns 1 on success, 0 on failure (e.g., invalid handle or NULL pointer).
+*/
+NVSP_FRONTEND_API int nvspFrontend_getFrameExDefaults(
+  nvspFrontend_handle_t handle,
+  nvspFrontend_FrameEx* outDefaults
+);
+
+/*
+  Convert IPA text into frames with extended parameters (ABI v2+).
+  
+  This is the extended version of nvspFrontend_queueIPA that uses the
+  FrameExCallback to emit both Frame and FrameEx data.
+  
+  The FrameEx values in the callback are the result of mixing:
+  - Per-phoneme values from YAML (if defined)
+  - User-level defaults set via nvspFrontend_setFrameExDefaults()
+  
+  For silence frames, frameExOrNull will be NULL.
+  
+  Returns 1 on success, 0 on failure.
+*/
+NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
+  nvspFrontend_handle_t handle,
+  const char* ipaUtf8,
+  double speed,
+  double basePitch,
+  double inflection,
+  const char* clauseTypeUtf8,
+  int userIndexBase,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+);
+
+/*
+  Get the voicing tone parameters for the current voice profile (ABI v2+).
+  
+  Writes the VoicingTone parameters for the currently active voice profile
+  to the provided struct. If no profile is active or the profile doesn't
+  have voicingTone settings, the struct is filled with default values.
+  
+  Parameters:
+  - outTone: Pointer to struct to fill with voicing tone parameters.
+  
+  Returns:
+  - 1 if the current profile has explicit voicingTone settings
+  - 0 if using defaults (no profile or profile has no voicingTone block)
+  
+  The caller should use the returned value to decide whether to apply
+  the voicing tone or fall back to Python-side defaults.
+*/
+NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
+  nvspFrontend_handle_t handle,
+  nvspFrontend_VoicingTone* outTone
+);
+
+/*
+  Get a list of voice profile names (ABI v2+).
+  
+  Returns a null-terminated, newline-separated string of profile names.
+  The returned pointer is owned by the handle and valid until the next API call.
+  
+  Example return value: "Crystal\nBeth\nBobby\n"
+*/
+NVSP_FRONTEND_API const char* nvspFrontend_getVoiceProfileNames(nvspFrontend_handle_t handle);
+
+/*
+  Save voice profile slider values to phonemes.yaml (ABI v2+).
+  
+  Writes the 11 user-adjustable slider values to the voicingTone block
+  for the specified profile in phonemes.yaml.
+  
+  If the profile doesn't exist, it will be created under voiceProfiles:.
+  If the voicingTone: block doesn't exist, it will be created.
+  Existing "hidden" params (voicingPeakPos, etc.) are preserved.
+  
+  Parameters:
+  - profileNameUtf8: Name of the profile (e.g., "Adam", "Beth")
+  - sliders: Pointer to struct containing the 11 slider values
+  
+  Returns:
+  - 1 on success
+  - 0 on failure (call nvspFrontend_getLastError for details)
+*/
+NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
+  nvspFrontend_handle_t handle,
+  const char* profileNameUtf8,
+  const nvspFrontend_VoiceProfileSliders* sliders
+);
 
 #ifdef __cplusplus
 }

@@ -146,6 +146,52 @@ static bool loadPhonemes(const fs::path& packsRoot, PackSet& out, std::string& o
         continue;
       }
 
+      // Parse frameEx: block for per-phoneme voice quality
+      // (same logic as in mergeLanguageFile for language pack overrides)
+      if (fieldName == "frameEx" && val.isMap()) {
+        for (const auto& fxkv : val.map) {
+          const std::string& fxKey = fxkv.first;
+          double fxVal;
+          if (!fxkv.second.asNumber(fxVal)) continue;
+          
+          if (fxKey == "creakiness") {
+            def.hasCreakiness = true;
+            def.creakiness = fxVal;
+          } else if (fxKey == "breathiness") {
+            def.hasBreathiness = true;
+            def.breathiness = fxVal;
+          } else if (fxKey == "jitter") {
+            def.hasJitter = true;
+            def.jitter = fxVal;
+          } else if (fxKey == "shimmer") {
+            def.hasShimmer = true;
+            def.shimmer = fxVal;
+          } else if (fxKey == "sharpness") {
+            def.hasSharpness = true;
+            def.sharpness = fxVal;
+          } else if (fxKey == "endCf1") {
+            def.hasEndCf1 = true;
+            def.endCf1 = fxVal;
+          } else if (fxKey == "endCf2") {
+            def.hasEndCf2 = true;
+            def.endCf2 = fxVal;
+          } else if (fxKey == "endCf3") {
+            def.hasEndCf3 = true;
+            def.endCf3 = fxVal;
+          } else if (fxKey == "endPf1") {
+            def.hasEndPf1 = true;
+            def.endPf1 = fxVal;
+          } else if (fxKey == "endPf2") {
+            def.hasEndPf2 = true;
+            def.endPf2 = fxVal;
+          } else if (fxKey == "endPf3") {
+            def.hasEndPf3 = true;
+            def.endPf3 = fxVal;
+          }
+        }
+        continue;
+      }
+
       FieldId id;
       if (!parseFieldId(fieldName, id)) {
         continue;
@@ -352,11 +398,40 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getStr("voiceProfileName", lp.voiceProfileName);
 
   // Legacy pitch mode (ported from the ee80f4d-era ipa.py / ipa-older.py).
-  // Enable per-language in packs via:
-  //   legacyPitchMode: true
-  getBool("legacyPitchMode", lp.legacyPitchMode);
-  // Optional: scale applied to the caller-provided inflection (0..1) when legacyPitchMode is enabled.
+  // Supports both legacy bool syntax and new string enum:
+  //   legacyPitchMode: true          -> "legacy"
+  //   legacyPitchMode: false         -> "espeak_style"
+  //   legacyPitchMode: "legacy"      -> "legacy"
+  //   legacyPitchMode: "espeak_style"-> "espeak_style"
+  //   legacyPitchMode: "fujisaki_style" -> "fujisaki_style"
+  {
+    const yaml_min::Node* n = settings.get("legacyPitchMode");
+    if (n && n->isScalar()) {
+      const std::string& val = n->scalar;
+      if (val == "true" || val == "1") {
+        lp.legacyPitchMode = "legacy";
+      } else if (val == "false" || val == "0") {
+        lp.legacyPitchMode = "espeak_style";
+      } else {
+        // Direct string value: "legacy", "espeak_style", "fujisaki_style"
+        lp.legacyPitchMode = val;
+      }
+    }
+  }
+  // Optional: scale applied to the caller-provided inflection (0..1) when legacyPitchMode is "legacy".
   getNum("legacyPitchInflectionScale", lp.legacyPitchInflectionScale);
+
+  // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style")
+  getNum("fujisakiPhraseAmp", lp.fujisakiPhraseAmp);
+  getNum("fujisakiPrimaryAccentAmp", lp.fujisakiPrimaryAccentAmp);
+  getNum("fujisakiSecondaryAccentAmp", lp.fujisakiSecondaryAccentAmp);
+  getStr("fujisakiAccentMode", lp.fujisakiAccentMode);
+  getNum("fujisakiPhraseLen", lp.fujisakiPhraseLen);
+  getNum("fujisakiAccentLen", lp.fujisakiAccentLen);
+  getNum("fujisakiAccentDur", lp.fujisakiAccentDur);
+  getNum("fujisakiDeclinationScale", lp.fujisakiDeclinationScale);
+  getNum("fujisakiDeclinationMax", lp.fujisakiDeclinationMax);
+  getNum("fujisakiDeclinationPostFloor", lp.fujisakiDeclinationPostFloor);
 
   getBool("postStopAspirationEnabled", lp.postStopAspirationEnabled);
   {
@@ -385,6 +460,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Single-word utterance tuning (key echo / word-by-word reading).
   getBool("singleWordTuningEnabled", lp.singleWordTuningEnabled);
   getNum("singleWordFinalHoldMs", lp.singleWordFinalHoldMs);
+  getNum("singleWordFinalLiquidHoldScale", lp.singleWordFinalLiquidHoldScale);
   getNum("singleWordFinalFadeMs", lp.singleWordFinalFadeMs);
   getBool("singleWordClauseTypeOverrideCommaOnly", lp.singleWordClauseTypeOverrideCommaOnly);
   {
@@ -436,6 +512,15 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationLabialF2Locus", lp.coarticulationLabialF2Locus);
   getNum("coarticulationAlveolarF2Locus", lp.coarticulationAlveolarF2Locus);
   getNum("coarticulationVelarF2Locus", lp.coarticulationVelarF2Locus);
+  getNum("coarticulationMitalkK", lp.coarticulationMitalkK);
+  getNum("coarticulationF1Scale", lp.coarticulationF1Scale);
+  getNum("coarticulationF2Scale", lp.coarticulationF2Scale);
+  getNum("coarticulationF3Scale", lp.coarticulationF3Scale);
+  getBool("coarticulationAlveolarBackVowelEnabled", lp.coarticulationAlveolarBackVowelEnabled);
+  getNum("coarticulationBackVowelF2Threshold", lp.coarticulationBackVowelF2Threshold);
+  getNum("coarticulationAlveolarBackVowelStrengthBoost", lp.coarticulationAlveolarBackVowelStrengthBoost);
+  getBool("coarticulationLabializedFricativeFrontingEnabled", lp.coarticulationLabializedFricativeFrontingEnabled);
+  getNum("coarticulationLabializedFricativeF2Pull", lp.coarticulationLabializedFricativeF2Pull);
   getBool("coarticulationVelarPinchEnabled", lp.coarticulationVelarPinchEnabled);
   getNum("coarticulationVelarPinchThreshold", lp.coarticulationVelarPinchThreshold);
   getNum("coarticulationVelarPinchF2Scale", lp.coarticulationVelarPinchF2Scale);
@@ -527,6 +612,10 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("rateReductionSchwaReductionThreshold", lp.rateReductionSchwaReductionThreshold);
   getNum("rateReductionSchwaMinDurationMs", lp.rateReductionSchwaMinDurationMs);
   getNum("rateReductionSchwaScale", lp.rateReductionSchwaScale);
+
+  getBool("wordFinalSchwaReductionEnabled", lp.wordFinalSchwaReductionEnabled);
+  getNum("wordFinalSchwaScale", lp.wordFinalSchwaScale);
+  getNum("wordFinalSchwaMinDurationMs", lp.wordFinalSchwaMinDurationMs);
 
   getBool("nasalizationAnticipatoryEnabled", lp.nasalizationAnticipatoryEnabled);
   getNum("nasalizationAnticipatoryAmplitude", lp.nasalizationAnticipatoryAmplitude);
@@ -750,6 +839,14 @@ static void parseWhen(const yaml_min::Node& whenNode, RuleWhen& when) {
   {
     const yaml_min::Node* n = whenNode.get("afterClass");
     if (n && n->isScalar()) when.afterClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("notBeforeClass");
+    if (n && n->isScalar()) when.notBeforeClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("notAfterClass");
+    if (n && n->isScalar()) when.notAfterClass = n->scalar;
   }
 }
 
@@ -991,6 +1088,51 @@ static bool mergeLanguageFile(const fs::path& path, PackSet& out, std::string& o
             if (bit != 0) {
               bool b;
               if (val.asBool(b) && b) def.flags |= bit;
+            }
+            continue;
+          }
+          
+          // Parse frameEx: block for per-phoneme voice quality
+          if (fieldName == "frameEx" && val.isMap()) {
+            for (const auto& fxkv : val.map) {
+              const std::string& fxKey = fxkv.first;
+              double fxVal;
+              if (!fxkv.second.asNumber(fxVal)) continue;
+              
+              if (fxKey == "creakiness") {
+                def.hasCreakiness = true;
+                def.creakiness = fxVal;
+              } else if (fxKey == "breathiness") {
+                def.hasBreathiness = true;
+                def.breathiness = fxVal;
+              } else if (fxKey == "jitter") {
+                def.hasJitter = true;
+                def.jitter = fxVal;
+              } else if (fxKey == "shimmer") {
+                def.hasShimmer = true;
+                def.shimmer = fxVal;
+              } else if (fxKey == "sharpness") {
+                def.hasSharpness = true;
+                def.sharpness = fxVal;
+              } else if (fxKey == "endCf1") {
+                def.hasEndCf1 = true;
+                def.endCf1 = fxVal;
+              } else if (fxKey == "endCf2") {
+                def.hasEndCf2 = true;
+                def.endCf2 = fxVal;
+              } else if (fxKey == "endCf3") {
+                def.hasEndCf3 = true;
+                def.endCf3 = fxVal;
+              } else if (fxKey == "endPf1") {
+                def.hasEndPf1 = true;
+                def.endPf1 = fxVal;
+              } else if (fxKey == "endPf2") {
+                def.hasEndPf2 = true;
+                def.endPf2 = fxVal;
+              } else if (fxKey == "endPf3") {
+                def.hasEndPf3 = true;
+                def.endPf3 = fxVal;
+              }
             }
             continue;
           }

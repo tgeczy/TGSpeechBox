@@ -1,6 +1,7 @@
 #ifndef NVSP_FRONTEND_PACK_H
 #define NVSP_FRONTEND_PACK_H
 
+#include <cmath>
 #include <cstdint>
 #include <array>
 #include <memory>
@@ -89,14 +90,47 @@ struct PhonemeDef {
   // Which frame fields are explicitly specified in YAML.
   std::uint64_t setMask = 0;
   double field[kFrameFieldCount] = {0.0};
+  
+  // Per-phoneme FrameEx overrides (voice quality).
+  // The has* flags indicate which values are explicitly set in YAML.
+  // Values without has* true should fall back to user defaults.
+  bool hasCreakiness = false;
+  bool hasBreathiness = false;
+  bool hasJitter = false;
+  bool hasShimmer = false;
+  bool hasSharpness = false;
+  
+  // Formant end targets (for within-frame ramping)
+  bool hasEndCf1 = false;
+  bool hasEndCf2 = false;
+  bool hasEndCf3 = false;
+  bool hasEndPf1 = false;
+  bool hasEndPf2 = false;
+  bool hasEndPf3 = false;
+  
+  double creakiness = 0.0;    // 0.0-1.0, additive with user default
+  double breathiness = 0.0;   // 0.0-1.0, additive with user default
+  double jitter = 0.0;        // 0.0-1.0, additive with user default
+  double shimmer = 0.0;       // 0.0-1.0, additive with user default
+  double sharpness = 1.0;     // multiplier (1.0 = neutral, only >= 1.0 used)
+  
+  // Formant end targets in Hz (NAN = no ramping)
+  double endCf1 = NAN;
+  double endCf2 = NAN;
+  double endCf3 = NAN;
+  double endPf1 = NAN;
+  double endPf2 = NAN;
+  double endPf3 = NAN;
 };
 
 // In YAML we keep replacements in UTF-8; we convert to UTF-32 during load.
 struct RuleWhen {
   bool atWordStart = false;
   bool atWordEnd = false;
-  std::string beforeClass; // name from classes
-  std::string afterClass;
+  std::string beforeClass;    // name from classes - match only if next char is in class
+  std::string afterClass;     // name from classes - match only if prev char is in class
+  std::string notBeforeClass; // name from classes - match only if next char is NOT in class
+  std::string notAfterClass;  // name from classes - match only if prev char is NOT in class
 };
 
 struct ReplacementRule {
@@ -152,6 +186,35 @@ struct LanguagePack {
   double primaryStressDiv = 1.4;
   double secondaryStressDiv = 1.1;
   
+  // ============================================================================
+  // Phoneme timing constants (ms at speed=1.0; divided by current speed)
+  // ============================================================================
+  // These control the base duration and fade times for different phoneme classes.
+  // Previously hardcoded in calculateTimes(); now configurable via YAML.
+  
+  double defaultVowelDurationMs = 60.0;       // Base vowel duration
+  double defaultFadeMs = 10.0;                // Default crossfade between segments
+  double postStopAspirationDurationMs = 20.0; // Inserted aspiration after voiceless stops
+  
+  // Consonant durations
+  double stopDurationMs = 6.0;                // Plosive burst duration (p, t, k, b, d, g)
+  double affricateDurationMs = 24.0;          // Affricate duration (t͡ʃ, d͡ʒ)
+  double voicelessFricativeDurationMs = 45.0; // Voiceless fricatives (f, s, ʃ, x)
+  double voicedConsonantDurationMs = 30.0;    // Voiced non-vowel default
+  double tapDurationMs = 14.0;                // Tap/flap duration (ɾ)
+  double trillFallbackDurationMs = 40.0;      // Trill duration if trillModulationMs unset
+  
+  // Vowel context-dependent durations
+  double tiedVowelDurationMs = 40.0;          // Vowel tied to following segment (diphthong start)
+  double tiedFromVowelDurationMs = 20.0;      // Vowel tied from previous (diphthong end)
+  double tiedFromVowelFadeMs = 20.0;          // Fade for tied-from vowels
+  double vowelBeforeLiquidDurationMs = 30.0;  // Unstressed vowel before liquid
+  double vowelBeforeNasalDurationMs = 40.0;   // Unstressed vowel before nasal
+  
+  // Transition fades (into vowels)
+  double fadeAfterLiquidMs = 25.0;            // Fade into vowel after liquid/semivowel
+  double liquidFadeMs = 20.0;                 // Fade for liquid/semivowel segments
+  
   // Voice profile name (optional).
   // If set, this profile will be applied to phoneme parameters to produce
   // different voice qualities (e.g., "female" for a female voice).
@@ -164,10 +227,15 @@ struct LanguagePack {
   // from the ee80f4d-era ipa.py (sometimes referred to as ipa-older.py).
   // This tends to sound more like classic screen-reader prosody at higher
   // rates than the newer table-based intonation model.
-  bool legacyPitchMode = false;
+  //
+  // Values:
+  //   "espeak_style" (default, same as false) - ToBI-based intonation regions
+  //   "legacy" (same as true) - older time-based pitch curve
+  //   "fujisaki_style" - Eloquence-style flat base + DSP phrase/accent contours
+  std::string legacyPitchMode = "espeak_style";
 
   // Optional scaling applied to the caller-provided inflection (0..1) when
-  // legacyPitchMode is enabled.
+  // legacyPitchMode is "legacy".
   //
   // Historical NVSpeechPlayer defaults used a lower inflection setting (e.g. 35)
   // than modern defaults (e.g. 60). Feeding those higher values into the legacy
@@ -176,6 +244,34 @@ struct LanguagePack {
   // 1.0 preserves the historical behavior exactly.
   // A value around 0.58 maps 0.60 -> 0.35.
   double legacyPitchInflectionScale = 0.58;
+
+  // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style").
+  //
+  // These control the DSP-level phrase + accent commands in a Fujisaki-Bartman
+  // style model (i.e., we keep per-phoneme pitch targets flat and let the DSP
+  // synthesize the contour).
+  //
+  // The defaults aim for a classic screen-reader feel (Eloquence-ish) while
+  // avoiding a fully "dead flat" contour.
+  double fujisakiPhraseAmp = 0.24;            // Phrase declination arc (log-F0 domain)
+  double fujisakiPrimaryAccentAmp = 0.24;     // Primary-stress accent (log-F0 domain)
+  double fujisakiSecondaryAccentAmp = 0.12;   // Secondary-stress accent
+  
+  // Controls which syllables get accent commands:
+  //   "all" = every stressed syllable (can get singsongy if amps are too high)
+  //   "first_only" = only first primary stress per utterance (very flat)
+  //   "off" = no accents, just phrase declination (monotone)
+  std::string fujisakiAccentMode = "all";
+
+  // Fujisaki timing parameters (samples @ 22050 Hz). 0 = use DSP default.
+  // Lower values = faster/punchier pitch movements (Eloquence-like).
+  // DSP defaults: phraseLen=4250 (~193ms), accentLen=1024 (~46ms), accentDur=7500 (~340ms)
+  double fujisakiPhraseLen = 0.0;    // Phrase filter rise time (samples)
+  double fujisakiAccentLen = 0.0;    // Accent filter attack time (samples)
+  double fujisakiAccentDur = 0.0;    // Accent pulse duration (samples)
+  double fujisakiDeclinationScale = 25.0;  // Scale for linear pitch declination (lower = gentler slope)
+  double fujisakiDeclinationMax = 1.25;    // Max declination ratio (1.25 = pitch can't drop below ~80% of base)
+  double fujisakiDeclinationPostFloor = 0.15; // Continued gentle slope after hitting floor (0 = flat)
 
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";
@@ -240,6 +336,12 @@ struct LanguagePack {
   // Extra hold added to the final voiced vowel/liquid/nasal (ms at speed=1.0).
   // This is in addition to any prosody / phrase lengthening.
   double singleWordFinalHoldMs = 0.0;
+
+  // Scale factor for singleWordFinalHoldMs when the final segment is a liquid
+  // (like R or L). Liquids can sound unnatural when held too long due to their
+  // extreme formant positions. Default 1.0 = no reduction. Use 0.3-0.5 for
+  // languages like US English where word-final R sounds "pirate-y" when held.
+  double singleWordFinalLiquidHoldScale = 1.0;
 
   // If >0, append a final silence frame with this fade time (ms at speed=1.0)
   // to avoid abrupt cutoffs at the end of single-word utterances.
@@ -399,7 +501,29 @@ double lengthContrastPreGeminateVowelScale = 0.85;
 
   double coarticulationLabialF2Locus = 800.0;
   double coarticulationAlveolarF2Locus = 1800.0;
-  double coarticulationVelarF2Locus = 2200.0;
+  // Velar F2 locus is typically mid (contextualized further by velar pinch).
+  double coarticulationVelarF2Locus = 1200.0;
+
+  // MITalk-style locus interpolation weight (k).
+  // locus = src + k * (trg - src)
+  // A value around 0.42 is commonly used and keeps the locus closer to the
+  // consonant while still reflecting vowel context.
+  double coarticulationMitalkK = 0.42;
+
+  // Per-formant scaling on top of coarticulationStrength.
+  // F2 carries most of the perceptual load; F1/F3 are typically kept gentler.
+  double coarticulationF1Scale = 0.6;
+  double coarticulationF2Scale = 1.0;
+  double coarticulationF3Scale = 0.5;
+
+  // Special-case: alveolar consonants can front back vowels (e.g. "new", "suzie").
+  bool coarticulationAlveolarBackVowelEnabled = true;
+  double coarticulationBackVowelF2Threshold = 1400.0;           // F2 < threshold => "back"
+  double coarticulationAlveolarBackVowelStrengthBoost = 1.25;   // additional boost
+
+  // Small consonant-side exception: ʃ/ʒ can sound slightly "higher" next to front vowels.
+  bool coarticulationLabializedFricativeFrontingEnabled = true;
+  double coarticulationLabializedFricativeF2Pull = 0.15;        // 0..1
 
   bool coarticulationVelarPinchEnabled = true;
   double coarticulationVelarPinchThreshold = 1800.0;
@@ -479,6 +603,13 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double rateReductionSchwaReductionThreshold = 2.5;
   double rateReductionSchwaMinDurationMs = 15.0;
   double rateReductionSchwaScale = 0.8;
+
+  // Word-final schwa reduction.
+  // Languages like Danish, German, French, European Portuguese reduce word-final
+  // schwas heavily. This applies a duration scale to unstressed word-final schwas.
+  bool wordFinalSchwaReductionEnabled = false;
+  double wordFinalSchwaScale = 0.6;            // 0.0-1.0, lower = shorter
+  double wordFinalSchwaMinDurationMs = 8.0;    // floor to avoid total silence
 
   // Anticipatory nasalization.
   bool nasalizationAnticipatoryEnabled = false;

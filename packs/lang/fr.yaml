@@ -4,6 +4,11 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 
+  # French "e muet" (schwa) is often silent or very reduced word-finally
+  wordFinalSchwaReductionEnabled: true
+  wordFinalSchwaScale: 0.40
+  wordFinalSchwaMinDurationMs: 5.0
+
   # Single-word utterance smoothing (key echo / word-by-word navigation)
   singleWordTuningEnabled: true
   singleWordFinalHoldMs: 45

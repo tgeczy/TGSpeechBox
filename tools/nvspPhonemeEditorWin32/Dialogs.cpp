@@ -143,28 +143,88 @@ static INT_PTR CALLBACK AddMappingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
 
       HWND before = GetDlgItem(hDlg, IDC_MAP_BEFORECLASS);
       HWND after = GetDlgItem(hDlg, IDC_MAP_AFTERCLASS);
+      HWND notBefore = GetDlgItem(hDlg, IDC_MAP_NOTBEFORECLASS);
+      HWND notAfter = GetDlgItem(hDlg, IDC_MAP_NOTAFTERCLASS);
 
       comboAddNone(before);
       comboAddNone(after);
+      comboAddNone(notBefore);
+      comboAddNone(notAfter);
 
       int idxBefore = 0;
       int idxAfter = 0;
+      int idxNotBefore = 0;
+      int idxNotAfter = 0;
 
       for (size_t i = 0; i < st->classNames.size(); ++i) {
         std::wstring w = utf8ToWide(st->classNames[i]);
         int posB = static_cast<int>(SendMessageW(before, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
         int posA = static_cast<int>(SendMessageW(after, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
+        int posNB = static_cast<int>(SendMessageW(notBefore, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
+        int posNA = static_cast<int>(SendMessageW(notAfter, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
         if (!st->rule.when.beforeClass.empty() && st->classNames[i] == st->rule.when.beforeClass) idxBefore = posB;
         if (!st->rule.when.afterClass.empty() && st->classNames[i] == st->rule.when.afterClass) idxAfter = posA;
+        if (!st->rule.when.notBeforeClass.empty() && st->classNames[i] == st->rule.when.notBeforeClass) idxNotBefore = posNB;
+        if (!st->rule.when.notAfterClass.empty() && st->classNames[i] == st->rule.when.notAfterClass) idxNotAfter = posNA;
       }
 
       SendMessageW(before, CB_SETCURSEL, idxBefore, 0);
       SendMessageW(after, CB_SETCURSEL, idxAfter, 0);
+      SendMessageW(notBefore, CB_SETCURSEL, idxNotBefore, 0);
+      SendMessageW(notAfter, CB_SETCURSEL, idxNotAfter, 0);
 
       return TRUE;
     }
 
     case WM_COMMAND: {
+      if (LOWORD(wParam) == IDC_MAP_EDIT_CLASSES && st && st->language) {
+        // Open the class editor dialog
+        ClassEditorDialogState ceSt;
+        ceSt.classes = st->language->classes();
+
+        HINSTANCE hInst = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hDlg, GWLP_HINSTANCE));
+        if (ShowClassEditorDialog(hInst, hDlg, ceSt)) {
+          // Write back to YAML and refresh comboboxes
+          st->language->setClasses(ceSt.classes);
+          st->classNames = st->language->classNamesSorted();
+
+          // Refresh all class comboboxes
+          auto refreshCombo = [&](int id, const std::string& selected) {
+            HWND h = GetDlgItem(hDlg, id);
+            SendMessageW(h, CB_RESETCONTENT, 0, 0);
+            comboAddNone(h);
+            int selIdx = 0;
+            for (size_t i = 0; i < st->classNames.size(); ++i) {
+              std::wstring w = utf8ToWide(st->classNames[i]);
+              int pos = static_cast<int>(SendMessageW(h, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
+              if (!selected.empty() && st->classNames[i] == selected) selIdx = pos;
+            }
+            SendMessageW(h, CB_SETCURSEL, selIdx, 0);
+          };
+
+          // Preserve current selections where possible
+          auto getComboSel = [&](int id) -> std::string {
+            HWND h = GetDlgItem(hDlg, id);
+            int sel = static_cast<int>(SendMessageW(h, CB_GETCURSEL, 0, 0));
+            if (sel <= 0) return "";
+            wchar_t item[512];
+            SendMessageW(h, CB_GETLBTEXT, sel, reinterpret_cast<LPARAM>(item));
+            return wideToUtf8(item);
+          };
+
+          std::string selBefore = getComboSel(IDC_MAP_BEFORECLASS);
+          std::string selAfter = getComboSel(IDC_MAP_AFTERCLASS);
+          std::string selNotBefore = getComboSel(IDC_MAP_NOTBEFORECLASS);
+          std::string selNotAfter = getComboSel(IDC_MAP_NOTAFTERCLASS);
+
+          refreshCombo(IDC_MAP_BEFORECLASS, selBefore);
+          refreshCombo(IDC_MAP_AFTERCLASS, selAfter);
+          refreshCombo(IDC_MAP_NOTBEFORECLASS, selNotBefore);
+          refreshCombo(IDC_MAP_NOTAFTERCLASS, selNotAfter);
+        }
+        return TRUE;
+      }
+
       if (LOWORD(wParam) == IDOK && st) {
         wchar_t buf[1024];
         GetDlgItemTextW(hDlg, IDC_MAP_FROM, buf, 1024);
@@ -186,6 +246,8 @@ static INT_PTR CALLBACK AddMappingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
 
         readCombo(IDC_MAP_BEFORECLASS, st->rule.when.beforeClass);
         readCombo(IDC_MAP_AFTERCLASS, st->rule.when.afterClass);
+        readCombo(IDC_MAP_NOTBEFORECLASS, st->rule.when.notBeforeClass);
+        readCombo(IDC_MAP_NOTAFTERCLASS, st->rule.when.notAfterClass);
 
         if (st->rule.from.empty() || st->rule.to.empty()) {
           msgBox(hDlg, L"Both 'From' and 'To' are required.", L"Add mapping", MB_ICONERROR);
@@ -705,7 +767,20 @@ static const std::vector<std::string>& getStandardPhonemeTypeFlags() {
     "_isTap",
     "_isTrill",
     "_isVoiced",
-    "_isVowel"
+    "_isVowel",
+    // FrameEx voice quality (stored under frameEx: in YAML)
+    "frameEx.creakiness",
+    "frameEx.breathiness",
+    "frameEx.jitter",
+    "frameEx.shimmer",
+    "frameEx.sharpness",
+    // Formant end targets for within-frame ramping (DECTalk-style coarticulation)
+    "frameEx.endCf1",
+    "frameEx.endCf2",
+    "frameEx.endCf3",
+    "frameEx.endPf1",
+    "frameEx.endPf2",
+    "frameEx.endPf3"
   };
   return flags;
 }
@@ -720,10 +795,23 @@ static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeM
   std::vector<std::string> allKeys;
   std::unordered_set<std::string> seen;
   
-  // Add existing keys first
+  // Add existing keys first (skip "frameEx" itself since we'll show its children)
   for (const auto& k : existingKeys) {
+    if (k == "frameEx") continue;  // Handle specially below
     allKeys.push_back(k);
     seen.insert(k);
+  }
+  
+  // Add frameEx.* keys if frameEx exists in the map
+  auto frameExIt = phonemeMap.map.find("frameEx");
+  if (frameExIt != phonemeMap.map.end() && frameExIt->second.isMap()) {
+    for (const auto& kv : frameExIt->second.map) {
+      std::string flatKey = "frameEx." + kv.first;
+      if (seen.find(flatKey) == seen.end()) {
+        allKeys.push_back(flatKey);
+        seen.insert(flatKey);
+      }
+    }
   }
   
   // Add standard type flags that aren't already present
@@ -739,11 +827,29 @@ static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeM
 
   int row = 0;
   for (const auto& k : allKeys) {
-    auto it = phonemeMap.map.find(k);
-    bool exists = (it != phonemeMap.map.end() && it->second.isScalar());
+    bool exists = false;
+    std::string valueStr;
     
-    // Skip non-scalar values that exist (like nested maps)
-    if (it != phonemeMap.map.end() && !it->second.isScalar()) continue;
+    // Handle frameEx.* keys specially
+    if (k.rfind("frameEx.", 0) == 0) {
+      std::string subKey = k.substr(8);  // Remove "frameEx." prefix
+      auto fxIt = phonemeMap.map.find("frameEx");
+      if (fxIt != phonemeMap.map.end() && fxIt->second.isMap()) {
+        auto subIt = fxIt->second.map.find(subKey);
+        if (subIt != fxIt->second.map.end() && subIt->second.isScalar()) {
+          exists = true;
+          valueStr = subIt->second.scalar;
+        }
+      }
+    } else {
+      auto it = phonemeMap.map.find(k);
+      exists = (it != phonemeMap.map.end() && it->second.isScalar());
+      
+      // Skip non-scalar values that exist (like nested maps)
+      if (it != phonemeMap.map.end() && !it->second.isScalar()) continue;
+      
+      if (exists) valueStr = it->second.scalar;
+    }
 
     LVITEMW item{};
     item.mask = LVIF_TEXT;
@@ -753,7 +859,7 @@ static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeM
     item.pszText = wk.data();
     ListView_InsertItem(lv, &item);
 
-    std::wstring wv = exists ? utf8ToWide(it->second.scalar) : L"(not set)";
+    std::wstring wv = exists ? utf8ToWide(valueStr) : L"(not set)";
     ListView_SetItemText(lv, row, 1, const_cast<wchar_t*>(wv.c_str()));
 
     row++;
@@ -800,31 +906,65 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
           return TRUE;
         }
 
-        auto it = st->working.map.find(field);
-        bool fieldExists = (it != st->working.map.end());
+        // Handle frameEx.* fields specially
+        bool isFrameExField = (field.rfind("frameEx.", 0) == 0);
+        std::string subKey;
+        bool fieldExists = false;
+        std::string currentValue;
         
-        // If field exists but is not scalar, reject it
-        if (fieldExists && !it->second.isScalar()) {
-          msgBox(hDlg, L"That field isn't a scalar value.", L"Edit phoneme", MB_ICONERROR);
-          return TRUE;
+        if (isFrameExField) {
+          subKey = field.substr(8);  // Remove "frameEx." prefix
+          auto fxIt = st->working.map.find("frameEx");
+          if (fxIt != st->working.map.end() && fxIt->second.isMap()) {
+            auto subIt = fxIt->second.map.find(subKey);
+            if (subIt != fxIt->second.map.end() && subIt->second.isScalar()) {
+              fieldExists = true;
+              currentValue = subIt->second.scalar;
+            }
+          }
+        } else {
+          auto it = st->working.map.find(field);
+          fieldExists = (it != st->working.map.end());
+          
+          // If field exists but is not scalar, reject it
+          if (fieldExists && !it->second.isScalar()) {
+            msgBox(hDlg, L"That field isn't a scalar value.", L"Edit phoneme", MB_ICONERROR);
+            return TRUE;
+          }
+          if (fieldExists) currentValue = it->second.scalar;
         }
 
         EditValueDialogState vs;
         vs.field = field;
-        vs.value = fieldExists ? it->second.scalar : "";
+        vs.value = currentValue;
         vs.baseMap = st->working;
         vs.runtime = st->runtime;
         vs.livePreview = true;
 
         DialogBoxParamW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_EDIT_VALUE), hDlg, EditValueDlgProc, reinterpret_cast<LPARAM>(&vs));
         if (vs.ok) {
-          // Create or update the field
-          if (!fieldExists) {
-            st->working.map[field] = nvsp_editor::Node{};
-            it = st->working.map.find(field);
+          if (isFrameExField) {
+            // Create frameEx map if it doesn't exist
+            auto fxIt = st->working.map.find("frameEx");
+            if (fxIt == st->working.map.end()) {
+              st->working.map["frameEx"] = nvsp_editor::Node{};
+              st->working.map["frameEx"].type = nvsp_editor::Node::Type::Map;
+              fxIt = st->working.map.find("frameEx");
+            }
+            // Create or update the subkey
+            fxIt->second.map[subKey] = nvsp_editor::Node{};
+            fxIt->second.map[subKey].type = nvsp_editor::Node::Type::Scalar;
+            fxIt->second.map[subKey].scalar = vs.value;
+          } else {
+            // Create or update the field at top level
+            auto it = st->working.map.find(field);
+            if (it == st->working.map.end()) {
+              st->working.map[field] = nvsp_editor::Node{};
+              it = st->working.map.find(field);
+            }
+            it->second.type = nvsp_editor::Node::Type::Scalar;
+            it->second.scalar = vs.value;
           }
-          it->second.type = nvsp_editor::Node::Type::Scalar;
-          it->second.scalar = vs.value;
           populatePhonemeFieldsList(lv, st->working);
           EnsureListViewHasSelection(lv);
         }
@@ -1037,6 +1177,20 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
     setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
   };
 
+  auto syncSelectedFrameExParamToUi = [&]() {
+    if (!st) return;
+    HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+    int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+    if (sel < 0) sel = 0;
+    if (sel >= static_cast<int>(st->frameExParamNames.size())) return;
+    // Default: 0 for creakiness/breathiness/jitter/shimmer, 50 for sharpness
+    int defaultVal = (sel == 4) ? 50 : 0;
+    int v = (sel < static_cast<int>(st->settings.frameExParams.size())) ? st->settings.frameExParams[static_cast<size_t>(sel)] : defaultVal;
+    HWND tb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_SLIDER);
+    setTrackbarRangeAndPos(tb, v);
+    setDlgIntText(hDlg, IDC_SPEECH_FRAMEEX_VAL, v);
+  };
+
   switch (msg) {
     case WM_INITDIALOG: {
       st = reinterpret_cast<SpeechSettingsDialogState*>(lParam);
@@ -1067,6 +1221,11 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
       HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
       populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
       syncSelectedVoicingParamToUi();
+      
+      // FrameEx param list (voice quality)
+      HWND flb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+      populateParamList(flb, st->frameExParamNames, st->settings.frameExParams);
+      syncSelectedFrameExParamToUi();
       
       return TRUE;
     }
@@ -1122,6 +1281,21 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
           setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
           if (sel < static_cast<int>(st->voicingParamNames.size())) {
             refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], v);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+      if (id == IDC_SPEECH_FRAMEEX_SLIDER) {
+        int v = getTrackbarPos(src);
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.frameExParams.size())) {
+          st->settings.frameExParams[static_cast<size_t>(sel)] = v;
+          setDlgIntText(hDlg, IDC_SPEECH_FRAMEEX_VAL, v);
+          if (sel < static_cast<int>(st->frameExParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->frameExParamNames[static_cast<size_t>(sel)], v);
             SendMessageW(lb, LB_SETCURSEL, sel, 0);
           }
         }
@@ -1205,6 +1379,11 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         return TRUE;
       }
 
+      if (id == IDC_SPEECH_FRAMEEX_LIST && code == LBN_SELCHANGE) {
+        syncSelectedFrameExParamToUi();
+        return TRUE;
+      }
+
       if (id == IDC_SPEECH_PARAM_RESET) {
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_PARAM_LIST);
         int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
@@ -1251,6 +1430,72 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
         populateParamList(lb, st->voicingParamNames, st->settings.voicingParams);
         syncSelectedVoicingParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_FRAMEEX_RESET) {
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+        int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
+        if (sel < 0) sel = 0;
+        if (sel >= 0 && sel < static_cast<int>(st->settings.frameExParams.size())) {
+          // Default: 0 for creakiness/breathiness/jitter/shimmer, 50 for sharpness
+          int defaultVal = (sel == 4) ? 50 : 0;
+          st->settings.frameExParams[static_cast<size_t>(sel)] = defaultVal;
+          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_SLIDER), defaultVal);
+          setDlgIntText(hDlg, IDC_SPEECH_FRAMEEX_VAL, defaultVal);
+          if (sel < static_cast<int>(st->frameExParamNames.size())) {
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->frameExParamNames[static_cast<size_t>(sel)], defaultVal);
+            SendMessageW(lb, LB_SETCURSEL, sel, 0);
+          }
+        }
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_FRAMEEX_RESET_ALL) {
+        // Reset: creakiness/breathiness/jitter/shimmer=0, sharpness=50
+        st->settings.frameExParams.assign(st->frameExParamNames.size(), 0);
+        if (st->settings.frameExParams.size() >= 5) st->settings.frameExParams[4] = 50;
+        HWND lb = GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST);
+        populateParamList(lb, st->frameExParamNames, st->settings.frameExParams);
+        syncSelectedFrameExParamToUi();
+        return TRUE;
+      }
+
+      if (id == IDC_SPEECH_SAVE_TO_PROFILE) {
+        // Get profile name - strip "profile:" prefix if present, otherwise use voice name directly
+        std::string profileName;
+        if (nvsp_editor::NvspRuntime::isVoiceProfile(st->settings.voiceName)) {
+          profileName = nvsp_editor::NvspRuntime::getProfileNameFromVoice(st->settings.voiceName);
+        } else {
+          profileName = st->settings.voiceName;
+        }
+        
+        if (profileName.empty()) {
+          msgBox(hDlg, L"No voice selected.", L"Save to Profile", MB_ICONERROR);
+          return TRUE;
+        }
+        
+        // Check runtime is available
+        if (!st->runtime) {
+          msgBox(hDlg, L"Runtime not available.", L"Save to Profile", MB_ICONERROR);
+          return TRUE;
+        }
+        
+        // Save the 17 params (12 voicing + 5 FrameEx) to phonemes.yaml
+        std::string err;
+        if (st->runtime->saveVoiceProfileSliders(profileName, st->settings.voicingParams, st->settings.frameExParams, err)) {
+          std::wstring msg = L"Saved voicing and voice quality settings to profile \"" + utf8ToWide(profileName) + L"\" in phonemes.yaml.";
+          msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONINFORMATION);
+          
+          // Refresh voice list so the new profile appears
+          st->voiceProfiles = st->runtime->discoverVoiceProfiles();
+          st->settings.voiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
+          HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
+          fillVoices(combo, st->settings.voiceName, st->voiceProfiles);
+        } else {
+          std::wstring msg = L"Failed to save: " + utf8ToWide(err);
+          msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONERROR);
+        }
         return TRUE;
       }
 
@@ -1512,5 +1757,192 @@ static INT_PTR CALLBACK PhonemizerSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wP
 bool ShowPhonemizerSettingsDialog(HINSTANCE hInst, HWND parent, PhonemizerSettingsDialogState& st) {
   st.ok = false;
   DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_PHONEMIZER_SETTINGS), parent, PhonemizerSettingsDlgProc, (LPARAM)&st);
+  return st.ok;
+}
+
+// -------------------------------------------------------------------
+// Class Editor Dialog
+// -------------------------------------------------------------------
+
+static INT_PTR CALLBACK ClassEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+  ClassEditorDialogState* st = reinterpret_cast<ClassEditorDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
+
+  switch (msg) {
+    case WM_INITDIALOG: {
+      st = reinterpret_cast<ClassEditorDialogState*>(lParam);
+      SetWindowLongPtrW(hDlg, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(st));
+
+      // Populate class list
+      HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+      for (const auto& kv : st->classes) {
+        std::wstring w = utf8ToWide(kv.first);
+        SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str()));
+      }
+
+      // Select first item if any
+      if (!st->classes.empty()) {
+        SendMessageW(list, LB_SETCURSEL, 0, 0);
+        // Show members of first class
+        auto it = st->classes.begin();
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, utf8ToWide(it->second).c_str());
+        std::wstring label = L"Members of \"" + utf8ToWide(it->first) + L"\":";
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, label.c_str());
+      }
+
+      return TRUE;
+    }
+
+    case WM_COMMAND: {
+      int id = LOWORD(wParam);
+      int notif = HIWORD(wParam);
+
+      if (id == IDC_CE_CLASS_LIST && notif == LBN_SELCHANGE && st) {
+        // Save current class members before switching
+        // First, find previously selected class
+        static std::string lastClass;
+
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel == LB_ERR) return TRUE;
+
+        // Get selected class name
+        int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+        std::wstring buf(len + 1, L'\0');
+        SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+        buf.resize(len);
+        std::string className = wideToUtf8(buf);
+
+        // Update members edit
+        auto it = st->classes.find(className);
+        if (it != st->classes.end()) {
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, utf8ToWide(it->second).c_str());
+        } else {
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, L"");
+        }
+
+        // Update label
+        std::wstring label = L"Members of \"" + utf8ToWide(className) + L"\":";
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, label.c_str());
+
+        return TRUE;
+      }
+
+      if (id == IDC_CE_MEMBERS_EDIT && notif == EN_KILLFOCUS && st) {
+        // Save members when edit loses focus
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel == LB_ERR) return TRUE;
+
+        int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+        std::wstring buf(len + 1, L'\0');
+        SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+        buf.resize(len);
+        std::string className = wideToUtf8(buf);
+
+        wchar_t membersBuf[4096];
+        GetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, membersBuf, 4096);
+        st->classes[className] = wideToUtf8(membersBuf);
+
+        return TRUE;
+      }
+
+      if (id == IDC_CE_CLASS_ADD && st) {
+        // Prompt for new class name
+        // For simplicity, use a simple input box approach
+        // We'll reuse a pattern: ask user via a small modal or just add "NewClass" and let them rename
+
+        // Generate unique name
+        std::string baseName = "NEW_CLASS";
+        std::string newName = baseName;
+        int suffix = 1;
+        while (st->classes.count(newName)) {
+          newName = baseName + std::to_string(suffix++);
+        }
+
+        st->classes[newName] = "";
+
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int pos = static_cast<int>(SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(utf8ToWide(newName).c_str())));
+        SendMessageW(list, LB_SETCURSEL, pos, 0);
+
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, L"");
+        std::wstring label = L"Members of \"" + utf8ToWide(newName) + L"\":";
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, label.c_str());
+
+        // Focus the members edit so user can type
+        SetFocus(GetDlgItem(hDlg, IDC_CE_MEMBERS_EDIT));
+
+        msgBox(hDlg, L"New class created. Edit the YAML directly to rename it, or add members now.", L"Class Editor", MB_ICONINFORMATION);
+
+        return TRUE;
+      }
+
+      if (id == IDC_CE_CLASS_REMOVE && st) {
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel == LB_ERR) {
+          msgBox(hDlg, L"Select a class to remove.", L"Class Editor", MB_ICONWARNING);
+          return TRUE;
+        }
+
+        int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+        std::wstring buf(len + 1, L'\0');
+        SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+        buf.resize(len);
+        std::string className = wideToUtf8(buf);
+
+        st->classes.erase(className);
+        SendMessageW(list, LB_DELETESTRING, sel, 0);
+
+        // Select next or previous item
+        int count = static_cast<int>(SendMessageW(list, LB_GETCOUNT, 0, 0));
+        if (count > 0) {
+          if (sel >= count) sel = count - 1;
+          SendMessageW(list, LB_SETCURSEL, sel, 0);
+          // Trigger selection change
+          SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(IDC_CE_CLASS_LIST, LBN_SELCHANGE), (LPARAM)list);
+        } else {
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, L"");
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, L"Members (IPA characters):");
+        }
+
+        return TRUE;
+      }
+
+      if (id == IDOK && st) {
+        // Save current selection's members before closing
+        HWND list = GetDlgItem(hDlg, IDC_CE_CLASS_LIST);
+        int sel = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+        if (sel != LB_ERR) {
+          int len = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, sel, 0));
+          std::wstring buf(len + 1, L'\0');
+          SendMessageW(list, LB_GETTEXT, sel, reinterpret_cast<LPARAM>(&buf[0]));
+          buf.resize(len);
+          std::string className = wideToUtf8(buf);
+
+          wchar_t membersBuf[4096];
+          GetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, membersBuf, 4096);
+          st->classes[className] = wideToUtf8(membersBuf);
+        }
+
+        st->ok = true;
+        EndDialog(hDlg, IDOK);
+        return TRUE;
+      }
+
+      if (id == IDCANCEL) {
+        EndDialog(hDlg, IDCANCEL);
+        return TRUE;
+      }
+      break;
+    }
+  }
+
+  return FALSE;
+}
+
+bool ShowClassEditorDialog(HINSTANCE hInst, HWND parent, ClassEditorDialogState& st) {
+  st.ok = false;
+  DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_CLASS_EDITOR), parent, ClassEditorDlgProc, (LPARAM)&st);
   return st.ok;
 }

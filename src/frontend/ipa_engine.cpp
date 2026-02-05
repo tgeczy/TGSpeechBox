@@ -16,10 +16,6 @@ static inline bool hasFlag(const PhonemeDef* def, std::uint32_t bit) {
   return def && ((def->flags & bit) != 0);
 }
 
-static inline bool tokenIsVowel(const Token& t) {
-  return t.def && ((t.def->flags & kIsVowel) != 0);
-}
-
 static inline bool tokenIsVoiced(const Token& t) {
   return t.def && ((t.def->flags & kIsVoiced) != 0);
 }
@@ -34,18 +30,6 @@ static inline bool tokenIsAfricate(const Token& t) {
 
 static inline bool tokenIsTap(const Token& t) {
   return t.def && ((t.def->flags & kIsTap) != 0);
-}
-
-static inline bool tokenIsTrill(const Token& t) {
-  return t.def && ((t.def->flags & kIsTrill) != 0);
-}
-
-static inline bool tokenIsLiquid(const Token& t) {
-  return t.def && ((t.def->flags & kIsLiquid) != 0);
-}
-
-static inline bool tokenIsSemivowel(const Token& t) {
-  return t.def && ((t.def->flags & kIsSemivowel) != 0);
 }
 
 static inline bool tokenIsNasal(const Token& t) {
@@ -454,6 +438,19 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
             ok = classContainsPrev(pack.lang.classes, rule.when.afterClass, text, matchStart - 1);
           }
         }
+        // Negative class conditions: fail if char IS in the forbidden class
+        if (ok && !rule.when.notBeforeClass.empty()) {
+          // Fail if next char exists AND is in the forbidden class
+          if (classContainsNext(pack.lang.classes, rule.when.notBeforeClass, text, matchEnd)) {
+            ok = false;
+          }
+        }
+        if (ok && !rule.when.notAfterClass.empty()) {
+          // Fail if prev char exists AND is in the forbidden class
+          if (matchStart > 0 && classContainsPrev(pack.lang.classes, rule.when.notAfterClass, text, matchStart - 1)) {
+            ok = false;
+          }
+        }
 
         if (ok) {
           out.append(to);
@@ -573,10 +570,13 @@ static void correctCopyAdjacent(std::vector<Token>& tokens) {
     if (!cur.def) continue;
     if ((cur.def->flags & kCopyAdjacent) == 0) continue;
 
-    // Find adjacent real phoneme.
+    // Find adjacent real phoneme that has actual formant values.
+    // Skip other _copyAdjacent phonemes since they won't have formants yet!
     const Token* adjacent = nullptr;
     for (int j = i + 1; j < n; ++j) {
       if (tokens[j].def && !tokens[j].silence) {
+        // Skip phonemes that also use _copyAdjacent — they don't have real formants
+        if ((tokens[j].def->flags & kCopyAdjacent) != 0) continue;
         adjacent = &tokens[j];
         break;
       }
@@ -584,6 +584,8 @@ static void correctCopyAdjacent(std::vector<Token>& tokens) {
     if (!adjacent) {
       for (int j = i - 1; j >= 0; --j) {
         if (tokens[j].def && !tokens[j].silence) {
+          // Skip phonemes that also use _copyAdjacent
+          if ((tokens[j].def->flags & kCopyAdjacent) != 0) continue;
           adjacent = &tokens[j];
           break;
         }
@@ -678,8 +680,9 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       }
     }
 
-    double dur = 60.0 / curSpeed;
-    double fade = 10.0 / curSpeed;
+    // Use configurable defaults instead of hardcoded magic numbers
+    double dur = lang.defaultVowelDurationMs / curSpeed;
+    double fade = lang.defaultFadeMs / curSpeed;
 
     if (t.vowelHiatusGap) {
       dur = lang.stressedVowelHiatusGapMs / baseSpeed;
@@ -704,47 +707,47 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
         fade = lang.stopClosureVowelFadeMs / curSpeed;
       }
     } else if (t.postStopAspiration) {
-      dur = 20.0 / curSpeed;
+      dur = lang.postStopAspirationDurationMs / curSpeed;
     } else if (tokenIsTap(t) || tokenIsTrill(t)) {
       if (tokenIsTrill(t)) {
         // Use trillModulationMs as the base duration for trills (at speed=1.0).
-        // If unset/invalid, fall back to a reasonable short trill.
-        double baseDur = (lang.trillModulationMs > 0.0) ? lang.trillModulationMs : 40.0;
+        // If unset/invalid, fall back to configurable default.
+        double baseDur = (lang.trillModulationMs > 0.0) ? lang.trillModulationMs : lang.trillFallbackDurationMs;
         dur = baseDur / curSpeed;
       } else {
-        dur = std::min(14.0 / curSpeed, 14.0);
+        dur = std::min(lang.tapDurationMs / curSpeed, lang.tapDurationMs);
       }
       fade = 0.001;
     } else if (tokenIsStop(t)) {
-      dur = std::min(6.0 / curSpeed, 6.0);
+      dur = std::min(lang.stopDurationMs / curSpeed, lang.stopDurationMs);
       fade = 0.001;
     } else if (tokenIsAfricate(t)) {
-      dur = 24.0 / curSpeed;
+      dur = lang.affricateDurationMs / curSpeed;
       fade = 0.001;
     } else if (!tokenIsVoiced(t)) {
-      dur = 45.0 / curSpeed;
+      dur = lang.voicelessFricativeDurationMs / curSpeed;
     } else {
       if (tokenIsVowel(t)) {
         if (last && (tokenIsLiquid(*last) || tokenIsSemivowel(*last))) {
-          fade = 25.0 / curSpeed;
+          fade = lang.fadeAfterLiquidMs / curSpeed;
         }
 
         if (t.tiedTo) {
-          dur = 40.0 / curSpeed;
+          dur = lang.tiedVowelDurationMs / curSpeed;
         } else if (t.tiedFrom) {
-          dur = 20.0 / curSpeed;
-          fade = 20.0 / curSpeed;
+          dur = lang.tiedFromVowelDurationMs / curSpeed;
+          fade = lang.tiedFromVowelFadeMs / curSpeed;
         } else if (!syllableStress && !t.syllableStart && next && !next->wordStart && (tokenIsLiquid(*next) || tokenIsNasal(*next))) {
           if (tokenIsLiquid(*next)) {
-            dur = 30.0 / curSpeed;
+            dur = lang.vowelBeforeLiquidDurationMs / curSpeed;
           } else {
-            dur = 40.0 / curSpeed;
+            dur = lang.vowelBeforeNasalDurationMs / curSpeed;
           }
         }
       } else {
-        dur = 30.0 / curSpeed;
+        dur = lang.voicedConsonantDurationMs / curSpeed;
         if (tokenIsLiquid(t) || tokenIsSemivowel(t)) {
-          fade = 20.0 / curSpeed;
+          fade = lang.liquidFadeMs / curSpeed;
         }
       }
     }
@@ -752,9 +755,9 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     // Optional: semivowel offglide shortening.
     //
     // Some packs render diphthongs as vowel+semivowel sequences (e.g. eɪ -> ej).
-    // When that semivowel is followed by a vowel or liquid-like consonant within
-    // the same word, giving it a full consonant duration can sound like an
-    // unintended micro-break (e.g. "player", "later").
+    // When that semivowel is followed by another segment within the same word,
+    // giving it a full consonant duration can sound like an unintended micro-break
+    // or over-emphasized glide (e.g. "player", "later", "application", "vacation").
     if (lang.semivowelOffglideScale != 1.0 && tokenIsSemivowel(t)) {
       double s = lang.semivowelOffglideScale;
       if (s <= 0.0) s = 1.0;
@@ -763,10 +766,12 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       if (s > 3.0) s = 3.0;
 
       const bool prevIsVowel = (last && !last->silence && tokenIsVowel(*last));
-      const bool nextOk = (next && !next->silence && !next->wordStart &&
-                           (tokenIsVowel(*next) || tokenIsLiquid(*next) || tokenIsTap(*next) || tokenIsTrill(*next)));
+      // Shorten semivowel offglides before any non-silence segment within the word.
+      // Previously this only applied before vowels/liquids, which left -ation words
+      // with over-long glides before fricatives like ʃ.
+      const bool nextInWord = (next && !next->silence && !next->wordStart);
 
-      if (prevIsVowel && nextOk) {
+      if (prevIsVowel && nextInWord) {
         dur *= s;
         fade *= s;
         // Avoid zero/negative durations.
@@ -777,14 +782,14 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     }
 
     // Hungarian short vowel tweak (defaults to enabled, safe to disable).
-    if (lang.huShortAVowelEnabled && tokenIsVowel(t) && !t.lengthened && t.baseChar != 0) {
+    if (lang.huShortAVowelEnabled && tokenIsVowel(t) && t.lengthened == 0 && t.baseChar != 0) {
       if (t.baseChar == (lang.huShortAVowelKey.empty() ? U'\0' : lang.huShortAVowelKey[0])) {
         dur *= lang.huShortAVowelScale;
       }
     }
 
     // English word-final long /uː/ shortening.
-    if (lang.englishLongUShortenEnabled && tokenIsVowel(t) && t.lengthened && t.baseChar != 0) {
+    if (lang.englishLongUShortenEnabled && tokenIsVowel(t) && t.lengthened > 0 && t.baseChar != 0) {
       if (t.baseChar == (lang.englishLongUKey.empty() ? U'\0' : lang.englishLongUKey[0])) {
         if (!next || next->wordStart) {
           dur *= lang.englishLongUWordFinalScale;
@@ -794,10 +799,12 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     }
 
     // Lengthened scaling.
-    if (t.lengthened) {
+    // Multiple length marks (ːː) now stack multiplicatively.
+    if (t.lengthened > 0) {
       if (!lang.applyLengthenedScaleToVowelsOnly || tokenIsVowel(t)) {
         const bool isHu = (lang.langTag.rfind("hu", 0) == 0);
-        dur *= (isHu ? lang.lengthenedScaleHu : lang.lengthenedScale);
+        const double scale = isHu ? lang.lengthenedScaleHu : lang.lengthenedScale;
+        dur *= std::pow(scale, t.lengthened);
       }
     }
 
@@ -808,7 +815,7 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
     // later vowels before the next word boundary, which avoids false positives
     // in words where a consonant cluster is actually the onset of the next
     // syllable (e.g. "apricot" /ˈeɪprɪ.../).
-    if (lang.lengthenedVowelFinalCodaScale != 1.0 && t.lengthened && tokenIsVowel(t)) {
+    if (lang.lengthenedVowelFinalCodaScale != 1.0 && t.lengthened > 0 && tokenIsVowel(t)) {
       // Find the next non-silence token.
       size_t j = i + 1;
       while (j < tokens.size() && tokens[j].silence) ++j;
@@ -1139,11 +1146,209 @@ static void calculatePitchesLegacy(std::vector<Token>& tokens, const PackSet& pa
   }
 }
 
+// Fujisaki-style pitch calculation: flat base pitch with DSP-level phrase/accent commands.
+// This produces Eloquence-style prosody where the pitch contour is generated by the DSP
+// using the Fujisaki-Bartman model, rather than pre-computed per-phoneme targets.
+static void calculatePitchesFujisaki(std::vector<Token>& tokens, const PackSet& pack,
+                                     double speed, double basePitch, double inflection,
+                                     char clauseType) {
+  if (tokens.empty()) return;
+
+  const auto& lang = pack.lang;
+  
+  // Scale phrase/accent amplitudes by inflection (0..1)
+  // At inflection=0, prosody is completely flat
+  // At inflection=1, full Fujisaki contour
+  const double phraseAmp = lang.fujisakiPhraseAmp * inflection;
+  const double primaryAccentAmp = lang.fujisakiPrimaryAccentAmp * inflection;
+  const double secondaryAccentAmp = lang.fujisakiSecondaryAccentAmp * inflection;
+  
+  // Accent mode: "all", "first_only", or "off"
+  const std::string& accentMode = lang.fujisakiAccentMode;
+  const bool accentsEnabled = (accentMode != "off");
+  const bool firstOnly = (accentMode == "first_only");
+
+  // Clause-type modifiers
+  double effectivePhraseAmp = phraseAmp;
+  double accentBoost = 1.0;
+  double finalRiseAmp = 0.0;   // For questions: accent on final syllable
+  double finalDropScale = 0.0; // For exclamations: pitch drop on final syllable
+  double declinationMul = 1.0;  // Clause-type multiplier for linear declination
+  
+  if (clauseType == '?') {
+    effectivePhraseAmp *= 0.3;   // Much less phrase arc for questions
+    accentBoost = 1.3;           // Stronger accents
+    finalRiseAmp = primaryAccentAmp * 2.5;  // Very strong rise at the end
+    declinationMul = 0.15;       // Almost flat - questions stay high
+    basePitch *= 1.18;           // HIGH pitch for questions (contrast with !)
+  } else if (clauseType == '!') {
+    effectivePhraseAmp *= 2.5;   // Strong phrase arc for exclamations
+    accentBoost = 1.8;           // Strong accents but not overwhelming
+    declinationMul = 2.5;        // STEEP declination - dramatic fall
+    basePitch *= 1.15;           // Start HIGH - burst of emotion, then fall
+    finalDropScale = 0.12;       // SNAP DOWN at end - definitive ending
+  } else if (clauseType == ',') {
+    effectivePhraseAmp *= 0.5;   // Less phrase arc for commas (continuation)
+    declinationMul = 0.4;        // Less declination - incomplete thought stays up
+    basePitch *= 1.04;           // Slight raise - continuation feel
+  }
+  // '.' uses defaults (declinationMul = 1.0) - full declarative fall
+
+  const int vp = static_cast<int>(FieldId::voicePitch);
+  const int evp = static_cast<int>(FieldId::endVoicePitch);
+
+  // First pass: for question rise or exclamation drop, target the last vowel nucleus.
+  int lastVowelIdx = -1;
+  if (finalRiseAmp > 0.0 || finalDropScale > 0.0) {
+    for (int i = static_cast<int>(tokens.size()) - 1; i >= 0; --i) {
+      const Token& t = tokens[static_cast<size_t>(i)];
+      if (t.silence || !t.def) continue;
+      if (tokenIsVowel(t)) {
+        lastVowelIdx = i;
+        break;
+      }
+    }
+    // Fallback: if we somehow have no vowel, use the last non-silence token.
+    if (lastVowelIdx < 0) {
+      for (int i = static_cast<int>(tokens.size()) - 1; i >= 0; --i) {
+        const Token& t = tokens[static_cast<size_t>(i)];
+        if (!t.silence && t.def) {
+          lastVowelIdx = i;
+          break;
+        }
+      }
+    }
+  }
+
+  bool isFirstFrame = true;
+  bool hadFirstAccent = false;  // Track if we've placed the first accent
+  int pendingStress = 0;        // Stress carried from syllableStart to vowel nucleus
+  double durationCounter = 0.0; // For linear declination across utterance
+  
+  // Scale inflection for declination formula (same as legacy mode).
+  // The formula expects values in the 30-60 range, not 0-1.
+  double inflScale = lang.legacyPitchInflectionScale;
+  if (inflScale <= 0.0) inflScale = 1.0;
+  if (inflScale > 2.0) inflScale = 2.0;
+  double declinScale = lang.fujisakiDeclinationScale;
+  if (declinScale <= 0.0) declinScale = 25.0;  // Default: gentler slope
+  const double scaledInflection = inflection * inflScale * declinScale * declinationMul;
+  
+  // Max declination ratio - prevents pitch from falling too deep on long utterances.
+  // 1.25 means pitch can't drop below ~80% of base (basePitch / 1.25)
+  double declinMax = lang.fujisakiDeclinationMax;
+  if (declinMax < 1.0) declinMax = 1.25;  // Sane default
+  
+  // Post-floor slope: once we hit the floor, continue with this fraction of the
+  // original slope (0 = go flat, 0.15 = continue at 15% of original rate)
+  double postFloor = lang.fujisakiDeclinationPostFloor;
+  if (postFloor < 0.0) postFloor = 0.0;
+  if (postFloor > 1.0) postFloor = 1.0;
+  
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    Token& t = tokens[i];
+    if (t.silence || !t.def) continue;
+
+    // Linear declination: same formula as legacy mode
+    // This creates the natural falling pitch baseline that Fujisaki accents ride on top of.
+    double curBasePitch = basePitch;
+    double endBasePitch = basePitch;
+    if (scaledInflection > 0.0) {
+      double startFactor = 1.0 + (scaledInflection / 25000.0) * durationCounter * speed;
+      double endFactor = 1.0 + (scaledInflection / 25000.0) * (durationCounter + t.durationMs) * speed;
+      
+      // Soft floor: once factor exceeds declinMax, continue at reduced rate
+      if (startFactor > declinMax) {
+        double overflow = startFactor - declinMax;
+        startFactor = declinMax + overflow * postFloor;
+      }
+      if (endFactor > declinMax) {
+        double overflow = endFactor - declinMax;
+        endFactor = declinMax + overflow * postFloor;
+      }
+      
+      curBasePitch = basePitch / startFactor;
+      endBasePitch = basePitch / endFactor;
+    }
+    durationCounter += t.durationMs;
+
+    // Set declining base pitch (DSP Fujisaki accents add peaks on top)
+    t.field[vp] = curBasePitch;
+    t.field[evp] = endBasePitch;
+    t.setMask |= (1ull << vp) | (1ull << evp);
+
+    // Enable Fujisaki on all phonetic tokens.
+    // Even during unvoiced segments, we still want time to advance so the
+    // contour is ready when voicing resumes.
+    t.fujisakiEnabled = true;
+
+    // First phonetic token gets phrase command and reset.
+    if (isFirstFrame) {
+      t.fujisakiReset = true;
+      t.fujisakiPhraseAmp = effectivePhraseAmp;
+      isFirstFrame = false;
+    }
+
+    // Track syllable stress at the syllable boundary...
+    if (t.syllableStart) {
+      pendingStress = t.stress;
+    }
+
+    // ...but place the accent command on the vowel nucleus.
+    if (accentsEnabled && pendingStress != 0 && tokenIsVowel(t)) {
+      bool shouldAccent = false;
+      double accentAmp = 0.0;
+
+      if (pendingStress == 1) {
+        // Primary stress
+        if (firstOnly) {
+          if (!hadFirstAccent) {
+            shouldAccent = true;
+            hadFirstAccent = true;
+          }
+        } else {
+          shouldAccent = true;
+        }
+        accentAmp = primaryAccentAmp * accentBoost;
+      } else if (pendingStress == 2 && !firstOnly) {
+        // Secondary stress - only in "all" mode
+        shouldAccent = true;
+        accentAmp = secondaryAccentAmp * accentBoost;
+      }
+
+      if (shouldAccent) {
+        t.fujisakiAccentAmp = accentAmp;
+      }
+
+      // One accent per syllable.
+      pendingStress = 0;
+    }
+
+    // Question rise: strong accent on final vowel (always, regardless of mode).
+    if (static_cast<int>(i) == lastVowelIdx && finalRiseAmp > 0.0) {
+      t.fujisakiAccentAmp = std::max(t.fujisakiAccentAmp, finalRiseAmp);
+    }
+
+    // Exclamation drop: snap pitch DOWN on final vowel for definitive ending.
+    if (static_cast<int>(i) == lastVowelIdx && finalDropScale > 0.0) {
+      t.fujisakiAccentAmp = 0.0;  // Suppress any accent on final syllable
+      double dropFactor = 1.0 + finalDropScale;      // e.g., 1.12 for 0.12 scale
+      t.field[vp] /= dropFactor;                     // Drop start pitch
+      t.field[evp] /= (dropFactor * 1.3);            // Drop end pitch MORE for snap
+    }
+  }
+}
+
 static void calculatePitches(std::vector<Token>& tokens, const PackSet& pack, double speed, double basePitch, double inflection, char clauseType) {
-  if (pack.lang.legacyPitchMode) {
+  if (pack.lang.legacyPitchMode == "legacy") {
     calculatePitchesLegacy(tokens, pack, speed, basePitch, inflection, clauseType);
     return;
   }
+  if (pack.lang.legacyPitchMode == "fujisaki_style") {
+    calculatePitchesFujisaki(tokens, pack, speed, basePitch, inflection, clauseType);
+    return;
+  }
+  // Default: "espeak_style" (ToBI-based intonation)
 
   IntonationClause tmp;
   const IntonationClause& params = getClauseParams(pack.lang, clauseType, tmp);
@@ -1443,7 +1648,7 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
     const PhonemeDef* def = nullptr;
     size_t consumed = 0;
     bool tiedTo = false;
-    bool lengthened = false;
+    int lengthened = 0;  // count of length marks
     char32_t baseChar = c;
 
     // Use greedy longest-match tokenization.
@@ -1451,29 +1656,28 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
     
     if (def && consumed > 0) {
       // Check if this match includes or is followed by a tie bar (for tiedTo flag).
-      // Also check for length mark.
+      // Also count length marks within the match.
       for (size_t j = i; j < i + consumed; ++j) {
         if (isTieBar(text[j])) tiedTo = true;
-        if (text[j] == U'\u02D0') lengthened = true; // ː
+        if (text[j] == U'\u02D0') ++lengthened; // ː
       }
       // Check if next char after match is a tie bar.
       if (i + consumed < n && isTieBar(text[i + consumed])) {
         tiedTo = true;
       }
-      // Check if there's a length mark immediately after the match.
-      if (!lengthened && i + consumed < n && text[i + consumed] == U'\u02D0') {
-        // Try to find a lengthened version of this phoneme.
-        std::u32string lenKey = def->key;
-        lenKey.push_back(U'\u02D0');
-        const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
-        if (lenDef) {
-          def = lenDef;
-          consumed += 1;
-          lengthened = true;
-        } else {
-          // Just mark as lengthened without changing the phoneme.
-          lengthened = true;
+      // Consume ALL consecutive length marks after the match.
+      while (i + consumed < n && text[i + consumed] == U'\u02D0') {
+        // Try to find a lengthened version of this phoneme (only on first extra mark).
+        if (lengthened == 0) {
+          std::u32string lenKey = def->key;
+          lenKey.push_back(U'\u02D0');
+          const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
+          if (lenDef) {
+            def = lenDef;
+          }
         }
+        ++consumed;
+        ++lengthened;
       }
     } else {
       // No greedy match found - try single character as fallback.
@@ -1482,21 +1686,22 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
       def = findPhoneme(pack, k);
       if (def) {
         consumed = 1;
-        // Check for length mark.
-        if (i + 1 < n && text[i + 1] == U'\u02D0') {
-          std::u32string lenKey = k;
-          lenKey.push_back(U'\u02D0');
-          const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
-          if (lenDef) {
-            def = lenDef;
-            consumed = 2;
-            lengthened = true;
-          } else {
-            lengthened = true;
+        // Consume ALL consecutive length marks after the character.
+        while (i + consumed < n && text[i + consumed] == U'\u02D0') {
+          // Try to find a lengthened version of this phoneme (only on first mark).
+          if (lengthened == 0) {
+            std::u32string lenKey = k;
+            lenKey.push_back(U'\u02D0');
+            const PhonemeDef* lenDef = findPhoneme(pack, lenKey);
+            if (lenDef) {
+              def = lenDef;
+            }
           }
+          ++consumed;
+          ++lengthened;
         }
         // Check for tie bar.
-        if (i + 1 < n && isTieBar(text[i + 1])) {
+        if (i + consumed < n && isTieBar(text[i + consumed])) {
           tiedTo = true;
         }
       } else {
@@ -1632,6 +1837,15 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
         // Preserve word boundary information for timing tweaks.
         // The gap is inserted *before* the stop/affricate token `t`.
         gap.wordStart = t.wordStart;
+
+        // For voiced stops/affricates, mark as voiced closure so the frame emitter
+        // can output a voice bar (low-frequency murmur) instead of true silence.
+        // This maintains continuous voicing through the closure while letting
+        // formants interpolate naturally (no abrupt formant discontinuity).
+        if (tokenIsVoiced(t)) {
+          gap.voicedClosure = true;
+        }
+
         outTokens.push_back(gap);
         // IMPORTANT: do NOT update lastIndex here; Python keeps lastPhoneme as the
         // previous *real* phoneme, not the inserted gap.
@@ -1740,7 +1954,7 @@ static void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
       // etc.), treat it as hiatus instead.
       if (prevVowelLike && curVowelLike && !cur.wordStart && !cur.syllableStart) {
         // Skip if the IPA already encoded tying, or the vowel is explicitly long.
-        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && !cur.lengthened) {
+        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && cur.lengthened == 0) {
           // Only auto-tie when the second vowel is a common offglide candidate.
           if (isAutoDiphthongOffglideCandidate(cur.baseChar)) {
             prev.tiedTo = true;
@@ -1846,7 +2060,7 @@ static void applySpellingDiphthongMode(const PackSet& pack, std::vector<Token>& 
               if (k >= wordEnd || tokens[k].syllableStart) {
                 // Monophthongize: keep the /e/ nucleus, drop the offglide.
                 // Mark the nucleus as lengthened to preserve a letter-name feel.
-                t.lengthened = true;
+                t.lengthened = 1;
                 t.tiedTo = false;
                 t.tiedFrom = false;
 
@@ -1991,13 +2205,19 @@ bool convertIpaToTokens(
     if (lastReal >= 0) {
       const Token& lt = outTokens[static_cast<size_t>(lastReal)];
       const bool voiced = tokenIsVoiced(lt);
-      const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) || tokenIsLiquid(lt) || tokenIsTap(lt) || tokenIsTrill(lt) || tokenIsNasal(lt);
+      const bool isLiquid = tokenIsLiquid(lt);
+      const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) || isLiquid || tokenIsTap(lt) || tokenIsTrill(lt) || tokenIsNasal(lt);
 
       if (voiced && tailSensitive) {
         const double sp = (speed > 0.0) ? speed : 1.0;
 
         if (pack.lang.singleWordFinalHoldMs > 0.0) {
-          outTokens[static_cast<size_t>(lastReal)].durationMs += (pack.lang.singleWordFinalHoldMs / sp);
+          double holdMs = pack.lang.singleWordFinalHoldMs;
+          // Reduce hold for liquids (like R, L) which can sound unnatural when held.
+          if (isLiquid && pack.lang.singleWordFinalLiquidHoldScale != 1.0) {
+            holdMs *= pack.lang.singleWordFinalLiquidHoldScale;
+          }
+          outTokens[static_cast<size_t>(lastReal)].durationMs += (holdMs / sp);
         }
 
         if (pack.lang.singleWordFinalFadeMs > 0.0) {
@@ -2017,247 +2237,5 @@ bool convertIpaToTokens(
   return true;
 }
 
-void emitFrames(
-  const PackSet& pack,
-  const std::vector<Token>& tokens,
-  int userIndexBase,
-  nvspFrontend_FrameCallback cb,
-  void* userData
-) {
-  if (!cb) return;
-
-  // We intentionally treat nvspFrontend_Frame as a dense sequence of doubles.
-  // Enforce that assumption at compile time so future edits fail loudly.
-  static_assert(sizeof(nvspFrontend_Frame) == sizeof(double) * kFrameFieldCount,
-                "nvspFrontend_Frame must remain exactly kFrameFieldCount doubles with no padding");
-  static_assert(std::is_standard_layout<nvspFrontend_Frame>::value,
-                "nvspFrontend_Frame must remain standard-layout");
-  static_assert(std::is_trivially_copyable<nvspFrontend_Frame>::value,
-                "nvspFrontend_Frame must remain trivially copyable");
-
-  const bool trillEnabled = (pack.lang.trillModulationMs > 0.0);
-
-  const int vp = static_cast<int>(FieldId::voicePitch);
-  const int evp = static_cast<int>(FieldId::endVoicePitch);
-  const int va = static_cast<int>(FieldId::voiceAmplitude);
-  const int fa = static_cast<int>(FieldId::fricationAmplitude);
-
-  // Trill modulation constants.
-  //
-  // We implement the trill as an amplitude modulation on voiceAmplitude using a
-  // sequence of short frames (micro-frames). This keeps the speechPlayer.dll ABI
-  // stable (no extra fields) while avoiding pack-level hacks such as duplicating
-  // phoneme tokens.
-  //
-  // These constants were chosen to produce an audible trill without introducing
-  // clicks or an overly "tremolo" sound. Packs can tune the trill duration and
-  // micro-frame fade via settings, but not the depth (kept fixed for simplicity).
-  constexpr double kTrillCloseFactor = 0.22;   // voiceAmplitude multiplier during closure
-  constexpr double kTrillCloseFrac = 0.28;     // fraction of cycle spent in closure
-  constexpr double kTrillFricFloor = 0.12;     // minimum fricationAmplitude during closure (if frication is present)
-  // Minimum phase duration for the trill micro-frames. Keep this small so
-  // very fast modulation settings (e.g. 2ms cycles) still behave as expected.
-  constexpr double kMinPhaseMs = 0.25;
-
-
-  // ============================================
-  // TRAJECTORY LIMITING STATE
-  // ============================================
-  // Track previous frame formant values for rate-of-change limiting.
-  // This reduces harsh transitions between vowels and consonants.
-  const LanguagePack& lang = pack.lang;
-  static double prevCf2 = 0.0, prevCf3 = 0.0, prevPf2 = 0.0, prevPf3 = 0.0;
-  static bool hasPrevFrame = false;
-  
-  // Reset state at start of each utterance
-  hasPrevFrame = false;
-
-  for (const Token& t : tokens) {
-    if (t.silence || !t.def) {
-      cb(userData, nullptr, t.durationMs, t.fadeMs, userIndexBase);
-      continue;
-    }
-
-    // Build a dense array of doubles and memcpy into the frame.
-    // This avoids UB from treating a struct as an array via pointer arithmetic.
-    double base[kFrameFieldCount] = {};
-    const std::uint64_t mask = t.setMask;
-    for (int f = 0; f < kFrameFieldCount; ++f) {
-      if ((mask & (1ull << f)) == 0) continue;
-      base[f] = t.field[f];
-    }
-
-    // Optional trill modulation (only when `_isTrill` is true for the phoneme).
-    if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {
-      double totalDur = t.durationMs;
-
-      // Trill flutter speed is hardcoded to a natural-sounding ~35Hz.
-      // The pack setting (trillModulationMs) controls the *total duration* via calculateTimes().
-      constexpr double kFixedTrillCycleMs = 28.0;
-
-      double cycleMs = kFixedTrillCycleMs;
-
-      // For short trills, compress the cycle so we still get at least one closure dip.
-      if (cycleMs > totalDur) cycleMs = totalDur;
-
-      // Split the cycle into an "open" and "closure" phase.
-      double closeMs = cycleMs * kTrillCloseFrac;
-      double openMs = cycleMs - closeMs;
-
-      // Keep both phases non-trivial (prevents zero-length frames).
-      if (openMs < kMinPhaseMs) {
-        openMs = kMinPhaseMs;
-        closeMs = std::max(kMinPhaseMs, cycleMs - openMs);
-      }
-      if (closeMs < kMinPhaseMs) {
-        closeMs = kMinPhaseMs;
-        openMs = std::max(kMinPhaseMs, cycleMs - closeMs);
-      }
-
-      // Fade between micro-frames. If not configured, choose a small default
-      // relative to the cycle.
-      double microFadeMs = pack.lang.trillModulationFadeMs;
-      if (microFadeMs <= 0.0) {
-        microFadeMs = std::min(2.0, cycleMs * 0.12);
-      }
-
-      const bool hasVoiceAmp = ((mask & (1ull << va)) != 0);
-      const bool hasFricAmp = ((mask & (1ull << fa)) != 0);
-      const double baseVoiceAmp = base[va];
-      const double baseFricAmp = base[fa];
-
-      const double startPitch = base[vp];
-      const double endPitch = base[evp];
-      const double pitchDelta = endPitch - startPitch;
-
-      double remaining = totalDur;
-      double pos = 0.0;
-      bool highPhase = true;
-      bool firstPhase = true;
-
-      while (remaining > 1e-9) {
-        double phaseDur = highPhase ? openMs : closeMs;
-        if (phaseDur > remaining) phaseDur = remaining;
-
-        // Interpolate pitch over the original token's duration so pitch remains continuous.
-        double t0 = (totalDur > 0.0) ? (pos / totalDur) : 0.0;
-        double t1 = (totalDur > 0.0) ? ((pos + phaseDur) / totalDur) : 1.0;
-
-        double seg[kFrameFieldCount];
-        std::memcpy(seg, base, sizeof(seg));
-
-        seg[vp] = startPitch + pitchDelta * t0;
-        seg[evp] = startPitch + pitchDelta * t1;
-
-        if (!highPhase) {
-          if (hasVoiceAmp) {
-            seg[va] = baseVoiceAmp * kTrillCloseFactor;
-          }
-          // Add a small noise burst on closure to make the trill more perceptible,
-          // but only if the phoneme already has a frication path.
-          if (hasFricAmp && baseFricAmp > 0.0) {
-            seg[fa] = std::max(baseFricAmp, kTrillFricFloor);
-          }
-        }
-
-        nvspFrontend_Frame frame;
-        std::memcpy(&frame, seg, sizeof(frame));
-
-        // In speechPlayer.dll, the fade duration belongs to the *incoming* frame
-        // (it's the crossfade from the previous frame to this one). Preserve the
-        // token's original fade on entry to the trill, then use microFadeMs for
-        // the internal micro-frame boundaries.
-        double fadeIn = firstPhase ? t.fadeMs : microFadeMs;
-        if (fadeIn <= 0.0) fadeIn = microFadeMs;
-
-        // Prevent fade dominating very short micro-frames.
-        if (fadeIn > phaseDur) fadeIn = phaseDur;
-
-        cb(userData, &frame, phaseDur, fadeIn, userIndexBase);
-
-        remaining -= phaseDur;
-        pos += phaseDur;
-        highPhase = !highPhase;
-        firstPhase = false;
-
-        // If the remaining duration is too small to fit another phase, let the loop
-        // handle it naturally by truncating phaseDur above.
-      }
-
-      continue;
-    }
-
-    nvspFrontend_Frame frame;
-    std::memcpy(&frame, base, sizeof(frame));
-
-
-    // ============================================
-    // TRAJECTORY LIMITING
-    // ============================================
-    // Limit how fast formant frequencies can change to reduce harsh transitions.
-    // IMPORTANT: Skip semivowels and liquids - they need sharp formant transitions
-    // to be perceived correctly. Over-smoothing causes /w/ to sound like /r/.
-    const bool skipTrajectoryLimit = t.def && (
-        (t.def->flags & kIsSemivowel) != 0 ||
-        (t.def->flags & kIsLiquid) != 0
-    );
-    if (lang.trajectoryLimitEnabled && hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
-      const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
-      const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
-      const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);
-      const size_t idx_pf3 = static_cast<size_t>(FieldId::pf3);
-      double maxDelta, delta;
-      
-      // cf2 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf2)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_cf2] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf2] * t.durationMs;
-          delta = frame.cf2 - prevCf2;
-          if (delta > maxDelta) frame.cf2 = prevCf2 + maxDelta;
-          else if (delta < -maxDelta) frame.cf2 = prevCf2 - maxDelta;
-        }
-      }
-      
-      // cf3 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf3)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_cf3] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf3] * t.durationMs;
-          delta = frame.cf3 - prevCf3;
-          if (delta > maxDelta) frame.cf3 = prevCf3 + maxDelta;
-          else if (delta < -maxDelta) frame.cf3 = prevCf3 - maxDelta;
-        }
-      }
-      
-      // pf2 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf2)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_pf2] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf2] * t.durationMs;
-          delta = frame.pf2 - prevPf2;
-          if (delta > maxDelta) frame.pf2 = prevPf2 + maxDelta;
-          else if (delta < -maxDelta) frame.pf2 = prevPf2 - maxDelta;
-        }
-      }
-      
-      // pf3 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf3)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_pf3] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf3] * t.durationMs;
-          delta = frame.pf3 - prevPf3;
-          if (delta > maxDelta) frame.pf3 = prevPf3 + maxDelta;
-          else if (delta < -maxDelta) frame.pf3 = prevPf3 - maxDelta;
-        }
-      }
-    }
-    
-    // Update previous frame values for next iteration
-    prevCf2 = frame.cf2;
-    prevCf3 = frame.cf3;
-    prevPf2 = frame.pf2;
-    prevPf3 = frame.pf3;
-    hasPrevFrame = true;
-
-    cb(userData, &frame, t.durationMs, t.fadeMs, userIndexBase);
-  }
-}
 
 } // namespace nvsp_frontend
