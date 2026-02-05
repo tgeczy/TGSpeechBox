@@ -86,8 +86,9 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("noiseGlottalMod", "Noise glottal modulation", defaultVal=0),
         NumericDriverSetting("pitchSyncF1", "Pitch-sync F1 delta", defaultVal=50),
         NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
-        NumericDriverSetting("speedQuotient", "Speed quotient (voice gender)", defaultVal=50),
+        NumericDriverSetting("speedQuotient", "Speed quotient (voice tention)", defaultVal=50),
         NumericDriverSetting("aspirationTilt", "Aspiration tilt (breath color)", defaultVal=50),
+        NumericDriverSetting("cascadeBwScale", "Formant sharpness (cascade bandwidth)", defaultVal=50),
         # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
         NumericDriverSetting("frameExCreakiness", "Creakiness (laryngealization)", defaultVal=0),
         NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
@@ -135,6 +136,7 @@ class SynthDriver(SynthDriver):
         self._curPitchSyncB1 = 50
         self._curSpeedQuotient = 50  # Maps to 2.0 (neutral)
         self._curAspirationTilt = 50  # Maps to 0.0 dB/oct (no tilt)
+        self._curCascadeBwScale = 50  # Maps to 1.0 (no scaling)
         # FrameEx voice quality params (DSP v5+)
         self._curFrameExCreakiness = 0
         self._curFrameExBreathiness = 0
@@ -147,6 +149,7 @@ class SynthDriver(SynthDriver):
         self._perVoicePitchSyncB1 = {}
         self._perVoiceSpeedQuotient = {}
         self._perVoiceAspirationTilt = {}
+        self._perVoiceCascadeBwScale = {}
         self._perVoiceFrameExCreakiness = {}
         self._perVoiceFrameExBreathiness = {}
         self._perVoiceFrameExJitter = {}
@@ -1672,6 +1675,24 @@ class SynthDriver(SynthDriver):
         except Exception:
             pass
 
+
+    def _get_cascadeBwScale(self):
+        return int(getattr(self, "_curCascadeBwScale", 50))
+
+    def _set_cascadeBwScale(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curCascadeBwScale", 50):
+                return
+            self._curCascadeBwScale = newVal
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
+            pass
     # =========================================================================
     # FrameEx voice quality sliders (DSP v5+)
     # These are applied per-frame via queueFrameEx, not via voicingTone.
@@ -1808,6 +1829,7 @@ class SynthDriver(SynthDriver):
                         tone.pitchSyncB1DeltaHz = frontendTone.pitchSyncB1DeltaHz
                         tone.speedQuotient = frontendTone.speedQuotient
                         tone.aspirationTiltDbPerOct = frontendTone.aspirationTiltDbPerOct
+                        tone.cascadeBwScale = frontendTone.cascadeBwScale
             
             # Helper for slider values
             def safe_float(val, default=0.0):
@@ -1844,6 +1866,17 @@ class SynthDriver(SynthDriver):
             # Apply aspiration tilt from slider (0-100 maps to -12 to +12 dB/oct, centered at 50 = 0)
             aspTiltSlider = safe_float(getattr(self, "_curAspirationTilt", 50), 50.0)
             tone.aspirationTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
+            
+            # Apply cascade bandwidth scale from slider (0-100 maps to 0.5-1.3, centered at 50 = 1.0)
+            # Below 50: sharper formants (Eloquence-like clarity)
+            # Above 50: wider formants (softer, more blended)
+            bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
+            if bwSlider <= 50.0:
+                # 0 -> 0.4, 50 -> 1.0
+                tone.cascadeBwScale = 0.4 + (bwSlider / 50.0) * 0.5
+            else:
+                # 50 -> 1.0, 100 -> 1.3
+                tone.cascadeBwScale = 1.0 + ((bwSlider - 50.0) / 50.0) * 0.4
             
             # Apply to player
             self._player.setVoicingTone(tone)
@@ -1901,6 +1934,8 @@ class SynthDriver(SynthDriver):
                 self._perVoiceSpeedQuotient = {}
             if not hasattr(self, "_perVoiceAspirationTilt"):
                 self._perVoiceAspirationTilt = {}
+            if not hasattr(self, "_perVoiceCascadeBwScale"):
+                self._perVoiceCascadeBwScale = {}
             if not hasattr(self, "_perVoiceFrameExCreakiness"):
                 self._perVoiceFrameExCreakiness = {}
             if not hasattr(self, "_perVoiceFrameExBreathiness"):
@@ -1920,6 +1955,7 @@ class SynthDriver(SynthDriver):
                 self._perVoicePitchSyncB1[oldVoice] = getattr(self, "_curPitchSyncB1", 50)
                 self._perVoiceSpeedQuotient[oldVoice] = getattr(self, "_curSpeedQuotient", 50)
                 self._perVoiceAspirationTilt[oldVoice] = getattr(self, "_curAspirationTilt", 50)
+                self._perVoiceCascadeBwScale[oldVoice] = getattr(self, "_curCascadeBwScale", 50)
                 self._perVoiceFrameExCreakiness[oldVoice] = getattr(self, "_curFrameExCreakiness", 0)
                 self._perVoiceFrameExBreathiness[oldVoice] = getattr(self, "_curFrameExBreathiness", 0)
                 self._perVoiceFrameExJitter[oldVoice] = getattr(self, "_curFrameExJitter", 0)
@@ -1936,6 +1972,7 @@ class SynthDriver(SynthDriver):
                 self._curPitchSyncB1 = self._perVoicePitchSyncB1.get(voice, 50)
                 self._curSpeedQuotient = self._perVoiceSpeedQuotient.get(voice, 50)
                 self._curAspirationTilt = self._perVoiceAspirationTilt.get(voice, 50)
+                self._curCascadeBwScale = self._perVoiceCascadeBwScale.get(voice, 50)
                 self._curFrameExCreakiness = self._perVoiceFrameExCreakiness.get(voice, 0)
                 self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)

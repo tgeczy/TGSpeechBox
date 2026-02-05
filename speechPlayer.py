@@ -179,6 +179,7 @@ class VoicingTone(Structure):
         # New v3 parameters
         ("speedQuotient", c_double),         # Glottal pulse asymmetry (0.5-4.0, default 2.0)
         ("aspirationTiltDbPerOct", c_double),  # Aspiration noise tilt (default 0.0)
+        ("cascadeBwScale", c_double),            # Cascade bandwidth multiplier (0.5-1.3, default 1.0)
     ]
     
     @classmethod
@@ -208,6 +209,7 @@ class VoicingTone(Structure):
         # New v3 parameters
         tone.speedQuotient = 2.0        # Neutral asymmetry
         tone.aspirationTiltDbPerOct = 0.0
+        tone.cascadeBwScale = 1.0               # No scaling (default)
         return tone
 
 
