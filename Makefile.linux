@@ -21,6 +21,7 @@ SPEECHPLAYER_SRCS = \
 
 # nvspFrontend.so sources (IPA -> Frames)
 FRONTEND_SRCS = \
+	$(FRONTENDDIR)/frame_emit.cpp \
 	$(FRONTENDDIR)/ipa_engine.cpp \
 	$(FRONTENDDIR)/nvspFrontend.cpp \
 	$(FRONTENDDIR)/pack.cpp \
@@ -89,6 +90,9 @@ $(BUILDDIR)/speechWaveGenerator.o: $(SRCDIR)/speechWaveGenerator.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 # Frontend sources
+$(BUILDDIR)/frame_emit.o: $(FRONTENDDIR)/frame_emit.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
 $(BUILDDIR)/ipa_engine.o: $(FRONTENDDIR)/ipa_engine.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
