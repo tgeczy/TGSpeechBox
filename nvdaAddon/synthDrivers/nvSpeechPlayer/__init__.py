@@ -89,6 +89,7 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("speedQuotient", "Speed quotient (voice tention)", defaultVal=50),
         NumericDriverSetting("aspirationTilt", "Aspiration tilt (breath color)", defaultVal=50),
         NumericDriverSetting("cascadeBwScale", "Formant sharpness (cascade bandwidth)", defaultVal=50),
+        NumericDriverSetting("voiceTremor", "Voice tremor (shakiness)", defaultVal=0),
         # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
         NumericDriverSetting("frameExCreakiness", "Creakiness (laryngealization)", defaultVal=0),
         NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
@@ -137,6 +138,7 @@ class SynthDriver(SynthDriver):
         self._curSpeedQuotient = 50  # Maps to 2.0 (neutral)
         self._curAspirationTilt = 50  # Maps to 0.0 dB/oct (no tilt)
         self._curCascadeBwScale = 50  # Maps to 1.0 (no scaling)
+        self._curVoiceTremor = 0     # Maps to 0.0 (no tremor)
         # FrameEx voice quality params (DSP v5+)
         self._curFrameExCreakiness = 0
         self._curFrameExBreathiness = 0
@@ -150,6 +152,7 @@ class SynthDriver(SynthDriver):
         self._perVoiceSpeedQuotient = {}
         self._perVoiceAspirationTilt = {}
         self._perVoiceCascadeBwScale = {}
+        self._perVoiceVoiceTremor = {}
         self._perVoiceFrameExCreakiness = {}
         self._perVoiceFrameExBreathiness = {}
         self._perVoiceFrameExJitter = {}
@@ -1693,6 +1696,24 @@ class SynthDriver(SynthDriver):
             self._applyVoicingTone(profileName)
         except Exception:
             pass
+
+    def _get_voiceTremor(self):
+        return int(getattr(self, "_curVoiceTremor", 0))
+
+    def _set_voiceTremor(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curVoiceTremor", 0):
+                return
+            self._curVoiceTremor = newVal
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
+            pass
     # =========================================================================
     # FrameEx voice quality sliders (DSP v5+)
     # These are applied per-frame via queueFrameEx, not via voicingTone.
@@ -1873,15 +1894,20 @@ class SynthDriver(SynthDriver):
             bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
             # Treat 50 as "use the profile/default value".
             if abs(bwSlider - 50.0) > 0.001:
-                if bwSlider <= 50.0:
-                    # 0 -> 0.4, 50 -> 1.0
-                    tone.cascadeBwScale = 0.4 + (bwSlider / 50.0) * 0.6
-                else:
-                    # 50 -> 1.0, 100 -> 1.4
-                    tone.cascadeBwScale = 1.0 + ((bwSlider - 50.0) / 50.0) * 0.4
+              if bwSlider <= 50.0:
+                # 0 -> 0.3 (ringy), 50 -> 0.8 (clearer neutral)
+                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.2
+              else:
+                # 50 -> 0.8, 100 -> 0.2 (very sharp/ringy)
+                tone.cascadeBwScale = 0.8 - ((bwSlider - 50.0) / 50.0) * 0.6
 
-            # Safety clamp (DSP also clamps, but keep callers sane)
-            tone.cascadeBwScale = max(0.4, min(1.4, tone.cascadeBwScale))
+            # Safety clamp
+                tone.cascadeBwScale = max(0.2, min(2.0, tone.cascadeBwScale))
+
+            # Apply voice tremor from slider (0-100 maps to 0.0-0.4 depth)
+            tremorSlider = safe_float(getattr(self, "_curVoiceTremor", 0), 0.0)
+            tone.tremorDepth = (tremorSlider / 100.0) * 0.4
+            tone.tremorDepth = max(0.0, min(0.5, tone.tremorDepth))
             
             # Apply to player
             self._player.setVoicingTone(tone)
@@ -1961,6 +1987,7 @@ class SynthDriver(SynthDriver):
                 self._perVoiceSpeedQuotient[oldVoice] = getattr(self, "_curSpeedQuotient", 50)
                 self._perVoiceAspirationTilt[oldVoice] = getattr(self, "_curAspirationTilt", 50)
                 self._perVoiceCascadeBwScale[oldVoice] = getattr(self, "_curCascadeBwScale", 50)
+                self._perVoiceVoiceTremor[oldVoice] = getattr(self, "_curVoiceTremor", 0)
                 self._perVoiceFrameExCreakiness[oldVoice] = getattr(self, "_curFrameExCreakiness", 0)
                 self._perVoiceFrameExBreathiness[oldVoice] = getattr(self, "_curFrameExBreathiness", 0)
                 self._perVoiceFrameExJitter[oldVoice] = getattr(self, "_curFrameExJitter", 0)
@@ -1978,6 +2005,7 @@ class SynthDriver(SynthDriver):
                 self._curSpeedQuotient = self._perVoiceSpeedQuotient.get(voice, 50)
                 self._curAspirationTilt = self._perVoiceAspirationTilt.get(voice, 50)
                 self._curCascadeBwScale = self._perVoiceCascadeBwScale.get(voice, 50)
+                self._curVoiceTremor = self._perVoiceVoiceTremor.get(voice, 0)
                 self._curFrameExCreakiness = self._perVoiceFrameExCreakiness.get(voice, 0)
                 self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)

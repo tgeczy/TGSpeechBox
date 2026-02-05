@@ -63,13 +63,14 @@ class VoicingTone(ctypes.Structure):
         ("speedQuotient", ctypes.c_double),
         ("aspirationTiltDbPerOct", ctypes.c_double),
         ("cascadeBwScale", ctypes.c_double),
+        ("tremorDepth", ctypes.c_double),
     ]
 
 
-# VoiceProfileSliders struct - the 12 user-adjustable slider values (ABI v2+)
+# VoiceProfileSliders struct - the 13 user-adjustable slider values (ABI v2+)
 class VoiceProfileSliders(ctypes.Structure):
     _fields_ = [
-        # VoicingTone sliders (7)
+        # VoicingTone sliders (8)
         ("voicedTiltDbPerOct", ctypes.c_double),
         ("noiseGlottalModDepth", ctypes.c_double),
         ("pitchSyncF1DeltaHz", ctypes.c_double),
@@ -77,6 +78,7 @@ class VoiceProfileSliders(ctypes.Structure):
         ("speedQuotient", ctypes.c_double),
         ("aspirationTiltDbPerOct", ctypes.c_double),
         ("cascadeBwScale", ctypes.c_double),
+        ("tremorDepth", ctypes.c_double),
         # FrameEx sliders (5)
         ("creakiness", ctypes.c_double),
         ("breathiness", ctypes.c_double),
@@ -661,6 +663,7 @@ class NvspFrontend(object):
         speedQuotient: float,
         aspirationTiltDbPerOct: float,
         cascadeBwScale: float,
+        tremorDepth: float,
         creakiness: float,
         breathiness: float,
         jitter: float,
@@ -669,7 +672,7 @@ class NvspFrontend(object):
     ) -> bool:
         """Save voice profile slider values to phonemes.yaml (ABI v2+).
         
-        Writes the 12 user-adjustable slider values to the voicingTone block
+        Writes the 13 user-adjustable slider values to the voicingTone block
         for the specified profile in phonemes.yaml.
         
         Args:
@@ -681,6 +684,7 @@ class NvspFrontend(object):
             speedQuotient: Glottal speed quotient (0.5-4.0)
             aspirationTiltDbPerOct: Aspiration tilt in dB/octave
             cascadeBwScale: Global cascade bandwidth multiplier (0.4-1.4, 1.0 = neutral)
+            tremorDepth: Voice tremor depth for elderly/shaky voice (0.0-0.5)
             creakiness: Laryngealization (0.0-1.0)
             breathiness: Breathiness (0.0-1.0)
             jitter: Pitch variation (0.0-1.0)
@@ -705,6 +709,7 @@ class NvspFrontend(object):
             sliders.speedQuotient = float(speedQuotient)
             sliders.aspirationTiltDbPerOct = float(aspirationTiltDbPerOct)
             sliders.cascadeBwScale = float(cascadeBwScale)
+            sliders.tremorDepth = float(tremorDepth)
             sliders.creakiness = float(creakiness)
             sliders.breathiness = float(breathiness)
             sliders.jitter = float(jitter)

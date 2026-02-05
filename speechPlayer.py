@@ -180,6 +180,7 @@ class VoicingTone(Structure):
         ("speedQuotient", c_double),         # Glottal pulse asymmetry (0.5-4.0, default 2.0)
         ("aspirationTiltDbPerOct", c_double),  # Aspiration noise tilt (default 0.0)
         ("cascadeBwScale", c_double),            # Cascade bandwidth multiplier (0.4-1.4, default 1.0)
+        ("tremorDepth", c_double),               # Tremor depth for elderly/shaky voice (0-0.5)
     ]
     
     @classmethod
@@ -210,6 +211,7 @@ class VoicingTone(Structure):
         tone.speedQuotient = 2.0        # Neutral asymmetry
         tone.aspirationTiltDbPerOct = 0.0
         tone.cascadeBwScale = 1.0               # No scaling (default)
+        tone.tremorDepth = 0.0                  # No tremor (default)
         return tone
 
 
