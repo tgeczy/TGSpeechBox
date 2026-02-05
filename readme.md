@@ -7,6 +7,7 @@ Author: Original project by NV Access Limited. This repository is maintained as 
 ### Acknowledgments
 Special thanks to:
 - **Rommix** for extensive testing, feedback, and collaboration on the Fujisaki pitch model implementation and DSP timing parameters.
+- **Cleverson** for his contributions to the Portuguese packs. Without him, we would not have proper support for either variants of the language. His work and efforts can be heard in the language and tuning on it is most exclusively done by him. Hats off!
 
 ## Project status (fork + naming)
 NV Access is not actively maintaining the original NV Speech Player project.
@@ -98,6 +99,27 @@ This keeps the DSP core small and stable while making language updates fast and 
 
 The driver now supports NVDA 2026.1, but should be compatible across NVDA 2023.2. This has created a lot of boilerplate code, unfortunately, as supporting older NVDA is complex. Nonetheless, I recognize some people still want to use this in Windows 7 environments, so we will continue to support older NVDA as long as we can until performance penalties arise.
 
+## Installation
+
+### NVDA add-on
+
+The NVDA add-on is included with each [release](https://github.com/TGeczy/NVSpeechPlayer/releases). Download the `.nvda-addon` file and open it with NVDA to install.
+It supports versions 2023.2 to 2026.1.
+
+### Linux
+
+Pre-built binaries are available for Linux x86_64. The package includes command-line tools for IPA-to-speech synthesis and optional Speech Dispatcher integration for desktop accessibility.
+
+See **[README-linux.md](README-linux.md)** for installation options, usage examples, and supported languages.
+
+### Phoneme Editor (Windows)
+
+The Phoneme Editor is a Win32 GUI for editing `phonemes.yaml` and language pack files. It's useful for:
+
+- **Language tuners** who want to adjust phoneme definitions or normalization rules
+- **Anyone wanting a simple speak/preview tool** – type IPA, hear it spoken, save to WAV
+
+The editor can preview individual phonemes, synthesize speech from IPA input, and save audio files. See **[README-phoneme-editor.md](README-phoneme-editor.md)** for build instructions and usage.
 ## Documentation
 
 For more detailed information, see:
