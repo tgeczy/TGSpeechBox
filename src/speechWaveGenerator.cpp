@@ -959,7 +959,32 @@ public:
             // Per-frame voice quality tweaks to pulse shape:
             // - breathiness nudges the peak later (softer/relaxed)
             // - creakiness nudges the peak earlier (tenser/pressed)
-            double peakPos = voicingPeakPos + (0.02 * breathiness) - (0.05 * creakiness);
+            // - speedQuotient shifts peak position (the real LF model effect!)
+            //
+            // In Fant's LF model, SQ determines where the flow peaks within
+            // the open phase: peakPos = SQ / (1 + SQ).  Our voicingPeakPos
+            // (default 0.91) was tuned as if SQ ≈ 10, so we treat SQ=2.0
+            // as neutral (no shift) and map deviations to a peak delta:
+            //
+            //   SQ=0.5  → peak shifts ~-0.20 (more symmetric, softer, breathy)
+            //   SQ=1.0  → peak shifts ~-0.10
+            //   SQ=2.0  → peak shift  = 0.0  (default, backward compatible)
+            //   SQ=3.0  → peak shifts ~+0.05
+            //   SQ=4.0  → peak shifts ~+0.08
+            //
+            // The nonlinear mapping uses SQ/(1+SQ) so the effect is stronger
+            // on the "softer" end (where it matters perceptually) and gentle
+            // on the "pressed" end (where we're already near the limit).
+            double sqPeakDelta = 0.0;
+            if (speedQuotient != 2.0) {
+                double refPeak = 2.0 / 3.0;                           // 0.6667
+                double sqPeak = speedQuotient / (1.0 + speedQuotient); // LF model
+                double rawDelta = sqPeak - refPeak;  // negative for SQ<2, positive for SQ>2
+                // Scale 0.6: maps LF range into ~±0.20 around voicingPeakPos
+                sqPeakDelta = rawDelta * 0.6;
+            }
+            double peakPos = voicingPeakPos + sqPeakDelta
+                           + (0.02 * breathiness) - (0.05 * creakiness);
 
             double dt = 0.0;
             if (pitchHz > 0.0) dt = pitchHz / (double)sampleRate;
@@ -996,10 +1021,10 @@ public:
             }
 
             // Compute LF-inspired flow (asymmetric, more harmonics)
-            // Speed quotient affects the asymmetry:
-            //   SQ < 2.0: Slower opening, gentler closing (female-like)
-            //   SQ = 2.0: Default/neutral
-            //   SQ > 2.0: Faster opening, sharper closing (male-like, pressed)
+            // Speed quotient now acts in three ways:
+            //   1. Peak position shift (above) — the dominant LF model effect
+            //   2. Opening curve steepness (below) — secondary reinforcement
+            //   3. Closing sharpness modulation (below) — secondary reinforcement
             double flowLF;
             if (phase < peakPos) {
                 // Opening phase: polynomial rise
