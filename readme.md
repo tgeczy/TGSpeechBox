@@ -8,7 +8,7 @@ Author: Original project by NV Access Limited. This repository is maintained as 
 Special thanks to:
 - **Rommix** for extensive testing, feedback, and collaboration on the Fujisaki pitch model implementation and DSP timing parameters.
 - **Cleverson** for his contributions to the Portuguese packs. Without him, we would not have proper support for either variants of the language. His work and efforts can be heard in the language and tuning on it is most exclusively done by him. Hats off!
-- ** Fastfinge ** - he helped us get the first part of the asymmetric cosign pulse right, and honestly without his initial PR we probably wouldn't be using it today.
+- **Fastfinge** - he helped us get the first part of the asymmetric cosign pulse right, and honestly without his initial PR we probably wouldn't be using it today.
 
 ## Project status (fork + naming)
 NV Access is not actively maintaining the original NV Speech Player project.
