@@ -78,67 +78,19 @@ void emitFrames(
   trajectoryState->hasPrevFrame = false;
 
   // Track previous frame values for voiced closure continuation
-  double prevVoicePitch = 120.0;
-  double prevCf1 = 500.0, prevCf2 = 1500.0, prevCf3 = 2500.0;
-  double prevPf1 = 500.0, prevPf2 = 1500.0, prevPf3 = 2500.0;
   bool hadPrevFrame = false;
 
   for (const Token& t : tokens) {
     if (t.silence || !t.def) {
-      // Check for voiced closure (voice bar)
+      // For voiced closure (voice bar): use a NULL frame with a generous fade.
+      // frame.cpp's NULL handling copies the entire previous frame and just zeros
+      // preFormantGain, keeping all resonator coefficients (frequencies AND bandwidths)
+      // stable.  This avoids IIR transients from bandwidth discontinuities that
+      // caused clicks at 16 kHz and occasional clicks at 22050 Hz.
       if (t.voicedClosure && hadPrevFrame) {
-        nvspFrontend_Frame vbFrame = {};
-        vbFrame.voicePitch = prevVoicePitch;
-        vbFrame.endVoicePitch = prevVoicePitch;
-        vbFrame.voiceAmplitude = 0.12;  // ~18 dB down - barely audible murmur
-        vbFrame.aspirationAmplitude = 0.0;
-        vbFrame.fricationAmplitude = 0.0;
-        vbFrame.glottalOpenQuotient = 0.60;
-        vbFrame.voiceTurbulenceAmplitude = 0.0;
-        vbFrame.cf1 = prevCf1;
-        vbFrame.cf2 = prevCf2;
-        vbFrame.cf3 = prevCf3;
-        vbFrame.cf4 = 3300.0;
-        vbFrame.cf5 = 3750.0;
-        vbFrame.cf6 = 4900.0;
-        vbFrame.cfN0 = 250.0;
-        vbFrame.cfNP = 200.0;
-        vbFrame.cb1 = 150.0;
-        vbFrame.cb2 = 180.0;
-        vbFrame.cb3 = 250.0;
-        vbFrame.cb4 = 300.0;
-        vbFrame.cb5 = 250.0;
-        vbFrame.cb6 = 1000.0;
-        vbFrame.cbN0 = 150.0;
-        vbFrame.cbNP = 150.0;
-        vbFrame.caNP = 0.0;
-        vbFrame.pf1 = prevPf1;
-        vbFrame.pf2 = prevPf2;
-        vbFrame.pf3 = prevPf3;
-        vbFrame.pf4 = 3300.0;
-        vbFrame.pf5 = 3750.0;
-        vbFrame.pf6 = 4900.0;
-        vbFrame.pb1 = 150.0;
-        vbFrame.pb2 = 180.0;
-        vbFrame.pb3 = 250.0;
-        vbFrame.pb4 = 300.0;
-        vbFrame.pb5 = 250.0;
-        vbFrame.pb6 = 1000.0;
-        vbFrame.pa1 = 0.0;
-        vbFrame.pa2 = 0.0;
-        vbFrame.pa3 = 0.0;
-        vbFrame.pa4 = 0.0;
-        vbFrame.pa5 = 0.0;
-        vbFrame.pa6 = 0.0;
-        vbFrame.parallelBypass = 0.0;
-        vbFrame.preFormantGain = 1.0;
-        // Inherit outputGain from pack defaults to avoid amplitude discontinuity.
-        // Hardcoding 1.0 when pack default is 1.5 causes a 33% volume jump/drop.
-        vbFrame.outputGain = lang.defaultOutputGain;
-        // Ensure minimum fade time for smooth amplitude transition
         double vbFadeMs = t.fadeMs;
         if (vbFadeMs < 8.0) vbFadeMs = 8.0;
-        cb(userData, &vbFrame, t.durationMs, vbFadeMs, userIndexBase);
+        cb(userData, nullptr, t.durationMs, vbFadeMs, userIndexBase);
         continue;
       }
       cb(userData, nullptr, t.durationMs, t.fadeMs, userIndexBase);
@@ -241,15 +193,6 @@ void emitFrames(
         if (fadeIn > phaseDur) fadeIn = phaseDur;
 
         cb(userData, &frame, phaseDur, fadeIn, userIndexBase);
-        
-        // Update previous values for voiced closure continuation
-        prevVoicePitch = frame.endVoicePitch;
-        prevCf1 = frame.cf1;
-        prevCf2 = frame.cf2;
-        prevCf3 = frame.cf3;
-        prevPf1 = frame.pf1;
-        prevPf2 = frame.pf2;
-        prevPf3 = frame.pf3;
         hadPrevFrame = true;
 
         remaining -= phaseDur;
@@ -334,15 +277,6 @@ void emitFrames(
     trajectoryState->hasPrevFrame = true;
 
     cb(userData, &frame, t.durationMs, t.fadeMs, userIndexBase);
-    
-    // Update previous values for voiced closure continuation
-    prevVoicePitch = frame.endVoicePitch;
-    prevCf1 = frame.cf1;
-    prevCf2 = frame.cf2;
-    prevCf3 = frame.cf3;
-    prevPf1 = frame.pf1;
-    prevPf2 = frame.pf2;
-    prevPf3 = frame.pf3;
     hadPrevFrame = true;
   }
 }
@@ -383,104 +317,20 @@ void emitFramesEx(
   const LanguagePack& lang = pack.lang;
   trajectoryState->hasPrevFrame = false;
 
-  // Track previous frame values for voiced closure continuation
-  double prevVoicePitch = 120.0;  // Fallback if no previous
-  double prevCf1 = 500.0, prevCf2 = 1500.0, prevCf3 = 2500.0;
-  double prevPf1 = 500.0, prevPf2 = 1500.0, prevPf3 = 2500.0;
+  // Track whether we've emitted at least one real frame
   bool hadPrevFrame = false;
 
   for (const Token& t : tokens) {
     if (t.silence || !t.def) {
-      // Check for voiced closure (voice bar) - maintain low-amplitude voicing
-      // instead of true silence, letting formants interpolate naturally.
+      // For voiced closure (voice bar): use a NULL frame with a generous fade.
+      // frame.cpp's NULL handling copies the entire previous frame and just zeros
+      // preFormantGain, keeping all resonator coefficients (frequencies AND bandwidths)
+      // stable.  This avoids IIR transients from bandwidth discontinuities that
+      // caused clicks at 16 kHz and occasional clicks at 22050 Hz.
       if (t.voicedClosure && hadPrevFrame) {
-        // Build a minimal voice bar frame: very low voicing, no frication,
-        // formants carried over from previous frame for smooth transition.
-        nvspFrontend_Frame vbFrame = {};
-        vbFrame.voicePitch = prevVoicePitch;
-        vbFrame.endVoicePitch = prevVoicePitch;
-        vbFrame.voiceAmplitude = 0.12;  // ~18 dB down - barely audible murmur
-        vbFrame.aspirationAmplitude = 0.0;
-        vbFrame.fricationAmplitude = 0.0;
-        vbFrame.glottalOpenQuotient = 0.60;  // more relaxed
-        vbFrame.voiceTurbulenceAmplitude = 0.0;
-        
-        // Use previous formants for smooth transition (closed tract mostly
-        // attenuates higher formants anyway due to low amplitude)
-        vbFrame.cf1 = prevCf1;
-        vbFrame.cf2 = prevCf2;
-        vbFrame.cf3 = prevCf3;
-        vbFrame.cf4 = 3300.0;
-        vbFrame.cf5 = 3750.0;
-        vbFrame.cf6 = 4900.0;
-        vbFrame.cfN0 = 250.0;
-        vbFrame.cfNP = 200.0;
-        
-        // Very wide bandwidths to heavily damp resonances (anti-thump)
-        vbFrame.cb1 = 150.0;
-        vbFrame.cb2 = 180.0;
-        vbFrame.cb3 = 250.0;
-        vbFrame.cb4 = 300.0;
-        vbFrame.cb5 = 250.0;
-        vbFrame.cb6 = 1000.0;
-        vbFrame.cbN0 = 150.0;
-        vbFrame.cbNP = 150.0;
-        vbFrame.caNP = 0.0;
-        
-        // Parallel formants (same as cascade for consistency)
-        vbFrame.pf1 = prevPf1;
-        vbFrame.pf2 = prevPf2;
-        vbFrame.pf3 = prevPf3;
-        vbFrame.pf4 = 3300.0;
-        vbFrame.pf5 = 3750.0;
-        vbFrame.pf6 = 4900.0;
-        vbFrame.pb1 = 150.0;
-        vbFrame.pb2 = 180.0;
-        vbFrame.pb3 = 250.0;
-        vbFrame.pb4 = 300.0;
-        vbFrame.pb5 = 250.0;
-        vbFrame.pb6 = 1000.0;
-        vbFrame.pa1 = 0.0;
-        vbFrame.pa2 = 0.0;
-        vbFrame.pa3 = 0.0;
-        vbFrame.pa4 = 0.0;
-        vbFrame.pa5 = 0.0;
-        vbFrame.pa6 = 0.0;
-        vbFrame.parallelBypass = 0.0;
-        vbFrame.preFormantGain = 1.0;
-        // Inherit outputGain from pack defaults to avoid amplitude discontinuity.
-        // Hardcoding 1.0 when pack default is 1.5 causes a 33% volume jump/drop.
-        vbFrame.outputGain = lang.defaultOutputGain;
-        
-        // Minimal FrameEx (no special voice quality for voice bar)
-        nvspFrontend_FrameEx vbFrameEx = {};
-        vbFrameEx.creakiness = 0.0;
-        vbFrameEx.breathiness = 0.0;
-        vbFrameEx.jitter = 0.0;
-        vbFrameEx.shimmer = 0.0;
-        // Use 0.0 (meaning "inherit SR default") to avoid interpolation discontinuity.
-        // When user slider is at 0, fading from 0→1.0 causes sharpness to DIP mid-fade
-        // because values 0<x<1 are treated as multipliers while 0 means "use default".
-        vbFrameEx.sharpness = 0.0;
-        vbFrameEx.endCf1 = NAN;
-        vbFrameEx.endCf2 = NAN;
-        vbFrameEx.endCf3 = NAN;
-        vbFrameEx.endPf1 = NAN;
-        vbFrameEx.endPf2 = NAN;
-        vbFrameEx.endPf3 = NAN;
-        vbFrameEx.fujisakiEnabled = 0.0;
-        vbFrameEx.fujisakiReset = 0.0;
-        vbFrameEx.fujisakiPhraseAmp = 0.0;
-        vbFrameEx.fujisakiPhraseLen = 0.0;
-        vbFrameEx.fujisakiAccentAmp = 0.0;
-        vbFrameEx.fujisakiAccentDur = 0.0;
-        vbFrameEx.fujisakiAccentLen = 0.0;
-        
-        // Ensure minimum fade time for smooth amplitude transition
         double vbFadeMs = t.fadeMs;
         if (vbFadeMs < 8.0) vbFadeMs = 8.0;
-        
-        cb(userData, &vbFrame, &vbFrameEx, t.durationMs, vbFadeMs, userIndexBase);
+        cb(userData, nullptr, nullptr, t.durationMs, vbFadeMs, userIndexBase);
         continue;
       }
       
@@ -617,15 +467,6 @@ void emitFramesEx(
         if (fadeIn > phaseDur) fadeIn = phaseDur;
 
         cb(userData, &frame, &frameEx, phaseDur, fadeIn, userIndexBase);
-        
-        // Update previous values for voiced closure continuation
-        prevVoicePitch = frame.endVoicePitch;
-        prevCf1 = frame.cf1;
-        prevCf2 = frame.cf2;
-        prevCf3 = frame.cf3;
-        prevPf1 = frame.pf1;
-        prevPf2 = frame.pf2;
-        prevPf3 = frame.pf3;
         hadPrevFrame = true;
 
         remaining -= phaseDur;
@@ -698,15 +539,6 @@ void emitFramesEx(
     trajectoryState->hasPrevFrame = true;
 
     cb(userData, &frame, &frameEx, t.durationMs, t.fadeMs, userIndexBase);
-    
-    // Update previous values for voiced closure (voice bar) continuation
-    prevVoicePitch = frame.endVoicePitch;
-    prevCf1 = frame.cf1;
-    prevCf2 = frame.cf2;
-    prevCf3 = frame.cf3;
-    prevPf1 = frame.pf1;
-    prevPf2 = frame.pf2;
-    prevPf3 = frame.pf3;
     hadPrevFrame = true;
   }
 }
