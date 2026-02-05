@@ -1325,6 +1325,7 @@ def _getPanelClass():
             b1Slider = getattr(synth, "_curPitchSyncB1", 50)
             sqSlider = getattr(synth, "_curSpeedQuotient", 50)
             aspTiltSlider = getattr(synth, "_curAspirationTilt", 50)
+            bwSlider = getattr(synth, "_curCascadeBwScale", 50)
             creakSlider = getattr(synth, "_curFrameExCreakiness", 0)
             breathSlider = getattr(synth, "_curFrameExBreathiness", 0)
             jitterSlider = getattr(synth, "_curFrameExJitter", 0)
@@ -1341,6 +1342,13 @@ def _getPanelClass():
             else:
                 speedQuotient = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
             aspTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
+
+            # Cascade bandwidth scale (0-100 -> 0.4-1.4, 50 = 1.0)
+            if bwSlider <= 50.0:
+                cascadeBwScale = 0.4 + (bwSlider / 50.0) * 0.6
+            else:
+                cascadeBwScale = 1.0 + ((bwSlider - 50.0) / 50.0) * 0.4
+            cascadeBwScale = max(0.4, min(1.4, cascadeBwScale))
 
             # Convert FrameEx sliders to DSP values
             creakiness = creakSlider / 100.0
@@ -1359,6 +1367,7 @@ def _getPanelClass():
                 "  pitchSyncB1DeltaHz: {:.1f}\n"
                 "  speedQuotient: {:.2f}\n"
                 "  aspirationTiltDbPerOct: {:.2f}\n\n"
+                "  cascadeBwScale: {:.2f}\n\n"
                 "FrameEx:\n"
                 "  creakiness: {:.2f}\n"
                 "  breathiness: {:.2f}\n"
@@ -1369,6 +1378,7 @@ def _getPanelClass():
             ).format(
                 profileName,
                 tiltDbPerOct, noiseModDepth, f1DeltaHz, b1DeltaHz, speedQuotient, aspTiltDbPerOct,
+                cascadeBwScale,
                 creakiness, breathiness, jitter, shimmer, sharpness,
             )
 
@@ -1393,6 +1403,7 @@ def _getPanelClass():
                     pitchSyncB1DeltaHz=b1DeltaHz,
                     speedQuotient=speedQuotient,
                     aspirationTiltDbPerOct=aspTiltDbPerOct,
+                    cascadeBwScale=cascadeBwScale,
                     creakiness=creakiness,
                     breathiness=breathiness,
                     jitter=jitter,

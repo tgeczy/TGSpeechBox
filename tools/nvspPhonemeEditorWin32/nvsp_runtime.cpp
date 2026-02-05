@@ -144,7 +144,8 @@ const std::vector<std::string>& NvspRuntime::voicingParamNames() {
       "pitchSyncF1DeltaHz",
       "pitchSyncB1DeltaHz",
       "speedQuotient",
-      "aspirationTiltDbPerOct"
+      "aspirationTiltDbPerOct",
+      "cascadeBwScale"
     };
   }
   return names;
@@ -272,12 +273,17 @@ static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
       return 0.5 + (sv / 100.0) * 3.5;
     case 11: // aspirationTiltDbPerOct: -12 to +12, default 0.0 at 50
       return -12.0 + (sv / 100.0) * 24.0;
+    case 12: // cascadeBwScale: 0.4-1.4, default 1.0 at 50
+      if (sv <= 50.0) {
+        return 0.4 + (sv / 50.0) * 0.6;
+      }
+      return 1.0 + ((sv - 50.0) / 50.0) * 0.4;
     default:
       return 0.0;
   }
 }
 
-// Build V2 VoicingTone struct (header + 10 params)
+// Build VoicingTone struct with ABI header (v2+ layout, extended fields allowed)
 static EditorVoicingToneV2 buildVoicingToneV2(const std::vector<int>& sliders) {
   EditorVoicingToneV2 tone{};
   
@@ -301,6 +307,7 @@ static EditorVoicingToneV2 buildVoicingToneV2(const std::vector<int>& sliders) {
   // V3 params
   tone.speedQuotient = (sliders.size() > 10) ? mapVoicingSliderToValue(10, sliders[10]) : 2.0;
   tone.aspirationTiltDbPerOct = (sliders.size() > 11) ? mapVoicingSliderToValue(11, sliders[11]) : 0.0;
+  tone.cascadeBwScale = (sliders.size() > 12) ? mapVoicingSliderToValue(12, sliders[12]) : 1.0;
   
   return tone;
 }

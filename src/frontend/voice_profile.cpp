@@ -160,6 +160,7 @@ static bool parseVoicingTone(const yaml_min::Node& node, VoicingTone& out, std::
   // V3 parameters
   parseParam("speedQuotient", out.speedQuotient, out.speedQuotient_set);
   parseParam("aspirationTiltDbPerOct", out.aspirationTiltDbPerOct, out.aspirationTiltDbPerOct_set);
+  parseParam("cascadeBwScale", out.cascadeBwScale, out.cascadeBwScale_set);
   
   return true;
 }

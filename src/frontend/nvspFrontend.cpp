@@ -458,6 +458,7 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   outTone->pitchSyncB1DeltaHz = 0.0;
   outTone->speedQuotient = 2.0;  // neutral default
   outTone->aspirationTiltDbPerOct = 0.0;
+  outTone->cascadeBwScale = 1.0; // neutral default
 
   // Check if we have a voice profile with voicing tone
   const std::string& profileName = h->pack.lang.voiceProfileName;
@@ -482,6 +483,7 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   if (vt.pitchSyncB1DeltaHz_set) outTone->pitchSyncB1DeltaHz = vt.pitchSyncB1DeltaHz;
   if (vt.speedQuotient_set) outTone->speedQuotient = vt.speedQuotient;
   if (vt.aspirationTiltDbPerOct_set) outTone->aspirationTiltDbPerOct = vt.aspirationTiltDbPerOct;
+  if (vt.cascadeBwScale_set) outTone->cascadeBwScale = vt.cascadeBwScale;
 
   return 1;  // Profile has explicit voicing tone
 }
@@ -547,7 +549,7 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
   }
   inFile.close();
 
-  // The 11 slider keys we write (6 VoicingTone + 5 FrameEx)
+  // The 12 slider keys we write (7 VoicingTone + 5 FrameEx)
   // Order matters for nice YAML output
   struct SliderDef {
     const char* key;
@@ -561,6 +563,7 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
     {"pitchSyncB1DeltaHz", sliders->pitchSyncB1DeltaHz, 1},
     {"speedQuotient", sliders->speedQuotient, 2},
     {"aspirationTiltDbPerOct", sliders->aspirationTiltDbPerOct, 2},
+    {"cascadeBwScale", sliders->cascadeBwScale, 2},
     {"creakiness", sliders->creakiness, 2},
     {"breathiness", sliders->breathiness, 2},
     {"jitter", sliders->jitter, 2},

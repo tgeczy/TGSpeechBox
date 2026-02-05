@@ -47,7 +47,7 @@ struct SpeechSettings {
 #endif
 
 #ifndef SPEECHPLAYER_DSP_VERSION
-#define SPEECHPLAYER_DSP_VERSION 5u
+#define SPEECHPLAYER_DSP_VERSION 6u
 #endif
 
 struct EditorVoicingToneV3 {
@@ -70,6 +70,7 @@ struct EditorVoicingToneV3 {
   // V3 additions
   double speedQuotient;
   double aspirationTiltDbPerOct;
+  double cascadeBwScale;
 };
 
 // Alias for backward compatibility
@@ -184,7 +185,7 @@ public:
   // Names of the 47 frame parameters exposed in the NVDA driver.
   static const std::vector<std::string>& frameParamNames();
   
-  // Names of the 12 voicing tone parameters.
+  // Names of the 13 voicing tone parameters.
   static const std::vector<std::string>& voicingParamNames();
 
   // Names of the 5 FrameEx voice quality parameters.

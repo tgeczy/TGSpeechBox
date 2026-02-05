@@ -179,7 +179,7 @@ class VoicingTone(Structure):
         # New v3 parameters
         ("speedQuotient", c_double),         # Glottal pulse asymmetry (0.5-4.0, default 2.0)
         ("aspirationTiltDbPerOct", c_double),  # Aspiration noise tilt (default 0.0)
-        ("cascadeBwScale", c_double),            # Cascade bandwidth multiplier (0.5-1.3, default 1.0)
+        ("cascadeBwScale", c_double),            # Cascade bandwidth multiplier (0.4-1.4, default 1.0)
     ]
     
     @classmethod
@@ -190,7 +190,7 @@ class VoicingTone(Structure):
         tone.magic = SPEECHPLAYER_VOICINGTONE_MAGIC
         tone.structSize = ctypes.sizeof(cls)
         tone.structVersion = SPEECHPLAYER_VOICINGTONE_VERSION
-        tone.dspVersion = 5  # Current DSP version
+        tone.dspVersion = 6  # Current DSP version
         
         # Original parameters
         tone.voicingPeakPos = 0.91

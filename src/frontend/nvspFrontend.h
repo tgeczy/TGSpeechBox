@@ -31,7 +31,7 @@ extern "C" {
   #define NVSP_FRONTEND_API
 #endif
 
-#define NVSP_FRONTEND_ABI_VERSION 2
+#define NVSP_FRONTEND_ABI_VERSION 3
 
 typedef void* nvspFrontend_handle_t;
 
@@ -132,29 +132,31 @@ typedef struct nvspFrontend_VoicingTone {
   /* V3 parameters */
   double speedQuotient;         /* Glottal speed quotient (2.0 = neutral) */
   double aspirationTiltDbPerOct; /* Aspiration spectral tilt */
+  double cascadeBwScale;        /* Global cascade bandwidth multiplier (1.0 = neutral) */
 } nvspFrontend_VoicingTone;
 
 /* Number of fields in VoicingTone struct */
-#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 12
+#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 13
 
 /*
-  VoiceProfileSliders - the 11 user-adjustable slider values (ABI v2+).
+  VoiceProfileSliders - the 12 user-adjustable slider values (ABI v2+).
   
   These are the values exposed to users via NVDA sliders.
-  The 6 "hidden" VoicingTone params (voicingPeakPos, voicedPreEmphA, etc.)
+  The "hidden" VoicingTone params (voicingPeakPos, voicedPreEmphA, etc.)
   are NOT included here - they are preserved if manually edited in YAML.
   
   Used by nvspFrontend_saveVoiceProfileSliders() to write user settings
   back to phonemes.yaml.
 */
 typedef struct nvspFrontend_VoiceProfileSliders {
-  /* VoicingTone sliders (6) */
+  /* VoicingTone sliders (7) */
   double voicedTiltDbPerOct;      /* Spectral tilt in dB/octave */
   double noiseGlottalModDepth;    /* Noise modulation by glottal cycle (0.0-1.0) */
   double pitchSyncF1DeltaHz;      /* Pitch-synchronous F1 delta */
   double pitchSyncB1DeltaHz;      /* Pitch-synchronous B1 delta */
   double speedQuotient;           /* Glottal speed quotient (0.5-4.0, 2.0 = neutral) */
   double aspirationTiltDbPerOct;  /* Aspiration spectral tilt */
+  double cascadeBwScale;          /* Global cascade bandwidth multiplier (0.4-1.4, 1.0 = neutral) */
   
   /* FrameEx sliders (5) */
   double creakiness;              /* Laryngealization (0.0-1.0) */
@@ -165,7 +167,7 @@ typedef struct nvspFrontend_VoiceProfileSliders {
 } nvspFrontend_VoiceProfileSliders;
 
 /* Number of fields in VoiceProfileSliders struct */
-#define NVSP_FRONTEND_VOICEPROFILESLIDERS_NUM_PARAMS 11
+#define NVSP_FRONTEND_VOICEPROFILESLIDERS_NUM_PARAMS 12
 
 /*
   Callback invoked for each frame (legacy, ABI v1).

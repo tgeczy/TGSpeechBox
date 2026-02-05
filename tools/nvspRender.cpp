@@ -14,7 +14,7 @@
     - We deliberately keep the interface small and self-contained.
     
   DSP V5 Features:
-    - VoicingTone V3 support (12 parameters)
+    - VoicingTone V3 support (13 parameters)
     - FrameEx support (creakiness, breathiness, jitter, shimmer, sharpness)
     - Per-phoneme FrameEx from YAML (e.g. Danish stød creakiness) via queueIPA_Ex
     - Voice profile support via nvspFrontend_setVoiceProfile
@@ -60,7 +60,7 @@ namespace {
 #endif
 
 #ifndef SPEECHPLAYER_DSP_VERSION
-#define SPEECHPLAYER_DSP_VERSION 5u
+#define SPEECHPLAYER_DSP_VERSION 6u
 #endif
 
 struct VoicingToneV3 {
@@ -82,6 +82,7 @@ struct VoicingToneV3 {
   // V3 additions
   double speedQuotient;
   double aspirationTiltDbPerOct;
+  double cascadeBwScale;
 };
 
 // ============================================================================
@@ -153,6 +154,7 @@ struct Options {
   int pitchSyncB1DeltaHz = 50;    // -50 to +50, default 0
   int speedQuotient = 50;         // 0.5-4.0, default 2.0
   int aspirationTiltDbPerOct = 50; // -12 to +12, default 0
+  int cascadeBwScale = 50;        // 0.4-1.4, default 1.0
 
   // -------------------------------------------------------------------------
   // FrameEx parameters (0-100 sliders)
@@ -199,6 +201,8 @@ static void printHelp(const char* argv0) {
     << "  --pitch-sync-b1 <int>          Pitch-sync B1 delta Hz (default: 50)\n"
     << "  --speed-quotient <int>         Glottal pulse asymmetry (default: 50)\n"
     << "  --aspiration-tilt <int>        Aspiration spectral tilt (default: 50)\n"
+    << "  --cascade-bw-scale <int>       Formant sharpness (cascade bandwidth) (default: 50)\n"
+    << "  --formant-sharpness <int>      Formant sharpness (cascade bandwidth, default: 50)\n"
     << "\n"
     << "FrameEx voice quality parameters (0-100 sliders):\n"
     << "  --creakiness <int>    Laryngealization / creaky voice (default: 0)\n"
@@ -325,6 +329,7 @@ static Options parseArgs(int argc, char** argv) {
     if (a == "--pitch-sync-b1") { parseIntArg(a.c_str(), opt.pitchSyncB1DeltaHz); continue; }
     if (a == "--speed-quotient") { parseIntArg(a.c_str(), opt.speedQuotient); continue; }
     if (a == "--aspiration-tilt") { parseIntArg(a.c_str(), opt.aspirationTiltDbPerOct); continue; }
+    if (a == "--cascade-bw-scale" || a == "--formant-sharpness") { parseIntArg(a.c_str(), opt.cascadeBwScale); continue; }
 
     // FrameEx parameters
     if (a == "--creakiness") { parseIntArg(a.c_str(), opt.creakiness); continue; }
@@ -381,6 +386,12 @@ static VoicingToneV3 buildVoicingTone(const Options& opt) {
   tone.pitchSyncB1DeltaHz = -50.0 + slider(opt.pitchSyncB1DeltaHz) * 100.0; // -50 to +50
   tone.speedQuotient = 0.5 + slider(opt.speedQuotient) * 3.5;               // 0.5-4.0
   tone.aspirationTiltDbPerOct = -12.0 + slider(opt.aspirationTiltDbPerOct) * 24.0; // -12 to +12
+  // cascadeBwScale: piecewise so that 50 => 1.0
+  {
+    const int s = clampInt(opt.cascadeBwScale, 0, 100);
+    if (s <= 50) tone.cascadeBwScale = 0.4 + (static_cast<double>(s) / 50.0) * 0.6;
+    else tone.cascadeBwScale = 1.0 + (static_cast<double>(s - 50) / 50.0) * 0.4;
+  }
 
   return tone;
 }
@@ -508,7 +519,8 @@ static bool hasVoicingToneEffect(const Options& opt) {
           opt.highShelfFcHz != 50 || opt.highShelfQ != 50 ||
           opt.voicedTiltDbPerOct != 50 || opt.noiseGlottalModDepth != 0 ||
           opt.pitchSyncF1DeltaHz != 50 || opt.pitchSyncB1DeltaHz != 50 ||
-          opt.speedQuotient != 50 || opt.aspirationTiltDbPerOct != 50);
+          opt.speedQuotient != 50 || opt.aspirationTiltDbPerOct != 50 ||
+          opt.cascadeBwScale != 50);
 }
 
 }  // namespace
@@ -632,6 +644,7 @@ int main(int argc, char** argv) {
     tone.pitchSyncB1DeltaHz = 0.0;
     tone.speedQuotient = 2.0;
     tone.aspirationTiltDbPerOct = 0.0;
+    tone.cascadeBwScale = 1.0;
     
     // Try to get voicing tone from YAML (if voice profile has one)
     nvspFrontend_VoicingTone yamlTone{};
@@ -649,6 +662,7 @@ int main(int argc, char** argv) {
       tone.pitchSyncB1DeltaHz = yamlTone.pitchSyncB1DeltaHz;
       tone.speedQuotient = yamlTone.speedQuotient;
       tone.aspirationTiltDbPerOct = yamlTone.aspirationTiltDbPerOct;
+      tone.cascadeBwScale = yamlTone.cascadeBwScale;
     }
     
     // Apply CLI overrides (only if non-default)
@@ -667,6 +681,7 @@ int main(int argc, char** argv) {
       if (opt.pitchSyncB1DeltaHz != 50) tone.pitchSyncB1DeltaHz = cliTone.pitchSyncB1DeltaHz;
       if (opt.speedQuotient != 50) tone.speedQuotient = cliTone.speedQuotient;
       if (opt.aspirationTiltDbPerOct != 50) tone.aspirationTiltDbPerOct = cliTone.aspirationTiltDbPerOct;
+      if (opt.cascadeBwScale != 50) tone.cascadeBwScale = cliTone.cascadeBwScale;
     }
     
     speechPlayer_setVoicingTone(player, reinterpret_cast<const speechPlayer_voicingTone_t*>(&tone));

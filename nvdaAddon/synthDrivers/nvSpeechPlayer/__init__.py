@@ -1867,16 +1867,21 @@ class SynthDriver(SynthDriver):
             aspTiltSlider = safe_float(getattr(self, "_curAspirationTilt", 50), 50.0)
             tone.aspirationTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
             
-            # Apply cascade bandwidth scale from slider (0-100 maps to 0.5-1.3, centered at 50 = 1.0)
+            # Apply cascade bandwidth scale from slider (0-100 maps to 0.4-1.4, centered at 50 = 1.0)
             # Below 50: sharper formants (Eloquence-like clarity)
             # Above 50: wider formants (softer, more blended)
             bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
-            if bwSlider <= 50.0:
-                # 0 -> 0.4, 50 -> 1.0
-                tone.cascadeBwScale = 0.4 + (bwSlider / 50.0) * 0.5
-            else:
-                # 50 -> 1.0, 100 -> 1.3
-                tone.cascadeBwScale = 1.0 + ((bwSlider - 50.0) / 50.0) * 0.4
+            # Treat 50 as "use the profile/default value".
+            if abs(bwSlider - 50.0) > 0.001:
+                if bwSlider <= 50.0:
+                    # 0 -> 0.4, 50 -> 1.0
+                    tone.cascadeBwScale = 0.4 + (bwSlider / 50.0) * 0.6
+                else:
+                    # 50 -> 1.0, 100 -> 1.4
+                    tone.cascadeBwScale = 1.0 + ((bwSlider - 50.0) / 50.0) * 0.4
+
+            # Safety clamp (DSP also clamps, but keep callers sane)
+            tone.cascadeBwScale = max(0.4, min(1.4, tone.cascadeBwScale))
             
             # Apply to player
             self._player.setVoicingTone(tone)
