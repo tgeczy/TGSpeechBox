@@ -380,6 +380,7 @@ private:
     int sampleRate;
     FrequencyGenerator pitchGen;
     FrequencyGenerator vibratoGen;
+    FrequencyGenerator tremorGen;  // Slow LFO for elderly/shaky voice (~5.5 Hz)
     NoiseGenerator aspirationGen;
 
     // Optional Fujisaki-Bartman pitch contour model (DSP v6+)
@@ -397,6 +398,11 @@ private:
     // Optional noise AM on the glottal cycle (aspiration + frication).
     double noiseGlottalModDepth;
     double lastNoiseMod;
+
+    // Tremor: slow amplitude modulation for shaky/elderly voice
+    double tremorDepth;
+    double tremorDepthSmooth;  // Smoothed to prevent clicks on slider change
+    double lastTremorSin;      // Stored sin value for both pitch and amp modulation
 
     // Smooth aspiration gain to avoid clicks when aspirationAmplitude changes quickly.
     double smoothAspAmp;
@@ -609,11 +615,12 @@ public:
         return x + hp * (kBright * brightAmt - darkAmt);
     }
 
-    VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), aspirationGen(),
+    VoiceGenerator(int sr): sampleRate(sr), pitchGen(sr), vibratoGen(sr), tremorGen(sr), aspirationGen(),
         fujisakiPitch(sr), fujisakiWasEnabled(false),
         lastFujisakiReset(0.0), lastFujisakiPhraseAmp(0.0), lastFujisakiAccentAmp(0.0),
         lastFlow(0.0), lastVoicedIn(0.0), lastVoicedOut(0.0), lastVoicedSrc(0.0), lastAspOut(0.0),
         noiseGlottalModDepth(0.0), lastNoiseMod(1.0),
+        tremorDepth(0.0), tremorDepthSmooth(0.0), lastTremorSin(0.0),
         smoothAspAmp(0.0), smoothAspAmpInit(false),
         aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
         lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0), jitterShimmerRng(98765),
@@ -739,6 +746,14 @@ public:
         return speedQuotient;
     }
 
+    void setTremorDepth(double depth) {
+        tremorDepth = clampDouble(depth, 0.0, 0.5);
+    }
+
+    double getTremorDepth() const {
+        return tremorDepth;
+    }
+
     double getLastNoiseMod() const { return lastNoiseMod; }
 
     double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx) {
@@ -861,7 +876,25 @@ public:
         // Vibrato (fraction of a semitone)
         double vibrato=(sin(vibratoGen.getNext(frame->vibratoSpeed)*PITWO)*0.06*frame->vibratoPitchOffset)+1;
 
-        double pitchHz = basePitchHz * pitchContourMul * vibrato;
+        // Tremor: modulation for elderly/shaky voice (4-12 Hz range).
+        // Research shows tremor involves F0, amplitude, AND formant instability.
+        // Use fast smoothing (only for slider changes, not the tremor itself!)
+        const double tremorSmoothAlpha = 0.01;  // Fast: ~6ms at 16kHz (was 0.0002 = 300ms!)
+        tremorDepthSmooth += (tremorDepth - tremorDepthSmooth) * tremorSmoothAlpha;
+        double tremorPitchMod = 1.0;
+        if (tremorDepthSmooth > 0.001) {
+            // 5 Hz - slower so each wobble is distinct (research: 4-6 Hz typical)
+            double tremorPhase = tremorGen.getNext(5.0);
+            lastTremorSin = sin(tremorPhase * PITWO);
+            // Add slight irregularity using the jitter RNG for organic feel
+            double irregularity = 1.0 + (jitterShimmerRng.nextBipolar()) * 0.15 * tremorDepthSmooth;
+            // Pitch tremor: ±35% F0 at full depth - MAXIMUM elderly voice shake!
+            tremorPitchMod = 1.0 + (tremorDepthSmooth * 0.70 * lastTremorSin * irregularity);
+        } else {
+            lastTremorSin = 0.0;
+        }
+
+        double pitchHz = basePitchHz * pitchContourMul * vibrato * tremorPitchMod;
         if (!std::isfinite(pitchHz) || pitchHz < 0.0) pitchHz = 0.0;
 
         // Creaky voice tends to have slightly lower F0 and more irregularity.
@@ -932,6 +965,19 @@ public:
         if (effectiveOQ <= 0.0) effectiveOQ = 0.4;
         if (effectiveOQ < 0.10) effectiveOQ = 0.10;
         if (effectiveOQ > 0.95) effectiveOQ = 0.95;
+
+        // Tremor: modulate open quotient for "voice bending" quality change.
+        // When vocal fold tension trembles, OQ oscillates between
+        // slightly pressed (shorter open) and slightly breathy (longer open).
+        // This creates the characteristic tremor "wobble in voice character".
+        if (tremorDepthSmooth > 0.001) {
+            // At full depth: ±0.15 OQ variation - strong voice quality wobble
+            double oqTremorMod = tremorDepthSmooth * 0.30 * lastTremorSin;
+            effectiveOQ += oqTremorMod;
+            // Keep in valid range
+            if (effectiveOQ < 0.10) effectiveOQ = 0.10;
+            if (effectiveOQ > 0.95) effectiveOQ = 0.95;
+        }
 
         // Creakiness: shorter open phase (more closed time) in this model.
         if (creakiness > 0.0) {
@@ -1174,6 +1220,15 @@ public:
             voiceAmp *= (1.0 - (0.98 * breathiness));
         }
         voiceAmp *= shimmerMul;
+
+        // Tremor amplitude modulation - subtle, let pitch and OQ do the heavy lifting
+        // The "shake" should come from voice quality changes, not volume pumping
+        if (tremorDepthSmooth > 0.001) {
+            // Reduced: ±25% amplitude at full depth (was ±60%)
+            double ampIrregularity = 1.0 + (jitterShimmerRng.nextBipolar()) * 0.1 * tremorDepthSmooth;
+            double tremorAmpMod = 1.0 + (tremorDepthSmooth * 0.5 * lastTremorSin * ampIrregularity);
+            voiceAmp *= tremorAmpMod;
+        }
 
         // CRITICAL: Apply voiceAmp ONLY to the voiced pulse, NOT to turbulence.
         // For breathiness: voice gets quiet while turbulence stays strong.
@@ -1419,13 +1474,12 @@ public:
         r1.setPitchSyncParams(f1DeltaHz, b1DeltaHz);
     }
 
-    void setCascadeBwScale(double scale) {
+void setCascadeBwScale(double scale) {
         // Clamp to safe range: too narrow risks instability, too wide loses vowel identity
-        if (scale < 0.4) scale = 0.4;
-        if (scale > 1.4) scale = 1.4;
+        if (scale < 0.3) scale = 0.3;
+        if (scale > 2.0) scale = 2.0;
         bwScale = scale;
     }
-
     double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {
         input/=2.0;
         // Klatt cascade: N0 (antiresonator) -> NP (resonator), then cascade formants.
@@ -2072,6 +2126,9 @@ public:
         // Update pitch-sync F1 modulation params
         cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz, currentTone.pitchSyncB1DeltaHz);
         cascade.setCascadeBwScale(currentTone.cascadeBwScale);
+        
+        // Update tremor depth for elderly/shaky voice
+        voiceGenerator.setTremorDepth(currentTone.tremorDepth);
     }
 
     void getVoicingTone(speechPlayer_voicingTone_t* tone) {

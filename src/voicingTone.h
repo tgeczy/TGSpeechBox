@@ -268,15 +268,32 @@ typedef struct {
      * character of voiced sounds without affecting fricatives (which
      * use the parallel path).
      * 
-     * Range: 0.4 to 1.4 (clamped by DSP)
-     *   - 0.4: Very sharp/ringy formants, crystalline, may ring on transitions
+     * Range: 0.3 to 2.0 (clamped by DSP)
+     *   - 0.3: Very sharp/ringy formants, crystalline, may ring on transitions
      *   - 0.7: Noticeably sharper, clear vowel definition
-     *   - 1.0: Default (no change, preserves original behavior)
+     *   - 1.0: neutral, slight muffle
+     *   - 0.8: default for more clarity
      *   - 1.2-1.4: Softer, warmer, formants blend more
      * 
-     * Default: 1.0 (no scaling, preserves original behavior)
+     * Default: 0.8 (slight scaling, mostly preserves original behavior)
      */
     double cascadeBwScale;
+
+    /**
+     * Tremor depth - slow amplitude modulation for elderly/shaky voice.
+     * 
+     * A ~5.5 Hz sine LFO modulates voiced amplitude to create tremulous
+     * quality typical of elderly, nervous, or emotional voices.
+     * 
+     * Range: 0.0 to 0.5 (clamped by DSP)
+     *   - 0.0: No tremor (default)
+     *   - 0.1-0.2: Subtle shakiness
+     *   - 0.3-0.4: Noticeable elderly tremor
+     * 
+     * Stacks with jitter/shimmer for realistic aging effects.
+     * Rate is fixed at 5.5 Hz internally.
+     */
+    double tremorDepth;
 
 } speechPlayer_voicingTone_t;
 
@@ -301,7 +318,8 @@ typedef struct {
     0.0,    /* pitchSyncB1DeltaHz (off by default) */ \
     2.0,    /* speedQuotient (neutral, matches original behavior) */ \
     0.0,    /* aspirationTiltDbPerOct (no tilt by default) */ \
-    1.0     /* cascadeBwScale (no scaling by default) */ \
+    0.8,    /* cascadeBwScale (slight scaling by default for clearer vowels) */ \
+    0.0     /* tremorDepth (no tremor by default) */ \
 }
 
 /**
