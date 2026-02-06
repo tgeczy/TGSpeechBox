@@ -1266,29 +1266,33 @@ public:
     double getLastAspOut() const { return lastAspOut; }
 };
 // ==========================================================================
-// Trapezoidal State-Variable Filter (SVF) Resonator
+// All-pole Resonator with SVF parameterization
 // ==========================================================================
 //
-// Based on the method described by Andrew Simper (Cytomic):
-//   "Solving continuous SVF equations using trapezoidal integration"
-//   https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
+// Uses the bilinear-transform parameterization from Andrew Simper (Cytomic)
+// for its key advantage: frequency (g) and damping (k) are independent,
+// so formant sweeps during coarticulation produce smooth coefficient
+// trajectories with no discontinuities.
 //
-// Advantages over the classic biquad (Direct Form II) approach:
-//   1. Frequency and Q are independent parameters -- no coefficient
-//      entanglement means zipper-free formant sweeps during transitions.
-//   2. Better numerical stability at low sample rates (the old biquad
-//      suffered precision loss near Nyquist, causing "old cell phone"
-//      artifacts at 11025 Hz).
-//   3. Anti-resonator (nasal zero) comes from the notch output naturally,
-//      without needing the inverted-coefficient trick.
-//   4. The trapezoidal integrator is unconditionally stable for all
-//      parameter values (no NaN explosions from coefficient edge cases).
+// However, the actual sample processing uses a Direct Form 1 all-pole
+// difference equation rather than the SVF's trapezoidal integrators.
+// Reason: the SVF lowpass output has two zeros at Nyquist from the
+// trapezoidal (1+z^-1)^2 factor, causing cumulative high-frequency
+// loss across the 6-resonator cascade.  At sr=16000 this steals ~11 dB
+// at 3200 Hz; at sr=22050 it dulls sharpness and glottal edge.
+// The all-pole form has NO numerator zeros, matching the spectral
+// behavior of classic formant synthesis literature.
 //
-// The output is taken from:
-//   - Lowpass (v2) for resonators:  unity DC gain, resonant peak at F,
-//     -12 dB/oct rolloff -- matches the Klatt cascade spectral shape.
-//   - Notch (in - k*v1) for anti-resonators:  unity passband, zero at F.
+// Coefficient derivation (from Cytomic SVF-to-DF1 conversion):
+//   g = tan(pi * f / sr)          -- warped frequency
+//   k = bw / f                    -- damping (1/Q)
+//   D = 1 + k*g + g^2             -- common denominator
+//   b0 = 4*g^2 / D                -- feedforward (unity DC gain)
+//   fb1 = 2*(1 - g^2) / D         -- feedback tap 1 (y[n-1])
+//   fb2 = -(1 - k*g + g^2) / D    -- feedback tap 2 (y[n-2])
 //
+// Anti-resonator: FIR (all-zero) filter with zeros at r*e^(±jθ),
+// depth controlled by bandwidth.  Unchanged from previous version.
 // ==========================================================================
 class Resonator {
 private:
@@ -1298,19 +1302,14 @@ private:
     bool anti;
     bool setOnce;
 
-    // SVF integrator state (used for resonator mode)
-    double ic1eq, ic2eq;
-
-    // SVF coefficients
-    double svfG, svfK;
-    double svfA1, svfA2, svfA3;
+    // All-pole resonator: DF1 output history and coefficients
+    double y1, y2;             // output delay line
+    double dfB0, dfFb1, dfFb2; // feedforward + feedback coefficients
 
     // FIR anti-resonator state and coefficients
     // The Klatt anti-resonator is an all-zero (FIR) filter -- the inverse
     // of a resonator transfer function.  Its zeros sit OFF the unit circle,
-    // so the null depth is finite and controlled by bandwidth.  This is
-    // fundamentally different from an SVF notch (zeros ON the unit circle,
-    // infinitely deep null) which was causing the nasal ringing.
+    // so the null depth is finite and controlled by bandwidth.
     double firA, firB, firC;   // FIR coefficients
     double z1, z2;             // FIR delay line
 
@@ -1321,8 +1320,8 @@ public:
     Resonator(int sampleRate, bool anti=false)
         : sampleRate(sampleRate), frequency(0.0), bandwidth(0.0),
           anti(anti), setOnce(false),
-          ic1eq(0.0), ic2eq(0.0),
-          svfG(0.0), svfK(0.0), svfA1(0.0), svfA2(0.0), svfA3(0.0),
+          y1(0.0), y2(0.0),
+          dfB0(0.0), dfFb1(0.0), dfFb2(0.0),
           firA(1.0), firB(0.0), firC(0.0), z1(0.0), z2(0.0),
           disabled(true) {}
 
@@ -1340,8 +1339,7 @@ public:
                 if (anti) {
                     firA = 1.0; firB = 0.0; firC = 0.0;
                 } else {
-                    svfG = 0.0; svfK = 0.0;
-                    svfA1 = 0.0; svfA2 = 0.0; svfA3 = 0.0;
+                    dfB0 = 0.0; dfFb1 = 0.0; dfFb2 = 0.0;
                 }
                 setOnce = true;
                 return;
@@ -1368,29 +1366,32 @@ public:
                     firC = r * r * invA;
                 }
             } else {
-                // Trapezoidal SVF coefficients
-                // g = tan(pi * f / sr)  -- bilinear-transform frequency warping
-                // k = 1/Q = bw/f        -- damping (reciprocal of quality factor)
-                svfG = tan(M_PI * frequency / (double)sampleRate);
-                svfK = bandwidth / frequency;
+                // Bilinear-transform frequency warp
+                double g = tan(M_PI * frequency / (double)sampleRate);
+                double g2 = g * g;
 
-                // Nyquist proximity damping: the old biquad naturally lost
-                // resonance as formant frequency approached Nyquist (the pole
-                // radius stayed the same but the angle compressed).  The SVF
-                // doesn't do this -- tan() warping actually preserves Q near
-                // Nyquist, causing swirly artifacts at low sample rates
-                // (especially on fricatives in the parallel path).
-                // Fix: progressively widen bandwidth above 0.6*Nyquist.
-                const double nyquist = 0.5 * (double)sampleRate;
-                double nyRatio = frequency / nyquist;
-                if (nyRatio > 0.6) {
-                    double t = (nyRatio - 0.6) / 0.4;  // 0..1 over 0.6..1.0
-                    svfK += 3.0 * t * t;                // quadratic extra damping
-                }
+                // Compute damping k to exactly match Klatt pole radius.
+                //
+                // The Klatt biquad places poles at radius r = exp(-pi*bw/sr).
+                // For the DF1 form y[n] = b0*x[n] + fb1*y[n-1] + fb2*y[n-2],
+                // the pole-magnitude squared equals (1-kg+g^2)/(1+kg+g^2).
+                // Setting this equal to R = r^2 = exp(-2*pi*bw/sr) and solving
+                // for k gives the formula below.
+                //
+                // This replaces the previous k=bw/f + Nyquist damping hack.
+                // At low frequencies (g<<1) this reduces to ~bw/f.  Near
+                // Nyquist it naturally increases damping -- no arbitrary ramp
+                // needed.
+                double R = exp(-2.0 * M_PI * bandwidth / (double)sampleRate);
+                double k = (1.0 - R) * (1.0 + g2) / (g * (1.0 + R));
 
-                svfA1 = 1.0 / (1.0 + svfG * (svfG + svfK));
-                svfA2 = svfG * svfA1;
-                svfA3 = svfG * svfA2;
+                // Convert to all-pole DF1 coefficients.
+                // H(z) = b0 / (1 - fb1*z^-1 - fb2*z^-2)
+                // Unity DC gain: b0 = 1 - fb1 - fb2 = 4*g^2/D
+                double D = 1.0 + k * g + g2;
+                dfB0  = 4.0 * g2 / D;
+                dfFb1 = 2.0 * (1.0 - g2) / D;
+                dfFb2 = -(1.0 - k * g + g2) / D;
             }
         }
         this->setOnce=true;
@@ -1410,30 +1411,25 @@ public:
             z1 = in;
             return out;
         } else {
-            // SVF tick -- one sample, trapezoidal integration
-            double v3 = in - ic2eq;
-            double v1 = svfA1 * ic1eq + svfA2 * v3;       // bandpass
-            double v2 = ic2eq + svfA2 * ic1eq + svfA3 * v3; // lowpass
-            ic1eq = 2.0 * v1 - ic1eq;
-            ic2eq = 2.0 * v2 - ic2eq;
-
-            // Resonator: lowpass output
-            // Unity gain at DC, resonant peak of ~Q at center frequency,
-            // -12 dB/oct rolloff above -- matches Klatt cascade topology.
-            return v2;
+            // All-pole resonator: DF1 with SVF-derived coefficients
+            // y[n] = b0*x[n] + fb1*y[n-1] + fb2*y[n-2]
+            double out = dfB0 * in + dfFb1 * y1 + dfFb2 * y2;
+            y2 = y1;
+            y1 = out;
+            return out;
         }
     }
 
     void reset() {
-        ic1eq=0.0;
-        ic2eq=0.0;
+        y1=0.0;
+        y2=0.0;
         z1=0.0;
         z2=0.0;
         setOnce=false;
     }
 };
 
-// Pitch-synchronous F1 resonator (SVF implementation)
+// Pitch-synchronous F1 resonator (all-pole with SVF parameterization)
 // Models the acoustic coupling between glottal source and vocal tract
 // during the open phase of voicing.  F1 and B1 are modulated by deltas
 // when the glottis is open, with smoothing to prevent clicks at the
@@ -1442,12 +1438,9 @@ class PitchSyncResonator {
 private:
     int sampleRate;
 
-    // SVF integrator state
-    double ic1eq, ic2eq;
-
-    // SVF coefficients
-    double svfG, svfK;
-    double svfA1, svfA2, svfA3;
+    // All-pole DF1 state and coefficients
+    double y1, y2;
+    double dfB0, dfFb1, dfFb2;
     bool disabled;
 
     double frequency, bandwidth;
@@ -1466,30 +1459,30 @@ private:
         if (!std::isfinite(freq) || !std::isfinite(bw) ||
             freq <= 0.0 || bw <= 0.0 || freq >= nyquist) {
             disabled = true;
-            svfG = 0.0; svfK = 0.0;
-            svfA1 = 0.0; svfA2 = 0.0; svfA3 = 0.0;
+            dfB0 = 0.0; dfFb1 = 0.0; dfFb2 = 0.0;
             return;
         }
         disabled = false;
-        svfG = tan(M_PI * freq / (double)sampleRate);
-        svfK = bw / freq;
 
-        // Nyquist proximity damping (see Resonator::setParams for rationale)
-        double nyRatio = freq / nyquist;
-        if (nyRatio > 0.6) {
-            double t = (nyRatio - 0.6) / 0.4;
-            svfK += 3.0 * t * t;
-        }
+        // Bilinear-transform frequency warp
+        double g = tan(M_PI * freq / (double)sampleRate);
+        double g2 = g * g;
 
-        svfA1 = 1.0 / (1.0 + svfG * (svfG + svfK));
-        svfA2 = svfG * svfA1;
-        svfA3 = svfG * svfA2;
+        // Exact Klatt pole-radius match (see Resonator::setParams)
+        double R = exp(-2.0 * M_PI * bw / (double)sampleRate);
+        double k = (1.0 - R) * (1.0 + g2) / (g * (1.0 + R));
+
+        // Convert to all-pole DF1 coefficients
+        double D = 1.0 + k * g + g2;
+        dfB0  = 4.0 * g2 / D;
+        dfFb1 = 2.0 * (1.0 - g2) / D;
+        dfFb2 = -(1.0 - k * g + g2) / D;
     }
 
 public:
     PitchSyncResonator(int sr) : sampleRate(sr),
-        ic1eq(0.0), ic2eq(0.0),
-        svfG(0.0), svfK(0.0), svfA1(0.0), svfA2(0.0), svfA3(0.0),
+        y1(0.0), y2(0.0),
+        dfB0(0.0), dfFb1(0.0), dfFb2(0.0),
         disabled(true), frequency(0.0), bandwidth(0.0), setOnce(false),
         deltaFreq(0.0), deltaBw(0.0), lastTargetFreq(0.0), lastTargetBw(0.0),
         smoothFreq(0.0), smoothBw(0.0), smoothAlpha(0.0) {
@@ -1499,8 +1492,8 @@ public:
     }
 
     void reset() {
-        ic1eq = 0.0;
-        ic2eq = 0.0;
+        y1 = 0.0;
+        y2 = 0.0;
         setOnce = false;
         smoothFreq = 0.0;
         smoothBw = 0.0;
@@ -1537,7 +1530,7 @@ public:
             targetBw = bw;
         }
 
-        // Only recompute SVF coefficients when params actually change
+        // Only recompute coefficients when params actually change
         if (!setOnce || targetFreq != lastTargetFreq || targetBw != lastTargetBw) {
             lastTargetFreq = targetFreq;
             lastTargetBw = targetBw;
@@ -1547,13 +1540,11 @@ public:
 
         if (disabled) return in;
 
-        // SVF tick -- lowpass output for cascade resonance
-        double v3 = in - ic2eq;
-        double v1 = svfA1 * ic1eq + svfA2 * v3;
-        double v2 = ic2eq + svfA2 * ic1eq + svfA3 * v3;
-        ic1eq = 2.0 * v1 - ic1eq;
-        ic2eq = 2.0 * v2 - ic2eq;
-        return v2;
+        // All-pole DF1 tick
+        double out = dfB0 * in + dfFb1 * y1 + dfFb2 * y2;
+        y2 = y1;
+        y1 = out;
+        return out;
     }
 };
 

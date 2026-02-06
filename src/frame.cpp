@@ -86,18 +86,20 @@ class FrameManagerImpl: public FrameManager {
 				memcpy(&curFrameEx, &(oldFrameRequest->frameEx), sizeof(speechPlayer_frameEx_t));
 				curHasFrameEx = oldFrameRequest->hasFrameEx;
 			} else {
-				double curFadeRatio=(double)sampleCounter/(newFrameRequest->numFadeSamples);
-				// Cosine ease-in/ease-out: eliminates the abrupt start/stop of
-				// linear crossfades.  Articulators accelerate and decelerate
-				// rather than snapping to constant velocity.
-				curFadeRatio = cosineSmooth(curFadeRatio);
+				double linearRatio=(double)sampleCounter/(newFrameRequest->numFadeSamples);
+				// Cosine ease-in/ease-out for spectral parameters only.
+				// Amplitude/gain parameters stay linear so that energy crossfades
+				// are monotonic — the S-curve can create brief energy dips at
+				// source transitions (e.g. voiced stop → aspiration) that sound
+				// like pops.
+				double cosineRatio = cosineSmooth(linearRatio);
 				for(int i=0;i<speechPlayer_frame_numParams;++i) {
 					double oldVal = ((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[i];
 					double newVal = ((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[i];
 					if(isFrequencyParam(i)) {
-						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateFreqAtFadePosition(oldVal, newVal, curFadeRatio);
+						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateFreqAtFadePosition(oldVal, newVal, cosineRatio);
 					} else {
-						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, curFadeRatio);
+						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, linearRatio);
 					}
 				}
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
@@ -113,7 +115,7 @@ class FrameManagerImpl: public FrameManager {
 							// Step to the NEW values immediately (no interpolation).
 							((double*)&curFrameEx)[i]=((double*)&(newFrameRequest->frameEx))[i];
 						} else {
-							((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],curFadeRatio);
+							((double*)&curFrameEx)[i]=calculateValueAtFadePosition(((double*)&(oldFrameRequest->frameEx))[i],((double*)&(newFrameRequest->frameEx))[i],linearRatio);
 						}
 					}
 					} else {
