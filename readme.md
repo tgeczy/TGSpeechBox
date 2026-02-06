@@ -25,8 +25,8 @@ This project includes an NVDA add-on and necessarily refers to NVDA for compatib
 The eSpeak-ng project also contains a separate copy of the original SpeechPlayer code as an alternative Klatt-style implementation. TGSpeechBox is independent of that copy.
 
 ## Overview
-TGSpeechBox is a free and open-source speech synthesizer that can be used by NVDA. It generates speech using formant synthesis with an LF-inspired glottal model, Fujisaki pitch contours, and coarticulation — making it somewhat similar in character to speech synthesizers such as Dectalk and Eloquence, while adding modern voice quality controls.
-
+TGSpeechBox is a free and open-source speech synthesizer that can be used by NVDA, or Speech dispatcher on Linux. It generates speech using formant synthesis with an LF-inspired glottal model, Fujisaki pitch contours, and coarticulation — making it somewhat similar in character to speech synthesizers such as Dectalk and Eloquence, while adding modern voice quality controls.
+The provided phoneme editor tool for Windows also functions as a speak utility, should you wish to easily test it on that platform.
 Historically, the original NV Speech Player relied on Python (`ipa.py`) to:
 - normalize phonemes (mostly from eSpeak IPA),
 - apply language/dialect rules,
@@ -36,7 +36,7 @@ Historically, the original NV Speech Player relied on Python (`ipa.py`) to:
 This repo has now transitioned to a new **frontend + YAML packs** model that replaces the Python IPA pipeline for runtime use.
 
 ## License and copyright
-TGSpeechBox is Copyright (c) 2014 NV Speech Player contributors, Copyright (c) 2025 Tamas Geczy.
+TGSpeechBox is Copyright (c) 2014 NV Speech Player contributors, Copyright (c) 2025-2026 Tamas Geczy.
 
 TGSpeechBox is covered by the GNU General Public License (Version 2).
 
