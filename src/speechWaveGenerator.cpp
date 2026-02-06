@@ -1265,8 +1265,31 @@ public:
 
     double getLastAspOut() const { return lastAspOut; }
 };
-// Resonator + formant path helpers (based on the classic klsyn-style 2-pole
-// sections, with a few safety/ordering fixes borrowed from other Klatt ports.)
+// ==========================================================================
+// Trapezoidal State-Variable Filter (SVF) Resonator
+// ==========================================================================
+//
+// Based on the method described by Andrew Simper (Cytomic):
+//   "Solving continuous SVF equations using trapezoidal integration"
+//   https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
+//
+// Advantages over the classic biquad (Direct Form II) approach:
+//   1. Frequency and Q are independent parameters -- no coefficient
+//      entanglement means zipper-free formant sweeps during transitions.
+//   2. Better numerical stability at low sample rates (the old biquad
+//      suffered precision loss near Nyquist, causing "old cell phone"
+//      artifacts at 11025 Hz).
+//   3. Anti-resonator (nasal zero) comes from the notch output naturally,
+//      without needing the inverted-coefficient trick.
+//   4. The trapezoidal integrator is unconditionally stable for all
+//      parameter values (no NaN explosions from coefficient edge cases).
+//
+// The output is taken from:
+//   - Lowpass (v2) for resonators:  unity DC gain, resonant peak at F,
+//     -12 dB/oct rolloff -- matches the Klatt cascade spectral shape.
+//   - Notch (in - k*v1) for anti-resonators:  unity passband, zero at F.
+//
+// ==========================================================================
 class Resonator {
 private:
     int sampleRate;
@@ -1274,17 +1297,34 @@ private:
     double bandwidth;
     bool anti;
     bool setOnce;
-    double a, b, c;
-    double p1, p2;
+
+    // SVF integrator state (used for resonator mode)
+    double ic1eq, ic2eq;
+
+    // SVF coefficients
+    double svfG, svfK;
+    double svfA1, svfA2, svfA3;
+
+    // FIR anti-resonator state and coefficients
+    // The Klatt anti-resonator is an all-zero (FIR) filter -- the inverse
+    // of a resonator transfer function.  Its zeros sit OFF the unit circle,
+    // so the null depth is finite and controlled by bandwidth.  This is
+    // fundamentally different from an SVF notch (zeros ON the unit circle,
+    // infinitely deep null) which was causing the nasal ringing.
+    double firA, firB, firC;   // FIR coefficients
+    double z1, z2;             // FIR delay line
+
+    // Flag: true when filter is disabled (passthrough)
+    bool disabled;
 
 public:
-    Resonator(int sampleRate, bool anti=false) {
-        this->sampleRate=sampleRate;
-        this->anti=anti;
-        this->setOnce=false;
-        this->p1=0;
-        this->p2=0;
-    }
+    Resonator(int sampleRate, bool anti=false)
+        : sampleRate(sampleRate), frequency(0.0), bandwidth(0.0),
+          anti(anti), setOnce(false),
+          ic1eq(0.0), ic2eq(0.0),
+          svfG(0.0), svfK(0.0), svfA1(0.0), svfA2(0.0), svfA3(0.0),
+          firA(1.0), firB(0.0), firC(0.0), z1(0.0), z2(0.0),
+          disabled(true) {}
 
     void setParams(double frequency, double bandwidth) {
         if(!setOnce||(frequency!=this->frequency)||(bandwidth!=this->bandwidth)) {
@@ -1293,78 +1333,131 @@ public:
 
             const double nyquist = 0.5 * (double)sampleRate;
             const bool invalid = (!std::isfinite(frequency) || !std::isfinite(bandwidth));
-            const bool disabled = (frequency <= 0.0 || bandwidth <= 0.0 || frequency >= nyquist);
+            const bool off = (frequency <= 0.0 || bandwidth <= 0.0 || frequency >= nyquist);
 
-            // Treat invalid/disabled sections as a straight passthrough.
-            // This is important because many "unused" formants are represented
-            // by zeroed params in frame data.
-            if (invalid || disabled) {
-                a = 1.0;
-                b = 0.0;
-                c = 0.0;
+            if (invalid || off) {
+                disabled = true;
+                if (anti) {
+                    firA = 1.0; firB = 0.0; firC = 0.0;
+                } else {
+                    svfG = 0.0; svfK = 0.0;
+                    svfA1 = 0.0; svfA2 = 0.0; svfA3 = 0.0;
+                }
                 setOnce = true;
                 return;
             }
 
-            double r = exp(-M_PI/sampleRate*bandwidth);
-            c = -(r*r);
-            b = r*cos(PITWO*frequency/(double)sampleRate)*2.0;
-            a = 1.0-b-c;
+            disabled = false;
 
-            if(anti) {
-                // Antiresonator is implemented as an inverted resonator transfer.
-                // Avoid division by ~0 for extreme parameter values.
-                if (!std::isfinite(a) || fabs(a) < 1e-12) {
-                    a = 1.0;
-                    b = 0.0;
-                    c = 0.0;
+            if (anti) {
+                // FIR anti-resonator: places zeros at z = r * e^(+/-j*theta)
+                // where r = exp(-pi*bw/sr), theta = 2*pi*f/sr.
+                // Transfer function: H(z) = (1/a)(1 - 2r*cos(theta)*z^-1 + r^2*z^-2)
+                // where a is the DC gain of the corresponding resonator,
+                // giving unity passband gain away from the zero.
+                double r = exp(-M_PI / sampleRate * bandwidth);
+                double cosTheta = cos(2.0 * M_PI * frequency / (double)sampleRate);
+                double resA = 1.0 - 2.0 * r * cosTheta + r * r;
+                // Guard against division by ~0 for extreme params
+                if (!std::isfinite(resA) || fabs(resA) < 1e-12) {
+                    firA = 1.0; firB = 0.0; firC = 0.0;
                 } else {
-                    double invA = 1.0 / a;
-                    a = invA;
-                    b *= -invA;
-                    c *= -invA;
+                    double invA = 1.0 / resA;
+                    firA = invA;
+                    firB = -2.0 * r * cosTheta * invA;
+                    firC = r * r * invA;
                 }
+            } else {
+                // Trapezoidal SVF coefficients
+                // g = tan(pi * f / sr)  -- bilinear-transform frequency warping
+                // k = 1/Q = bw/f        -- damping (reciprocal of quality factor)
+                svfG = tan(M_PI * frequency / (double)sampleRate);
+                svfK = bandwidth / frequency;
+
+                // Nyquist proximity damping: the old biquad naturally lost
+                // resonance as formant frequency approached Nyquist (the pole
+                // radius stayed the same but the angle compressed).  The SVF
+                // doesn't do this -- tan() warping actually preserves Q near
+                // Nyquist, causing swirly artifacts at low sample rates
+                // (especially on fricatives in the parallel path).
+                // Fix: progressively widen bandwidth above 0.6*Nyquist.
+                const double nyquist = 0.5 * (double)sampleRate;
+                double nyRatio = frequency / nyquist;
+                if (nyRatio > 0.6) {
+                    double t = (nyRatio - 0.6) / 0.4;  // 0..1 over 0.6..1.0
+                    svfK += 3.0 * t * t;                // quadratic extra damping
+                }
+
+                svfA1 = 1.0 / (1.0 + svfG * (svfG + svfK));
+                svfA2 = svfG * svfA1;
+                svfA3 = svfG * svfA2;
             }
         }
         this->setOnce=true;
     }
 
     double resonate(double in, double frequency, double bandwidth, bool allowUpdate=true) {
-        if(allowUpdate) setParams(frequency,bandwidth);
-        double out=a*in+b*p1+c*p2;
-        p2=p1;
-        p1=anti?in:out;
-        return out;
+        if(allowUpdate) setParams(frequency, bandwidth);
+
+        if (disabled) return in;
+
+        if (anti) {
+            // FIR anti-resonator: all-zero filter
+            // out = firA*in + firB*z1 + firC*z2
+            // Delay line stores past INPUTS (not outputs) -- this is FIR.
+            double out = firA * in + firB * z1 + firC * z2;
+            z2 = z1;
+            z1 = in;
+            return out;
+        } else {
+            // SVF tick -- one sample, trapezoidal integration
+            double v3 = in - ic2eq;
+            double v1 = svfA1 * ic1eq + svfA2 * v3;       // bandpass
+            double v2 = ic2eq + svfA2 * ic1eq + svfA3 * v3; // lowpass
+            ic1eq = 2.0 * v1 - ic1eq;
+            ic2eq = 2.0 * v2 - ic2eq;
+
+            // Resonator: lowpass output
+            // Unity gain at DC, resonant peak of ~Q at center frequency,
+            // -12 dB/oct rolloff above -- matches Klatt cascade topology.
+            return v2;
+        }
     }
 
     void reset() {
-        p1=0;
-        p2=0;
+        ic1eq=0.0;
+        ic2eq=0.0;
+        z1=0.0;
+        z2=0.0;
         setOnce=false;
     }
 };
 
-// Pitch-synchronous F1 resonator
-// Based on Qlatt pitch-sync-mod crate and Klatt 1980
-// This models the acoustic coupling between glottal source and vocal tract
-// that occurs during the open phase of voicing.
-// 
-// NOTE: We intentionally do NOT use Fujisaki state scaling here.
-// While Qlatt does this, it requires very precise pitch-synchronous timing
-// that we don't have. Doing it naively causes clicks.
+// Pitch-synchronous F1 resonator (SVF implementation)
+// Models the acoustic coupling between glottal source and vocal tract
+// during the open phase of voicing.  F1 and B1 are modulated by deltas
+// when the glottis is open, with smoothing to prevent clicks at the
+// glottal boundary transitions.
 class PitchSyncResonator {
 private:
     int sampleRate;
-    double a, b, c;
-    double p1, p2;
+
+    // SVF integrator state
+    double ic1eq, ic2eq;
+
+    // SVF coefficients
+    double svfG, svfK;
+    double svfA1, svfA2, svfA3;
+    bool disabled;
+
     double frequency, bandwidth;
     bool setOnce;
-    
-    // Pitch-sync state
-    double deltaFreq, deltaBw;    // Deltas to apply during open phase
+
+    // Pitch-sync modulation state
+    double deltaFreq, deltaBw;
     double lastTargetFreq, lastTargetBw;
-    
-    // Smoothing to prevent clicks at glottal boundaries
+
+    // Smoothing to prevent clicks at glottal open/close boundaries
     double smoothFreq, smoothBw;
     double smoothAlpha;
 
@@ -1372,18 +1465,32 @@ private:
         const double nyquist = 0.5 * (double)sampleRate;
         if (!std::isfinite(freq) || !std::isfinite(bw) ||
             freq <= 0.0 || bw <= 0.0 || freq >= nyquist) {
-            a = 1.0; b = 0.0; c = 0.0;
+            disabled = true;
+            svfG = 0.0; svfK = 0.0;
+            svfA1 = 0.0; svfA2 = 0.0; svfA3 = 0.0;
             return;
         }
-        double r = exp(-M_PI / sampleRate * bw);
-        c = -(r * r);
-        b = r * cos(PITWO * freq / (double)sampleRate) * 2.0;
-        a = 1.0 - b - c;
+        disabled = false;
+        svfG = tan(M_PI * freq / (double)sampleRate);
+        svfK = bw / freq;
+
+        // Nyquist proximity damping (see Resonator::setParams for rationale)
+        double nyRatio = freq / nyquist;
+        if (nyRatio > 0.6) {
+            double t = (nyRatio - 0.6) / 0.4;
+            svfK += 3.0 * t * t;
+        }
+
+        svfA1 = 1.0 / (1.0 + svfG * (svfG + svfK));
+        svfA2 = svfG * svfA1;
+        svfA3 = svfG * svfA2;
     }
 
 public:
-    PitchSyncResonator(int sr) : sampleRate(sr), a(1.0), b(0.0), c(0.0),
-        p1(0.0), p2(0.0), frequency(0.0), bandwidth(0.0), setOnce(false),
+    PitchSyncResonator(int sr) : sampleRate(sr),
+        ic1eq(0.0), ic2eq(0.0),
+        svfG(0.0), svfK(0.0), svfA1(0.0), svfA2(0.0), svfA3(0.0),
+        disabled(true), frequency(0.0), bandwidth(0.0), setOnce(false),
         deltaFreq(0.0), deltaBw(0.0), lastTargetFreq(0.0), lastTargetBw(0.0),
         smoothFreq(0.0), smoothBw(0.0), smoothAlpha(0.0) {
         // Smooth over ~2ms to prevent clicks at glottal transitions
@@ -1392,8 +1499,8 @@ public:
     }
 
     void reset() {
-        p1 = 0.0;
-        p2 = 0.0;
+        ic1eq = 0.0;
+        ic2eq = 0.0;
         setOnce = false;
         smoothFreq = 0.0;
         smoothBw = 0.0;
@@ -1410,44 +1517,46 @@ public:
         if (deltaFreq != 0.0 || deltaBw != 0.0) {
             // Pitch-sync modulation enabled
             if (glottisOpen) {
-                // Open phase: apply deltas (raises F1, widens B1)
                 targetFreq = freq + deltaFreq;
                 targetBw = bw + deltaBw;
             } else {
-                // Closed phase: use base values
                 targetFreq = freq;
                 targetBw = bw;
             }
-            
+
             // Smooth the transitions to prevent clicks
             if (smoothFreq == 0.0) smoothFreq = targetFreq;
             if (smoothBw == 0.0) smoothBw = targetBw;
             smoothFreq += (targetFreq - smoothFreq) * smoothAlpha;
             smoothBw += (targetBw - smoothBw) * smoothAlpha;
-            
+
             targetFreq = smoothFreq;
             targetBw = smoothBw;
         } else {
-            // No pitch-sync modulation - use params directly
             targetFreq = freq;
             targetBw = bw;
         }
-        
-        // Only update coefficients if params changed
+
+        // Only recompute SVF coefficients when params actually change
         if (!setOnce || targetFreq != lastTargetFreq || targetBw != lastTargetBw) {
             lastTargetFreq = targetFreq;
             lastTargetBw = targetBw;
             computeCoeffs(targetFreq, targetBw);
             setOnce = true;
         }
-        
-        // Standard resonator difference equation
-        double out = a * in + b * p1 + c * p2;
-        p2 = p1;
-        p1 = out;
-        return out;
+
+        if (disabled) return in;
+
+        // SVF tick -- lowpass output for cascade resonance
+        double v3 = in - ic2eq;
+        double v1 = svfA1 * ic1eq + svfA2 * v3;
+        double v2 = ic2eq + svfA2 * ic1eq + svfA3 * v3;
+        ic1eq = 2.0 * v1 - ic1eq;
+        ic2eq = 2.0 * v2 - ic2eq;
+        return v2;
     }
 };
+
 
 class CascadeFormantGenerator { 
 private:

@@ -20,6 +20,25 @@ http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
 using namespace std;
 
+// Identifies which speechPlayer_frame_t parameter indices represent Hz frequencies.
+// These get log-domain interpolation; everything else gets linear.
+// Uses offsetof so it stays correct if the struct layout ever changes.
+static inline bool isFrequencyParam(int idx) {
+	const int szP = sizeof(speechPlayer_frameParam_t);
+	// voicePitch and endVoicePitch
+	if(idx == (int)(offsetof(speechPlayer_frame_t, voicePitch) / szP)) return true;
+	if(idx == (int)(offsetof(speechPlayer_frame_t, endVoicePitch) / szP)) return true;
+	// Cascade formant frequencies: cf1 through cfNP
+	int cfFirst = (int)(offsetof(speechPlayer_frame_t, cf1) / szP);
+	int cfLast  = (int)(offsetof(speechPlayer_frame_t, cfNP) / szP);
+	if(idx >= cfFirst && idx <= cfLast) return true;
+	// Parallel formant frequencies: pf1 through pf6
+	int pfFirst = (int)(offsetof(speechPlayer_frame_t, pf1) / szP);
+	int pfLast  = (int)(offsetof(speechPlayer_frame_t, pf6) / szP);
+	if(idx >= pfFirst && idx <= pfLast) return true;
+	return false;
+}
+
 struct frameRequest_t {
 	unsigned int minNumSamples;
 	unsigned int numFadeSamples;
@@ -68,8 +87,18 @@ class FrameManagerImpl: public FrameManager {
 				curHasFrameEx = oldFrameRequest->hasFrameEx;
 			} else {
 				double curFadeRatio=(double)sampleCounter/(newFrameRequest->numFadeSamples);
+				// Cosine ease-in/ease-out: eliminates the abrupt start/stop of
+				// linear crossfades.  Articulators accelerate and decelerate
+				// rather than snapping to constant velocity.
+				curFadeRatio = cosineSmooth(curFadeRatio);
 				for(int i=0;i<speechPlayer_frame_numParams;++i) {
-					((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[i],((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[i],curFadeRatio);
+					double oldVal = ((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[i];
+					double newVal = ((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[i];
+					if(isFrequencyParam(i)) {
+						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateFreqAtFadePosition(oldVal, newVal, curFadeRatio);
+					} else {
+						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, curFadeRatio);
+					}
 				}
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
 					curHasFrameEx = true;
