@@ -1,4 +1,4 @@
-"""NVDA Settings panel for editing NV Speech Player language-pack YAML settings.
+"""NVDA Settings panel for editing TGSpeechBox language-pack YAML settings.
 
 This provides the UX described in readme.md:
   - Choose a language tag
@@ -54,15 +54,15 @@ _ = _lazyInitTranslation()
 
 
 def _getPacksDir() -> str:
-    # This module lives next to synthDrivers/nvSpeechPlayer/__init__.py
+    # This module lives next to synthDrivers/tgSpeechBox/__init__.py
     return os.path.join(os.path.dirname(__file__), "packs")
 
 
 from . import langPackYaml
 
-GitHub_URL = "https://github.com/tgeczy/NVSpeechPlayer"
-ADDON_UPDATE_URL = "https://eurpod.com/synths/nvSpeechPlayer-2026.nvda-addon"
-ADDON_VERSION_URL = "https://eurpod.com/nvSpeechPlayer-version.txt"
+GitHub_URL = "https://github.com/tgeczy/TGSpeechBox"
+ADDON_UPDATE_URL = "https://eurpod.com/synths/TGSpeechBox-2026.nvda-addon"
+ADDON_VERSION_URL = "https://eurpod.com/TGSpeechBox-version.txt"
 
 
 def _getInstalledAddonVersion() -> str:
@@ -71,7 +71,7 @@ def _getInstalledAddonVersion() -> str:
     Returns the version string (e.g., "170") or empty string if not found.
     """
     try:
-        # manifest.ini is in the addon root, which is parent of synthDrivers/nvSpeechPlayer
+        # manifest.ini is in the addon root, which is parent of synthDrivers/tgSpeechBox
         addonDir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         manifestPath = os.path.join(addonDir, "manifest.ini")
         
@@ -146,8 +146,8 @@ def _getPanelClass():
             # GUI not ready yet.
             return None
 
-    class NVSpeechPlayerLanguagePacksPanel(SettingsPanelBase):
-        title = _("NV Speech Player language packs")
+    class TGSpeechBoxLanguagePacksPanel(SettingsPanelBase):
+        title = _("TGSpeechBox language packs")
 
         def __init__(self, *args, **kwargs):
             # NOTE:
@@ -841,7 +841,7 @@ def _getPanelClass():
             self.sourceLabel = sHelper.addItem(wx.StaticText(self, label=""))
 
             # GitHub link
-            self.gitHubButton = sHelper.addItem(wx.Button(self, label=_("Open NV Speech Player on GitHub")))
+            self.gitHubButton = sHelper.addItem(wx.Button(self, label=_("Open TGSpeechBox on GitHub")))
             self.gitHubButton.Bind(wx.EVT_BUTTON, self._onGitHubClick)
 
             # Check for updates button
@@ -865,12 +865,12 @@ def _getPanelClass():
                         continue
                     langPackYaml.upsertSetting(self._packsDir, langTag, key, val)
 
-            # Best-effort live reload if NV Speech Player is the active synth.
+            # Best-effort live reload if TGSpeechBox is the active synth.
             try:
                 import synthDriverHandler
 
                 synth = synthDriverHandler.getSynth()
-                if synth and synth.__class__.__module__.endswith("nvSpeechPlayer"):
+                if synth and synth.__class__.__module__.endswith("tgSpeechBox"):
                     if hasattr(synth, "reloadLanguagePack"):
                         synth.reloadLanguagePack()
             except Exception:
@@ -917,7 +917,7 @@ def _getPanelClass():
             try:
                 req = urllib.request.Request(
                     ADDON_VERSION_URL,
-                    headers={"User-Agent": "NVDA-NVSpeechPlayer-Updater/1.0"},
+                    headers={"User-Agent": "NVDA-TGSpeechBox-Updater/1.0"},
                 )
                 with urllib.request.urlopen(req, timeout=15) as response:
                     remoteVersion = response.read().decode("utf-8").strip()
@@ -1002,7 +1002,7 @@ def _getPanelClass():
                 # Extract filename from URL
                 addonFilename = ADDON_UPDATE_URL.rsplit("/", 1)[-1]
                 if not addonFilename.endswith(".nvda-addon"):
-                    addonFilename = "nvSpeechPlayer-update.nvda-addon"
+                    addonFilename = "TGSpeechBox-update.nvda-addon"
                 downloadPath = os.path.join(tempDir, addonFilename)
 
                 # Clean up any old downloaded addon file from previous attempts
@@ -1015,7 +1015,7 @@ def _getPanelClass():
                 # Download the file
                 req = urllib.request.Request(
                     ADDON_UPDATE_URL,
-                    headers={"User-Agent": "NVDA-NVSpeechPlayer-Updater/1.0"},
+                    headers={"User-Agent": "NVDA-TGSpeechBox-Updater/1.0"},
                 )
                 with urllib.request.urlopen(req, timeout=60) as response:
                     data = response.read()
@@ -1254,12 +1254,12 @@ def _getPanelClass():
             # Refresh all displays to show the reset values
             self._refreshAllDisplays()
 
-            # Trigger live reload if NV Speech Player is active
+            # Trigger live reload if TGSpeechBox is active
             try:
                 import synthDriverHandler
 
                 synth = synthDriverHandler.getSynth()
-                if synth and synth.__class__.__module__.endswith("nvSpeechPlayer"):
+                if synth and synth.__class__.__module__.endswith("tgSpeechBox"):
                     if hasattr(synth, "reloadLanguagePack"):
                         synth.reloadLanguagePack()
             except Exception:
@@ -1279,9 +1279,9 @@ def _getPanelClass():
             try:
                 import synthDriverHandler
                 synth = synthDriverHandler.getSynth()
-                if not synth or not synth.__class__.__module__.endswith("nvSpeechPlayer"):
+                if not synth or not synth.__class__.__module__.endswith("tgSpeechBox"):
                     wx.MessageBox(
-                        _("NV Speech Player must be the active synthesizer to save voice profile settings."),
+                        _("TGSpeechBox must be the active synthesizer to save voice profile settings."),
                         _("Cannot Save"),
                         wx.OK | wx.ICON_WARNING,
                         self,
@@ -1590,7 +1590,7 @@ def _getPanelClass():
             finally:
                 self._isPopulating = False
 
-    _PANEL_CLS = NVSpeechPlayerLanguagePacksPanel
+    _PANEL_CLS = TGSpeechBoxLanguagePacksPanel
     return _PANEL_CLS
 
 

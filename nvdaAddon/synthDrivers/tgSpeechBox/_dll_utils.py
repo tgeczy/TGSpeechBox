@@ -40,7 +40,7 @@ def _readPeMachine(path: str) -> Optional[int]:
     except (OSError, ValueError, struct.error):
         # This can happen when files are missing/corrupt. It is not fatal here;
         # the caller will try other candidates.
-        log.debug("nvSpeechPlayer: could not read PE machine for %r", path, exc_info=True)
+        log.debug("TGSpeechBox: could not read PE machine for %r", path, exc_info=True)
         return None
 
 
@@ -89,11 +89,11 @@ def findDllDir(baseDir: str) -> Optional[str]:
             return d
         except OSError:
             # Non-fatal: try next candidate.
-            log.debug("nvSpeechPlayer: error while probing DLL directory %r", d, exc_info=True)
+            log.debug("TGSpeechBox: error while probing DLL directory %r", d, exc_info=True)
             continue
         except Exception:
             # Keep this very defensive: we don't want DLL probing to crash NVDA.
-            log.debug("nvSpeechPlayer: unexpected error while probing DLL directory %r", d, exc_info=True)
+            log.debug("TGSpeechBox: unexpected error while probing DLL directory %r", d, exc_info=True)
             continue
 
     return None
@@ -120,5 +120,5 @@ def freeDll(dll) -> bool:
         result = kernel32.FreeLibrary(handle)
         return bool(result)
     except Exception:
-        log.debug("nvSpeechPlayer: freeDll failed", exc_info=True)
+        log.debug("TGSpeechBox: freeDll failed", exc_info=True)
         return False

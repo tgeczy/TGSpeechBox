@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""NV Speech Player - NVDA synth driver (modernized)
+"""TGSpeechBox - NVDA synth driver (modernized)
 
 Pipeline:
 - eSpeak (NVDA built-in) for text -> IPA/phonemes
@@ -61,6 +61,7 @@ from .profile_utils import (
     discoverVoiceProfiles, buildVoiceOps, applyVoiceToFrame
 )
 from .audio import BgThread, AudioThread
+from .migrate_config import run as _migrate_config
 
 # Pre-calculate per-voice operations for fast application
 _frameFieldNames = {x[0] for x in speechPlayer.Frame._fields_}
@@ -73,8 +74,8 @@ def _applyVoiceToFrame(frame: speechPlayer.Frame, voiceName: str) -> None:
 
 
 class SynthDriver(SynthDriver):
-    name = "nvSpeechPlayer"
-    description = "NV Speech Player"
+    name = "tgSpeechBox"
+    description = "TGSpeechBox"
 
     _supportedSettings = [
         SynthDriver.VoiceSetting(),
@@ -86,7 +87,7 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("noiseGlottalMod", "Noise glottal modulation", defaultVal=0),
         NumericDriverSetting("pitchSyncF1", "Pitch-sync F1 delta", defaultVal=50),
         NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
-        NumericDriverSetting("speedQuotient", "Speed quotient (voice tention)", defaultVal=50),
+        NumericDriverSetting("speedQuotient", "Speed quotient (voice tension)", defaultVal=50),
         NumericDriverSetting("aspirationTilt", "Aspiration tilt (breath color)", defaultVal=50),
         NumericDriverSetting("cascadeBwScale", "Formant sharpness (cascade bandwidth)", defaultVal=50),
         NumericDriverSetting("voiceTremor", "Voice tremor (shakiness)", defaultVal=0),
@@ -118,6 +119,9 @@ class SynthDriver(SynthDriver):
     _ESPEAK_PHONEME_MODE = 0x36100 + 0x82
 
     def __init__(self):
+        # Step 0: One-time config migration (nvSpeechPlayer -> tgSpeechBox)
+        _migrate_config()
+
         # =======================================================================
         # CRITICAL: Initialize ALL internal state BEFORE calling super().__init__()
         # because super().__init__() triggers NVDA to restore saved settings,
@@ -173,7 +177,7 @@ class SynthDriver(SynthDriver):
 
         # 2. Check architecture compatibility
         if ctypes.sizeof(ctypes.c_void_p) not in (4, 8):
-            raise RuntimeError('nvSpeechPlayer: unsupported Python architecture')
+            raise RuntimeError('TGSpeechBox: unsupported Python architecture')
 
         # 3. Handle extra params if enabled
         if self.exposeExtraParams:
@@ -194,7 +198,7 @@ class SynthDriver(SynthDriver):
         self._packsDir = packsDir
 
         if not os.path.isdir(packsDir):
-            raise RuntimeError(f"nvSpeechPlayer: missing packs directory at {packsDir}")
+            raise RuntimeError(f"TGSpeechBox: missing packs directory at {packsDir}")
 
         # Validate required pack files
         requiredRel = [
@@ -207,7 +211,7 @@ class SynthDriver(SynthDriver):
                 missingRel.append(rel)
 
         if missingRel:
-            raise RuntimeError(f"nvSpeechPlayer: missing required packs: {', '.join(missingRel)}")
+            raise RuntimeError(f"TGSpeechBox: missing required packs: {', '.join(missingRel)}")
 
         # 5. Initialize core components (Player and Frontend)
         #    These MUST be ready before super().__init__() calls our setters
@@ -215,13 +219,13 @@ class SynthDriver(SynthDriver):
 
         dllDir = findDllDir(here)
         if not dllDir:
-            raise RuntimeError('nvSpeechPlayer: could not find DLLs for this architecture')
+            raise RuntimeError('TGSpeechBox: could not find DLLs for this architecture')
         
         feDllPath = os.path.join(dllDir, 'nvspFrontend.dll')
         self._frontend = NvspFrontend(feDllPath, packsDir)
 
         if not self._frontend.setLanguage("default"):
-            log.warning(f"nvSpeechPlayer: failed to load default pack: {self._frontend.getLastError()}")
+            log.warning(f"TGSpeechBox: failed to load default pack: {self._frontend.getLastError()}")
 
         # Push initial FrameEx defaults to frontend (ABI v2+)
         self._pushFrameExDefaultsToFrontend()
@@ -236,16 +240,16 @@ class SynthDriver(SynthDriver):
                 # Fall back to Python parsing
                 self._voiceProfiles = discoverVoiceProfiles(packsDir) or []
             if self._voiceProfiles:
-                log.info(f"nvSpeechPlayer: discovered voice profiles: {self._voiceProfiles}")
+                log.info(f"TGSpeechBox: discovered voice profiles: {self._voiceProfiles}")
         except Exception as e:
-            log.error(f"nvSpeechPlayer: error discovering voice profiles: {e}")
+            log.error(f"TGSpeechBox: error discovering voice profiles: {e}")
             self._voiceProfiles = []
 
         # Check for pack warnings
         if self._frontend.hasVoiceProfileSupport():
             warnings = self._frontend.getPackWarnings()
             if warnings:
-                log.warning(f"nvSpeechPlayer: pack warnings: {warnings}")
+                log.warning(f"TGSpeechBox: pack warnings: {warnings}")
 
         # 7. Initialize audio system
         self._audio = AudioThread(self, self._player, self._sampleRate)
@@ -278,7 +282,7 @@ class SynthDriver(SynthDriver):
                 try:
                     _espeak.setVoiceByLanguage("en")
                 except Exception:
-                    log.debug("nvSpeechPlayer: failed to set default espeak voice", exc_info=True)
+                    log.debug("TGSpeechBox: failed to set default espeak voice", exc_info=True)
             
             # Verify espeak is actually usable by checking if the DLL and function exist
             espeakDLL = getattr(_espeak, "espeakDLL", None)
@@ -288,11 +292,11 @@ class SynthDriver(SynthDriver):
                 _ttp.argtypes = (ctypes.POINTER(ctypes.c_void_p), ctypes.c_int, ctypes.c_int)
                 _ttp.restype = ctypes.c_void_p
                 self._espeakReady = True
-                log.debug("nvSpeechPlayer: espeak initialized successfully")
+                log.debug("TGSpeechBox: espeak initialized successfully")
             else:
-                log.warning("nvSpeechPlayer: espeak DLL or espeak_TextToPhonemes not available")
+                log.warning("TGSpeechBox: espeak DLL or espeak_TextToPhonemes not available")
         except Exception:
-            log.warning("nvSpeechPlayer: failed to initialize espeak", exc_info=True)
+            log.warning("TGSpeechBox: failed to initialize espeak", exc_info=True)
 
         # =======================================================================
         # 9. NOW call super().__init__()
@@ -413,14 +417,14 @@ class SynthDriver(SynthDriver):
             if hasattr(self, "_audio") and self._audio:
                 self._reinitializeAudio()
         except Exception:
-            log.debug("nvSpeechPlayer: _set_sampleRate failed", exc_info=True)
+            log.debug("TGSpeechBox: _set_sampleRate failed", exc_info=True)
 
     def _reinitializeAudio(self):
         """Reinitialize audio subsystem after sample rate change."""
         try:
             self.cancel()
         except Exception:
-            log.debug("nvSpeechPlayer: cancel failed during audio reinit", exc_info=True)
+            log.debug("TGSpeechBox: cancel failed during audio reinit", exc_info=True)
         
         try:
             # Terminate old audio thread
@@ -448,7 +452,7 @@ class SynthDriver(SynthDriver):
             self._applyVoicingTone(profileName)
             
         except Exception:
-            log.error("nvSpeechPlayer: failed to reinitialize audio", exc_info=True)
+            log.error("TGSpeechBox: failed to reinitialize audio", exc_info=True)
 
     def _get_language(self):
         return getattr(self, "_language", "en-us")
@@ -468,7 +472,7 @@ class SynthDriver(SynthDriver):
         try:
             self.cancel()
         except Exception:
-            log.debug("nvSpeechPlayer: cancel failed while changing language", exc_info=True)
+            log.debug("TGSpeechBox: cancel failed while changing language", exc_info=True)
 
         # Configure eSpeak for text->phonemes. This can fall back to a base language.
         espeakApplied = None
@@ -508,7 +512,7 @@ class SynthDriver(SynthDriver):
 
         if espeakApplied is None:
             log.error(
-                "nvSpeechPlayer: could not set eSpeak language for %r (tried %s)",
+                "TGSpeechBox: could not set eSpeak language for %r (tried %s)",
                 requested,
                 candidates,
                 exc_info=True,
@@ -519,14 +523,14 @@ class SynthDriver(SynthDriver):
             if getattr(self, "_frontend", None):
                 self._applyFrontendLangTag(requested)
         except Exception:
-            log.error("nvSpeechPlayer: error setting frontend language", exc_info=True)
+            log.error("TGSpeechBox: error setting frontend language", exc_info=True)
 
-        log.debug("nvSpeechPlayer: language requested=%r; eSpeak=%r; packs=%r", requested, self._espeakLang or None, getattr(self, "_frontendLangTag", None))
+        log.debug("TGSpeechBox: language requested=%r; eSpeak=%r; packs=%r", requested, self._espeakLang or None, getattr(self, "_frontendLangTag", None))
         # Refresh cached language-pack settings for the (possibly) new language.
         try:
             self._refreshLangPackSettingsCache()
         except Exception:
-            log.debug("nvSpeechPlayer: could not refresh language-pack cache", exc_info=True)
+            log.debug("TGSpeechBox: could not refresh language-pack cache", exc_info=True)
 
         # Trigger a GUI refresh so checkboxes update to reflect the new language pack.
         self._scheduleSettingsPanelRefresh()
@@ -593,14 +597,14 @@ class SynthDriver(SynthDriver):
                             panel.updateDriverSettings(changedSetting="language")
                         except Exception:
                             log.debug(
-                                "nvSpeechPlayer: updateDriverSettings failed",
+                                "TGSpeechBox: updateDriverSettings failed",
                                 exc_info=True,
                             )
                         break
                 break
         except Exception:
             # GUI may not be available (e.g., running in secure mode or during shutdown).
-            log.debug("nvSpeechPlayer: could not refresh settings panel", exc_info=True)
+            log.debug("TGSpeechBox: could not refresh settings panel", exc_info=True)
 
     # ---- Startup guard for YAML writes (see __init__) ----
 
@@ -655,15 +659,15 @@ class SynthDriver(SynthDriver):
                     self._frontendLangTag = cand
                     return True
             except Exception:
-                log.debug("nvSpeechPlayer: frontend.setLanguage failed for %r", cand, exc_info=True)
+                log.debug("TGSpeechBox: frontend.setLanguage failed for %r", cand, exc_info=True)
                 continue
 
         try:
             lastErr = self._frontend.getLastError()
         except Exception:
-            log.debug("nvSpeechPlayer: frontend.getLastError failed", exc_info=True)
+            log.debug("TGSpeechBox: frontend.getLastError failed", exc_info=True)
             lastErr = None
-        log.error("nvSpeechPlayer: frontend could not load pack for %r (tried %s). %s", tag, candidates, lastErr)
+        log.error("TGSpeechBox: frontend could not load pack for %r (tried %s). %s", tag, candidates, lastErr)
         return False
 
     def reloadLanguagePack(self, tag: str | None = None) -> bool:
@@ -676,7 +680,7 @@ class SynthDriver(SynthDriver):
             try:
                 self._refreshLangPackSettingsCache()
             except Exception:
-                log.debug("nvSpeechPlayer: could not refresh language-pack cache after reload", exc_info=True)
+                log.debug("TGSpeechBox: could not refresh language-pack cache after reload", exc_info=True)
         return ok
 
     def _refreshLangPackSettingsCache(self) -> None:
@@ -705,7 +709,7 @@ class SynthDriver(SynthDriver):
                 tag = None
             errKey = (tag, type(e).__name__, str(e))
             if getattr(self, "_lastLangPackCacheErrorKey", None) != errKey:
-                log.error("nvSpeechPlayer: failed to read language-pack settings for %r", tag, exc_info=True)
+                log.error("TGSpeechBox: failed to read language-pack settings for %r", tag, exc_info=True)
                 self._lastLangPackCacheErrorKey = errKey
             self._langPackSettingsCache = {}
 
@@ -765,7 +769,7 @@ class SynthDriver(SynthDriver):
                         return
             except Exception:
                 log.debug(
-                    "nvSpeechPlayer: error comparing language-pack setting %s", key, exc_info=True
+                    "TGSpeechBox: error comparing language-pack setting %s", key, exc_info=True
                 )
 
             langPackYaml.upsertSetting(
@@ -777,7 +781,7 @@ class SynthDriver(SynthDriver):
             # Reload so the frontend re-reads updated YAML.
             self.reloadLanguagePack(langTag)
         except Exception:
-            log.error("nvSpeechPlayer: failed to update language-pack setting %s", key, exc_info=True)
+            log.error("TGSpeechBox: failed to update language-pack setting %s", key, exc_info=True)
 
     def _choiceToIdStr(self, value: object) -> str:
         """Return the underlying id string for a combo-box choice.
@@ -1006,7 +1010,7 @@ class SynthDriver(SynthDriver):
         
         # Safety check: ensure espeak is initialized and available
         if not getattr(self, "_espeakReady", False):
-            log.debug("nvSpeechPlayer: espeak not ready, skipping IPA conversion")
+            log.debug("TGSpeechBox: espeak not ready, skipping IPA conversion")
             return ""
         
         espeakDLL = getattr(_espeak, "espeakDLL", None)
@@ -1033,7 +1037,7 @@ class SynthDriver(SynthDriver):
                 )
             except OSError as e:
                 # Access violation or other OS error - espeak might not be ready
-                log.error(f"nvSpeechPlayer: espeak_TextToPhonemes failed: {e}")
+                log.error(f"TGSpeechBox: espeak_TextToPhonemes failed: {e}")
                 self._espeakReady = False  # Disable further attempts
                 return ""
             if phonemeBuf:
@@ -1320,13 +1324,13 @@ class SynthDriver(SynthDriver):
                             onFrame=_onFrame,
                         )
                     except Exception:
-                        log.error("nvSpeechPlayer: frontend queueIPA_Ex failed", exc_info=True)
+                        log.error("TGSpeechBox: frontend queueIPA_Ex failed", exc_info=True)
                         ok = False
 
                     if not ok:
                         err = self._frontend.getLastError()
                         if err:
-                            log.error(f"nvSpeechPlayer: frontend error: {err}")
+                            log.error(f"TGSpeechBox: frontend error: {err}")
 
                     # If the frontend fails or outputs nothing, keep going (indexes are still queued).
                     if (not ok) or queuedCount <= 0:
@@ -1342,7 +1346,7 @@ class SynthDriver(SynthDriver):
                             self._player.queueFrame(None, dur, fd)
                             lastStreamWasVoiced = False
                         except Exception:
-                            log.debug("nvSpeechPlayer: failed inserting punctuation pause", exc_info=True)
+                            log.debug("TGSpeechBox: failed inserting punctuation pause", exc_info=True)
 
             # Emit IndexCommands after this block
             if indexesAfter:
@@ -1355,7 +1359,7 @@ class SynthDriver(SynthDriver):
                         else:
                             self._player.queueFrame(None, 0.0, 0.0, userIndex=int(idx))
                     except Exception:
-                        log.debug("nvSpeechPlayer: failed to queue index marker %r", idx, exc_info=True)
+                        log.debug("TGSpeechBox: failed to queue index marker %r", idx, exc_info=True)
 
         if endPause and endPause > 0:
             self._player.queueFrame(None, float(endPause), min(float(endPause), 5.0))
@@ -1383,14 +1387,14 @@ class SynthDriver(SynthDriver):
                 self._audio._wavePlayer.stop()
             self._audio._applyFadeIn = True
         except Exception:
-            log.debug("nvSpeechPlayer: cancel failed", exc_info=True)
+            log.debug("TGSpeechBox: cancel failed", exc_info=True)
 
     def pause(self, switch):
         try:
             if self._audio and self._audio._wavePlayer:
                 self._audio._wavePlayer.pause(switch)
         except Exception:
-            log.debug("nvSpeechPlayer: pause failed", exc_info=True)
+            log.debug("TGSpeechBox: pause failed", exc_info=True)
 
     def terminate(self):
         try:
@@ -1417,7 +1421,7 @@ class SynthDriver(SynthDriver):
                 try:
                     self._audio.terminate()
                 except Exception:
-                    log.debug("nvSpeechPlayer: audio terminate failed", exc_info=True)
+                    log.debug("TGSpeechBox: audio terminate failed", exc_info=True)
                 self._audio = None
             
             # Now join the background thread with a SHORT timeout
@@ -1429,7 +1433,7 @@ class SynthDriver(SynthDriver):
                     # Very old Python without timeout parameter
                     pass
                 except Exception:
-                    log.debug("nvSpeechPlayer: bgThread join failed", exc_info=True)
+                    log.debug("TGSpeechBox: bgThread join failed", exc_info=True)
                 self._bgThread = None
             
             # Terminate frontend (unloads nvspFrontend.dll)
@@ -1438,7 +1442,7 @@ class SynthDriver(SynthDriver):
                 try:
                     self._frontend.terminate()
                 except Exception:
-                    log.debug("nvSpeechPlayer: frontend terminate failed", exc_info=True)
+                    log.debug("TGSpeechBox: frontend terminate failed", exc_info=True)
                 self._frontend = None
             
             # Terminate player last (unloads speechPlayer.dll)
@@ -1446,16 +1450,16 @@ class SynthDriver(SynthDriver):
                 try:
                     self._player.terminate()
                 except Exception:
-                    log.debug("nvSpeechPlayer: player terminate failed", exc_info=True)
+                    log.debug("TGSpeechBox: player terminate failed", exc_info=True)
                 self._player = None
             
             # Finally terminate espeak
             try:
                 _espeak.terminate()
             except Exception:
-                log.debug("nvSpeechPlayer: espeak terminate failed", exc_info=True)
+                log.debug("TGSpeechBox: espeak terminate failed", exc_info=True)
         except Exception:
-            log.debug("nvSpeechPlayer: terminate failed", exc_info=True)
+            log.debug("TGSpeechBox: terminate failed", exc_info=True)
 
     def loadSettings(self, onlyChanged=False):
         """Override loadSettings to ensure frontend profile is always properly restored.
@@ -1477,7 +1481,7 @@ class SynthDriver(SynthDriver):
             # Call parent implementation
             super().loadSettings(onlyChanged)
         except Exception:
-            log.debug("nvSpeechPlayer: parent loadSettings failed", exc_info=True)
+            log.debug("TGSpeechBox: parent loadSettings failed", exc_info=True)
             # Don't re-raise - we'll try to recover below
         
         # CRITICAL: Always re-sync frontend profile after loadSettings completes.
@@ -1491,20 +1495,17 @@ class SynthDriver(SynthDriver):
                 # Check if the "new" voice is just a fallback to Adam
                 # when we actually had a valid profile before
                 if voiceBeforeLoad.startswith(VOICE_PROFILE_PREFIX) and curVoice == "Adam":
-                    log.debug(f"nvSpeechPlayer: loadSettings corrupted voice from {voiceBeforeLoad} to {curVoice}, restoring")
+                    log.debug(f"TGSpeechBox: loadSettings corrupted voice from {voiceBeforeLoad} to {curVoice}, restoring")
                     self._curVoice = voiceBeforeLoad
                     curVoice = voiceBeforeLoad
             
             # Re-apply frontend profile to ensure phonetic transformations are active
             if curVoice and curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
-                if hasattr(self, "_frontend") and self._frontend:
-                    self._frontend.setVoiceProfile(profileName)
-                    self._usingVoiceProfile = True
-                    self._activeProfileName = profileName
-                    # Re-apply voicing tone as well
-                    self._applyVoicingTone(profileName)
-                    log.debug(f"nvSpeechPlayer: loadSettings re-synced frontend profile '{profileName}'")
+                self._activeProfileName = profileName
+                # Re-apply voicing tone as well
+                self._applyVoicingTone(profileName)
+                log.debug(f"TGSpeechBox: loadSettings re-synced frontend profile '{profileName}'")
             else:
                 # Python preset or no voice - ensure frontend profile is cleared
                 if hasattr(self, "_frontend") and self._frontend:
@@ -1513,7 +1514,7 @@ class SynthDriver(SynthDriver):
                     self._activeProfileName = ""
                     self._applyVoicingTone("")
         except Exception:
-            log.debug("nvSpeechPlayer: loadSettings frontend re-sync failed", exc_info=True)
+            log.debug("TGSpeechBox: loadSettings frontend re-sync failed", exc_info=True)
 
     def _get_rate(self):
         try:
@@ -1803,7 +1804,7 @@ class SynthDriver(SynthDriver):
                 sharpness=sharpnessMul,
             )
         except Exception:
-            log.debug("nvSpeechPlayer: _pushFrameExDefaultsToFrontend failed", exc_info=True)
+            log.debug("TGSpeechBox: _pushFrameExDefaultsToFrontend failed", exc_info=True)
 
     def _applyVoicingTone(self, profileName: str) -> None:
         """Apply DSP-level voicing tone parameters safely.
@@ -1825,6 +1826,7 @@ class SynthDriver(SynthDriver):
             # ALWAYS ensure the frontend has the correct voice profile set
             if hasattr(self, "_frontend") and self._frontend:
                 self._frontend.setVoiceProfile(profileName or "")
+                self._pushFrameExDefaultsToFrontend()
             
             playerHasSupport = getattr(self._player, "hasVoicingToneSupport", lambda: False)()
             if not playerHasSupport:
@@ -1914,7 +1916,7 @@ class SynthDriver(SynthDriver):
             self._lastAppliedVoicingTone = tone
             
         except Exception as e:
-            log.error(f"nvSpeechPlayer: _applyVoicingTone failed: {e}", exc_info=True)
+            log.error(f"TGSpeechBox: _applyVoicingTone failed: {e}", exc_info=True)
 
     def _reapplyVoiceProfile(self):
         """Re-apply the current voice setting to ensure the frontend profile is in sync.
@@ -1932,12 +1934,12 @@ class SynthDriver(SynthDriver):
                     self._activeProfileName = profileName
                     # Also apply voicing tone for this profile
                     self._applyVoicingTone(profileName)
-                    log.debug(f"nvSpeechPlayer: reapplied voice profile '{profileName}'")
+                    log.debug(f"TGSpeechBox: reapplied voice profile '{profileName}'")
             else:
                 # Python preset - ensure voicing tone is at defaults
                 self._applyVoicingTone("")
         except Exception:
-            log.debug("nvSpeechPlayer: _reapplyVoiceProfile failed", exc_info=True)
+            log.debug("TGSpeechBox: _reapplyVoiceProfile failed", exc_info=True)
 
     def _get_voice(self):
         return getattr(self, "_curVoice", "Adam") or "Adam"
@@ -2036,7 +2038,7 @@ class SynthDriver(SynthDriver):
                     setattr(self, f"speechPlayer_{paramName}", 50)
         except Exception:
             # Never crash during settings application
-            log.debug("nvSpeechPlayer: _set_voice failed", exc_info=True)
+            log.debug("TGSpeechBox: _set_voice failed", exc_info=True)
 
     def _getAvailableVoices(self):
         try:

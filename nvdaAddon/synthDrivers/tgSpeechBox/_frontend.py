@@ -114,17 +114,17 @@ class NvspFrontend(object):
             try:
                 self._dllDirCookie = os.add_dll_directory(os.path.dirname(self._dllPath))
             except OSError:
-                log.debug("nvSpeechPlayer: os.add_dll_directory failed for %r", self._dllPath, exc_info=True)
+                log.debug("TGSpeechBox: os.add_dll_directory failed for %r", self._dllPath, exc_info=True)
                 self._dllDirCookie = None
             except Exception:
                 # Be defensive: this should never crash the synth driver.
-                log.debug("nvSpeechPlayer: unexpected error in os.add_dll_directory", exc_info=True)
+                log.debug("TGSpeechBox: unexpected error in os.add_dll_directory", exc_info=True)
                 self._dllDirCookie = None
 
         try:
             self._dll = ctypes.cdll.LoadLibrary(self._dllPath)
         except OSError:
-            log.error("nvSpeechPlayer: failed to load nvspFrontend.dll from %r", self._dllPath, exc_info=True)
+            log.error("TGSpeechBox: failed to load nvspFrontend.dll from %r", self._dllPath, exc_info=True)
             raise
 
         self._setupPrototypes()
@@ -133,12 +133,12 @@ class NvspFrontend(object):
         try:
             self._h = self._dll.nvspFrontend_create(packDirUtf8)
         except Exception:
-            log.error("nvSpeechPlayer: nvspFrontend_create raised an exception", exc_info=True)
+            log.error("TGSpeechBox: nvspFrontend_create raised an exception", exc_info=True)
             self._h = None
 
         if not self._h:
             err = self.getLastError() or "unknown error"
-            raise RuntimeError(f"nvSpeechPlayer: nvspFrontend_create failed ({err})")
+            raise RuntimeError(f"TGSpeechBox: nvspFrontend_create failed ({err})")
 
     def _setupPrototypes(self) -> None:
         # nvspFrontend_handle_t nvspFrontend_create(const char* packDirUtf8);
@@ -272,9 +272,9 @@ class NvspFrontend(object):
                 self._dll.nvspFrontend_saveVoiceProfileSliders.restype = ctypes.c_int
 
                 self._hasFrameExApi = True
-                log.debug("nvSpeechPlayer: frontend ABI v%d, FrameEx API available", self._abiVersion)
+                log.debug("TGSpeechBox: frontend ABI v%d, FrameEx API available", self._abiVersion)
         except AttributeError:
-            log.debug("nvSpeechPlayer: frontend FrameEx API not available (older DLL)")
+            log.debug("TGSpeechBox: frontend FrameEx API not available (older DLL)")
 
     def terminate(self) -> None:
         # First destroy the frontend handle
@@ -283,7 +283,7 @@ class NvspFrontend(object):
                 self._dll.nvspFrontend_destroy(self._h)
             except Exception:
                 # Usually non-fatal (shutdown race), but log for diagnosability.
-                log.debug("nvSpeechPlayer: nvspFrontend_destroy failed", exc_info=True)
+                log.debug("TGSpeechBox: nvspFrontend_destroy failed", exc_info=True)
         self._h = None
 
         # Close the DLL directory cookie (Python 3.8+)
@@ -291,7 +291,7 @@ class NvspFrontend(object):
             try:
                 self._dllDirCookie.close()
             except Exception:
-                log.debug("nvSpeechPlayer: failed closing dll directory cookie", exc_info=True)
+                log.debug("TGSpeechBox: failed closing dll directory cookie", exc_info=True)
             self._dllDirCookie = None
 
         # Unload the DLL so the file can be replaced/deleted
@@ -302,7 +302,7 @@ class NvspFrontend(object):
                 freeDll(self._dll)
             except Exception:
                 # Non-fatal - DLL will be unloaded when NVDA exits
-                log.debug("nvSpeechPlayer: freeDll failed for nvspFrontend.dll", exc_info=True)
+                log.debug("TGSpeechBox: freeDll failed for nvspFrontend.dll", exc_info=True)
         self._dll = None
 
     def getLastError(self) -> str:
@@ -314,7 +314,7 @@ class NvspFrontend(object):
                 return ""
             return msg.decode("utf-8", errors="replace")
         except Exception:
-            log.debug("nvSpeechPlayer: getLastError failed", exc_info=True)
+            log.debug("TGSpeechBox: getLastError failed", exc_info=True)
             return ""
 
     def getABIVersion(self) -> int:
@@ -350,7 +350,7 @@ class NvspFrontend(object):
             ok = int(self._dll.nvspFrontend_setVoiceProfile(self._h, name))
             return bool(ok)
         except Exception:
-            log.debug("nvSpeechPlayer: setVoiceProfile failed", exc_info=True)
+            log.debug("TGSpeechBox: setVoiceProfile failed", exc_info=True)
             return False
 
     def getVoiceProfile(self) -> str:
@@ -365,7 +365,7 @@ class NvspFrontend(object):
                 return ""
             return result.decode("utf-8", errors="replace")
         except Exception:
-            log.debug("nvSpeechPlayer: getVoiceProfile failed", exc_info=True)
+            log.debug("TGSpeechBox: getVoiceProfile failed", exc_info=True)
             return ""
 
     def getPackWarnings(self) -> str:
@@ -380,7 +380,7 @@ class NvspFrontend(object):
                 return ""
             return result.decode("utf-8", errors="replace")
         except Exception:
-            log.debug("nvSpeechPlayer: getPackWarnings failed", exc_info=True)
+            log.debug("TGSpeechBox: getPackWarnings failed", exc_info=True)
             return ""
 
     def hasVoiceProfileSupport(self) -> bool:
@@ -425,7 +425,7 @@ class NvspFrontend(object):
             )
             return True
         except Exception:
-            log.debug("nvSpeechPlayer: setFrameExDefaults failed", exc_info=True)
+            log.debug("TGSpeechBox: setFrameExDefaults failed", exc_info=True)
             return False
 
     def getFrameExDefaults(self) -> Optional[FrameEx]:
@@ -445,7 +445,7 @@ class NvspFrontend(object):
                 return defaults
             return None
         except Exception:
-            log.debug("nvSpeechPlayer: getFrameExDefaults failed", exc_info=True)
+            log.debug("TGSpeechBox: getFrameExDefaults failed", exc_info=True)
             return None
 
     def queueIPA(
@@ -608,7 +608,7 @@ class NvspFrontend(object):
             # Caller can check hasExplicitVoicingTone() to know if profile had settings
             return tone
         except Exception:
-            log.debug("nvSpeechPlayer: getVoicingTone failed", exc_info=True)
+            log.debug("TGSpeechBox: getVoicingTone failed", exc_info=True)
             return None
 
     def hasExplicitVoicingTone(self) -> bool:
@@ -627,7 +627,7 @@ class NvspFrontend(object):
             hasExplicit = self._dll.nvspFrontend_getVoicingTone(self._h, ctypes.byref(tone))
             return bool(hasExplicit)
         except Exception:
-            log.debug("nvSpeechPlayer: hasExplicitVoicingTone failed", exc_info=True)
+            log.debug("TGSpeechBox: hasExplicitVoicingTone failed", exc_info=True)
             return False
 
     def getVoiceProfileNames(self) -> list:
@@ -650,7 +650,7 @@ class NvspFrontend(object):
             names = result.decode("utf-8", errors="replace").strip().split('\n')
             return [n for n in names if n]  # Filter empty strings
         except Exception:
-            log.debug("nvSpeechPlayer: getVoiceProfileNames failed", exc_info=True)
+            log.debug("TGSpeechBox: getVoiceProfileNames failed", exc_info=True)
             return []
 
     def saveVoiceProfileSliders(
@@ -721,5 +721,5 @@ class NvspFrontend(object):
             )
             return bool(result)
         except Exception:
-            log.debug("nvSpeechPlayer: saveVoiceProfileSliders failed", exc_info=True)
+            log.debug("TGSpeechBox: saveVoiceProfileSliders failed", exc_info=True)
             return False
