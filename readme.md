@@ -1,8 +1,8 @@
-# NV Speech Player
+# TGSpeechBox
 
-A Klatt-based speech synthesis engine written in C++.
+A formant speech synthesis engine with LF glottal modeling, coarticulation, and 26+ languages, written in C++.
 
-Author: Original project by NV Access Limited. This repository is maintained as a community fork by Tamas Geczy.
+Author: Tamas Geczy. Originally forked from NV Speech Player by NV Access Limited.
 
 ### Acknowledgments
 Special thanks to:
@@ -10,24 +10,24 @@ Special thanks to:
 - **Cleverson** for his contributions to the Portuguese packs. Without him, we would not have proper support for either variants of the language. His work and efforts can be heard in the language and tuning on it is most exclusively done by him. Hats off!
 - **Fastfinge** - he helped us get the first part of the asymmetric cosign pulse right, and honestly without his initial PR we probably wouldn't be using it today.
 
-## Project status (fork + naming)
-NV Access is not actively maintaining the original NV Speech Player project.
+## Project history and naming
+TGSpeechBox began as a fork of NV Speech Player, which is no longer actively maintained by NV Access.
+You are welcome to fork and view the original project at:
+https://github.com/nvaccess/NVSpeechPlayer
+This project has since been substantially rewritten — the DSP engine, frontend, language pipeline, and tooling are all new. The rename to TGSpeechBox reflects this divergence and avoids confusion with the original project.
 
-This repository is an independently maintained fork. It is **not affiliated with, endorsed by, or supported by NV Access**.
-
-### About the name
-The "NV Speech Player" name is kept here for historical continuity and to help existing users find the project they already know. It should not be interpreted as NV Access involvement.
+TGSpeechBox is **not affiliated with, endorsed by, or supported by NV Access**.
 
 ### NVDA / trademarks
-This project includes an NVDA add-on and necessarily refers to NVDA for compatibility and documentation. NVDA and related names/marks belong to their respective owners. This fork does not claim any official relationship.
+This project includes an NVDA add-on and necessarily refers to NVDA for compatibility and documentation. NVDA and related names/marks belong to their respective owners. This project does not claim any official relationship.
 
 ### Note on eSpeak-ng
-The eSpeak-ng project also contains a separate copy of SpeechPlayer code as an alternative Klatt-style implementation. This fork is independent of that copy.
+The eSpeak-ng project also contains a separate copy of the original SpeechPlayer code as an alternative Klatt-style implementation. TGSpeechBox is independent of that copy.
 
 ## Overview
-NV Speech Player is a free and open-source prototype speech synthesizer that can be used by NVDA. It generates speech using Klatt synthesis, making it somewhat similar to speech synthesizers such as Dectalk and Eloquence.
+TGSpeechBox is a free and open-source speech synthesizer that can be used by NVDA. It generates speech using formant synthesis with an LF-inspired glottal model, Fujisaki pitch contours, and coarticulation — making it somewhat similar in character to speech synthesizers such as Dectalk and Eloquence, while adding modern voice quality controls.
 
-Historically, NV Speech Player relied on Python (`ipa.py`) to:
+Historically, the original NV Speech Player relied on Python (`ipa.py`) to:
 - normalize phonemes (mostly from eSpeak IPA),
 - apply language/dialect rules,
 - generate timed frame tracks and intonation,
@@ -36,9 +36,9 @@ Historically, NV Speech Player relied on Python (`ipa.py`) to:
 This repo has now transitioned to a new **frontend + YAML packs** model that replaces the Python IPA pipeline for runtime use.
 
 ## License and copyright
-NV Speech Player is Copyright (c) 2014 NV Speech Player contributors.
+TGSpeechBox is Copyright (c) 2014 NV Speech Player contributors, Copyright (c) 2025 Tamas Geczy.
 
-NV Speech Player is covered by the GNU General Public License (Version 2).
+TGSpeechBox is covered by the GNU General Public License (Version 2).
 
 You are free to share or change this software in any way you like as long as it is accompanied by the license and you make all source code available to anyone who wants it. This applies to both original and modified copies of this software, plus any derivative works.
 
@@ -50,8 +50,8 @@ The 70s and 80s saw much research in speech synthesis. One of the most prominent
 
 Research later moved toward other synthesis approaches because they can sound closer to a human voice, but they often trade away responsiveness and predictability.
 
-NV Speech Player exists as a modern prototype of a Klatt synthesizer:
-- to explore the "classic" fast-and-stable sound profile,
+TGSpeechBox exists as a modern formant synthesizer:
+- to explore the "classic" fast-and-stable sound profile with modern voice quality enhancements,
 - and to keep conversation and experimentation alive around this synthesis method.
 
 ## Repository layout
@@ -104,7 +104,7 @@ The driver now supports NVDA 2026.1, but should be compatible across NVDA 2023.2
 
 ### NVDA add-on
 
-The NVDA add-on is included with each [release](https://github.com/TGeczy/NVSpeechPlayer/releases). Download the `.nvda-addon` file and open it with NVDA to install.
+The NVDA add-on is included with each [release](https://github.com/TGeczy/TGSpeechBox/releases). Download the `.nvda-addon` file and open it with NVDA to install.
 It supports versions 2023.2 to 2026.1.
 
 ### Linux
@@ -118,7 +118,7 @@ See **[README-linux.md](README-linux.md)** for installation options, usage examp
 The Phoneme Editor is a Win32 GUI for editing `phonemes.yaml` and language pack files. It's useful for:
 
 - **Language tuners** who want to adjust phoneme definitions or normalization rules
-- **Anyone wanting a simple speak/preview tool** – type IPA, hear it spoken, save to WAV
+- **Anyone wanting a simple speak/preview tool** — type IPA, hear it spoken, save to WAV
 
 The editor can preview individual phonemes, synthesize speech from IPA input, and save audio files. See **[README-phoneme-editor.md](README-phoneme-editor.md)** for build instructions and usage.
 
@@ -126,5 +126,5 @@ The editor can preview individual phonemes, synthesize speech from IPA input, an
 
 For more detailed information, see:
 
-- **[Developers.md](Developers.md)** – DSP pipeline internals, VoicingTone API, FrameEx struct, frontend architecture, and technical implementation details.
-- **[Tuning.md](Tuning.md)** – Language pack settings, phoneme tuning, normalization rules, voice profiles, and how to add or modify languages.
+- **[Developers.md](Developers.md)** — DSP pipeline internals, VoicingTone API, FrameEx struct, frontend architecture, and technical implementation details.
+- **[Tuning.md](Tuning.md)** — Language pack settings, phoneme tuning, normalization rules, voice profiles, and how to add or modify languages.
