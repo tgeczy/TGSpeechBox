@@ -145,7 +145,8 @@ const std::vector<std::string>& NvspRuntime::voicingParamNames() {
       "pitchSyncB1DeltaHz",
       "speedQuotient",
       "aspirationTiltDbPerOct",
-      "cascadeBwScale"
+      "cascadeBwScale",
+      "tremorDepth"
     };
   }
   return names;
@@ -196,6 +197,8 @@ NvspRuntime::NvspRuntime() {
   // No static layout assumptions: we convert frames field-by-field in the callback.
   m_speech.frameParams.assign(frameParamNames().size(), 50);
   m_speech.voicingParams.assign(voicingParamNames().size(), 50);
+// tremorDepth (index 13) defaults to 0, not 50
+if (m_speech.voicingParams.size() > 13) m_speech.voicingParams[13] = 0;
   // FrameEx params: creakiness/breathiness/jitter/shimmer default to 0, sharpness to 50
   m_speech.frameExParams.assign(frameExParamNames().size(), 0);
   if (m_speech.frameExParams.size() >= 5) m_speech.frameExParams[4] = 50; // sharpness default
@@ -220,6 +223,8 @@ void NvspRuntime::setSpeechSettings(const SpeechSettings& s) {
   }
   if (m_speech.voicingParams.size() != voicingParamNames().size()) {
     m_speech.voicingParams.assign(voicingParamNames().size(), 50);
+    // tremorDepth (index 13) defaults to 0, not 50
+    if (m_speech.voicingParams.size() > 13) m_speech.voicingParams[13] = 0;
   }
   if (m_speech.frameExParams.size() != frameExParamNames().size()) {
     m_speech.frameExParams.assign(frameExParamNames().size(), 0);
@@ -278,6 +283,8 @@ static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
         return 0.4 + (sv / 50.0) * 0.6;
       }
       return 1.0 + ((sv - 50.0) / 50.0) * 0.4;
+    case 13: // tremorDepth: 0.0-0.4, default 0.0 at 0
+      return (sv / 100.0) * 0.4;
     default:
       return 0.0;
   }
@@ -308,6 +315,7 @@ static EditorVoicingToneV2 buildVoicingToneV2(const std::vector<int>& sliders) {
   tone.speedQuotient = (sliders.size() > 10) ? mapVoicingSliderToValue(10, sliders[10]) : 2.0;
   tone.aspirationTiltDbPerOct = (sliders.size() > 11) ? mapVoicingSliderToValue(11, sliders[11]) : 0.0;
   tone.cascadeBwScale = (sliders.size() > 12) ? mapVoicingSliderToValue(12, sliders[12]) : 1.0;
+  tone.tremorDepth = (sliders.size() > 13) ? mapVoicingSliderToValue(13, sliders[13]) : 0.0;
   
   return tone;
 }
@@ -1569,7 +1577,7 @@ bool NvspRuntime::saveVoiceProfileSliders(const std::string& profileName,
     return s;
   };
   
-  // 12 VoicingTone params
+  // 14 VoicingTone params
   const auto& voicingNames = voicingParamNames();
   for (size_t i = 0; i < voicingNames.size() && i < voicingSliders.size(); ++i) {
     double val = mapVoicingSliderToValue(static_cast<int>(i), voicingSliders[i]);

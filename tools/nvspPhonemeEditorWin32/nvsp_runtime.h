@@ -71,6 +71,7 @@ struct EditorVoicingToneV3 {
   double speedQuotient;
   double aspirationTiltDbPerOct;
   double cascadeBwScale;
+  double tremorDepth;
 };
 
 // Alias for backward compatibility
@@ -185,7 +186,7 @@ public:
   // Names of the 47 frame parameters exposed in the NVDA driver.
   static const std::vector<std::string>& frameParamNames();
   
-  // Names of the 13 voicing tone parameters.
+  // Names of the 14 voicing tone parameters.
   static const std::vector<std::string>& voicingParamNames();
 
   // Names of the 5 FrameEx voice quality parameters.

@@ -1033,7 +1033,9 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
   // Load voicing params from per-voice section if available, else from [speech]
   const auto& voicingNames = NvspRuntime::voicingParamNames();
   s.voicingParams.assign(voicingNames.size(), 50);
-  
+  // tremorDepth (index 13) defaults to 0, not 50
+  if (s.voicingParams.size() > 13) s.voicingParams[13] = 0;
+
   // Determine which INI section to use for voicing params
   // For Python presets: [voice_Adam], [voice_Benjamin], etc.
   // For profiles: use [speech] defaults (profiles get voicingTone from YAML)
@@ -1043,11 +1045,13 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
   }
   
   for (size_t i = 0; i < voicingNames.size(); ++i) {
-    std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
+std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
     // Try voice-specific section first, fallback to [speech] defaults
+    // tremorDepth (index 13) defaults to 0, others to 50
+    int defaultVal = (i == 13) ? 0 : 50;
     int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
     if (val < 0) {
-      val = readIniInt(L"speech", key.c_str(), 50);
+      val = readIniInt(L"speech", key.c_str(), defaultVal);
     }
     s.voicingParams[i] = val;
   }
@@ -1424,9 +1428,10 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         syncSelectedParamToUi();
         return TRUE;
       }
-
-      if (id == IDC_SPEECH_VOICING_RESET_ALL) {
+if (id == IDC_SPEECH_VOICING_RESET_ALL) {
         st->settings.voicingParams.assign(st->voicingParamNames.size(), 50);
+        // tremorDepth (index 13) defaults to 0, not 50
+        if (st->settings.voicingParams.size() > 13) st->settings.voicingParams[13] = 0;
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
         populateParamList(lb, st->voicingParamNames, st->settings.voicingParams);
         syncSelectedVoicingParamToUi();
