@@ -30,7 +30,7 @@ static bool isEspeakExePath(const std::wstring& exePath) {
 
 static std::string clauseMarkerTokenForText(const std::wstring& textW) {
   // Determine punctuation at the end of a text chunk.
-  // Mirrors the NVDA driver behavior (see NV Speech Player synth driver):
+  // Mirrors the NVDA driver behavior (see TGSpeechBox synth driver):
   // - "..." is treated as '.' for prosody, but still gets a strong pause.
   // - If no punctuation is present (e.g. newline boundary), default to '.'.
   if (textW.empty()) return ".";

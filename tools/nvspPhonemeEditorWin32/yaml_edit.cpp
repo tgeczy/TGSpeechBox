@@ -918,7 +918,7 @@ static void dumpNode(const Node& node, std::string& out, int ind) {
 std::string dumpYaml(const Node& root) {
   std::string out;
   // Friendly header.
-  out += "# Edited by nvspPhonemeEditor (Win32)\n";
+  out += "# Edited by tgsbPhonemeEditor (Win32)\n";
   out += "# Note: YAML comments are not preserved by this editor.\n";
   out += "\n";
 

@@ -73,7 +73,7 @@ bool AppController::Initialize(HINSTANCE hInstance, int nCmdShow) {
   WNDCLASSW wc{};
   wc.lpfnWndProc = AppController::StaticWndProc;
   wc.hInstance = hInstance;
-  wc.lpszClassName = L"NvspPhonemeEditorWnd";
+  wc.lpszClassName = L"TgsbPhonemeEditorWnd";
   wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
   wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
   wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
@@ -85,7 +85,7 @@ bool AppController::Initialize(HINSTANCE hInstance, int nCmdShow) {
   wnd = CreateWindowExW(
     0,
     wc.lpszClassName,
-    L"NV Speech Player - Phoneme Editor",
+    L"TGSpeechBox - Phoneme Editor",
     WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
     CW_USEDEFAULT,
     CW_USEDEFAULT,
@@ -334,7 +334,7 @@ static bool maybeCopyGoodPhonemesToExpected(HWND owner, const std::wstring& pack
     L"packs/phonemes.yaml was not found, but packs/phonemes-good.yaml exists.\n\n"
     L"nvspFrontend.dll expects packs/phonemes.yaml.\n\n"
     L"Create a copy now?",
-    L"NVSP Phoneme Editor",
+    L"TGSB Phoneme Editor",
     MB_YESNO | MB_ICONQUESTION
   );
 
@@ -344,7 +344,7 @@ static bool maybeCopyGoodPhonemesToExpected(HWND owner, const std::wstring& pack
     fs::copy_file(good, phonemes, fs::copy_options::overwrite_existing);
     return true;
   } catch (...) {
-    msgBox(owner, L"Failed to copy phonemes-good.yaml to phonemes.yaml.", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(owner, L"Failed to copy phonemes-good.yaml to phonemes.yaml.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return false;
   }
 }
@@ -361,7 +361,7 @@ static bool loadPhonemes(AppController& app, const std::wstring& packsDir) {
 
   std::string err;
   if (!app.phonemes.load(use.u8string(), err)) {
-    msgBox(app.wnd, L"Failed to load phonemes YAML:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Failed to load phonemes YAML:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return false;
   }
 
@@ -430,7 +430,7 @@ static std::string selectedLangTagUtf8(const AppController& app) {
 static bool loadLanguage(AppController& app, const std::wstring& langPath) {
   std::string err;
   if (!app.language.load(fs::path(langPath).u8string(), err)) {
-    msgBox(app.wnd, L"Failed to load language YAML:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Failed to load language YAML:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return false;
   }
 
@@ -472,7 +472,7 @@ static bool loadPackRoot(AppController& app, const std::wstring& root) {
   fs::path rootPath(root);
   fs::path packs = rootPath / "packs";
   if (!fs::exists(packs) || !fs::is_directory(packs)) {
-    msgBox(app.wnd, L"That folder doesn't contain a 'packs' subfolder.", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"That folder doesn't contain a 'packs' subfolder.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return false;
   }
 
@@ -483,7 +483,7 @@ static bool loadPackRoot(AppController& app, const std::wstring& root) {
   maybeCopyGoodPhonemesToExpected(app.wnd, app.packsDir);
 
   if (!loadPhonemes(app, app.packsDir)) {
-    msgBox(app.wnd, L"Couldn't find phonemes.yaml or phonemes-good.yaml under packs/.", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Couldn't find phonemes.yaml or phonemes-good.yaml under packs/.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return false;
   }
 
@@ -524,7 +524,7 @@ static bool ensureDllDir(AppController& app) {
 
   std::string err;
   if (!app.runtime.setDllDirectory(dllDir, err)) {
-    msgBox(app.wnd, L"DLL load failed:\n" + utf8ToWide(err) + L"\n\nUse Settings > Set DLL directory...", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"DLL load failed:\n" + utf8ToWide(err) + L"\n\nUse Settings > Set DLL directory...", L"TGSB Phoneme Editor", MB_ICONERROR);
     return false;
   }
 
@@ -545,14 +545,14 @@ static bool ensureDllDir(AppController& app) {
 
 static void playSamplesTemp(AppController& app, const std::vector<sample>& samples) {
   if (samples.empty()) {
-    msgBox(app.wnd, L"No audio samples were generated.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"No audio samples were generated.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
   std::wstring wavPath = nvsp_editor::makeTempWavPath(L"nvp");
   std::string err;
   if (!nvsp_editor::writeWav16Mono(wavPath, kSampleRate, samples, err)) {
-    msgBox(app.wnd, L"WAV write failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"WAV write failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -564,20 +564,20 @@ static void onPlaySelectedPhoneme(AppController& app, bool fromLanguageList) {
 
   std::string key = fromLanguageList ? getSelectedPhonemeKey(app.listLangPhonemes) : getSelectedPhonemeKey(app.listPhonemes);
   if (key.empty()) {
-    msgBox(app.wnd, L"Select a phoneme first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"Select a phoneme first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
   nvsp_editor::Node* node = app.phonemes.getPhonemeNode(key);
   if (!node || !node->isMap()) {
-    msgBox(app.wnd, L"Phoneme not found in phonemes.yaml.", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Phoneme not found in phonemes.yaml.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
   std::vector<sample> samples;
   std::string err;
   if (!app.runtime.synthPreviewPhoneme(*node, kSampleRate, samples, err)) {
-    msgBox(app.wnd, L"Preview failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Preview failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -589,7 +589,7 @@ static void onPlaySelectedPhoneme(AppController& app, bool fromLanguageList) {
 // -------------------------
 static void onAddMapping(AppController& app, const std::string& defaultTo = {}) {
   if (!app.language.isLoaded()) {
-    msgBox(app.wnd, L"Load a language first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"Load a language first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
@@ -617,7 +617,7 @@ static void onAddMapping(AppController& app, const std::string& defaultTo = {}) 
 static void onEditSelectedMapping(AppController& app) {
   int sel = lvSelectedIndex(app.listMappings);
   if (sel < 0 || sel >= static_cast<int>(app.repls.size())) {
-    msgBox(app.wnd, L"Select a mapping first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"Select a mapping first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
@@ -645,7 +645,7 @@ static void onEditSelectedMapping(AppController& app) {
 static void onRemoveSelectedMapping(AppController& app) {
   int sel = lvSelectedIndex(app.listMappings);
   if (sel < 0 || sel >= static_cast<int>(app.repls.size())) {
-    msgBox(app.wnd, L"Select a mapping first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"Select a mapping first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
@@ -819,7 +819,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
 
 static void onEditLanguageSettings(AppController& app) {
   if (!app.language.isLoaded()) {
-    msgBox(app.wnd, L"Load a language first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"Load a language first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
@@ -852,7 +852,7 @@ static void onClonePhoneme(AppController& app) {
 
   std::string err;
   if (!app.phonemes.clonePhoneme(st.fromKey, st.newKey, err)) {
-    msgBox(app.wnd, L"Clone failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Clone failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -862,19 +862,19 @@ static void onClonePhoneme(AppController& app) {
   populatePhonemeList(app, L"");
   app.phonemesDirty = true;
 
-  msgBox(app.wnd, L"Cloned phoneme. Remember to save phonemes YAML (Ctrl+P).", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+  msgBox(app.wnd, L"Cloned phoneme. Remember to save phonemes YAML (Ctrl+P).", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
 }
 
 static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
   std::string key = fromLanguageList ? getSelectedPhonemeKey(app.listLangPhonemes) : getSelectedPhonemeKey(app.listPhonemes);
   if (key.empty()) {
-    msgBox(app.wnd, L"Select a phoneme first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"Select a phoneme first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
   nvsp_editor::Node* node = app.phonemes.getPhonemeNode(key);
   if (!node || !node->isMap()) {
-    msgBox(app.wnd, L"Phoneme not found in phonemes.yaml.", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Phoneme not found in phonemes.yaml.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -890,7 +890,7 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
 
   *node = st.working;
   app.phonemesDirty = true;
-  msgBox(app.wnd, L"Phoneme updated. Remember to save phonemes YAML (Ctrl+P).", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+  msgBox(app.wnd, L"Phoneme updated. Remember to save phonemes YAML (Ctrl+P).", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
 }
 
 // -------------------------
@@ -898,19 +898,19 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
 // -------------------------
 static void onSaveLanguage(AppController& app) {
   if (!app.language.isLoaded()) {
-    msgBox(app.wnd, L"No language YAML loaded.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"No language YAML loaded.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
   std::string err;
   if (!app.language.save(err)) {
-    msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
   // Reload from disk to sync with any external changes (e.g., edits made in a text editor).
   std::string langPath = app.language.path();
   if (!app.language.load(langPath, err)) {
-    msgBox(app.wnd, L"Warning: Failed to reload language YAML after save:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONWARNING);
+    msgBox(app.wnd, L"Warning: Failed to reload language YAML after save:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONWARNING);
   } else {
     app.repls = app.language.replacements();
     app.classNames = app.language.classNamesSorted();
@@ -930,19 +930,19 @@ static void onSaveLanguage(AppController& app) {
 
 static void onSavePhonemes(AppController& app) {
   if (!app.phonemes.isLoaded()) {
-    msgBox(app.wnd, L"No phonemes YAML loaded.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"No phonemes YAML loaded.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
   std::string err;
   if (!app.phonemes.save(err)) {
-    msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
   // Reload from disk to sync with any external changes (e.g., edits made in a text editor).
   std::string phonemesPath = app.phonemes.path();
   if (!app.phonemes.load(phonemesPath, err)) {
-    msgBox(app.wnd, L"Warning: Failed to reload phonemes YAML after save:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONWARNING);
+    msgBox(app.wnd, L"Warning: Failed to reload phonemes YAML after save:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONWARNING);
   } else {
     app.phonemeKeys = app.phonemes.phonemeKeysSorted();
     rebuildPhonemeKeysU32(app);
@@ -967,7 +967,7 @@ static void onSavePhonemes(AppController& app) {
 // -------------------------
 static void onReloadLanguage(AppController& app) {
   if (!app.language.isLoaded()) {
-    msgBox(app.wnd, L"No language YAML loaded.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"No language YAML loaded.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
@@ -984,7 +984,7 @@ static void onReloadLanguage(AppController& app) {
   std::string langPath = app.language.path();
   std::string err;
   if (!app.language.load(langPath, err)) {
-    msgBox(app.wnd, L"Failed to reload language YAML:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Failed to reload language YAML:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -1005,7 +1005,7 @@ static void onReloadLanguage(AppController& app) {
 
 static void onReloadPhonemes(AppController& app) {
   if (!app.phonemes.isLoaded()) {
-    msgBox(app.wnd, L"No phonemes YAML loaded.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"No phonemes YAML loaded.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
@@ -1022,7 +1022,7 @@ static void onReloadPhonemes(AppController& app) {
   std::string phonemesPath = app.phonemes.path();
   std::string err;
   if (!app.phonemes.load(phonemesPath, err)) {
-    msgBox(app.wnd, L"Failed to reload phonemes YAML:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Failed to reload phonemes YAML:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -1125,14 +1125,14 @@ static bool convertTextToIpaViaPhonemizer(AppController& app, const std::wstring
 static void onConvertIpa(AppController& app) {
   std::wstring text = getText(app.editText);
   if (text.empty()) {
-    msgBox(app.wnd, L"Enter some text first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+    msgBox(app.wnd, L"Enter some text first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
 
   std::string ipa;
   std::string err;
   if (!convertTextToIpaViaPhonemizer(app, text, ipa, err)) {
-    msgBox(app.wnd, L"IPA conversion failed:\n" + utf8ToWide(err) + L"\n\nTip: you can also tick 'Input is IPA' and paste IPA directly.", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"IPA conversion failed:\n" + utf8ToWide(err) + L"\n\nTip: you can also tick 'Input is IPA' and paste IPA directly.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -1188,7 +1188,7 @@ static void onSpeak(AppController& app) {
   std::vector<sample> samples;
   std::string err;
   if (!synthIpaFromUi(app, samples, err)) {
-    msgBox(app.wnd, L"Speak failed:\n" + utf8ToWide(err) + L"\n\nIf this mentions phonemes.yaml, make sure packs/phonemes.yaml exists.", L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Speak failed:\n" + utf8ToWide(err) + L"\n\nIf this mentions phonemes.yaml, make sure packs/phonemes.yaml exists.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
   playSamplesTemp(app, samples);
@@ -1198,7 +1198,7 @@ static void onSaveWav(AppController& app) {
   std::vector<sample> samples;
   std::string err;
   if (!synthIpaFromUi(app, samples, err)) {
-    msgBox(app.wnd, L"Synthesis failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"Synthesis failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
 
@@ -1206,7 +1206,7 @@ static void onSaveWav(AppController& app) {
   if (!pickSaveWav(app.wnd, outPath)) return;
 
   if (!nvsp_editor::writeWav16Mono(outPath, kSampleRate, samples, err)) {
-    msgBox(app.wnd, L"WAV write failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+    msgBox(app.wnd, L"WAV write failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
   app.setStatus(L"Saved WAV: " + outPath);
@@ -1645,7 +1645,7 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
           // Try loading immediately.
           std::string err;
           if (!app.runtime.setDllDirectory(app.dllDir, err)) {
-            msgBox(hWnd, L"DLL load failed:\n" + utf8ToWide(err), L"NVSP Phoneme Editor", MB_ICONERROR);
+            msgBox(hWnd, L"DLL load failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
           } else {
             app.setStatus(L"DLL directory set and loaded.");
             // Convenience: if packs live alongside the DLLs (portable layout),
@@ -1735,7 +1735,7 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 
       if (id == IDM_HELP_ABOUT) {
         msgBox(hWnd,
-               L"NV Speech Player Phoneme Editor (Win32)\n\n"
+               L"TGSpeechBox Phoneme Editor (Win32)\n\n"
                L"Keyboard shortcuts:\n"
                L"  Ctrl+O       Open pack root\n"
                L"  Ctrl+S       Save language YAML\n"
@@ -1791,7 +1791,7 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         case IDC_BTN_ADD_TO_LANGUAGE: {
           std::string key = getSelectedPhonemeKey(app.listPhonemes);
           if (key.empty()) {
-            msgBox(hWnd, L"Select a phoneme first.", L"NVSP Phoneme Editor", MB_ICONINFORMATION);
+            msgBox(hWnd, L"Select a phoneme first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
             return 0;
           }
           onAddMapping(app, key);

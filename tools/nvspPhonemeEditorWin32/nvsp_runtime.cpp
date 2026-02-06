@@ -1510,8 +1510,8 @@ bool NvspRuntime::saveVoiceProfileSliders(const std::string& profileName,
   
   // Build path to phonemes.yaml
   // m_packRoot could be either:
-  //   - The packs folder itself (app.packsDir): C:\git\NVSpeechPlayer\packs
-  //   - Or the parent (packRoot for frontend): C:\git\NVSpeechPlayer
+  //   - The packs folder itself (app.packsDir): C:\git\TGSpeechBox\packs
+  //   - Or the parent (packRoot for frontend): C:\git\TGSpeechBox
   // Try both patterns
   std::wstring yamlPath = m_packRoot;
   if (!yamlPath.empty() && yamlPath.back() != L'\\' && yamlPath.back() != L'/') {

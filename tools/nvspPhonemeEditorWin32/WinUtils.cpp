@@ -39,7 +39,7 @@ std::wstring exeDir() {
 std::wstring iniPath() {
   std::wstring p = exeDir();
   if (!p.empty() && p.back() != L'\\') p += L'\\';
-  p += L"nvspPhonemeEditor.ini";
+  p += L"tgsbPhonemeEditor.ini";
   return p;
 }
 

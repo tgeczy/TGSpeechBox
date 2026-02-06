@@ -85,7 +85,7 @@ std::wstring makeTempWavPath(const std::wstring& prefix) {
   wchar_t tempDir[MAX_PATH] = {0};
   DWORD n = GetTempPathW(MAX_PATH, tempDir);
   if (n == 0 || n >= MAX_PATH) {
-    return L"nvsp_temp.wav";
+    return L"tgsb_temp.wav";
   }
 
   wchar_t tempFile[MAX_PATH] = {0};
@@ -94,7 +94,7 @@ std::wstring makeTempWavPath(const std::wstring& prefix) {
   if (pfx.size() > 3) pfx.resize(3);
 
   if (!GetTempFileNameW(tempDir, pfx.c_str(), 0, tempFile)) {
-    return std::wstring(tempDir) + L"nvsp_temp.wav";
+    return std::wstring(tempDir) + L"tgsb_temp.wav";
   }
 
   std::wstring out = tempFile;

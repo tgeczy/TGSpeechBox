@@ -115,6 +115,6 @@ bool ShowSpeechSettingsDialog(HINSTANCE hInst, HWND parent, SpeechSettingsDialog
 bool ShowPhonemizerSettingsDialog(HINSTANCE hInst, HWND parent, PhonemizerSettingsDialogState& st);
 bool ShowClassEditorDialog(HINSTANCE hInst, HWND parent, ClassEditorDialogState& st);
 
-// Persistence for speech settings (nvspPhonemeEditor.ini).
+// Persistence for speech settings (tgsbPhonemeEditor.ini).
 nvsp_editor::SpeechSettings loadSpeechSettingsFromIni();
 void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s);

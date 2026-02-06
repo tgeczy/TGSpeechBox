@@ -29,7 +29,7 @@ void writeIniInt(const wchar_t* section, const wchar_t* key, int value);
 void msgBox(
   HWND owner,
   const std::wstring& text,
-  const std::wstring& title = L"NV Speech Player Phoneme Editor",
+  const std::wstring& title = L"TGSpeechBox Phoneme Editor",
   UINT flags = MB_OK
 );
 
