@@ -11,12 +11,14 @@ static inline bool tokIsSilenceOrMissing(const Token& t) {
   return t.silence || !t.def;
 }
 
-// Check if this token needs sharp formant transitions (semivowels, liquids).
+// Check if this token needs sharp formant transitions (semivowels, liquids, nasals).
 // These sounds are perceptually sensitive to over-smoothing.
+// Nasals: place perception (n vs ɲ) depends on F2 transitions in adjacent vowels,
+// not the nasal murmur itself, so limiting destroys the place cue.
 static inline bool tokNeedsSharpTransition(const Token& t) {
   if (!t.def) return false;
   const uint32_t f = t.def->flags;
-  return ((f & kIsSemivowel) != 0) || ((f & kIsLiquid) != 0);
+  return ((f & kIsSemivowel) != 0) || ((f & kIsLiquid) != 0) || ((f & kIsNasal) != 0);
 }
 
 static inline double getResolvedField(const Token& t, int idx) {
@@ -100,8 +102,13 @@ bool runTrajectoryLimit(PassContext& ctx, std::vector<Token>& tokens, std::strin
       double target = std::min(neededFade, win);
 
       // Also cap fade to a fraction of token duration to preserve steady-state.
+      // Use a speed-compensated floor so high speech rates don't starve transitions:
+      // at speed 1.0 tokens are ~60ms so the floor never activates,
+      // but at high speeds tokens can shrink to ~15ms, crushing needed fade time.
       if (cur.durationMs > 0.0) {
-        const double maxFadeForToken = cur.durationMs * kMaxFadeRatio;
+        const double durFloor = 40.0 / sp;
+        const double effectiveDur = std::max(cur.durationMs, durFloor);
+        const double maxFadeForToken = effectiveDur * kMaxFadeRatio;
         target = std::min(target, maxFadeForToken);
       }
 

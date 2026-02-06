@@ -23,6 +23,7 @@ struct TrajectoryState {
   double prevPf2 = 0.0;
   double prevPf3 = 0.0;
   bool hasPrevFrame = false;
+  bool prevWasNasal = false;  // Skip limiting on frames following nasals
 
   void reset() {
     prevCf2 = 0.0;
@@ -30,6 +31,7 @@ struct TrajectoryState {
     prevPf2 = 0.0;
     prevPf3 = 0.0;
     hasPrevFrame = false;
+    prevWasNasal = false;
   }
 };
 
