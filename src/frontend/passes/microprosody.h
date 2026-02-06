@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_PASSES_MICROPROSODY_H
-#define NVSP_FRONTEND_PASSES_MICROPROSODY_H
+#ifndef TGSB_FRONTEND_PASSES_MICROPROSODY_H
+#define TGSB_FRONTEND_PASSES_MICROPROSODY_H
 
 #include "pass_common.h"
 
@@ -14,4 +14,4 @@ bool runMicroprosody(
 
 }  // namespace nvsp_frontend::passes
 
-#endif  // NVSP_FRONTEND_PASSES_MICROPROSODY_H
+#endif  // TGSB_FRONTEND_PASSES_MICROPROSODY_H

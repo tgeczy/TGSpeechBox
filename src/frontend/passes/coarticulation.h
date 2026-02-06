@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_PASSES_COARTICULATION_H
-#define NVSP_FRONTEND_PASSES_COARTICULATION_H
+#ifndef TGSB_FRONTEND_PASSES_COARTICULATION_H
+#define TGSB_FRONTEND_PASSES_COARTICULATION_H
 
 #include "pass_common.h"
 
@@ -27,4 +27,4 @@ bool runCoarticulation(
 
 }  // namespace nvsp_frontend::passes
 
-#endif  // NVSP_FRONTEND_PASSES_COARTICULATION_H
+#endif  // TGSB_FRONTEND_PASSES_COARTICULATION_H

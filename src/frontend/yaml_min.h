@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_YAML_MIN_H
-#define NVSP_FRONTEND_YAML_MIN_H
+#ifndef TGSB_FRONTEND_YAML_MIN_H
+#define TGSB_FRONTEND_YAML_MIN_H
 
 #include <string>
 #include <string_view>

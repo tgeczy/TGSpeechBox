@@ -1,4 +1,4 @@
-// frame_emit.cpp - Frame emission for NV Speech Player frontend
+// frame_emit.cpp - TGSpeechBox — Frame emission for frontend
 //
 // Extracted from ipa_engine.cpp to reduce file size.
 // Contains emitFrames() and emitFramesEx() implementations.
@@ -381,8 +381,9 @@ void emitFramesEx(
     frameEx.breathiness = clamp01(phonemeBreathiness + frameExDefaults.breathiness);
     frameEx.jitter = clamp01(phonemeJitter + frameExDefaults.jitter);
     frameEx.shimmer = clamp01(phonemeShimmer + frameExDefaults.shimmer);
-    frameEx.sharpness = clampSharpness(phonemeSharpness * frameExDefaults.sharpness);
-    
+
+    double userSharpness = (frameExDefaults.sharpness > 0.0) ? frameExDefaults.sharpness : 1.0;
+    frameEx.sharpness = clampSharpness(phonemeSharpness * userSharpness);    
     // Formant end targets: token-level (from coarticulation) takes priority,
     // then phoneme-level, otherwise NAN (no ramping).
     // This enables DECTalk-style within-frame formant ramping for CV transitions.

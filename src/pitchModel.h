@@ -1,7 +1,7 @@
 /*
 TGSpeechBox — Fujisaki-Bartman pitch contour model (DECTalk-style).
 
-Ported from the provided reference Python (fujisaki_bartman_pitch.py).
+Ported from the provided by Rommix. The filter idea is all his here.
 Time units are in *samples*.
 
 The model outputs a multiplicative contour multiplier:

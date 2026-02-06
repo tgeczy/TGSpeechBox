@@ -1,5 +1,5 @@
 /*
-Voice Profile System for NV Speech Player Frontend
+TGSpeechBox — Voice profile system for frontend
 
 Implementation of voice profile loading and application.
 

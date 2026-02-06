@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_IPA_ENGINE_H
-#define NVSP_FRONTEND_IPA_ENGINE_H
+#ifndef TGSB_FRONTEND_IPA_ENGINE_H
+#define TGSB_FRONTEND_IPA_ENGINE_H
 
 #include <string>
 #include <vector>

@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_PASSES_NASALIZATION_H
-#define NVSP_FRONTEND_PASSES_NASALIZATION_H
+#ifndef TGSB_FRONTEND_PASSES_NASALIZATION_H
+#define TGSB_FRONTEND_PASSES_NASALIZATION_H
 
 #include "pass_common.h"
 
@@ -13,4 +13,4 @@ bool runNasalization(
 
 }  // namespace nvsp_frontend::passes
 
-#endif  // NVSP_FRONTEND_PASSES_NASALIZATION_H
+#endif  // TGSB_FRONTEND_PASSES_NASALIZATION_H

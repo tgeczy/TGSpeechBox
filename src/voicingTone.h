@@ -1,19 +1,13 @@
 /*
-This file is a part of the NV Speech Player project. 
-URL: https://bitbucket.org/nvaccess/speechplayer
-Copyright 2014-2025 NV Access Limited.
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License version 2.0, as published by
-the Free Software Foundation.
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-This license can be found at:
-http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+TGSpeechBox — VoicingTone parameter struct (12 floats).
+
+Originally part of the NV Speech Player project by NV Access Limited (2014).
+Extended 2025-2026 by Tamas Geczy.
+Licensed under GNU General Public License version 2.0.
 */
 
-#ifndef SPEECHPLAYER_VOICINGTONE_H
-#define SPEECHPLAYER_VOICINGTONE_H
+#ifndef TGSPEECHBOX_VOICINGTONE_H
+#define TGSPEECHBOX_VOICINGTONE_H
 
 #include <stdint.h>
 
@@ -335,4 +329,4 @@ static inline speechPlayer_voicingTone_t speechPlayer_getDefaultVoicingTone(void
 }
 #endif
 
-#endif /* SPEECHPLAYER_VOICINGTONE_H */
+#endif /* TGSPEECHBOX_VOICINGTONE_H */

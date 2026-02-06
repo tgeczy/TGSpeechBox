@@ -1,5 +1,5 @@
 /*
-Voice Profile System for NV Speech Player Frontend
+TGSpeechBox — Voice profile system for frontend
 
 This module provides optional "voice profiles" that can transform phoneme
 parameters to produce different voice qualities (e.g., female voice) without
@@ -15,8 +15,8 @@ Copyright 2014-2026 Tamas Geczy
 Licensed under GNU General Public License version 2.0.
 */
 
-#ifndef NVSP_FRONTEND_VOICE_PROFILE_H
-#define NVSP_FRONTEND_VOICE_PROFILE_H
+#ifndef TGSB_FRONTEND_VOICE_PROFILE_H
+#define TGSB_FRONTEND_VOICE_PROFILE_H
 
 #include <array>
 #include <cstdint>

@@ -1,5 +1,5 @@
 /*
-NV Speech Player - Frontend (IPA -> Frames)
+TGSpeechBox — Frontend (IPA -> Frames)
 
 Design goals:
 - Keep speechPlayer.dll DSP-only.
@@ -12,8 +12,8 @@ Instead it emits frames via a callback.
 Frame layout matches the existing speechPlayer Frame struct order (see speechPlayer.py).
 */
 
-#ifndef NVSP_FRONTEND_H
-#define NVSP_FRONTEND_H
+#ifndef TGSB_FRONTEND_H
+#define TGSB_FRONTEND_H
 
 #include <stdint.h>
 

@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_PACK_H
-#define NVSP_FRONTEND_PACK_H
+#ifndef TGSB_FRONTEND_PACK_H
+#define TGSB_FRONTEND_PACK_H
 
 #include <cmath>
 #include <cstdint>

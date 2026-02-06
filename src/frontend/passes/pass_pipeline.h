@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_PASSES_PASS_PIPELINE_H
-#define NVSP_FRONTEND_PASSES_PASS_PIPELINE_H
+#ifndef TGSB_FRONTEND_PASSES_PASS_PIPELINE_H
+#define TGSB_FRONTEND_PASSES_PASS_PIPELINE_H
 
 #include "pass_common.h"
 
@@ -15,4 +15,4 @@ bool runPasses(
 
 }  // namespace nvsp_frontend
 
-#endif  // NVSP_FRONTEND_PASSES_PASS_PIPELINE_H
+#endif  // TGSB_FRONTEND_PASSES_PASS_PIPELINE_H

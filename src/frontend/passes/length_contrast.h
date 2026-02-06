@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_PASSES_LENGTH_CONTRAST_H
-#define NVSP_FRONTEND_PASSES_LENGTH_CONTRAST_H
+#ifndef TGSB_FRONTEND_PASSES_LENGTH_CONTRAST_H
+#define TGSB_FRONTEND_PASSES_LENGTH_CONTRAST_H
 
 #include "pass_common.h"
 
@@ -15,4 +15,4 @@ bool runLengthContrast(
 
 } // namespace nvsp_frontend::passes
 
-#endif // NVSP_FRONTEND_PASSES_LENGTH_CONTRAST_H
+#endif // TGSB_FRONTEND_PASSES_LENGTH_CONTRAST_H

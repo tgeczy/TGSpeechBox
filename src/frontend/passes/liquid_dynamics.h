@@ -1,5 +1,5 @@
-#ifndef NVSP_FRONTEND_PASSES_LIQUID_DYNAMICS_H
-#define NVSP_FRONTEND_PASSES_LIQUID_DYNAMICS_H
+#ifndef TGSB_FRONTEND_PASSES_LIQUID_DYNAMICS_H
+#define TGSB_FRONTEND_PASSES_LIQUID_DYNAMICS_H
 
 #include "pass_common.h"
 
@@ -14,4 +14,4 @@ bool runLiquidDynamics(
 
 } // namespace nvsp_frontend::passes
 
-#endif // NVSP_FRONTEND_PASSES_LIQUID_DYNAMICS_H
+#endif // TGSB_FRONTEND_PASSES_LIQUID_DYNAMICS_H
