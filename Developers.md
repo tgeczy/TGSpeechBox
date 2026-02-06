@@ -32,7 +32,7 @@ The `speechPlayer.dll` now exports additional functions for real-time control of
 
 ### VoicingTone struct parameters
 
-The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 6, there are **13 parameters** plus a version detection header.
+The `VoicingTone` struct contains parameters that shape the voiced sound source. As of DSP version 6, there are **14 parameters** plus a version detection header.
 
 #### Version detection (v3 struct)
 
@@ -46,7 +46,7 @@ The v3 struct includes a header for backward compatibility:
 | `dspVersion` | uint32 | DSP version (currently 6) |
 
 When the DLL receives a `VoicingTone` struct, it checks the magic number:
-- **If magic matches**: Uses the full v3 struct with all 12 parameters
+- **If magic matches**: Uses the full v3 struct with all 14 parameters
 - **If magic doesn't match**: Assumes legacy v1 layout (7 doubles) and applies defaults for new parameters
 
 This allows older drivers to continue working with newer DLLs, and vice versa.
@@ -68,18 +68,17 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `noiseGlottalModDepth` | double | 0.0 | 0.0–1.0 | Modulates noise sources (aspiration, frication) by the glottal cycle. Higher values create more "buzzy" noise that pulses with voicing. |
+| `pitchSyncF1DeltaHz` | double | 0.0 | -60 to +60 | Pitch-synchronous F1 modulation. During the glottal open phase, F1 is shifted by this amount. Can add naturalness or remove subtle clicks. |
+| `pitchSyncB1DeltaHz` | double | 0.0 | -50 to +50 | Pitch-synchronous B1 (F1 bandwidth) modulation. During the glottal open phase, B1 is widened by this amount. Works with `pitchSyncF1DeltaHz`. |
 
-#### V3 parameters (VoicingTone struct v3)
-
-These are the extra fields that exist when the caller passes the versioned VoicingTone header (`magic` + `structSize`) and the DLL accepts the full v3 layout. They’re meant to let you shape voice character *without* touching per-frame data.
+#### V3 parameters (DSP version 5+)
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `pitchSyncF1DeltaHz` | double | 0.0 | -60 to +60 | Pitch-synchronous F1 modulation. During the glottal open phase, F1 is shifted by this amount. Can add clarity, or reduce subtle clicks depending on the voice. |
-| `pitchSyncB1DeltaHz` | double | 0.0 | -50 to +50 | Pitch-synchronous B1 (F1 bandwidth) modulation. During the glottal open phase, B1 is widened by this amount. Works with `pitchSyncF1DeltaHz`. |
-| `speedQuotient` | double | 2.0 | 0.5–4.0 | Glottal pulse asymmetry (ratio of opening to closing time). Lower values (0.5–1.5) sound softer/more breathy. Higher values (2.5–4.0) sound sharper/more pressed. Default 2.0 matches original behavior. |
+| `speedQuotient` | double | 2.0 | 0.5–4.0 | Glottal pulse asymmetry (ratio of opening to closing time). Lower values (0.5–1.5) create softer, more female-like voices. Higher values (2.5–4.0) create sharper, more male/pressed voices. Default 2.0 matches original behavior. |
 | `aspirationTiltDbPerOct` | double | 0.0 | -12 to +12 | Spectral tilt for aspiration/breath noise in dB/octave. Negative values make breath brighter; positive values make it darker/more muffled. Independent of `voicedTiltDbPerOct`. |
-| `cascadeBwScale` | double | 1.0 | 0.4–1.4 | **Formant sharpness / vocal-tract “ring”.** Multiplies *cascade* bandwidths (B1–B6). Lower values = narrower BWs = sharper, more defined vowels. Higher values = wider BWs = softer/warmer vowels. This does **not** affect frication resonance (parallel path). |
+| `cascadeBwScale` | double | 0.8 | 0.2–2.0 | Global cascade formant bandwidth multiplier. Lower values (0.2–0.5) create sharper, more defined formant peaks with "Eloquence-like" clarity. Higher values (1.2–2.0) blur formants together for softer, more muffled quality. Default 0.8 provides good intelligibility. |
+| `tremorDepth` | double | 0.0 | 0.0–0.4 | Vocal tremor depth for elderly/shaky voice effect. A 5 Hz low-frequency oscillator modulates pitch (±28%), open quotient (±0.12), and amplitude (±20%) simultaneously. This creates a realistic "wavering voice" characteristic of aging or emotional tremor. Combines well with jitter/shimmer for enhanced realism. 0.0 = off, 0.3–0.4 = noticeable elderly tremor. |
 
 ### FrameEx struct (DSP version 5+)
 
@@ -156,12 +155,13 @@ class VoicingTone(Structure):
         ("voicedTiltDbPerOct", c_double),
         # V2 parameters
         ("noiseGlottalModDepth", c_double),
-        # V3 parameters
         ("pitchSyncF1DeltaHz", c_double),
         ("pitchSyncB1DeltaHz", c_double),
+        # V3 parameters
         ("speedQuotient", c_double),
         ("aspirationTiltDbPerOct", c_double),
         ("cascadeBwScale", c_double),
+        ("tremorDepth", c_double),
     ]
     
     @classmethod
@@ -183,7 +183,8 @@ class VoicingTone(Structure):
         tone.pitchSyncB1DeltaHz = 0.0
         tone.speedQuotient = 2.0
         tone.aspirationTiltDbPerOct = 0.0
-        tone.cascadeBwScale = 1.0
+        tone.cascadeBwScale = 0.8
+        tone.tremorDepth = 0.0
         return tone
 
 # Set up function prototypes
@@ -194,7 +195,8 @@ dll.speechPlayer_setVoicingTone.restype = None
 tone = VoicingTone.defaults()
 tone.voicedTiltDbPerOct = -6.0  # Brighter tilt (Eloquence-like)
 tone.speedQuotient = 1.2  # Softer, more female-like pulse
-tone.cascadeBwScale = 0.85  # Sharper cascade formants (clearer vowels)
+tone.cascadeBwScale = 0.5  # Sharper formants
+tone.tremorDepth = 0.3  # Elderly tremor effect
 
 # Apply to running synthesizer
 dll.speechPlayer_setVoicingTone(handle, byref(tone))
@@ -213,8 +215,8 @@ The driver exposes 12 sliders for real-time voice tuning:
 | Pitch-sync F1 delta | 0–100 | 50 | `pitchSyncF1DeltaHz` (-60 to +60 Hz) |
 | Pitch-sync B1 delta | 0–100 | 50 | `pitchSyncB1DeltaHz` (-50 to +50 Hz) |
 | Speed quotient | 0–100 | 50 | `speedQuotient` (0.5–4.0) |
-| Aspiration tilt (breath color) | 0–100 | 50 | `aspirationTiltDbPerOct` (-12 to +12 dB/oct) |
-| Formant sharpness (cascade bandwidth) | 0–100 | 50 | `cascadeBwScale` (0.4–1.4, where 50 = 1.0) |
+| Formant sharpness | 0–100 | 50 | `cascadeBwScale` (2.0–0.2, inverted: higher = sharper) |
+| Tremor | 0–100 | 0 | `tremorDepth` (0.0–0.4) |
 
 #### FrameEx sliders (per-frame voice quality)
 
@@ -226,7 +228,7 @@ The driver exposes 12 sliders for real-time voice tuning:
 | Shimmer | 0–100 | 0 | `shimmer` (0.0–1.0) |
 | Glottal sharpness | 0–100 | 50 | `sharpness` (0.5–2.0 multiplier) |
 
-Note: Sliders centered at 50 (tilt, pitch-sync, speed quotient, sharpness) have meaningful positive and negative ranges. Sliders starting at 0 (noise modulation, creakiness, breathiness, jitter, shimmer) are effect amounts that default to "off".
+Note: Sliders centered at 50 (tilt, pitch-sync, speed quotient, formant sharpness, glottal sharpness) have meaningful positive and negative ranges. Sliders starting at 0 (noise modulation, tremor, creakiness, breathiness, jitter, shimmer) are effect amounts that default to "off".
 
 All slider values are stored per-voice, so different voice profiles can have different settings.
 
