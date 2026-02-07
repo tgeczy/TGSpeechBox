@@ -148,6 +148,14 @@ normalization:
       when:
         beforeClass: PT_CODA_NASAL_TO_N
 
+    # Word-final ŋ: eSpeak leaves a bare ŋ when no consonant follows
+    # (e.g. "Brazilian" → ...ɐ̃ŋ). Portuguese has no true word-final [ŋ];
+    # convert to n so the synth renders a clean nasal closure.
+    - from: "ŋ"
+      to: "n"
+      when:
+        atWordEnd: true
+
     # Make coda <m> more audible before consonants.
     # (This helps words like "pomba" where eSpeak outputs "omb" and the "m" can get swallowed.)
     - from: "m"
