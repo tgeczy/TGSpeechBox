@@ -1,6 +1,6 @@
 # Speech Dispatcher (sd_generic) integration
 
-This folder contains a **starter** configuration for using NV Speech Player with
+This folder contains a **starter** configuration for using TGSpeechBox with
 Speech Dispatcher on Linux.
 
 It uses Speech Dispatcher's built-in **sd_generic** module (so you don't need to

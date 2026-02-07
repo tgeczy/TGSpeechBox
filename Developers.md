@@ -1,4 +1,4 @@
-# NV Speech Player – Developer Documentation
+# TGSpeechBox – Developer Documentation
 
 This document covers the DSP pipeline internals, VoicingTone API, FrameEx struct, frontend architecture, and other technical implementation details.
 

@@ -1,8 +1,8 @@
-# NV Speech Player - Linux Build
+# TGSpeechBox - Linux Build
 
 A Klatt-based speech synthesis engine for Linux.
 
-This package contains pre-built binaries of NV Speech Player for Linux x86_64.
+This package contains pre-built binaries of TGSpeechBox for Linux x86_64.
 
 ## Contents
 
@@ -144,7 +144,7 @@ echo 'həˈloʊ' | ./bin/nvsp --lang en-us --voiced-tilt 35 --aspiration-tilt 60
 
 ### With eSpeak-ng for Text-to-IPA
 
-NV Speech Player needs IPA input. Use eSpeak-ng to convert text to IPA:
+TGSpeechBox needs IPA input. Use eSpeak-ng to convert text to IPA:
 
 ```bash
 # Using eSpeak-ng for text → IPA → nvspRender for IPA → audio
@@ -167,7 +167,7 @@ sudo pacman -S espeak-ng
 
 ## Using Third-Party Phonemizers
 
-NV Speech Player is an IPA-to-audio engine – it doesn't do text-to-IPA conversion itself. You can pair it with any phonemizer that outputs IPA to stdout.
+TGSpeechBox is an IPA-to-audio engine – it doesn't do text-to-IPA conversion itself. You can pair it with any phonemizer that outputs IPA to stdout.
 
 ### eSpeak-ng (recommended)
 
@@ -207,7 +207,7 @@ Any tool that outputs IPA to stdout will work. Some options:
 For convenience, create a wrapper that chains your preferred phonemizer:
 ```bash
 #!/bin/bash
-# nvsp-say: text-to-speech via eSpeak-ng + NVSpeechPlayer
+# nvsp-say: text-to-speech via eSpeak-ng + TGSpeechBox
 
 LANG="${1:-en-us}"
 RATE="${2:-0}"
@@ -222,10 +222,10 @@ Usage: `nvsp-say en-us 20 "Hello world"`
 
 ### Handling IPA dialect differences
 
-Different phonemizers produce slightly different IPA. NV Speech Player's normalization layer handles most variations, but you may need to adjust:
+Different phonemizers produce slightly different IPA. TGSpeechBox's normalization layer handles most variations, but you may need to adjust:
 
 - **Tie bars**: eSpeak uses `t͡ʃ`, some tools output `tʃ` – both work
-- **Stress markers**: NV Speech Player expects `ˈ` (primary) and `ˌ` (secondary) before the stressed syllable
+- **Stress markers**: TGSpeechBox expects `ˈ` (primary) and `ˌ` (secondary) before the stressed syllable
 - **Length marks**: Use `ː` for long vowels
 - **Word boundaries**: Spaces or `‖` between words
 
@@ -247,7 +247,7 @@ done | aplay -q -r 16000 -f S16_LE -t raw -
 
 ## Speech Dispatcher Integration
 
-NV Speech Player can be used as a Speech Dispatcher voice for desktop accessibility.
+TGSpeechBox can be used as a Speech Dispatcher voice for desktop accessibility.
 
 See `share/nvspeechplayer/extras/speech-dispatcher/README.md` for setup instructions.
 
@@ -306,8 +306,8 @@ If you want to build from source instead:
 
 ```bash
 # Clone the repo
-git clone https://github.com/TamasGeczy/NVSpeechPlayer.git
-cd NVSpeechPlayer
+git clone https://github.com/tgeczy/TGSpeechBox.git
+cd TGSpeechBox
 
 # Build with CMake
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNVSP_BUILD_TOOLS=ON
@@ -348,13 +348,13 @@ with `phonemes.yaml` and the `lang/` folder.
 
 ## License
 
-NV Speech Player is covered by the GNU General Public License (Version 2).
+TGSpeechBox is covered by the GNU General Public License (Version 2).
 
-Copyright (c) 2014 NV Speech Player contributors.
+Copyright (c) 2014 TGSpeechBox contributors.
 
 This is a community-maintained fork. The original project was created by NV Access Limited.
 
 ## Links
 
-- Source: https://github.com/TGeczy/NVSpeechPlayer
+- Source: https://github.com/tgeczy/TGSpeechBox
 - Original project: https://github.com/nvaccess/nvSpeechPlayer

@@ -1,4 +1,4 @@
-# NVSP Phoneme Editor (Win32)
+# TGSB Phoneme Editor (Win32)
 
 A simple Win32 GUI for editing:
 
@@ -20,7 +20,7 @@ cmake --build build --config Release
 
 The executable target is:
 
-- `nvspPhonemeEditor`
+- `tgsbPhonemeEditor`
 
 ## First run
 
@@ -36,7 +36,7 @@ The executable target is:
 "Convert to IPA" uses a **CLI phonemizer** and captures its stdout. By default it uses
 `espeak-ng.exe` (or `espeak.exe`) from the configured eSpeak directory.
 
-Advanced users can override the phonemizer in `nvspPhonemeEditor.ini`:
+Advanced users can override the phonemizer in `tgsbPhonemeEditor.ini`:
 
 ```ini
 [phonemizer]
@@ -63,7 +63,7 @@ argsStdin=
 argsCli=
 ```
 
-The tool stores these paths in `nvspPhonemeEditor.ini` next to the exe.
+The tool stores these paths in `tgsbPhonemeEditor.ini` next to the exe.
 
 ## What it can do
 

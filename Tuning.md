@@ -1,4 +1,4 @@
-# NV Speech Player – Language Pack & Phoneme Tuning Guide
+# TGSpeechBox – Language Pack & Phoneme Tuning Guide
 
 This document covers language pack configuration, phoneme tuning, voice profiles, normalization rules, and frontend processing passes.
 
