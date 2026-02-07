@@ -2,7 +2,7 @@
 """
 formant_trajectory.py
 
-Accurate simulation of NV Speech Player's frame manager and formant synthesis,
+Accurate simulation of TGSpeechBox's frame manager and formant synthesis,
 with visualization of formant trajectories over time.
 
 This models:
@@ -138,6 +138,52 @@ class FrameRequest:
     user_index: int = -1
     label: str = ""  # For visualization
 
+    # FrameEx voice quality params (DSP v5+)
+    has_frame_ex: bool = False
+    frame_ex: dict = field(default_factory=lambda: _default_frame_ex())
+
+    # Formant end targets for exponential smoothing (DECTalk-style)
+    # NaN = no ramping for that formant
+    end_cf1: float = float('nan')
+    end_cf2: float = float('nan')
+    end_cf3: float = float('nan')
+    end_pf1: float = float('nan')
+    end_pf2: float = float('nan')
+    end_pf3: float = float('nan')
+    formant_alpha: float = 0.0
+
+
+def _default_frame_ex() -> dict:
+    """Mirrors speechPlayer_frameEx_defaults from frame.h"""
+    return {
+        "creakiness": 0.0,
+        "breathiness": 0.0,
+        "jitter": 0.0,
+        "shimmer": 0.0,
+        "sharpness": 0.0,
+        "endCf1": float('nan'),
+        "endCf2": float('nan'),
+        "endCf3": float('nan'),
+        "endPf1": float('nan'),
+        "endPf2": float('nan'),
+        "endPf3": float('nan'),
+        "fujisakiEnabled": 0.0,
+        "fujisakiReset": 0.0,
+        "fujisakiPhraseAmp": 0.0,
+        "fujisakiPhraseLen": 0.0,
+        "fujisakiAccentAmp": 0.0,
+        "fujisakiAccentDur": 0.0,
+        "fujisakiAccentLen": 0.0,
+    }
+
+
+# Index of first Fujisaki field — these get stepped, not interpolated
+_FRAME_EX_KEYS = list(_default_frame_ex().keys())
+_FUJISAKI_START_IDX = _FRAME_EX_KEYS.index("fujisakiEnabled")
+
+# Exponential smoothing alpha for formant ramping (~10-15ms time constant)
+_FORMANT_ALPHA = 0.004
+
 
 # =============================================================================
 # Frame Manager (accurate port of frame.cpp)
@@ -148,15 +194,53 @@ def lerp(old: float, new: float, ratio: float) -> float:
     return old + (new - old) * ratio
 
 
+def cosine_smooth(ratio: float) -> float:
+    """cosineSmooth from utils.h — S-curve easing for spectral params."""
+    return 0.5 * (1.0 - math.cos(math.pi * ratio))
+
+
+def freq_lerp(old: float, new: float, ratio: float) -> float:
+    """calculateFreqAtFadePosition from utils.h — log-domain interpolation for Hz values.
+    Falls back to linear lerp if either value is <= 0."""
+    if old <= 0.0 or new <= 0.0:
+        return lerp(old, new, ratio)
+    log_old = math.log(old)
+    log_new = math.log(new)
+    return math.exp(log_old + (log_new - log_old) * ratio)
+
+
+def is_frequency_param(idx: int) -> bool:
+    """Mirrors isFrequencyParam() from frame.cpp — identifies Hz-valued parameters
+    that need log-domain interpolation. Everything else gets linear."""
+    name = FRAME_PARAM_NAMES[idx]
+    # voicePitch and endVoicePitch
+    if name in ("voicePitch", "endVoicePitch"):
+        return True
+    # Cascade formant frequencies: cf1 through cfNP
+    if name.startswith("cf"):
+        return True
+    # Parallel formant frequencies: pf1 through pf6
+    if name.startswith("pf"):
+        return True
+    return False
+
+
+# Precompute the frequency param set for hot-loop performance
+_FREQ_PARAM_SET = frozenset(i for i in range(FRAME_FIELD_COUNT) if is_frequency_param(i))
+
+
 class FrameManager:
     """
     Accurate Python port of FrameManagerImpl from frame.cpp.
     
     This handles:
     - Frame queuing with duration (minNumSamples) and fade (numFadeSamples)
-    - Linear interpolation during fade transitions
-    - Pitch ramping via voicePitchInc
-    - NULL frame handling (silence)
+    - Dual interpolation during fades: log-domain + cosine easing for frequency
+      params (voicePitch, cf1-cfNP, pf1-pf6), linear for everything else
+    - FrameEx interpolation with Fujisaki trigger step-through
+    - Pitch ramping via voicePitchInc during hold phase
+    - Exponential formant smoothing (endCf1/2/3, endPf1/2/3) during hold phase
+    - NULL frame handling (silence transitions)
     """
     
     def __init__(self):
@@ -164,7 +248,9 @@ class FrameManager:
         self.old_request: FrameRequest = FrameRequest()
         self.new_request: Optional[FrameRequest] = None
         self.cur_frame: Frame = Frame()
+        self.cur_frame_ex: dict = _default_frame_ex()
         self.cur_frame_is_null: bool = True
+        self.cur_has_frame_ex: bool = False
         self.sample_counter: int = 0
         self.last_user_index: int = -1
 
@@ -176,11 +262,17 @@ class FrameManager:
         user_index: int = -1,
         purge_queue: bool = False,
         label: str = "",
+        frame_ex: Optional[dict] = None,
     ):
-        """Queue a frame for synthesis."""
+        """Queue a frame for synthesis.
+        
+        frame_ex: optional dict with FrameEx voice quality params (creakiness,
+                  breathiness, endCf1, fujisakiEnabled, etc.)
+        """
         req = FrameRequest()
         req.min_num_samples = min_num_samples
-        req.num_fade_samples = num_fade_samples
+        # Enforce minimum of 1 to prevent divide-by-zero (matches C++)
+        req.num_fade_samples = max(num_fade_samples, 1)
         req.user_index = user_index
         req.label = label
 
@@ -196,12 +288,30 @@ class FrameManager:
             req.frame = Frame()
             req.voice_pitch_inc = 0.0
 
+        # FrameEx handling
+        if frame_ex is not None:
+            req.has_frame_ex = True
+            req.frame_ex = {**_default_frame_ex(), **frame_ex}
+            # Extract formant end targets for exponential smoothing
+            has_any_target = False
+            for attr, key in [("end_cf1", "endCf1"), ("end_cf2", "endCf2"),
+                              ("end_cf3", "endCf3"), ("end_pf1", "endPf1"),
+                              ("end_pf2", "endPf2"), ("end_pf3", "endPf3")]:
+                v = req.frame_ex.get(key, float('nan'))
+                if math.isfinite(v):
+                    setattr(req, attr, v)
+                    has_any_target = True
+            if has_any_target:
+                req.formant_alpha = _FORMANT_ALPHA
+
         if purge_queue:
             self.frame_queue.clear()
             self.sample_counter = self.old_request.min_num_samples
             if not self.cur_frame_is_null:
                 self.old_request.is_null = False
                 self.old_request.frame = self.cur_frame.copy()
+                self.old_request.has_frame_ex = self.cur_has_frame_ex
+                self.old_request.frame_ex = dict(self.cur_frame_ex)
             if self.new_request is not None:
                 self.new_request = None
 
@@ -215,60 +325,117 @@ class FrameManager:
         self._update_current_frame()
         return None if self.cur_frame_is_null else self.cur_frame
 
+    def get_current_frame_ex(self) -> Optional[dict]:
+        """Return the current FrameEx dict, or None if no FrameEx is active."""
+        return dict(self.cur_frame_ex) if self.cur_has_frame_ex else None
+
     def _update_current_frame(self):
         self.sample_counter += 1
 
         if self.new_request is not None:
-            # Currently fading between old and new
+            # === Branch 1: During fade between old and new ===
             if self.sample_counter > self.new_request.num_fade_samples:
-                # Fade complete
+                # Fade complete — snap to new frame
                 self.old_request = self.new_request
                 self.new_request = None
                 self.cur_frame = self.old_request.frame.copy()
+                self.cur_frame_ex = dict(self.old_request.frame_ex)
+                self.cur_has_frame_ex = self.old_request.has_frame_ex
             else:
-                # Interpolate all parameters
-                ratio = self.sample_counter / self.new_request.num_fade_samples
+                # Interpolate frame params: log-domain + cosine for frequencies,
+                # linear for amplitudes/bandwidths/gains
+                linear_ratio = self.sample_counter / self.new_request.num_fade_samples
+                cosine_ratio = cosine_smooth(linear_ratio)
                 for i in range(FRAME_PARAM_COUNT):
                     old_val = self.old_request.frame.get_param(i)
                     new_val = self.new_request.frame.get_param(i)
-                    self.cur_frame.set_param(i, lerp(old_val, new_val, ratio))
+                    if i in _FREQ_PARAM_SET:
+                        self.cur_frame.set_param(i, freq_lerp(old_val, new_val, cosine_ratio))
+                    else:
+                        self.cur_frame.set_param(i, lerp(old_val, new_val, linear_ratio))
+
+                # Interpolate FrameEx params
+                if self.old_request.has_frame_ex or self.new_request.has_frame_ex:
+                    self.cur_has_frame_ex = True
+                    for j, key in enumerate(_FRAME_EX_KEYS):
+                        if j >= _FUJISAKI_START_IDX:
+                            # Fujisaki triggers: step immediately to new values
+                            self.cur_frame_ex[key] = self.new_request.frame_ex[key]
+                        else:
+                            # Voice quality params: linear interpolation
+                            old_v = self.old_request.frame_ex[key]
+                            new_v = self.new_request.frame_ex[key]
+                            # Skip NaN-valued end targets (they're not interpolatable)
+                            if math.isfinite(old_v) and math.isfinite(new_v):
+                                self.cur_frame_ex[key] = lerp(old_v, new_v, linear_ratio)
+                            else:
+                                self.cur_frame_ex[key] = new_v
+                else:
+                    self.cur_has_frame_ex = False
+                    self.cur_frame_ex = _default_frame_ex()
+
         elif self.sample_counter > self.old_request.min_num_samples:
-            # Time to move to next frame
+            # === Branch 3: Hold expired — pop next frame from queue ===
             if self.frame_queue:
                 was_from_silence = self.cur_frame_is_null or self.old_request.is_null
                 self.cur_frame_is_null = False
                 self.new_request = self.frame_queue.pop(0)
 
                 if self.new_request.is_null:
-                    # Transitioning to silence
+                    # Transitioning to silence — copy old frame, zero gain
                     self.new_request.frame = self.old_request.frame.copy()
                     self.new_request.frame.preFormantGain = 0.0
                     self.new_request.frame.voicePitch = self.cur_frame.voicePitch
                     self.new_request.voice_pitch_inc = 0.0
+                    # Carry FrameEx through silence fades
+                    self.new_request.frame_ex = dict(self.old_request.frame_ex)
+                    self.new_request.has_frame_ex = self.old_request.has_frame_ex
                 elif self.old_request.is_null:
-                    # Transitioning from silence
+                    # Transitioning from silence — copy new frame, zero gain on old
                     self.old_request.frame = self.new_request.frame.copy()
                     self.old_request.frame.preFormantGain = 0.0
                     self.old_request.is_null = False
+                    self.old_request.frame_ex = dict(self.new_request.frame_ex)
+                    self.old_request.has_frame_ex = self.new_request.has_frame_ex
 
                 if self.new_request is not None:
                     if self.new_request.user_index != -1:
                         self.last_user_index = self.new_request.user_index
                     self.sample_counter = 0
+                    # On from-silence: snap curFrame to old (which has preFormantGain=0)
                     if was_from_silence:
                         self.cur_frame = self.old_request.frame.copy()
+                        self.cur_frame_ex = dict(self.old_request.frame_ex)
+                        self.cur_has_frame_ex = self.old_request.has_frame_ex
                     # Apply pitch increment over fade
                     self.new_request.frame.voicePitch += (
                         self.new_request.voice_pitch_inc * self.new_request.num_fade_samples
                     )
             else:
-                # No more frames - go to silence
+                # No more frames — go to silence
                 self.cur_frame_is_null = True
                 self.old_request.is_null = True
+                self.cur_has_frame_ex = False
+                self.cur_frame_ex = _default_frame_ex()
         else:
-            # Still within current frame - apply pitch ramping
+            # === Branch 2: Still within current frame hold ===
+            # Per-sample linear pitch ramping
             self.cur_frame.voicePitch += self.old_request.voice_pitch_inc
             self.old_request.frame.voicePitch = self.cur_frame.voicePitch
+
+            # Per-sample exponential formant ramping (DECTalk-style)
+            alpha = self.old_request.formant_alpha
+            if alpha > 0:
+                for attr, frame_field in [
+                    ("end_cf1", "cf1"), ("end_cf2", "cf2"), ("end_cf3", "cf3"),
+                    ("end_pf1", "pf1"), ("end_pf2", "pf2"), ("end_pf3", "pf3"),
+                ]:
+                    target = getattr(self.old_request, attr)
+                    if math.isfinite(target):
+                        cur = getattr(self.cur_frame, frame_field)
+                        new_val = cur + alpha * (target - cur)
+                        setattr(self.cur_frame, frame_field, new_val)
+                        setattr(self.old_request.frame, frame_field, new_val)
 
 
 # =============================================================================
@@ -1069,7 +1236,7 @@ def write_wav(path: Path, audio: np.ndarray, sample_rate: int):
 # =============================================================================
 
 def main():
-    ap = argparse.ArgumentParser(description="Formant Trajectory Visualizer for NV Speech Player")
+    ap = argparse.ArgumentParser(description="Formant Trajectory Visualizer for TGSpeechBox")
     ap.add_argument("--packs", required=True, help="Path to packs folder (contains packs/phonemes.yaml)")
     ap.add_argument("--lang", default="default", help="Language tag (e.g., en-us, hu, pl)")
     ap.add_argument("--voice", default="en-gb", help="eSpeak voice for --text")
