@@ -1,72 +1,127 @@
-# Hungarian language pack - tuned for native-like prosody
-# Hungarian is SYLLABLE-TIMED, has phonemic vowel length, and clear geminates
+# Hungarian language pack — Opus 4.6 revision
+# Hungarian is SYLLABLE-TIMED with fixed initial stress, phonemic vowel length,
+# and a rich palatal consonant inventory. Prosody is relatively flat with
+# gentle final fall — quite different from English stress-timing.
 
 settings:
   legacyPitchMode: espeak_style
 
-  # === HUNGARIAN PROSODY ===
-  # Hungarian is SYLLABLE-TIMED (like Spanish/Italian), not stress-timed like English.
-  # Each syllable gets roughly equal duration. Stress is word-initial but very subtle.
-  
-  # Keep stress very subtle - Hungarian stress is more about pitch than duration
+  # === PITCH MODEL ===
+  # Hungarian intonation: relatively flat phrase with gentle terminal fall.
+  # Stress is word-initial but realized mainly as F0 prominence, not duration.
+  # Fujisaki with low amplitudes captures this better than eSpeak's
+  # English-centric stepped contours.
+  fujisakiPhraseAmp: 0.16
+  fujisakiPrimaryAccentAmp: 0.12
+  fujisakiSecondaryAccentAmp: 0.0
+  fujisakiAccentMode: "first_only"
+  fujisakiDeclinationScale: 18.0
+  fujisakiDeclinationMax: 1.15
+  fujisakiDeclinationPostFloor: 0.08
+
+  # === STRESS ===
+  # Hungarian stress is word-initial and very subtle — mainly pitch, not length.
+  # A tiny durational cue is natural but must not distort short/long contrasts.
   primaryStressDiv: 1.05
   secondaryStressDiv: 1.00
 
   # === LENGTH CONTRAST ===
-  # Hungarian has phonemic vowel length (a vs á, e vs é, etc.) - this MUST be clear
-  lengthenedScale: 1.90
-  lengthenedScaleHu: 1.90
+  # Hungarian has phonemic vowel length (a/á, e/é, i/í, etc.) — this MUST be
+  # perceptually clear. The short/long distinction is the #1 prosodic feature.
+  lengthenedScale: 1.80
+  lengthenedScaleHu: 1.80
   lengthenedVowelFinalCodaScale: 0.92
   applyLengthenedScaleToVowelsOnly: false
 
-  # Length contrast settings - enforce clear short/long distinction
   lengthContrast:
     enabled: true
     shortVowelCeilingMs: 70
-    longVowelFloorMs: 125
-    # Geminates: held closure then crisp release
-    # Now that the C++ patch inserts proper closure gaps, we can use gentler scaling
+    longVowelFloorMs: 115
     geminateClosureScale: 1.6
     geminateReleaseScale: 0.90
     preGeminateVowelScale: 0.85
 
-  # === CONSONANT CLARITY ===
-  # Hungarian consonant clusters must be crisp and distinct, not blended
-  # Words like "megszülettek" have ɡs, tː clusters that need separation
-  stopClosureMode: always
-  stopClosureAfterNasalsEnabled: true
-  stopClosureVowelGapMs: 32.0
-  stopClosureVowelFadeMs: 5.0
-  stopClosureClusterGapMs: 26.0
-  stopClosureClusterFadeMs: 4.0
-  
-  # Segment boundaries - keep consonants separate
-  segmentBoundaryGapMs: 16
-  segmentBoundaryFadeMs: 4
-
-  # === BOUNDARY SMOOTHING OFF ===
-  # Hungarian needs crisp transitions, not smoothed ones
-  boundarySmoothing:
-    enabled: false
-
   # === COARTICULATION ===
-  # DISABLED for Hungarian - causes ɡ to sound like ɟ near front vowels (függő problem)
-  # Hungarian consonants should stay distinct regardless of vowel context
-  coarticulationEnabled: false
+  # ENABLED at moderate strength. Real Hungarian speech has coarticulation —
+  # turning it off entirely makes speech sound like isolated phoneme splicing.
+  #
+  # The ɡ/ɟ confusion near front vowels is fixed by:
+  #   - Disabling velar pinch (which pulls velar F2 up toward palatals)
+  #   - Keeping F2 coarticulation moderate (0.7 instead of 1.0)
+  #   - Using MITalk-K locus weighting to anchor consonants
+  #
+  # This lets labials, alveolars, and nasals coarticulate naturally while
+  # keeping velars safely separated from palatals.
+  coarticulationEnabled: true
+  coarticulationStrength: 0.20
+  coarticulationTransitionExtent: 0.30
+  coarticulationFadeIntoConsonants: true
+  coarticulationWordInitialFadeScale: 0.8
+
+  coarticulationGraduated: true
+  coarticulationAdjacencyMaxConsonants: 1
+
+  coarticulationLabialF2Locus: 800
+  coarticulationAlveolarF2Locus: 1800
+  coarticulationVelarF2Locus: 2000
+
+  # Velar pinch OFF — this is what was pulling ɡ toward ɟ near front vowels.
+  coarticulationVelarPinchEnabled: false
+
+  coarticulationF1Scale: 0.4
+  coarticulationF2Scale: 0.7
+  coarticulationF3Scale: 0.3
+
+  coarticulationMitalkK: 0.50
+
+  coarticulationAlveolarBackVowelEnabled: false
+  coarticulationLabializedFricativeFrontingEnabled: false
+
+  # === BOUNDARY SMOOTHING ===
+  # Crisp ≠ discontinuous. Even fast Hungarian speech has ~5-8ms of formant
+  # transition at segment boundaries. Without smoothing, every phoneme boundary
+  # is a hard splice — a major source of roboticness.
+  # Using shorter values than English to preserve Hungarian consonant clarity.
+  boundarySmoothing:
+    enabled: true
+    vowelToStopFadeMs: 8
+    stopToVowelFadeMs: 6
+    vowelToFricFadeMs: 4
+
+  # === STOP CLOSURE ===
+  # Hungarian stops need clear closures but "always" mode with 32ms gaps
+  # inserts ~96ms of dead air in a word like "Budapest." Vowel-and-cluster
+  # mode gives closures where they matter without chopping every syllable.
+  stopClosureMode: vowel-and-cluster
+  stopClosureAfterNasalsEnabled: true
+  stopClosureVowelGapMs: 26.0
+  stopClosureVowelFadeMs: 6.0
+  stopClosureClusterGapMs: 18.0
+  stopClosureClusterFadeMs: 4.0
+
+  # === SEGMENT BOUNDARIES ===
+  # 16ms gap between every segment was causing staccato rhythm.
+  # Hungarian is syllable-timed — syllables should flow, not be chopped.
+  # A small gap (4ms) is enough to prevent cross-segment artifacts.
+  segmentBoundaryGapMs: 4
+  segmentBoundaryFadeMs: 2
+  segmentBoundarySkipVowelToVowel: true
+  segmentBoundarySkipVowelToLiquid: true
 
   # === TRAJECTORY LIMITING ===
-  # Limit how fast formants can change - prevents muddy clusters
+  # Prevents jarring formant jumps across segment boundaries.
+  # Slightly relaxed from previous (cf2: 22→24) to let consonants stay distinct.
   trajectoryLimit:
     enabled: true
     applyTo: [cf2, cf3]
     maxHzPerMs:
-      cf2: 22
+      cf2: 24
       cf3: 28
     windowMs: 20
     applyAcrossWordBoundary: false
 
   # === PHRASE-FINAL LENGTHENING ===
-  # Hungarian does have some final lengthening but less than English
+  # Hungarian has moderate final lengthening — less than English.
   phraseFinalLengthening:
     enabled: true
     finalSyllableScale: 1.18
@@ -74,7 +129,8 @@ settings:
     nucleusOnlyMode: true
 
   # === MICROPROSODY ===
-  # Subtle pitch effects around consonants
+  # Subtle F0 effects. Voiceless F0 raise off for Hungarian — it can
+  # interfere with the flat prosodic profile. Voiced lowering is natural.
   microprosody:
     enabled: true
     voicelessF0Raise:
@@ -82,33 +138,48 @@ settings:
     voicedF0Lower:
       enabled: true
       deltaHz: 6
+    minVowelMs: 25
 
   # === TRILL (rolled R) ===
   trillModulationMs: 28.0
   trillModulationFadeMs: 0.0
 
   # === HUNGARIAN SHORT "A" ===
-  # Hungarian short "a" is /ɒ/ (open back rounded), quite distinct from long "á" /aː/
+  # Hungarian short "a" is /ɒ/ (open back rounded), very distinct from
+  # long "á" /aː/ (open central unrounded). The ᴒ phoneme captures this.
   huShortAVowelEnabled: true
   huShortAVowelKey: "ᴒ"
   huShortAVowelScale: 0.82
 
-  # === OTHER SETTINGS ===
-  nasalizationAnticipatoryEnabled: false
-  positionalAllophonesGlottalReinforcementEnabled: false
+  # === DIPHTHONGS & LIQUIDS ===
+  # Hungarian has no true diphthongs (unlike English). Keep these off.
   autoTieDiphthongs: false
+
+  # Liquid dynamics off — Hungarian /l/ and /r/ are fairly static.
+  # The trill modulation above handles /r/ character.
   liquidDynamicsEnabled: false
-  
-  # Single-word smoothing
+
+  # === NASALIZATION ===
+  # Hungarian doesn't have phonemic nasalization.
+  nasalizationAnticipatoryEnabled: false
+
+  # === GLOTTAL REINFORCEMENT ===
+  # Not a feature of Hungarian.
+  positionalAllophonesGlottalReinforcementEnabled: false
+
+  # === SINGLE WORD TUNING ===
   singleWordTuningEnabled: true
-  singleWordFinalHoldMs: 50
+  singleWordFinalHoldMs: 45
   singleWordFinalFadeMs: 15
   singleWordClauseTypeOverride: "."
   singleWordClauseTypeOverrideCommaOnly: true
 
 normalization:
   preReplacements:
-    # Long vowel mappings to Hungarian-specific symbols
+    # === LONG VOWEL MAPPINGS ===
+    # eSpeak outputs generic IPA long vowels (aː, eː, etc.).
+    # We remap to Hungarian-specific phoneme keys that have correct
+    # formant targets for the Hungarian vowel space.
     - from: "aː"
       to: "áː"
     - from: "eː"
@@ -124,24 +195,28 @@ normalization:
     - from: "yː"
       to: "űː"
 
-    # Hungarian short "a" is /ɒ/ not /ɑ/
+    # === HUNGARIAN SHORT "A" ===
+    # Hungarian short "a" is /ɒ/ (open back rounded), not /ɑ/.
+    # eSpeak may output either — map both to our tuned ᴒ.
     - from: "ɑ"
       to: "ᴒ"
     - from: "ɒ"
       to: "ᴒ"
 
-    # Hungarian "ny" /ɲ/ - palatal nasal
+    # === PALATAL NASAL ===
+    # eSpeak may output n͡ʲ or nʲ for Hungarian "ny" — normalize to ɲ.
     - from: "n͡ʲ"
       to: "ɲ"
     - from: "nʲ"
       to: "ɲ"
 
-    # Strip stray palatalization markers
+    # Strip stray palatalization markers that eSpeak may leave behind
     - from: "ʲ"
       to: ""
 
-    # Hungarian "gy" /ɟ/ stress handling
-    # Move stress after word-initial gy so it gets proper closure
+    # === GY (ɟ) STRESS HANDLING ===
+    # Move stress marker after word-initial gy/dzs so the stop closure
+    # gets proper timing without the stress marker sitting on it.
     - from: "ˈɟ"
       to: "ɟˈ"
       when:
@@ -151,17 +226,21 @@ normalization:
       when:
         atWordStart: true
 
-    # Strip secondary stress - Hungarian doesn't really use it
+    # === STRIP SECONDARY STRESS ===
+    # Hungarian has fixed initial primary stress only.
+    # eSpeak sometimes inserts secondary stress in compounds — strip it.
     - from: "ˌ"
       to: ""
 
   replacements:
-    # Separate difficult clusters with micro-schwa for clarity
-    # "megszülettek" has ɡs cluster
+    # === CLUSTER CLARITY ===
+    # Insert micro-schwa in difficult clusters for audibility.
+    # "megszülettek" has ɡs cluster that merges without help.
     - from: "ɡs"
       to: "ɡᵊs"
 
-    # Final "jel" in compounds - keep audible
+    # === COMPOUND WORD HELP ===
+    # Final "jel" in compounds — add secondary stress for audibility.
     - from: "jɛl"
       to: "jˌɛl"
       when:
@@ -169,8 +248,8 @@ normalization:
 
 intonation:
   ".":
-    # Hungarian declaratives: steady then fall at end
-    # Less dramatic than English - more level throughout
+    # Hungarian declaratives: relatively flat, gentle terminal fall.
+    # Less dramatic than English — steady pitch with subtle decline.
     preHeadStart: 55
     preHeadEnd: 50
     headStart: 52
@@ -181,9 +260,10 @@ intonation:
     nucleusEnd: 20
     tailStart: 25
     tailEnd: 8
-  
+
   "?":
-    # Hungarian yes/no questions rise at end
+    # Hungarian yes/no questions: rise at end.
+    # Wh-questions typically fall (handled by stress pattern).
     preHeadStart: 45
     preHeadEnd: 50
     nucleus0Start: 55
@@ -192,9 +272,9 @@ intonation:
     nucleusEnd: 80
     tailStart: 75
     tailEnd: 90
-  
+
   ",":
-    # Continuation - slight rise
+    # Continuation: slight rise to signal more coming.
     preHeadStart: 50
     preHeadEnd: 48
     nucleus0Start: 50
@@ -203,3 +283,16 @@ intonation:
     nucleusEnd: 52
     tailStart: 50
     tailEnd: 55
+
+  "!":
+    # Exclamation: stronger initial accent, sharper fall.
+    preHeadStart: 60
+    preHeadEnd: 55
+    headStart: 62
+    headEnd: 48
+    nucleus0Start: 55
+    nucleus0End: 10
+    nucleusStart: 55
+    nucleusEnd: 15
+    tailStart: 20
+    tailEnd: 5

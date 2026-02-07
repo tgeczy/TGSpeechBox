@@ -544,36 +544,39 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   c:
+    # Hungarian "ty" - voiceless PALATAL STOP
+    # Needs VERY strong burst to survive intervocalic position (kutya).
+    # Palatal quality from high F2 (2200) and strong mid-freq burst.
     _isLiquid: false
     _isNasal: false
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0
+    aspirationAmplitude: 0.08
     caNP: 0
     cb1: 275
     cb2: 120
-    cb3: 247.5
+    cb3: 220
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
     cf1: 300
-    cf2: 2400
-    cf3: 3100
+    cf2: 2200
+    cf3: 2850
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 1
-    pa1: 0
-    pa2: 0.8
-    pa3: 0.6333333333
-    pa4: 0.3666666667
-    pa5: 0.3833333333
-    pa6: 0.3833333333
+    fricationAmplitude: 0.92
+    pa1: 0.10
+    pa2: 0.80
+    pa3: 0.75
+    pa4: 0.32
+    pa5: 0.18
+    pa6: 0.12
     parallelBypass: 0
     pb1: 250
     pb2: 130
@@ -582,8 +585,8 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 300
-    pf2: 2400
-    pf3: 3100
+    pf2: 2200
+    pf3: 2850
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -908,6 +911,9 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0
   g:
+    # Voiced velar stop - tuned for proper "velar pinch" (F2/F3 convergence).
+    # Burst balanced: not too weak (melty) or too strong (clicky).
+    # Intervocalic /g/ (dialog) needs gentler burst than initial /g/ (glad).
     _isLiquid: false
     _isNasal: false
     _isStop: true
@@ -917,37 +923,37 @@ phonemes:
     caNP: 0
     cb1: 66
     cb2: 112.5
-    cb3: 210
+    cb3: 180
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
     cf1: 200
-    cf2: 1990
-    cf3: 2850
+    cf2: 1800
+    cf3: 2400
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.7
+    fricationAmplitude: 0.50
     pa1: 0
-    pa2: 0.8
-    pa3: 0.65
-    pa4: 0.3666666667
-    pa5: 0.3833333333
-    pa6: 0.3833333333
+    pa2: 0.55
+    pa3: 0.58
+    pa4: 0.28
+    pa5: 0.20
+    pa6: 0.15
     parallelBypass: 0
     pb1: 60
     pb2: 150
-    pb3: 200
+    pb3: 180
     pb4: 250
     pb5: 200
     pb6: 1000
     pf1: 200
-    pf2: 1990
-    pf3: 2650
+    pf2: 1800
+    pf3: 2400
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -957,9 +963,11 @@ phonemes:
     _isStop: false
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0.9
+    aspirationAmplitude: 0.15
     fricationAmplitude: 0
     voiceAmplitude: 0
+    frameEx:
+      breathiness: 0.05
   i:
     _isLiquid: false
     _isNasal: false
@@ -1052,6 +1060,10 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   k:
+    # Velar stop - tuned for proper "velar pinch" where F2 and F3 converge.
+    # Research: F2 and F3 should approach each other (both ~2000-2500 Hz range).
+    # F2=1800, F3=2400 gives ~600 Hz gap (pinch), vs alveolar's ~950 Hz gap.
+    # Burst is "compact" with energy in mid-frequencies (1.5-3 kHz).
     _isLiquid: false
     _isNasal: false
     _isStop: true
@@ -1061,27 +1073,27 @@ phonemes:
     caNP: 0
     cb1: 275
     cb2: 120
-    cb3: 247.5
+    cb3: 200
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
     cf1: 300
-    cf2: 1990
-    cf3: 2850
+    cf2: 1800
+    cf3: 2400
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.70
-    pa1: 0.05
-    pa2: 0.80
-    pa3: 0.60
-    pa4: 0.20
-    pa5: 0.08
-    pa6: 0.03
+    fricationAmplitude: 0.65
+    pa1: 0.03
+    pa2: 0.70
+    pa3: 0.75
+    pa4: 0.25
+    pa5: 0.10
+    pa6: 0.05
     parallelBypass: 0
     pb1: 250
     pb2: 130
@@ -1090,8 +1102,8 @@ phonemes:
     pb5: 260
     pb6: 1400
     pf1: 300
-    pf2: 1990
-    pf3: 2650
+    pf2: 1800
+    pf3: 2400
     pf4: 3300
     pf5: 3200
     pf6: 4200
@@ -1196,16 +1208,17 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 1
     cb1: 90
-    cb2: 280
-    cb3: 240
+    cb2: 260
+    cb3: 225
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 170
+    # Alveolar nasal - lowered F2 to distinguish from palatal ɲ
     cf1: 280
     cf2: 1550
-    cf3: 2640
+    cf3: 2740
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -1226,8 +1239,8 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 480
-    pf2: 1250
-    pf3: 2400
+    pf2: 1550
+    pf3: 2600
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -2100,6 +2113,8 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.75
   "á":
+    # Hungarian long á /aː/ - widened bandwidths further for smoother sound.
+    # Research shows F1≈672, F2≈1669 (from Hungarian Phonetic Analysis)
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -2281,6 +2296,8 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0
   "é":
+    # Hungarian long é - widened bandwidths further to reduce sharpness.
+    # Front vowels naturally brighter, but shouldn't pierce.
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -2506,6 +2523,10 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.8
   "ø":
+    # Front rounded vowel - F2 raised from 1400 to 1550 for smoother
+    # transitions from palatal consonants (gy, ty, ny).
+    # Original 1400 caused 800Hz drop from palatals (F2≈2200) which
+    # swallowed the consonant's palatal quality.
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -2514,15 +2535,15 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 77
-    cb2: 75
-    cb3: 150
+    cb2: 85
+    cb3: 160
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
     cf1: 450
-    cf2: 1400
+    cf2: 1550
     cf3: 2500
     cf4: 3300
     cf5: 3750
@@ -2544,13 +2565,14 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 450
-    pf2: 1400
+    pf2: 1550
     pf3: 2500
     pf4: 3300
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
   "øː":
+    # Long front rounded vowel - F2 raised to match short ø
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -2559,15 +2581,15 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 77
-    cb2: 75
-    cb3: 150
+    cb2: 85
+    cb3: 160
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
     cf1: 450
-    cf2: 1400
+    cf2: 1550
     cf3: 2500
     cf4: 3300
     cf5: 3750
@@ -2589,7 +2611,7 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 450
-    pf2: 1400
+    pf2: 1550
     pf3: 2500
     pf4: 3300
     pf5: 3750
@@ -2686,6 +2708,9 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.8
   "ŋ":
+    # Velar nasal - tuned for velar pinch (F2/F3 convergence).
+    # F2=1800, F3=2400 to match velar stops. Research shows nasals
+    # also exhibit the pinch effect in formant transitions.
     _isLiquid: false
     _isNasal: true
     _isStop: false
@@ -2695,15 +2720,15 @@ phonemes:
     caNP: 1
     cb1: 90
     cb2: 260
-    cb3: 225
+    cb3: 200
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 170
     cf1: 480
-    cf2: 2000
-    cf3: 2900
+    cf2: 1800
+    cf3: 2400
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -2719,18 +2744,19 @@ phonemes:
     parallelBypass: 0
     pb1: 40
     pb2: 300
-    pb3: 300
+    pb3: 280
     pb4: 250
     pb5: 200
     pb6: 1000
     pf1: 480
-    pf2: 2000
-    pf3: 2900
+    pf2: 1800
+    pf3: 2400
     pf4: 3300
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
   "ő":
+    # Hungarian long ö (ő) - consistent F2 for palatal transitions
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -2739,8 +2765,8 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 77
-    cb2: 75
-    cb3: 150
+    cb2: 85
+    cb3: 160
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -2769,7 +2795,7 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 450
-    pf2: 1400
+    pf2: 1550
     pf3: 2500
     pf4: 3300
     pf5: 3750
@@ -3002,6 +3028,53 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+  # ᵅ: UK RP PALM/START vowel - properly back "ah" quality.
+  # F2≈1200 Hz for proper British RP (vs fronted F2≈1550 in generic ɑ which suits Australian).
+  "ᵅ":
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 170
+    cb2: 120
+    cb3: 150
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 700
+    cf2: 1200
+    cf3: 2600
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 170
+    pb2: 120
+    pb3: 150
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 700
+    pf2: 1200
+    pf3: 2600
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
   "ɑj":
     _isLiquid: false
     _isNasal: false
@@ -3047,6 +3120,14 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+    # PRICE diphthong: ramps [ɑ] -> [ɪ] (Klatt 1980 Table IV)
+    frameEx:
+      endCf1: 400
+      endCf2: 1880
+      endCf3: 2500
+      endPf1: 400
+      endPf2: 1880
+      endPf3: 2500
   "ɑw":
     _isLiquid: false
     _isNasal: false
@@ -3092,6 +3173,14 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+    # MOUTH diphthong: ramps [ɑ] -> [ʊ] (Klatt 1980 Table IV)
+    frameEx:
+      endCf1: 420
+      endCf2: 940
+      endCf3: 2350
+      endPf1: 420
+      endPf2: 940
+      endPf3: 2350
   "ɑ̃":
     _isAfricate: false
     _isLiquid: false
@@ -3317,6 +3406,14 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+    # CHOICE diphthong: ramps [ɔ] -> [ɪ] (Klatt 1980 Table IV)
+    frameEx:
+      endCf1: 360
+      endCf2: 1820
+      endCf3: 2450
+      endPf1: 360
+      endPf2: 1820
+      endPf3: 2450
   "ɕ":
     _isLiquid: false
     _isNasal: false
@@ -3497,6 +3594,14 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+    # Syllabic L: ramps from schwa [ə] toward dark [ɫ] (F2 drops 1400→1000)
+    frameEx:
+      endCf1: 450
+      endCf2: 1000
+      endCf3: 2300
+      endPf1: 450
+      endPf2: 1000
+      endPf3: 2300
   "ɚ":
     _isLiquid: false
     _isNasal: false
@@ -3678,6 +3783,56 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ɟ":
+    # Hungarian "gy" - voiced PALATAL STOP (not affricate!)
+    # Needs enough burst to sound palatal, but not prolonged frication.
+    # Think "d" in "dew" with tongue at hard palate - quick but clear.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: true
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 70
+    cb2: 110
+    cb3: 190
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 250
+    cf2: 2200
+    cf3: 2850
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.28
+    pa1: 0.08
+    pa2: 0.48
+    pa3: 0.45
+    pa4: 0.18
+    pa5: 0.10
+    pa6: 0.06
+    parallelBypass: 0
+    pb1: 65
+    pb2: 120
+    pb3: 190
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 250
+    pf2: 2200
+    pf3: 2850
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.92
+  "ɡ":
+    # Unicode variant of voiced velar stop - matches /g/ settings.
+    # Velar pinch: F2=1800, F3=2400. Balanced burst.
     _isLiquid: false
     _isNasal: false
     _isStop: true
@@ -3694,75 +3849,30 @@ phonemes:
     cbN0: 100
     cbNP: 100
     cf1: 220
-    cf2: 2300
-    cf3: 3000
+    cf2: 1800
+    cf3: 2400
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.35
-    pa1: 0.15
-    pa2: 0.50
-    pa3: 0.40
-    pa4: 0.20
-    pa5: 0.15
-    pa6: 0.10
-    parallelBypass: 0
+    fricationAmplitude: 0.50
+    pa1: 0
+    pa2: 0.55
+    pa3: 0.58
+    pa4: 0.28
+    pa5: 0.20
+    pa6: 0.15
+    parallelBypass: 0.08
     pb1: 65
-    pb2: 120
+    pb2: 130
     pb3: 180
     pb4: 250
     pb5: 200
     pb6: 1000
     pf1: 220
-    pf2: 2300
-    pf3: 3000
-    pf4: 3300
-    pf5: 3750
-    pf6: 4900
-    voiceAmplitude: 0.92
-  "ɡ":
-    _isLiquid: false
-    _isNasal: false
-    _isStop: true
-    _isVoiced: true
-    _isVowel: false
-    aspirationAmplitude: 0
-    caNP: 0
-    cb1: 70
-    cb2: 100
-    cb3: 190
-    cb4: 250
-    cb5: 200
-    cb6: 1000
-    cbN0: 100
-    cbNP: 100
-    cf1: 220
-    cf2: 1950
-    cf3: 2800
-    cf4: 3300
-    cf5: 3750
-    cf6: 4900
-    cfN0: 250
-    cfNP: 200
-    fricationAmplitude: 0.45
-    pa1: 0.10
-    pa2: 0.45
-    pa3: 0.35
-    pa4: 0.20
-    pa5: 0.15
-    pa6: 0.10
-    parallelBypass: 0.08
-    pb1: 65
-    pb2: 130
-    pb3: 200
-    pb4: 250
-    pb5: 200
-    pb6: 1000
-    pf1: 220
-    pf2: 1950
-    pf3: 2800
+    pf2: 1800
+    pf3: 2400
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -3863,9 +3973,11 @@ phonemes:
     _isStop: false
     _isVoiced: true
     _isVowel: false
-    aspirationAmplitude: 0.7
+    aspirationAmplitude: 0.5
     fricationAmplitude: 0
     voiceAmplitude: 0.35
+    frameEx:
+      breathiness: 0.35
   "ɧ":
     _isAfricate: false
     _isLiquid: false
@@ -4153,9 +4265,11 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
+    # Palatal nasal - raised F2 to ~2500 Hz for clear palatal quality
+    # Research shows ɲ should have F2 "always above 2000 Hz", typically 2200-2500
     cf1: 280
-    cf2: 2200
-    cf3: 3050
+    cf2: 2500
+    cf3: 3100
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -4176,8 +4290,8 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 280
-    pf2: 1900
-    pf3: 2900
+    pf2: 2400
+    pf3: 3000
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -4198,9 +4312,10 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
+    # Palatal nasal - raised F2 for clear distinction from alveolar n
     cf1: 280
-    cf2: 2350
-    cf3: 3200
+    cf2: 2500
+    cf3: 3100
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -4221,8 +4336,8 @@ phonemes:
     pb5: 200
     pb6: 1000
     pf1: 280
-    pf2: 2070
-    pf3: 3020
+    pf2: 2400
+    pf3: 3000
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -4737,7 +4852,7 @@ phonemes:
     _isVowel: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 110
+    cb1: 95
     cb2: 110
     cb3: 170
     cb4: 250
@@ -4745,8 +4860,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 620
-    cf2: 1220
+    cf1: 580
+    cf2: 1200
     cf3: 2550
     cf4: 3300
     cf5: 3750
@@ -4761,14 +4876,14 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 110
+    pb1: 95
     pb2: 110
     pb3: 170
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 620
-    pf2: 1220
+    pf1: 580
+    pf2: 1200
     pf3: 2550
     pf4: 3300
     pf5: 3750
@@ -4780,7 +4895,7 @@ phonemes:
     _isStop: false
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0.75
+    aspirationAmplitude: 0.6
     caNP: 0
     cb1: 55
     cb2: 60
@@ -4819,6 +4934,8 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0
+    frameEx:
+      breathiness: 0.3
   "ʎ":
     _isLiquid: true
     _isNasal: false
@@ -5047,13 +5164,16 @@ phonemes:
     voiceAmplitude: 0.9
   "ʔ":
     # Glottal stop - used in English "button", "kitten", etc.
-    # This is a real stop with closure, NOT Danish stød (use ˀ for that).
-    # Formants are neutral (schwa-like) since there's no oral constriction.
+    # Implemented as brief creaky voice (laryngealization) rather than hard silence
+    # to prevent DC transient thump. Uses _copyAdjacent for smooth formant transition.
+    _copyAdjacent: true
     _isLiquid: false
     _isNasal: false
-    _isStop: true
-    _isVoiced: false
+    _isStop: false
+    _isVoiced: true
     _isVowel: false
+    _hasCreakiness: true
+    creakiness: 0.85
     aspirationAmplitude: 0
     caNP: 0
     cb1: 130
@@ -5092,7 +5212,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0
+    voiceAmplitude: 0.08
   "ˀ":
     # Danish stød: laryngealized voice quality (creaky voice)
     # Uses _copyAdjacent to inherit formants from neighboring vowel/sonorant
@@ -5471,6 +5591,9 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ᴒ":
+    # Hungarian short a /ɒ/ - open back rounded vowel.
+    # F2 raised from 1080 to 1200 for smoother transitions from palatals.
+    # Widened bandwidths for smoother sound.
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -6140,7 +6263,7 @@ voiceProfiles:
       u: {cf1: 334, cf2: 1123, cf3: 2518, pf1: 402, pf2: 1066, pf3: 2433}
       y: {cf1: 312, cf2: 2012, cf3: 2380, pf1: 312, pf2: 2012, pf3: 2380}
       Ã: {cf1: 623, cf2: 1350, cf3: 2645, pf1: 623, pf2: 1350, pf3: 2645}
-      á: {cf1: 878, cf2: 1620, cf3: 3011, pf1: 878, pf2: 1570, pf3: 3063}
+      á: {cf1: 911, cf2: 1795, cf3: 3011, pf1: 911, pf2: 1740, pf3: 3063}
       ã: {cf1: 731, cf2: 1350, cf3: 2645, pf1: 731, pf2: 1350, pf3: 2645}
       æ: {cf1: 698, cf2: 1915, cf3: 2676, pf1: 698, pf2: 1915, pf3: 2676}
       é: {cf1: 435, cf2: 2386, cf3: 3218, pf1: 458, pf2: 2490, pf3: 3218}
@@ -6155,7 +6278,12 @@ voiceProfiles:
       ũ: {cf1: 334, cf2: 1123, cf3: 2518, pf1: 402, pf2: 1066, pf3: 2433}
       ű: {cf1: 289, cf2: 1958, cf3: 2380, pf1: 312, pf2: 2012, pf3: 2380}
       ɐ: {cf1: 601, cf2: 1530, cf3: 2645, pf1: 698, pf2: 1429, pf3: 2802}
+      # ɑ: Fronted PALM/START vowel (F2≈1550). Useful for Australian English!
+      # For proper UK RP, use ᵅ instead (F2≈1200, properly back "ah").
       ɑ: {cf1: 784, cf2: 1552, cf3: 2855, pf1: 784, pf2: 1552, pf3: 2855}
+      # ᵅ: UK RP PALM/START vowel - properly back "ah" quality (based on older tuning).
+      # Research shows RP ɑː should have F2 around 1100-1200 Hz, not the fronted 1550+ of Australian.
+      ᵅ: {cf1: 700, cf2: 1200, cf3: 2600, pf1: 700, pf2: 1200, pf3: 2600}
       ɒ: {cf1: 698, cf2: 1294, cf3: 2771, pf1: 784, pf2: 1429, pf3: 2855}
       ɔ: {cf1: 513, cf2: 1031, cf3: 2823, pf1: 677, pf2: 1169, pf3: 2823}
       ɘ: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
@@ -6284,7 +6412,7 @@ voiceProfiles:
       u: {cf1: 382, cf2: 1285, cf3: 2797, pf1: 458, pf2: 1220, pf3: 2704}
       y: {cf1: 356, cf2: 2284, cf3: 2646, pf1: 356, pf2: 2284, pf3: 2646}
       Ã: {cf1: 710, cf2: 1542, cf3: 2935, pf1: 710, pf2: 1542, pf3: 2935}
-      á: {cf1: 998, cf2: 1843, cf3: 3100, pf1: 998, pf2: 1788, pf3: 3150}
+      á: {cf1: 1036, cf2: 2041, cf3: 3334, pf1: 1036, pf2: 1980, pf3: 3391}
       ã: {cf1: 832, cf2: 1542, cf3: 2935, pf1: 832, pf2: 1542, pf3: 2935}
       æ: {cf1: 795, cf2: 2175, cf3: 2970, pf1: 795, pf2: 2175, pf3: 2970}
       é: {cf1: 497, cf2: 2696, cf3: 3559, pf1: 522, pf2: 2812, pf3: 3559}
@@ -6300,6 +6428,8 @@ voiceProfiles:
       ű: {cf1: 330, cf2: 2224, cf3: 2646, pf1: 356, pf2: 2284, pf3: 2646}
       ɐ: {cf1: 685, cf2: 1744, cf3: 2935, pf1: 795, pf2: 1631, pf3: 3107}
       ɑ: {cf1: 893, cf2: 1769, cf3: 3164, pf1: 893, pf2: 1769, pf3: 3164}
+      # ᵅ: UK RP PALM/START - properly back "ah" for British English
+      ᵅ: {cf1: 795, cf2: 1350, cf3: 2935, pf1: 795, pf2: 1350, pf3: 2935}
       ɒ: {cf1: 795, cf2: 1478, cf3: 3073, pf1: 893, pf2: 1631, pf3: 3164}
       ɔ: {cf1: 585, cf2: 1181, cf3: 3130, pf1: 771, pf2: 1337, pf3: 3130}
       ɘ: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
