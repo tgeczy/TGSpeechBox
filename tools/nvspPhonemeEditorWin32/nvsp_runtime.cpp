@@ -278,11 +278,11 @@ static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
       return 0.5 + (sv / 100.0) * 3.5;
     case 11: // aspirationTiltDbPerOct: -12 to +12, default 0.0 at 50
       return -12.0 + (sv / 100.0) * 24.0;
-    case 12: // cascadeBwScale: 0.4-1.4, default 1.0 at 50
+case 12: // cascadeBwScale: 0.3-2.0, default 0.8 at 50
       if (sv <= 50.0) {
-        return 0.4 + (sv / 50.0) * 0.6;
+        return 2.0 - (sv / 50.0) * 1.2;   // 0 -> 2.0, 50 -> 0.8
       }
-      return 1.0 + ((sv - 50.0) / 50.0) * 0.4;
+      return 0.8 - ((sv - 50.0) / 50.0) * 0.5;  // 50 -> 0.8, 100 -> 0.3
     case 13: // tremorDepth: 0.0-0.4, default 0.0 at 0
       return (sv / 100.0) * 0.4;
     default:
