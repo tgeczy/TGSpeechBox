@@ -61,8 +61,8 @@ def _getPacksDir() -> str:
 from . import langPackYaml
 
 GitHub_URL = "https://github.com/tgeczy/TGSpeechBox"
-ADDON_UPDATE_URL = "https://eurpod.com/synths/TGSpeechBox-2026.nvda-addon"
-ADDON_VERSION_URL = "https://eurpod.com/TGSpeechBox-version.txt"
+ADDON_UPDATE_URL = "https://eurpod.com/synths/nvSpeechPlayer-2026.nvda-addon"
+ADDON_VERSION_URL = "https://eurpod.com/tgSpeechBox-version.txt"
 
 
 def _getInstalledAddonVersion() -> str:

@@ -7,14 +7,14 @@ This package contains pre-built binaries of TGSpeechBox for Linux x86_64.
 ## Contents
 
 ```
-nvspeechplayer-linux/
+tgspeechbox-linux-x86_64/
 ├── bin/
-│   ├── nvspRender     # Core binary (IPA → raw PCM)
-│   └── nvsp           # Wrapper script with paths configured
+│   ├── tgsbRender     # Core binary (IPA → raw PCM)
+│   └── tgsp           # Wrapper script with paths configured
 ├── lib/
-│   ├── libspeechPlayer.so    # DSP engine
-│   └── libnvspFrontend.so    # IPA → formant frames
-├── share/nvspeechplayer/
+│   ├── libtgspeechbox.so     # DSP engine
+│   └── libtgsbFrontend.so    # IPA → formant frames
+├── share/tgspeechbox/
 │   ├── packs/         # Language data (phoneme definitions)
 │   │   ├── phonemes.yaml
 │   │   └── lang/      # Language-specific rules
@@ -30,13 +30,13 @@ You can run directly from this directory:
 
 ```bash
 # Test synthesis (outputs raw PCM to stdout)
-echo 'həˈloʊ wɜːld' | ./bin/nvsp --lang en-us > test.raw
+echo 'həˈloʊ wɜːld' | ./bin/tgsp --lang en-us > test.raw
 
 # Play with aplay (ALSA)
-echo 'həˈloʊ wɜːld' | ./bin/nvsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
+echo 'həˈloʊ wɜːld' | ./bin/tgsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
 
 # Convert to WAV with ffmpeg
-echo 'həˈloʊ wɜːld' | ./bin/nvsp --lang en-us | \
+echo 'həˈloʊ wɜːld' | ./bin/tgsp --lang en-us | \
     ffmpeg -f s16le -ar 16000 -ac 1 -i - output.wav
 ```
 
@@ -52,17 +52,17 @@ sudo ./install.sh
 ### Custom prefix
 
 ```bash
-./install.sh ~/nvspeechplayer
-# Then add ~/nvspeechplayer/bin to your PATH
+./install.sh ~/tgspeechbox
+# Then add ~/tgspeechbox/bin to your PATH
 ```
 
 ### Manual installation
 
 ```bash
 # Copy files to desired locations:
-cp bin/nvspRender /usr/local/bin/
+cp bin/tgsbRender /usr/local/bin/
 cp lib/*.so /usr/local/lib/
-cp -r share/nvspeechplayer /usr/local/share/
+cp -r share/tgspeechbox /usr/local/share/
 
 # Update library cache
 sudo ldconfig
@@ -72,10 +72,10 @@ sudo ldconfig
 
 ## Usage
 
-### nvspRender Options
+### tgsbRender Options
 
 ```
-nvspRender [options]
+tgsbRender [options]
 
 Reads IPA text from stdin (UTF-8) and writes raw 16-bit PCM to stdout.
 
@@ -120,26 +120,26 @@ preset VoicingTone and FrameEx parameters for different voice characters.
 
 ```bash
 # List available profiles
-./bin/nvsp --list-voices
+./bin/tgsp --list-voices
 
 # Use a specific profile
-echo 'həˈloʊ' | ./bin/nvsp --lang en-us --voice Clara | aplay -q -r 16000 -f S16_LE -t raw -
+echo 'həˈloʊ' | ./bin/tgsp --lang en-us --voice Clara | aplay -q -r 16000 -f S16_LE -t raw -
 ```
 
 ### Voice Quality Examples
 
 ```bash
 # Creaky/vocal fry voice
-echo 'həˈloʊ' | ./bin/nvsp --lang en-us --creakiness 60 | aplay -q -r 16000 -f S16_LE -t raw -
+echo 'həˈloʊ' | ./bin/tgsp --lang en-us --creakiness 60 | aplay -q -r 16000 -f S16_LE -t raw -
 
 # Breathy voice
-echo 'həˈloʊ' | ./bin/nvsp --lang en-us --breathiness 40 | aplay -q -r 16000 -f S16_LE -t raw -
+echo 'həˈloʊ' | ./bin/tgsp --lang en-us --breathiness 40 | aplay -q -r 16000 -f S16_LE -t raw -
 
 # Add some naturalness with jitter/shimmer
-echo 'həˈloʊ' | ./bin/nvsp --lang en-us --jitter 15 --shimmer 10 | aplay -q -r 16000 -f S16_LE -t raw -
+echo 'həˈloʊ' | ./bin/tgsp --lang en-us --jitter 15 --shimmer 10 | aplay -q -r 16000 -f S16_LE -t raw -
 
 # Brighter voice (more high frequencies)
-echo 'həˈloʊ' | ./bin/nvsp --lang en-us --voiced-tilt 35 --aspiration-tilt 60 | aplay -q -r 16000 -f S16_LE -t raw -
+echo 'həˈloʊ' | ./bin/tgsp --lang en-us --voiced-tilt 35 --aspiration-tilt 60 | aplay -q -r 16000 -f S16_LE -t raw -
 ```
 
 ### With eSpeak-ng for Text-to-IPA
@@ -147,9 +147,9 @@ echo 'həˈloʊ' | ./bin/nvsp --lang en-us --voiced-tilt 35 --aspiration-tilt 60
 TGSpeechBox needs IPA input. Use eSpeak-ng to convert text to IPA:
 
 ```bash
-# Using eSpeak-ng for text → IPA → nvspRender for IPA → audio
+# Using eSpeak-ng for text → IPA → tgsbRender for IPA → audio
 espeak-ng --ipa=1 -v en-us "Hello world" 2>/dev/null | \
-    ./bin/nvsp --lang en-us | \
+    ./bin/tgsp --lang en-us | \
     aplay -q -r 16000 -f S16_LE -t raw -
 ```
 
@@ -174,7 +174,7 @@ TGSpeechBox is an IPA-to-audio engine – it doesn't do text-to-IPA conversion i
 eSpeak-ng is fast, widely available, and supports many languages:
 ```bash
 espeak-ng --ipa=1 -v en-us "Hello world" 2>/dev/null | \
-    ./bin/nvsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
+    ./bin/tgsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
 ```
 
 The `--ipa=1` flag outputs IPA with stress markers. Use `--ipa=3` for more detail (includes tie bars).
@@ -186,7 +186,7 @@ The [phonemizer](https://github.com/bootphon/phonemizer) package wraps multiple 
 pip install phonemizer
 
 echo "Hello world" | phonemizer -l en-us -b espeak --strip | \
-    ./bin/nvsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
+    ./bin/tgsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -
 ```
 
 Phonemizer can also use festival or segments backends for languages where eSpeak coverage is limited.
@@ -207,18 +207,18 @@ Any tool that outputs IPA to stdout will work. Some options:
 For convenience, create a wrapper that chains your preferred phonemizer:
 ```bash
 #!/bin/bash
-# nvsp-say: text-to-speech via eSpeak-ng + TGSpeechBox
+# tgsb-say: text-to-speech via eSpeak-ng + TGSpeechBox
 
 LANG="${1:-en-us}"
 RATE="${2:-0}"
 shift 2 2>/dev/null
 
 espeak-ng --ipa=1 -v "$LANG" "$@" 2>/dev/null | \
-    nvsp --lang "$LANG" --rate "$RATE" | \
+    tgsp --lang "$LANG" --rate "$RATE" | \
     aplay -q -r 16000 -f S16_LE -t raw -
 ```
 
-Usage: `nvsp-say en-us 20 "Hello world"`
+Usage: `tgsb-say en-us 20 "Hello world"`
 
 ### Handling IPA dialect differences
 
@@ -232,7 +232,7 @@ Different phonemizers produce slightly different IPA. TGSpeechBox's normalizatio
 If your phonemizer outputs a format that doesn't work well, you can preprocess with `sed`:
 ```bash
 # Example: convert X-SAMPA to IPA (simplified)
-my-phonemizer "hello" | sed 's/"/ˈ/g; s/%/ˌ/g; s/:/ː/g' | ./bin/nvsp --lang en-us
+my-phonemizer "hello" | sed 's/"/ˈ/g; s/%/ˌ/g; s/:/ː/g' | ./bin/tgsp --lang en-us
 ```
 
 ### Streaming long text
@@ -241,7 +241,7 @@ For long documents, process line-by-line to avoid buffering delays:
 ```bash
 cat document.txt | while IFS= read -r line; do
     espeak-ng --ipa=1 -v en-us "$line" 2>/dev/null | \
-        ./bin/nvsp --lang en-us
+        ./bin/tgsp --lang en-us
 done | aplay -q -r 16000 -f S16_LE -t raw -
 ```
 
@@ -249,17 +249,17 @@ done | aplay -q -r 16000 -f S16_LE -t raw -
 
 TGSpeechBox can be used as a Speech Dispatcher voice for desktop accessibility.
 
-See `share/nvspeechplayer/extras/speech-dispatcher/README.md` for setup instructions.
+See `share/tgspeechbox/extras/speech-dispatcher/README.md` for setup instructions.
 
 Quick summary:
-1. Copy `nvsp-generic.conf` to `/etc/speech-dispatcher/modules/`
+1. Copy `tgsb-generic.conf` to `/etc/speech-dispatcher/modules/`
 2. Edit paths in the config file
 3. Add to `speechd.conf`:
    ```
-   AddModule "nvsp" "sd_generic" "nvsp-generic.conf"
-   DefaultModule nvsp
+   AddModule "tgsb" "sd_generic" "tgsb-generic.conf"
+   DefaultModule tgsb
    ```
-4. Test with: `spd-say "Hello from NVSP"`
+4. Test with: `spd-say "Hello from TGSpeechBox"`
 
 ## Supported Languages
 
@@ -329,7 +329,7 @@ make
 
 Set the library path:
 ```bash
-export LD_LIBRARY_PATH=/path/to/nvspeechplayer/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/path/to/tgspeechbox/lib:$LD_LIBRARY_PATH
 ```
 
 Or install to a system location and run `ldconfig`.
