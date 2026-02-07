@@ -1,5 +1,5 @@
 ###
-# This file is a part of the NV Speech Player project.
+# This file is a part of the TGSpeechBox project.
 # URL: https://bitbucket.org/nvaccess/speechplayer
 # Copyright 2014 NV Access Limited.
 # GNU GPL v2
@@ -272,7 +272,7 @@ class SpeechPlayer(object):
         _actualFrameSize = ctypes.sizeof(Frame)
         if _actualFrameSize != _expectedFrameSize:
             log.warning(
-                f"nvSpeechPlayer: Frame struct size mismatch! "
+                f"TGSpeechBox: Frame struct size mismatch! "
                 f"Expected {_expectedFrameSize} bytes ({len(Frame._fields_)} fields), "
                 f"got {_actualFrameSize}. This may indicate ABI incompatibility."
             )
@@ -479,7 +479,7 @@ class SpeechPlayer(object):
             self._dll.speechPlayer_setVoicingTone(self._speechHandle, tonePtr)
             return True
         except Exception:
-            log.debug("nvSpeechPlayer: setVoicingTone failed", exc_info=True)
+            log.debug("TGSpeechBox: setVoicingTone failed", exc_info=True)
             return False
 
     def getVoicingTone(self) -> Optional[VoicingTone]:
@@ -497,7 +497,7 @@ class SpeechPlayer(object):
             self._dll.speechPlayer_getVoicingTone(self._speechHandle, byref(tone))
             return tone
         except Exception:
-            log.debug("nvSpeechPlayer: getVoicingTone failed", exc_info=True)
+            log.debug("TGSpeechBox: getVoicingTone failed", exc_info=True)
             return None
 
     def terminate(self) -> None:
@@ -510,7 +510,7 @@ class SpeechPlayer(object):
                 # AttributeError: _dll is None
                 pass
             except Exception:
-                log.debug("nvSpeechPlayer: speechPlayer_terminate raised unexpected error", exc_info=True)
+                log.debug("TGSpeechBox: speechPlayer_terminate raised unexpected error", exc_info=True)
             self._speechHandle = None
 
         # Close the DLL directory cookie (Python 3.8+)
@@ -520,7 +520,7 @@ class SpeechPlayer(object):
             except (OSError, AttributeError):
                 pass
             except Exception:
-                log.debug("nvSpeechPlayer: DLL directory cookie close failed", exc_info=True)
+                log.debug("TGSpeechBox: DLL directory cookie close failed", exc_info=True)
             self._dllDirCookie = None
 
         # Unload the DLL so the file can be replaced/deleted
@@ -536,7 +536,7 @@ class SpeechPlayer(object):
                 pass
             except Exception:
                 # Non-fatal - DLL will be unloaded when NVDA exits
-                log.debug("nvSpeechPlayer: freeDll failed for speechPlayer.dll", exc_info=True)
+                log.debug("TGSpeechBox: freeDll failed for speechPlayer.dll", exc_info=True)
         self._dll = None
 
     # NOTE: We intentionally do NOT implement __del__.

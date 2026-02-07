@@ -1,4 +1,4 @@
-# Makefile for NV Speech Player (Linux)
+# Makefile for TGSpeechBox (Linux)
 # Builds: libspeechPlayer.so, libnvspFrontend.so, and nvspRender
 
 CXX = g++
