@@ -101,7 +101,7 @@ const double kVoicedFricDuckPower = 1.0;
 // Sample-rate-aware cutoff frequencies for frication
 // At 11025 Hz, Nyquist is ~5512 Hz so we need lower cutoffs
 const double kFricBurstFc_11k   = 3800.0;   // 11025 Hz (Nyquist ~5512) - more aggressive
-const double kFricSustainFc_11k = 5000.0;
+const double kFricSustainFc_11k = 3000.0;
 const double kFricBurstFc_16k   = 5200.0;   // 16000 Hz (Nyquist 8000)
 const double kFricSustainFc_16k = 7200.0;
 const double kFricBurstFc_22k   = 3600.0;   // 22050 Hz (Nyquist ~11025)
