@@ -14,10 +14,10 @@ Pipeline:
 
 1. Speech Dispatcher sends text (`$DATA`).
 2. `espeak-ng --ipa=1` converts text -> IPA.
-3. `nvspRender` (built from this repo) converts IPA -> raw PCM.
+3. `tgsbRender` (built from this repo) converts IPA -> raw PCM.
 4. `aplay` plays raw PCM.
 
-## Build nvspRender
+## Build tgsbRender
 
 From the repo root:
 
@@ -29,52 +29,58 @@ cmake --build build -j
 The executable will be at:
 
 ```sh
-build/nvspRender
+build/tgsbRender
 ```
 
 ## Install packs
 
-`nvspRender` needs a pack directory that contains a `packs/` folder.
+`tgsbRender` needs a pack directory that contains a `packs/` folder.
 
 For a quick local test, you can point it at the repo root:
 
 ```sh
-./build/nvspRender --packdir . --lang en-us --rate 0 --pitch 50 --volume 1 < ipa.txt | \
+./build/tgsbRender --packdir . --lang en-us --rate 0 --pitch 50 --volume 1 < ipa.txt | \
   aplay -q -r 22050 -f S16_LE -t raw -
 ```
 
-For a more “system” install, a common layout is:
+For a more "system" install, a common layout is:
 
-- `/usr/share/nvspeechplayer/packs/...`
-- `nvspRender` in `/usr/local/bin/`
+- `/usr/share/tgspeechbox/packs/...`
+- `tgsbRender` in `/usr/local/bin/`
 
 ## Install the Speech Dispatcher module config
 
-1. Copy `nvsp-generic.conf` into your Speech Dispatcher modules directory.
+1. Copy `tgsb-generic.conf` into your Speech Dispatcher modules directory.
 
    Common locations:
    - system: `/etc/speech-dispatcher/modules/`
    - user: `~/.config/speech-dispatcher/modules/` (depends on distro)
 
-2. Edit `nvsp-generic.conf` and set the `--packdir` path to where you installed
+2. Edit `tgsb-generic.conf` and set the `--packdir` path to where you installed
    the packs.
 
 3. Enable it in `speechd.conf` by adding a module line similar to:
 
    ```
-   AddModule "nvsp" "sd_generic" "nvsp-generic.conf"
-   DefaultModule nvsp
+   AddModule "tgsb" "sd_generic" "tgsb-generic.conf"
+   DefaultModule tgsb
    ```
 
 4. Restart Speech Dispatcher and test:
 
    ```sh
-   spd-say "Hello from NVSP"
+   spd-say "Hello from TGSpeechBox"
    ```
+
+## Migrating from nvsp-generic.conf
+
+If you have an existing `nvsp-generic.conf` setup, the old binary names
+(`nvspRender`, `nvsp`) are symlinked to the new names by `install.sh`, so
+your existing config will continue to work. Update at your convenience.
 
 ## Notes / limitations
 
-- This is a “good enough” proof-of-concept. It relies on `espeak-ng` to produce
+- This is a "good enough" proof-of-concept. It relies on `espeak-ng` to produce
   IPA (text -> phonemes), matching how the NVDA add-on drives this engine.
 - Speech Dispatcher stop/pause semantics are handled by `sd_generic` process
   management. The pipeline must stop when Speech Dispatcher sends SIGKILL.
