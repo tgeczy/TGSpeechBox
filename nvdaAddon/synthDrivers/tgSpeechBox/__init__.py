@@ -115,7 +115,7 @@ class SynthDriver(SynthDriver):
     supportedCommands = {c for c in (IndexCommand, PitchCommand) if c}
     supportedNotifications = {synthIndexReached, synthDoneSpeaking}
 
-    exposeExtraParams = False
+    exposeExtraParams = True
     _ESPEAK_PHONEME_MODE = 0x36100 + 0x82
 
     def __init__(self):
@@ -1894,15 +1894,12 @@ class SynthDriver(SynthDriver):
             # Below 50: sharper formants (Eloquence-like clarity)
             # Above 50: wider formants (softer, more blended)
             bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
-            # Treat 50 as "use the profile/default value".
-            if abs(bwSlider - 50.0) > 0.001:
-              if bwSlider <= 50.0:
-                # 0 -> 0.3 (ringy), 50 -> 0.8 (clearer neutral)
+            if bwSlider <= 50.0:
+                # 0 -> 2.0 (wide/muffled), 50 -> 0.8 (neutral)
                 tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.2
-              else:
-                # 50 -> 0.8, 100 -> 0.2 (very sharp/ringy)
-                tone.cascadeBwScale = 0.8 - ((bwSlider - 50.0) / 50.0) * 0.6
-
+            else:
+                # 50 -> 0.8 (neutral), 100 -> 0.3 (sharp/ringy)
+                tone.cascadeBwScale = 0.8 - ((bwSlider - 50.0) / 50.0) * 0.5
             # Safety clamp
                 tone.cascadeBwScale = max(0.2, min(2.0, tone.cascadeBwScale))
 
