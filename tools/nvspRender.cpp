@@ -1,6 +1,6 @@
 /*
-  nvspRender
-  ---------
+  TGSBRender (formerly nvspRender)
+  -----------------------------------
   Small command-line helper that turns an IPA stream into audio using:
     - nvspFrontend (IPA -> formant frames)
     - speechPlayer (frames -> 16-bit PCM)

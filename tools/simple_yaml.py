@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-simple_yaml.py - Flexible YAML parser for NV Speech Player packs
+simple_yaml.py - Flexible YAML parser for TGSpeechBox packs
 
 A lenient YAML parser that handles:
 - Unquoted special characters (@, ʃ, ɪ, etc.) as keys

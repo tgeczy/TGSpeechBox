@@ -2,12 +2,12 @@
 """
 ipa_klatt_probe.py
 
-Small helper for NV Speech Player tuning:
+Small helper for TGSpeechBox tuning:
 - Get IPA from eSpeak for a word/phrase
 - Apply a few "pack-style" normalization tweaks (optional)
 - Roughly synthesize the IPA as concatenated Klatt segments using klatt_tune_sim.py
 
-This is NOT a full NVSpeechPlayer frontend emulation. It's a quick ear-test tool.
+This is NOT a full TGSpeechBox frontend emulation. It's a quick ear-test tool.
 """
 
 import argparse
@@ -117,7 +117,7 @@ def tokenize_ipa(ipa: str, phoneme_keys):
 
 def _base_duration_s(props: dict) -> float:
     # Very rough defaults tuned for quick ear tests (16 kHz).
-    # NVSpeechPlayer's real timing is more complex.
+    # TGSpeechBox's real timing is more complex.
     if props.get("_isVowel"):
         return 0.115
     if props.get("_isStop"):

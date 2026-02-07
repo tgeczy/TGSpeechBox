@@ -2,7 +2,7 @@
 """
 frame_inspector.py
 
-Detailed frame-level analysis tool for NV Speech Player tuning.
+Detailed frame-level analysis tool for TGSpeechBox tuning.
 
 This tool lets you:
 1. Inspect how frames interpolate sample-by-sample
@@ -556,7 +556,7 @@ def format_detailed_settings(pack: PackSet) -> str:
 # =============================================================================
 
 def main():
-    ap = argparse.ArgumentParser(description="Frame-level inspector for NV Speech Player")
+    ap = argparse.ArgumentParser(description="Frame-level inspector for TGSpeechBox")
     ap.add_argument("--packs", required=True, help="Path to packs folder")
     ap.add_argument("--lang", default="default", help="Language tag (e.g., en-us, hu)")
     

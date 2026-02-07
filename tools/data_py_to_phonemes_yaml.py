@@ -1,4 +1,4 @@
-"""Convert NV Speech Player data.py to packs/phonemes.yaml.
+"""Convert TGSpeechBox data.py to packs/phonemes.yaml.
 
 Usage:
   python data_py_to_phonemes_yaml.py path/to/data.py path/to/phonemes.yaml
@@ -44,7 +44,7 @@ def main(argv):
     data = ast.literal_eval(codecs.open(data_path, "r", "utf-8").read())
 
     with out_path.open("w", encoding="utf-8", newline="\n") as f:
-        f.write("# NV Speech Player phoneme table\n")
+        f.write("# TGSpeechBox phoneme table\n")
         f.write("# Generated from data.py\n")
         f.write("phonemes:\n")
 
