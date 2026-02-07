@@ -1,5 +1,5 @@
 # Makefile for TGSpeechBox (Linux)
-# Builds: libspeechPlayer.so, libnvspFrontend.so, and nvspRender
+# Builds: libtgspeechbox.so, libtgsbFrontend.so, and tgsbRender
 
 CXX = g++
 CXXFLAGS = -std=c++17 -O2 -Wall -fPIC
@@ -13,13 +13,13 @@ PASSESDIR = src/frontend/passes
 TOOLSDIR = tools
 BUILDDIR = build
 
-# speechPlayer.so sources (DSP engine)
+# libtgspeechbox.so sources (DSP engine)
 SPEECHPLAYER_SRCS = \
 	$(SRCDIR)/frame.cpp \
 	$(SRCDIR)/speechPlayer.cpp \
 	$(SRCDIR)/speechWaveGenerator.cpp
 
-# nvspFrontend.so sources (IPA -> Frames)
+# libtgsbFrontend.so sources (IPA -> Frames)
 FRONTEND_SRCS = \
 	$(FRONTENDDIR)/frame_emit.cpp \
 	$(FRONTENDDIR)/ipa_engine.cpp \
@@ -40,8 +40,8 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/reduction.cpp \
 	$(PASSESDIR)/trajectory_limit.cpp
 
-# nvspRender sources
-RENDER_SRCS = $(TOOLSDIR)/nvspRender.cpp
+# tgsbRender sources
+RENDER_SRCS = $(TOOLSDIR)/tgsbRender.cpp
 
 # Include paths
 INCLUDES = -I$(SRCDIR) -I$(FRONTENDDIR)
@@ -51,9 +51,9 @@ SPEECHPLAYER_OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SPEECHPLAYER_SRC
 FRONTEND_OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(FRONTEND_SRCS)))
 
 # Output files
-SPEECHPLAYER_LIB = $(BUILDDIR)/libspeechPlayer.so
-FRONTEND_LIB = $(BUILDDIR)/libnvspFrontend.so
-RENDER_BIN = $(BUILDDIR)/nvspRender
+SPEECHPLAYER_LIB = $(BUILDDIR)/libtgspeechbox.so
+FRONTEND_LIB = $(BUILDDIR)/libtgsbFrontend.so
+RENDER_BIN = $(BUILDDIR)/tgsbRender
 
 # Targets
 .PHONY: all clean dirs
@@ -63,23 +63,23 @@ all: dirs $(SPEECHPLAYER_LIB) $(FRONTEND_LIB) $(RENDER_BIN)
 dirs:
 	@mkdir -p $(BUILDDIR)
 
-# Build speechPlayer shared library
+# Build tgspeechbox shared library
 $(SPEECHPLAYER_LIB): $(SPEECHPLAYER_OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-# Build nvspFrontend shared library
+# Build tgsbFrontend shared library
 $(FRONTEND_LIB): $(FRONTEND_OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $^ -DNVSP_FRONTEND_EXPORTS=1
 
-# Build nvspRender executable
-$(RENDER_BIN): $(TOOLSDIR)/nvspRender.cpp $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(TOOLSDIR)/nvspRender.cpp \
-		-L$(BUILDDIR) -lspeechPlayer -lnvspFrontend \
+# Build tgsbRender executable
+$(RENDER_BIN): $(TOOLSDIR)/tgsbRender.cpp $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(TOOLSDIR)/tgsbRender.cpp \
+		-L$(BUILDDIR) -ltgspeechbox -ltgsbFrontend \
 		-Wl,-rpath,'$$ORIGIN'
 
 # Pattern rules for object files
 
-# speechPlayer sources
+# tgspeechbox sources
 $(BUILDDIR)/frame.o: $(SRCDIR)/frame.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
