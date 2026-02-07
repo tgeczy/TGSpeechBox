@@ -107,7 +107,7 @@ const double kFricSustainFc_16k = 7200.0;
 const double kFricBurstFc_22k   = 3600.0;   // 22050 Hz (Nyquist ~11025)
 const double kFricSustainFc_22k = 9500.0;
 const double kFricBurstFc_44k   = 4200.0;   // 44100 Hz (Nyquist ~22050)
-const double kFricSustainFc_44k = 14000.0;
+const double kFricSustainFc_44k = 10000.0;
 
 // Sample-rate-aware cutoff frequencies for aspiration burst LP
 // More aggressive than frication since aspiration through cascade is often

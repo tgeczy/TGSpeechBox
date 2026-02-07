@@ -266,10 +266,10 @@ typedef struct {
      *   - 0.3: Very sharp/ringy formants, crystalline, may ring on transitions
      *   - 0.7: Noticeably sharper, clear vowel definition
      *   - 1.0: neutral, slight muffle
-     *   - 0.8: default for more clarity
+     *   - 0.75: default for more clarity
      *   - 1.2-1.4: Softer, warmer, formants blend more
      * 
-     * Default: 0.8 (slight scaling, mostly preserves original behavior)
+     * Default: 0.75 (slight scaling, mostly preserves original behavior)
      */
     double cascadeBwScale;
 

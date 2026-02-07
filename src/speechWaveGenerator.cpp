@@ -94,6 +94,14 @@ private:
     int startFadeRemaining;    // samples left in fade-in (prevents pop on speech start)
     int startFadeTotal;        // total fade-in length
 
+    // Peak limiter: catches amplitude spikes before they reach the OS audio system.
+    // Fast attack (~0.1ms) catches transients, slow release (~50ms) recovers smoothly.
+    // This prevents Windows/PulseAudio volume ducking on stop bursts mid-sentence.
+    double limiterGain;        // current gain reduction (1.0 = no reduction)
+    double limiterAttackAlpha; // per-sample attack coefficient
+    double limiterReleaseAlpha;// per-sample release coefficient
+    double limiterThreshold;   // signal level above which limiting kicks in
+
     void initHighShelf(double fc, double gainDb, double Q) {
         // Clamp inputs to prevent NaNs and weird filter behavior from bad UI values
         double nyq = 0.5 * (double)sampleRate;
@@ -131,7 +139,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -150,6 +158,16 @@ public:
         // Smooth shelf mix changes to avoid clicks (fast-ish)
         const double shelfMixMs = 4.0;
         shelfMixAlpha = 1.0 - exp(-1.0 / (sampleRate * (shelfMixMs * 0.001)));
+
+        // Peak limiter: catches transient spikes from stop bursts
+        // Attack: ~0.1ms (instant catch), Release: ~50ms (smooth recovery)
+        // Threshold: -3dB below nominal peak (~3.86 in pre-scaled units)
+        const double limiterAttackMs = 0.1;
+        const double limiterReleaseMs = 50.0;
+        limiterAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (limiterAttackMs * 0.001)));
+        limiterReleaseAlpha = 1.0 - exp(-1.0 / (sampleRate * (limiterReleaseMs * 0.001)));
+        // 32767 / 6000 = ~5.46 full scale; -3dB = 0.707 * 5.46 = ~3.86
+        limiterThreshold = 3.86;
 
         // Initialize with default voicing tone
         currentTone = speechPlayer_getDefaultVoicingTone();
@@ -256,6 +274,7 @@ public:
                     fricSustainLp1.reset(); fricSustainLp2.reset();
                     aspLp1.reset(); aspLp2.reset();
                     shelfMix = 1.0;
+                    limiterGain = 1.0;  // Reset limiter (no gain reduction)
                     // Reset stop fade-out state
                     stopFadeTotal = 0;
                     stopFadeRemaining = 0;
@@ -396,7 +415,13 @@ public:
                 double fric = fricSustain + burstiness * (fricBurst - fricSustain);
 
                 double parallelOut=parallel.getNext(frame, frameEx, voiceGenerator.glottisOpen, fric*smoothPreGain);
-                double out=(cascadeOut+parallelOut)*frame->outputGain;
+
+                // Duck cascade residual during stop bursts to prevent energy addition.
+                // Mid-sentence, cascade resonators still ring from the previous vowel
+                // when the parallel burst fires — the sum causes an amplitude spike.
+                // burstEnv high + va low = voiceless stop burst = duck cascade by 70%.
+                double cascadeDuck = 1.0 - 0.7 * burstEnv * (1.0 - va);
+                double out=(cascadeOut*cascadeDuck+parallelOut)*frame->outputGain;
 
                 // DC blocking
                 double filteredOut=out-lastInput+0.9995*lastOutput;
@@ -431,6 +456,20 @@ public:
                     double fadeIn = 1.0 - ((double)startFadeRemaining / (double)startFadeTotal);
                     bright *= fadeIn;
                     startFadeRemaining--;
+                }
+
+                // Peak limiter: prevent amplitude spikes from triggering OS
+                // volume ducking.  Fast attack grabs transients, slow release
+                // recovers smoothly so normal speech is unaffected.
+                {
+                    double absBright = fabs(bright);
+                    if (absBright > limiterThreshold) {
+                        double targetGain = limiterThreshold / absBright;
+                        limiterGain += limiterAttackAlpha * (targetGain - limiterGain);
+                    } else {
+                        limiterGain += limiterReleaseAlpha * (1.0 - limiterGain);
+                    }
+                    bright *= limiterGain;
                 }
 
                 // Store for fade-out tail on interrupt

@@ -49,6 +49,13 @@ private:
     double aspAttackCoeff;
     double aspReleaseCoeff;
 
+    // Voiced anti-alias lowpass: prevents harmonic energy near Nyquist from
+    // exciting the resonator bank into BLT-warped ringing.  2-pole (12 dB/oct),
+    // sample-rate-dependent cutoff.  Bypassed at 44100+ Hz where warping is negligible.
+    OnePoleLowpass voicedAntiAliasLp1;
+    OnePoleLowpass voicedAntiAliasLp2;
+    bool voicedAntiAliasActive;  // false at high SRs where it's not needed
+
     // Per-frame voice-quality modulation (DSP v5+)
     double lastCyclePos;
     double jitterMul;
@@ -262,6 +269,7 @@ public:
         tremorDepth(0.0), tremorDepthSmooth(0.0), lastTremorSin(0.0),
         smoothAspAmp(0.0), smoothAspAmpInit(false),
         aspAttackCoeff(0.0), aspReleaseCoeff(0.0),
+        voicedAntiAliasLp1(sr), voicedAntiAliasLp2(sr), voicedAntiAliasActive(false),
         lastCyclePos(0.0), jitterMul(1.0), shimmerMul(1.0), jitterShimmerRng(98765),
         glottisOpen(false),
         voicingPeakPos(0.91), voicedPreEmphA(0.92), voicedPreEmphMix(0.35),
@@ -297,6 +305,29 @@ public:
         const double kAspAmpReleaseMs = 3.0;
         aspAttackCoeff = 1.0 - exp(-1.0 / (0.001 * kAspAmpAttackMs * sampleRate));
         aspReleaseCoeff = 1.0 - exp(-1.0 / (0.001 * kAspAmpReleaseMs * sampleRate));
+
+        // Voiced anti-alias lowpass: sample-rate-dependent cutoff.
+        // Prevents harmonic energy near Nyquist from exciting resonators
+        // into BLT-warped ringing (trapezoidal SVF has same warping as BLT).
+        // At 44100+ Hz the warping is negligible, so we bypass entirely.
+        if (sampleRate < 44100) {
+            voicedAntiAliasActive = true;
+            double aaFc;
+            if (sampleRate <= 11025) {
+                aaFc = 4000.0;       // aggressive — Nyquist is only 5512
+            } else if (sampleRate <= 16000) {
+                double t = (double)(sampleRate - 11025) / (16000.0 - 11025.0);
+                aaFc = 4000.0 + t * 1000.0;   // 4000 -> 5000
+            } else {
+                double t = (double)(sampleRate - 16000) / (22050.0 - 16000.0);
+                aaFc = 5000.0 + t * 1500.0;   // 5000 -> 6500
+                if (t > 1.0) aaFc = 6500.0;
+            }
+            voicedAntiAliasLp1.setCutoffHz(aaFc);
+            voicedAntiAliasLp2.setCutoffHz(aaFc);
+        } else {
+            voicedAntiAliasActive = false;
+        }
 
         double nyq = 0.5 * (double)sampleRate;
         if (tiltRefHz > nyq * 0.95) tiltRefHz = nyq * 0.95;
@@ -345,6 +376,8 @@ public:
         glottisOpen=false;
         aspLpState = 0.0;
         fricLpState = 0.0;
+        voicedAntiAliasLp1.reset();
+        voicedAntiAliasLp2.reset();
         aspTiltSmoothedDb = aspTiltTargetDb;  // Snap to target on reset
         tiltState = 0.0;  // Reset voiced tilt IIR state to prevent transient
         perFrameTiltOffset = 0.0;
@@ -878,6 +911,13 @@ public:
         double voiced = voicedIn - lastVoicedIn + (dcPole * lastVoicedOut);
         lastVoicedIn = voicedIn;
         lastVoicedOut = voiced;
+
+        // Anti-alias lowpass on voiced signal: attenuates harmonics near Nyquist
+        // that would cause BLT warping artifacts in the resonator bank.
+        // Applied after DC block, before combining with aspiration (noise doesn't alias).
+        if (voicedAntiAliasActive) {
+            voiced = voicedAntiAliasLp2.process(voicedAntiAliasLp1.process(voiced));
+        }
 
         // Smooth aspirationAmplitude (fast attack, slower release) to avoid clicks.
         double targetAspAmp = frame->aspirationAmplitude;
