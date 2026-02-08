@@ -55,6 +55,7 @@ settings:
 
   spellingDiphthongMode: none
   liquidDynamicsEnabled: false
+  clusterTimingEnabled: true
 
   specialCoarticulation:
     enabled: true

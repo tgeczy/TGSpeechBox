@@ -527,6 +527,17 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);
   getNum("specialCoarticMaxDeltaHz", lp.specialCoarticMaxDeltaHz);
 
+  // Cluster timing (context-sensitive consonant duration adjustment)
+  getBool("clusterTimingEnabled", lp.clusterTimingEnabled);
+  getNum("clusterTimingFricBeforeStopScale", lp.clusterTimingFricBeforeStopScale);
+  getNum("clusterTimingStopBeforeFricScale", lp.clusterTimingStopBeforeFricScale);
+  getNum("clusterTimingFricBeforeFricScale", lp.clusterTimingFricBeforeFricScale);
+  getNum("clusterTimingStopBeforeStopScale", lp.clusterTimingStopBeforeStopScale);
+  getNum("clusterTimingTripleClusterMiddleScale", lp.clusterTimingTripleClusterMiddleScale);
+  getNum("clusterTimingWordMedialConsonantScale", lp.clusterTimingWordMedialConsonantScale);
+  getNum("clusterTimingWordFinalObstruentScale", lp.clusterTimingWordFinalObstruentScale);
+  getNum("clusterTimingAffricateInClusterScale", lp.clusterTimingAffricateInClusterScale);
+
   // Boundary smoothing / crossfade (optional)
   getBool("boundarySmoothingEnabled", lp.boundarySmoothingEnabled);
 

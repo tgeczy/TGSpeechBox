@@ -9,6 +9,7 @@
 #include "reduction.h"
 #include "liquid_dynamics.h"
 #include "length_contrast.h"
+#include "cluster_timing.h"
 #include "boundary_smoothing.h"
 #include "trajectory_limit.h"
 
@@ -26,6 +27,7 @@ const PassDesc kPasses[] = {
     {"reduction", PassStage::PostTiming, &passes::runReduction},
     {"liquid_dynamics", PassStage::PostTiming, &passes::runLiquidDynamics},
     {"length_contrast", PassStage::PostTiming, &passes::runLengthContrast},
+    {"cluster_timing", PassStage::PostTiming, &passes::runClusterTiming},
 
     {"boundary_smoothing", PassStage::PostTiming, &passes::runBoundarySmoothing},
     {"trajectory_limit", PassStage::PostTiming, &passes::runTrajectoryLimit},

@@ -544,6 +544,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   std::vector<SpecialCoarticRule> specialCoarticRules;
   double specialCoarticMaxDeltaHz = 400.0;
 
+  // Cluster timing — context-sensitive consonant duration adjustment.
+  bool clusterTimingEnabled = false;
+  double clusterTimingFricBeforeStopScale = 0.65;
+  double clusterTimingStopBeforeFricScale = 0.70;
+  double clusterTimingFricBeforeFricScale = 0.75;
+  double clusterTimingStopBeforeStopScale = 0.60;
+  double clusterTimingTripleClusterMiddleScale = 0.55;
+  double clusterTimingWordMedialConsonantScale = 0.85;
+  double clusterTimingWordFinalObstruentScale = 0.90;
+  double clusterTimingAffricateInClusterScale = 0.75;
+
   // Boundary crossfade / smoothing (optional).
   //
   // This is a simple way to soften harsh segment joins by increasing the fade
