@@ -561,6 +561,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // time only for certain boundary types.
   bool boundarySmoothingEnabled = false;
 
+  // Per-formant transition scaling (multipliers on base fade values).
+  // F1 should transition faster (place perception), F2/F3 slower (smooth quality).
+  double boundarySmoothingF1Scale = 0.6;   // F1 fades are 60% of base
+  double boundarySmoothingF2Scale = 1.0;   // F2 at base
+  double boundarySmoothingF3Scale = 1.2;   // F3 slightly slower
+
+  // Plosive/nasal-specific transition behavior (universal defaults).
+  bool boundarySmoothingPlosiveSpansPhone = true;    // formants ramp across entire plosive
+  bool boundarySmoothingNasalF1Instant = true;       // F1 jumps instantly in nasals
+  bool boundarySmoothingNasalF2F3SpansPhone = true;  // F2/F3 ramp across entire nasal
+
   // Trajectory limiting (optional).
   //
   // Caps how quickly selected formant targets are allowed to change at token

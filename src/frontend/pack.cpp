@@ -540,6 +540,12 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
 
   // Boundary smoothing / crossfade (optional)
   getBool("boundarySmoothingEnabled", lp.boundarySmoothingEnabled);
+  getNum("boundarySmoothingF1Scale", lp.boundarySmoothingF1Scale);
+  getNum("boundarySmoothingF2Scale", lp.boundarySmoothingF2Scale);
+  getNum("boundarySmoothingF3Scale", lp.boundarySmoothingF3Scale);
+  getBool("boundarySmoothingPlosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
+  getBool("boundarySmoothingNasalF1Instant", lp.boundarySmoothingNasalF1Instant);
+  getBool("boundarySmoothingNasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
 
   // Trajectory limiting (optional)
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
@@ -650,6 +656,12 @@ getNum("positionalAllophonesGlottalReinforcementDurationMs", lp.positionalAlloph
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
   getBoolFrom(*bs, "enabled", lp.boundarySmoothingEnabled);
+  getNumFrom(*bs, "f1Scale", lp.boundarySmoothingF1Scale);
+  getNumFrom(*bs, "f2Scale", lp.boundarySmoothingF2Scale);
+  getNumFrom(*bs, "f3Scale", lp.boundarySmoothingF3Scale);
+  getBoolFrom(*bs, "plosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
+  getBoolFrom(*bs, "nasalF1Instant", lp.boundarySmoothingNasalF1Instant);
+  getBoolFrom(*bs, "nasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
 }
 
 if (const yaml_min::Node* sc = settings.get("specialCoarticulation"); sc && sc->isMap()) {
