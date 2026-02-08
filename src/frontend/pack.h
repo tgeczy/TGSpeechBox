@@ -488,8 +488,6 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Defaults are conservative.
   bool coarticulationEnabled = true;
   double coarticulationStrength = 0.25;          // 0..1
-  double coarticulationTransitionExtent = 0.35;  // fraction of consonant duration
-  bool coarticulationFadeIntoConsonants = true;
   double coarticulationWordInitialFadeScale = 1.0;
 
   // If true, scale coarticulation strength down when the nearest vowel is not
@@ -524,15 +522,6 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double coarticulationF2Scale = 1.0;
   double coarticulationF3Scale = 0.5;
 
-  // Special-case: alveolar consonants can front back vowels (e.g. "new", "suzie").
-  bool coarticulationAlveolarBackVowelEnabled = true;
-  double coarticulationBackVowelF2Threshold = 1400.0;           // F2 < threshold => "back"
-  double coarticulationAlveolarBackVowelStrengthBoost = 1.25;   // additional boost
-
-  // Small consonant-side exception: ʃ/ʒ can sound slightly "higher" next to front vowels.
-  bool coarticulationLabializedFricativeFrontingEnabled = true;
-  double coarticulationLabializedFricativeF2Pull = 0.15;        // 0..1
-
   bool coarticulationVelarPinchEnabled = true;
   double coarticulationVelarPinchThreshold = 1800.0;
   double coarticulationVelarPinchF2Scale = 0.9;
@@ -543,9 +532,6 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // This is a simple way to soften harsh segment joins by increasing the fade
   // time only for certain boundary types.
   bool boundarySmoothingEnabled = false;
-  double boundarySmoothingVowelToStopFadeMs = 12.0;
-  double boundarySmoothingStopToVowelFadeMs = 10.0;
-  double boundarySmoothingVowelToFricFadeMs = 6.0;
 
   // Trajectory limiting (optional).
   //
@@ -579,16 +565,6 @@ double liquidDynamicsLateralOnglideF1Delta = -50.0;
 double liquidDynamicsLateralOnglideF2Delta = 200.0;
 double liquidDynamicsLateralOnglideDurationPct = 0.30;
 
-// /r/ F3 dip: American English rhotic quality (bunched/retroflex style).
-bool liquidDynamicsRhoticF3DipEnabled = false;
-double liquidDynamicsRhoticF3Minimum = 1600.0;
-double liquidDynamicsRhoticF3DipDurationPct = 0.50;
-
-// /w/ formant movement: start low (labial), then move toward the vowel.
-bool liquidDynamicsLabialGlideTransitionEnabled = false;
-double liquidDynamicsLabialGlideStartF1 = 300.0;
-double liquidDynamicsLabialGlideStartF2 = 700.0;
-double liquidDynamicsLabialGlideTransitionPct = 0.60;
 // Phrase-final lengthening.
   bool phraseFinalLengtheningEnabled = false;
   double phraseFinalLengtheningFinalSyllableScale = 1.4;

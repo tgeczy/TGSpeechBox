@@ -249,35 +249,6 @@ static void applyVelarPinch(Token& c, const Token& vowel,
   }
 }
 
-// "Labialized" / palato-alveolar fricative sharpening next to front vowels.
-// (Example: ʃ can sound slightly "higher" next to front vowels.)
-static void applyFrontVowelFricativeSharpening(Token& c, const Token& vowel,
-                                               const LanguagePack& lang, double strength) {
-  if (!lang.coarticulationLabializedFricativeFrontingEnabled) return;
-  if (!c.def) return;
-
-  // Only apply to a small whitelist.
-  const std::u32string& key = c.def->key;
-  const bool isTarget = (key == U"ʃ" || key == U"ʒ");
-  if (!isTarget) return;
-
-  double vowelF2 = getCanonicalFormant(vowel, FieldId::cf2, FieldId::pf2);
-  if (!isFrontVowel(vowelF2, lang)) return;
-
-  // Pull consonant F2 upward slightly toward the following vowel.
-  const double pull = std::clamp(lang.coarticulationLabializedFricativeF2Pull, 0.0, 1.0);
-  if (pull <= 0.0) return;
-
-  auto pullToward = [&](FieldId id) {
-    double cur = getField(c, id);
-    if (cur <= 0.0) return;
-    setField(c, id, cur + (vowelF2 - cur) * (strength * pull));
-  };
-
-  pullToward(FieldId::cf2);
-  pullToward(FieldId::pf2);
-}
-
 // =============================================================================
 // Main coarticulation pass - DECTalk-style START/END transitions
 // =============================================================================
@@ -311,26 +282,13 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
         }
       }
 
-      // 2) Slight sharpening for ʃ/ʒ next to front vowels.
-      //    (This is intentionally subtle and only triggers on a whitelist.)
-      for (size_t j = i + 1; j < tokens.size(); ++j) {
-        const Token& next = tokens[j];
-        if (next.silence) continue;
-        if (isVowelLike(next)) {
-          applyFrontVowelFricativeSharpening(t, next, lang, strength);
-        }
-        break;
-      }
     }
 
     // ----- Vowel coarticulation (locus-based start/end) -----
     if (!isVowelLike(t)) continue;
     
-    // Find the nearest consonant to the left (for alveolar-back-vowel rule),
-    // and the nearest *triggering* consonant to the left (for standard locus).
-    const Token* nearestCons = nullptr;
+    // Find the nearest *triggering* consonant to the left (for standard locus).
     const Token* triggerCons = nullptr;
-    Place nearestPlace = Place::Unknown;
     Place triggerPlace = Place::Unknown;
     int consonantDistance = 0;  // # of intervening consonants between vowel and trigger
 
@@ -342,11 +300,6 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
       if (prev.silence) break;          // Don't coarticulate across explicit silence.
       if (isVowelLike(prev)) break;     // Stop at previous vowel nucleus.
       if (!isConsonant(prev) || !prev.def) continue;
-
-      if (!nearestCons) {
-        nearestCons = &prev;
-        nearestPlace = getPlace(prev.def->key);
-      }
 
       if (triggersCoarticulation(prev)) {
         triggerCons = &prev;
@@ -365,26 +318,11 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
     const double vF3 = getCanonicalFormant(t, FieldId::cf3, FieldId::pf3);
     if (vF2 <= 0.0) continue;
 
-    const bool isBackVowel = (vF2 > 0.0 && vF2 < lang.coarticulationBackVowelF2Threshold);
-
-    // Decide which consonant (if any) is influencing this vowel.
     const Token* leftCons = triggerCons;
     Place leftPlace = triggerPlace;
-    bool isAlveolarBackVowelRule = false;
-
-    if (!leftCons) {
-      // Special case: alveolar sounds can front back vowels (e.g., "new", "suzie").
-      if (lang.coarticulationAlveolarBackVowelEnabled && isBackVowel &&
-          nearestCons && nearestPlace == Place::Alveolar) {
-        leftCons = nearestCons;
-        leftPlace = nearestPlace;
-        consonantDistance = 0;
-        isAlveolarBackVowelRule = true;
-      }
-    }
 
     if (!leftCons || leftPlace == Place::Unknown) continue;
-    
+
     // Apply graduated strength falloff if enabled (clusters / non-adjacent triggers).
     double effectiveStrength = strength;
     if (lang.coarticulationGraduated && consonantDistance > 0) {
@@ -393,23 +331,13 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
       effectiveStrength *= df;
     }
 
-    // Special-case boost: alveolar + back vowel fronting tends to be more audible.
-    if (isAlveolarBackVowelRule) {
-      effectiveStrength *= std::clamp(lang.coarticulationAlveolarBackVowelStrengthBoost, 0.5, 2.0);
-    }
     effectiveStrength = std::clamp(effectiveStrength, 0.0, 1.0);
     if (effectiveStrength <= 0.0) continue;
 
     // Consonant "src" formants.
     const double srcF1 = getConsonantSrcFormant(*leftCons, FieldId::cf1, FieldId::pf1, getLocusF1(leftPlace));
-    double srcF2 = getConsonantSrcFormant(*leftCons, FieldId::cf2, FieldId::pf2, getLocusF2(leftPlace, lang));
+    const double srcF2 = getConsonantSrcFormant(*leftCons, FieldId::cf2, FieldId::pf2, getLocusF2(leftPlace, lang));
     const double srcF3 = getConsonantSrcFormant(*leftCons, FieldId::cf3, FieldId::pf3, getLocusF3(leftPlace, lang));
-
-    // Alveolar back-vowel rule: ensure the source locus is sufficiently alveolar.
-    if (isAlveolarBackVowelRule) {
-      const double alveolarLocus = getLocusF2(Place::Alveolar, lang);
-      if (alveolarLocus > 0.0) srcF2 = std::max(srcF2, alveolarLocus);
-    }
 
     // MITalk locus targets.
     const double k = std::clamp(lang.coarticulationMitalkK, 0.0, 1.0);

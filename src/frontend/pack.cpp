@@ -508,8 +508,6 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Frontend rule passes (token-level)
   getBool("coarticulationEnabled", lp.coarticulationEnabled);
   getNum("coarticulationStrength", lp.coarticulationStrength);
-  getNum("coarticulationTransitionExtent", lp.coarticulationTransitionExtent);
-  getBool("coarticulationFadeIntoConsonants", lp.coarticulationFadeIntoConsonants);
   getNum("coarticulationWordInitialFadeScale", lp.coarticulationWordInitialFadeScale);
   getBool("coarticulationGraduated", lp.coarticulationGraduated);
   getNum("coarticulationAdjacencyMaxConsonants", lp.coarticulationAdjacencyMaxConsonants);
@@ -520,11 +518,6 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationF1Scale", lp.coarticulationF1Scale);
   getNum("coarticulationF2Scale", lp.coarticulationF2Scale);
   getNum("coarticulationF3Scale", lp.coarticulationF3Scale);
-  getBool("coarticulationAlveolarBackVowelEnabled", lp.coarticulationAlveolarBackVowelEnabled);
-  getNum("coarticulationBackVowelF2Threshold", lp.coarticulationBackVowelF2Threshold);
-  getNum("coarticulationAlveolarBackVowelStrengthBoost", lp.coarticulationAlveolarBackVowelStrengthBoost);
-  getBool("coarticulationLabializedFricativeFrontingEnabled", lp.coarticulationLabializedFricativeFrontingEnabled);
-  getNum("coarticulationLabializedFricativeF2Pull", lp.coarticulationLabializedFricativeF2Pull);
   getBool("coarticulationVelarPinchEnabled", lp.coarticulationVelarPinchEnabled);
   getNum("coarticulationVelarPinchThreshold", lp.coarticulationVelarPinchThreshold);
   getNum("coarticulationVelarPinchF2Scale", lp.coarticulationVelarPinchF2Scale);
@@ -532,9 +525,6 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
 
   // Boundary smoothing / crossfade (optional)
   getBool("boundarySmoothingEnabled", lp.boundarySmoothingEnabled);
-  getNum("boundarySmoothingVowelToStopFadeMs", lp.boundarySmoothingVowelToStopFadeMs);
-  getNum("boundarySmoothingStopToVowelFadeMs", lp.boundarySmoothingStopToVowelFadeMs);
-  getNum("boundarySmoothingVowelToFricFadeMs", lp.boundarySmoothingVowelToFricFadeMs);
 
   // Trajectory limiting (optional)
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
@@ -588,13 +578,6 @@ getBool("liquidDynamicsEnabled", lp.liquidDynamicsEnabled);
 getNum("liquidDynamicsLateralOnglideF1Delta", lp.liquidDynamicsLateralOnglideF1Delta);
 getNum("liquidDynamicsLateralOnglideF2Delta", lp.liquidDynamicsLateralOnglideF2Delta);
 getNum("liquidDynamicsLateralOnglideDurationPct", lp.liquidDynamicsLateralOnglideDurationPct);
-getBool("liquidDynamicsRhoticF3DipEnabled", lp.liquidDynamicsRhoticF3DipEnabled);
-getNum("liquidDynamicsRhoticF3Minimum", lp.liquidDynamicsRhoticF3Minimum);
-getNum("liquidDynamicsRhoticF3DipDurationPct", lp.liquidDynamicsRhoticF3DipDurationPct);
-getBool("liquidDynamicsLabialGlideTransitionEnabled", lp.liquidDynamicsLabialGlideTransitionEnabled);
-getNum("liquidDynamicsLabialGlideStartF1", lp.liquidDynamicsLabialGlideStartF1);
-getNum("liquidDynamicsLabialGlideStartF2", lp.liquidDynamicsLabialGlideStartF2);
-getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTransitionPct);
 
 
   getBool("phraseFinalLengtheningEnabled", lp.phraseFinalLengtheningEnabled);
@@ -652,9 +635,6 @@ getNum("positionalAllophonesGlottalReinforcementDurationMs", lp.positionalAlloph
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
   getBoolFrom(*bs, "enabled", lp.boundarySmoothingEnabled);
-  getNumFrom(*bs, "vowelToStopFadeMs", lp.boundarySmoothingVowelToStopFadeMs);
-  getNumFrom(*bs, "stopToVowelFadeMs", lp.boundarySmoothingStopToVowelFadeMs);
-  getNumFrom(*bs, "vowelToFricFadeMs", lp.boundarySmoothingVowelToFricFadeMs);
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {
@@ -706,18 +686,6 @@ if (const yaml_min::Node* ld = settings.get("liquidDynamics"); ld && ld->isMap()
     getNumFrom(*lo, "durationPct", lp.liquidDynamicsLateralOnglideDurationPct);
   }
 
-  if (const yaml_min::Node* rd = ld->get("rhoticF3Dip"); rd && rd->isMap()) {
-    getBoolFrom(*rd, "enabled", lp.liquidDynamicsRhoticF3DipEnabled);
-    getNumFrom(*rd, "f3Minimum", lp.liquidDynamicsRhoticF3Minimum);
-    getNumFrom(*rd, "dipDurationPct", lp.liquidDynamicsRhoticF3DipDurationPct);
-  }
-
-  if (const yaml_min::Node* wg = ld->get("labialGlideTransition"); wg && wg->isMap()) {
-    getBoolFrom(*wg, "enabled", lp.liquidDynamicsLabialGlideTransitionEnabled);
-    getNumFrom(*wg, "startF1", lp.liquidDynamicsLabialGlideStartF1);
-    getNumFrom(*wg, "startF2", lp.liquidDynamicsLabialGlideStartF2);
-    getNumFrom(*wg, "transitionPct", lp.liquidDynamicsLabialGlideTransitionPct);
-  }
 }
 
 if (const yaml_min::Node* lc = settings.get("lengthContrast"); lc && lc->isMap()) {

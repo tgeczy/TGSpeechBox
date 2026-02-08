@@ -96,9 +96,6 @@ bool runLiquidDynamics(
     const std::u32string& key = tok.def->key;
 
     const bool isLateral = (key == U"l" || key == U"ɫ");
-    const bool isRhotic = (key == U"r" || key == U"ɹ" || key == U"ɻ");
-    const bool isW = (key == U"w" || key == U"ʍ");
-
     // Only do internal dynamics if the token is long enough to split safely.
     const double dur = tok.durationMs;
     if (dur < 8.0) {
@@ -145,101 +142,6 @@ bool runLiquidDynamics(
       if (hasField(a, FieldId::pf1)) setField(a, FieldId::pf1, std::max(0.0, getField(a, FieldId::pf1) + dF1));
       if (hasField(a, FieldId::cf2)) setField(a, FieldId::cf2, std::max(0.0, getField(a, FieldId::cf2) + dF2));
       if (hasField(a, FieldId::pf2)) setField(a, FieldId::pf2, std::max(0.0, getField(a, FieldId::pf2) + dF2));
-
-      out.push_back(a);
-      out.push_back(b);
-      continue;
-    }
-
-    // --- /r/ rhotic F3 dip ---
-    if (isRhotic && lp.liquidDynamicsRhoticF3DipEnabled && lp.liquidDynamicsRhoticF3DipDurationPct > 0.0) {
-      double pct = clamp01(lp.liquidDynamicsRhoticF3DipDurationPct);
-      double d1 = clampDouble(dur * pct, 4.0, dur - 4.0);
-      double d2 = dur - d1;
-
-      Token a = tok;
-      Token b = tok;
-
-      a.durationMs = d1;
-      b.durationMs = d2;
-
-      b.wordStart = false;
-      b.syllableStart = false;
-      b.stress = 0;
-      b.tone.clear();
-      a.lengthened = false;
-      b.lengthened = false;
-
-      b.tiedTo = false;
-      a.tiedFrom = false;
-
-      a.fadeMs = tok.fadeMs;
-      b.fadeMs = microFadeMs;
-      clampFadeToDuration(a);
-      clampFadeToDuration(b);
-
-      const double f3Min = lp.liquidDynamicsRhoticF3Minimum;
-
-      if (hasField(a, FieldId::cf3)) {
-        double f3 = getField(a, FieldId::cf3);
-        if (f3 > 0.0) setField(a, FieldId::cf3, std::min(f3, f3Min));
-      }
-      if (hasField(a, FieldId::pf3)) {
-        double f3 = getField(a, FieldId::pf3);
-        if (f3 > 0.0) setField(a, FieldId::pf3, std::min(f3, f3Min));
-      }
-
-      out.push_back(a);
-      out.push_back(b);
-      continue;
-    }
-
-    // --- /w/ labial glide transition ---
-    if (isW && lp.liquidDynamicsLabialGlideTransitionEnabled && lp.liquidDynamicsLabialGlideTransitionPct > 0.0) {
-      // Only worth doing if we glide into a vowel.
-      const Token* nextNonSil = nullptr;
-      for (size_t j = i + 1; j < n; ++j) {
-        if (!tokIsSilence(tokens[j])) { nextNonSil = &tokens[j]; break; }
-      }
-      if (!nextNonSil || !tokIsVowel(*nextNonSil)) {
-        out.push_back(tok);
-        continue;
-      }
-
-      double pct = clamp01(lp.liquidDynamicsLabialGlideTransitionPct);
-      double d1 = clampDouble(dur * pct, 4.0, dur - 4.0);
-      double d2 = dur - d1;
-
-      Token a = tok;
-      Token b = tok;
-
-      a.durationMs = d1;
-      b.durationMs = d2;
-
-      b.wordStart = false;
-      b.syllableStart = false;
-      b.stress = 0;
-      b.tone.clear();
-      a.lengthened = false;
-      b.lengthened = false;
-
-      b.tiedTo = false;
-      a.tiedFrom = false;
-
-      a.fadeMs = tok.fadeMs;
-      b.fadeMs = microFadeMs;
-      clampFadeToDuration(a);
-      clampFadeToDuration(b);
-
-      // Set the starting formants on the onglide segment.
-      const double f1 = lp.liquidDynamicsLabialGlideStartF1;
-      const double f2 = lp.liquidDynamicsLabialGlideStartF2;
-
-      // We set both cascade + parallel formant targets if present.
-      setField(a, FieldId::cf1, f1);
-      setField(a, FieldId::pf1, f1);
-      setField(a, FieldId::cf2, f2);
-      setField(a, FieldId::pf2, f2);
 
       out.push_back(a);
       out.push_back(b);
