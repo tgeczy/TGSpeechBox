@@ -2,6 +2,9 @@
 # English (US) overrides layered on top of default.yaml + en.yaml
 
 settings:
+  # Pronunciation dictionary (CMUdict, converted to IPA).
+  pronunciationDict: "dicts/en-us.tsv"
+
   # Keep stop closures for clarity, but avoid the overly-clicky "always" mode
   # (helps clusters like "adjust" and "change" feel less springy).
   stopClosureMode: vowel-and-cluster
@@ -264,8 +267,11 @@ normalization:
 
     # US GOAT (oʊ) can sound oddly "midwestern" if the /o/ start is too back.
     # Use a slightly more fronted internal variant for en-us.
+    # Guard: only before consonants, not before ʊ (which would split the oʊ diphthong).
     - from: "o"
       to:   "ᵒ"
+      when:
+        notBeforeClass: VOWELS
 
     # US THOUGHT vowel: make /ɔ(ː)/ more open so it doesn't drift toward an "owe" quality.
     - from: "ɔː"

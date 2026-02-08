@@ -6,7 +6,7 @@ settings:
   # Keep word-final long /uː/ (do/two/you) from sounding too clipped.
   englishLongUWordFinalScale: 1.00
 
-  stopClosureAfterNasalsEnabled: false
+  stopClosureAfterNasalsEnabled: true
   segmentBoundarySkipVowelToLiquid: false
   coarticulationEnabled: false
   coarticulationFadeIntoConsonants: false
@@ -77,7 +77,6 @@ normalization:
       - "ɑj"
       - "ɑw"
       - "ɑ̃"
-      - "ᵅ"
       - "ɒ"
       - "ɔ"
       - "ɔ_r"
@@ -197,14 +196,6 @@ normalization:
         beforeClass: BATH_FOLLOW
     - from: "æ"
       to:   "a"
-
-    # UK PALM/START: Use properly back vowel quality.
-    # The generic ɑ is too fronted (Australian-sounding, F2≈1550).
-    # Route to UK-specific back variant ᵅ (F2≈1200) for proper RP "ah".
-    # This affects: START words (start, car, far), BATH words (bath, path, grass),
-    # and PALM words (calm, father, spa).
-    - from: "ɑ"
-      to:   "ᵅ"
 
     # UK THOUGHT rounding: use the internal UK-ish variant.
     - from: "ɔː"
