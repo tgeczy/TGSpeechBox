@@ -523,6 +523,10 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationVelarPinchF2Scale", lp.coarticulationVelarPinchF2Scale);
   getNum("coarticulationVelarPinchF3", lp.coarticulationVelarPinchF3);
 
+  // Special coarticulation rules (language-specific Hz deltas)
+  getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);
+  getNum("specialCoarticMaxDeltaHz", lp.specialCoarticMaxDeltaHz);
+
   // Boundary smoothing / crossfade (optional)
   getBool("boundarySmoothingEnabled", lp.boundarySmoothingEnabled);
 
@@ -635,6 +639,37 @@ getNum("positionalAllophonesGlottalReinforcementDurationMs", lp.positionalAlloph
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
   getBoolFrom(*bs, "enabled", lp.boundarySmoothingEnabled);
+}
+
+if (const yaml_min::Node* sc = settings.get("specialCoarticulation"); sc && sc->isMap()) {
+  getBoolFrom(*sc, "enabled", lp.specialCoarticulationEnabled);
+  getNumFrom(*sc, "maxDeltaHz", lp.specialCoarticMaxDeltaHz);
+
+  if (const yaml_min::Node* rules = sc->get("rules"); rules && rules->isSeq()) {
+    lp.specialCoarticRules.clear();
+    for (const auto& item : rules->seq) {
+      if (!item.isMap()) continue;
+      SpecialCoarticRule rule;
+      getStrFrom(item, "name", rule.name);
+      getStrFrom(item, "vowelFilter", rule.vowelFilter);
+      getStrFrom(item, "formant", rule.formant);
+      getNumFrom(item, "deltaHz", rule.deltaHz);
+      getStrFrom(item, "side", rule.side);
+      getBoolFrom(item, "cumulative", rule.cumulative);
+      getNumFrom(item, "unstressedScale", rule.unstressedScale);
+      getNumFrom(item, "phraseFinalStressedScale", rule.phraseFinalStressedScale);
+
+      if (const yaml_min::Node* trig = item.get("triggers"); trig && trig->isSeq()) {
+        for (const auto& el : trig->seq) {
+          if (el.isScalar()) rule.triggers.push_back(el.scalar);
+        }
+      }
+
+      if (!rule.triggers.empty() && !rule.formant.empty()) {
+        lp.specialCoarticRules.push_back(std::move(rule));
+      }
+    }
+  }
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {

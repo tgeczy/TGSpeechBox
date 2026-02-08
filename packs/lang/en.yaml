@@ -55,6 +55,38 @@ settings:
 
   spellingDiphthongMode: none
   liquidDynamicsEnabled: false
+
+  specialCoarticulation:
+    enabled: true
+    maxDeltaHz: 400
+    rules:
+      - name: f3_near_rhotic_w
+        triggers: [ɹ, r, w, ʍ]
+        vowelFilter: all
+        formant: f3
+        deltaHz: -150
+        side: both
+      - name: f2_uw_near_alveolar
+        triggers: [t, d, n, s, z, l, ɹ]
+        vowelFilter: "uː"
+        formant: f2
+        deltaHz: 200
+        side: both
+        cumulative: true
+        unstressedScale: 1.5
+        phraseFinalStressedScale: 0.5
+      - name: f2_front_before_dark_l
+        triggers: [l]
+        vowelFilter: front
+        formant: f2
+        deltaHz: -150
+        side: right
+      - name: f2_front_after_w_l
+        triggers: [w, l]
+        vowelFilter: front
+        formant: f2
+        deltaHz: -150
+        side: left
   lengthContrastEnabled: false
   positionalAllophonesEnabled: false
   positionalAllophonesGlottalReinforcementEnabled: true

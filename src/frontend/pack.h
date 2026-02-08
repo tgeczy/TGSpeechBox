@@ -180,6 +180,18 @@ struct IntonationClause {
 };
 
 
+struct SpecialCoarticRule {
+  std::string name;
+  std::vector<std::string> triggers;  // IPA keys e.g. "ɹ", "r", "w"
+  std::string vowelFilter;            // "all", "front", "back", or specific IPA key
+  std::string formant;                // "f2", "f3"
+  double deltaHz = 0.0;
+  std::string side;                   // "left", "right", "both"
+  bool cumulative = false;            // apply from both sides additively
+  double unstressedScale = 1.0;       // multiply delta for unstressed vowels
+  double phraseFinalStressedScale = 1.0; // multiply delta for phrase-final stressed
+};
+
 struct LanguagePack {
   std::string langTag; // normalized (lowercase, '-')
 
@@ -526,6 +538,11 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double coarticulationVelarPinchThreshold = 1800.0;
   double coarticulationVelarPinchF2Scale = 0.9;
   double coarticulationVelarPinchF3 = 2400.0;
+
+  // Special coarticulation rules (language-specific Hz deltas).
+  bool specialCoarticulationEnabled = false;
+  std::vector<SpecialCoarticRule> specialCoarticRules;
+  double specialCoarticMaxDeltaHz = 400.0;
 
   // Boundary crossfade / smoothing (optional).
   //

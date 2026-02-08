@@ -2,6 +2,7 @@
 
 #include "allophones.h"
 #include "coarticulation.h"
+#include "special_coartic.h"
 #include "microprosody.h"
 #include "nasalization.h"
 #include "prosody.h"
@@ -20,6 +21,7 @@ const PassDesc kPasses[] = {
     {"allophones", PassStage::PreTiming, &passes::runAllophones},
 
     {"coarticulation", PassStage::PostTiming, &passes::runCoarticulation},
+    {"special_coartic", PassStage::PostTiming, &passes::runSpecialCoarticulation},
     {"prosody", PassStage::PostTiming, &passes::runProsody},
     {"reduction", PassStage::PostTiming, &passes::runReduction},
     {"liquid_dynamics", PassStage::PostTiming, &passes::runLiquidDynamics},
