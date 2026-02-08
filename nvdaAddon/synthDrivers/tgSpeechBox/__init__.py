@@ -13,6 +13,7 @@ import ctypes
 import math
 import os
 import queue
+import re
 import threading
 from collections import OrderedDict
 from typing import Optional
@@ -1050,6 +1051,30 @@ class SynthDriver(SynthDriver):
         except Exception:
             return ""
 
+    def _textToIPA(self, text: str) -> str:
+        """Convert text to IPA: eSpeak owns the phrase, dictionary fixes content words.
+
+        Uses the dict_overlay module to align eSpeak's phrase-level IPA with
+        text words and selectively replace content words with dictionary
+        pronunciations for better stress accuracy.  Function words keep
+        eSpeak's natural reduced forms.
+        """
+        if not text:
+            return ""
+
+        # Always start with eSpeak phrase IPA.
+        phraseIpa = self._espeakTextToIPA(text)
+        if not phraseIpa:
+            return ""
+
+        # If no dict support, we're done — pure eSpeak.
+        frontend = getattr(self, "_frontend", None)
+        if not frontend or not frontend.hasDictSupport():
+            return phraseIpa
+
+        from .dict_overlay import overlayDictIPA
+        return overlayDictIPA(text, phraseIpa, frontend.dictLookup)
+
     def _buildBlocks(self, speechSequence, coalesceSayAll: bool = False):
         """Convert an NVDA speechSequence into blocks: (text, [indexesAfterText], pitchOffset).
 
@@ -1200,7 +1225,7 @@ class SynthDriver(SynthDriver):
 
                     punctPauseMs = _punctuationPauseMs(punctToken)
 
-                    ipaText = self._espeakTextToIPA(chunk)
+                    ipaText = self._textToIPA(chunk)
                     if not ipaText:
                         # Nothing speakable, but don't drop indexes (they are queued after the block).
                         continue
