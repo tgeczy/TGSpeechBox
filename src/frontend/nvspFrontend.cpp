@@ -44,6 +44,9 @@ struct Handle {
   
   // Buffer for getVoiceProfileNames return value
   std::string profileNamesBuffer;
+
+  // Buffer for dictLookup return value
+  std::string dictLookupBuffer;
 };
 
 static Handle* asHandle(nvspFrontend_handle_t h) {
@@ -814,6 +817,23 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
   outFile.close();
 
   return 1;
+}
+
+NVSP_FRONTEND_API const char* nvspFrontend_dictLookup(
+  nvspFrontend_handle_t handle,
+  const char* wordUtf8
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return "";
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  if (!wordUtf8 || !wordUtf8[0]) return "";
+  if (!h->pack.pronDict || !h->pack.pronDict->loaded()) return "";
+
+  h->dictLookupBuffer = h->pack.pronDict->lookup(wordUtf8);
+  return h->dictLookupBuffer.c_str();
 }
 
 } // extern "C"

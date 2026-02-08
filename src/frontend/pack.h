@@ -13,6 +13,7 @@
 #include "yaml_min.h"
 #include "utf8.h"
 #include "voice_profile.h"
+#include "pron_dict.h"
 
 namespace nvsp_frontend {
 
@@ -220,6 +221,13 @@ struct LanguagePack {
   // different voice qualities (e.g., "female" for a female voice).
   // Empty string means no voice profile (use base phoneme parameters).
   std::string voiceProfileName;
+
+  // Pronunciation dictionary filename (optional).
+  // Path relative to the packs root directory.  If set, loadPackSet()
+  // will load the TSV file and populate PackSet::pronDict.
+  // Empty string means no pronunciation dictionary.
+  // Example: "dicts/en-us.tsv"
+  std::string pronunciationDict;
   
   // Legacy pitch mode.
   //
@@ -696,6 +704,10 @@ struct PackSet {
   // Voice profiles (optional). Loaded from "voiceProfiles:" in phonemes.yaml.
   // If no profiles are defined, this will be empty/null.
   std::unique_ptr<VoiceProfileSet> voiceProfiles;
+
+  // Pronunciation dictionary (optional). Loaded if the lang YAML specifies
+  // "pronunciationDict: filename.tsv" under settings.
+  std::unique_ptr<PronDict> pronDict;
   
   // Non-fatal warnings accumulated during pack loading (e.g., voice profile
   // parse errors). Empty if no warnings. Useful for debugging "why does

@@ -420,6 +420,31 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
   const nvspFrontend_VoiceProfileSliders* sliders
 );
 
+/* ============================================================================
+ * Pronunciation Dictionary API (ABI v3+)
+ * ============================================================================
+ *
+ * If the current language pack specifies a pronunciation dictionary
+ * (e.g. CMUdict for English), these functions expose it to callers.
+ * The dictionary maps words to IPA so callers can resolve pronunciation
+ * before passing IPA to the engine via queueIPA.
+ */
+
+/*
+  Look up a word in the pronunciation dictionary.
+
+  Returns the IPA transcription for the word, or an empty string if:
+  - No dictionary is loaded for the current language
+  - The word is not in the dictionary
+
+  The returned pointer is owned by the handle and valid until the next
+  dictLookup call on the same handle.  The lookup is case-insensitive.
+*/
+NVSP_FRONTEND_API const char* nvspFrontend_dictLookup(
+  nvspFrontend_handle_t handle,
+  const char* wordUtf8
+);
+
 #ifdef __cplusplus
 }
 #endif

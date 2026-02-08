@@ -397,6 +397,10 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Set this to apply a voice profile to all phonemes.
   getStr("voiceProfileName", lp.voiceProfileName);
 
+  // Pronunciation dictionary (optional).
+  // Path relative to packs root, e.g. "dicts/en-us.tsv".
+  getStr("pronunciationDict", lp.pronunciationDict);
+
   // Legacy pitch mode (ported from the ee80f4d-era ipa.py / ipa-older.py).
   // Supports both legacy bool syntax and new string enum:
   //   legacyPitchMode: true          -> "legacy"
@@ -1239,6 +1243,19 @@ bool loadPackSet(
       if (a.size() != b.size()) return a.size() > b.size();
       return a < b;
     });
+
+  // Load pronunciation dictionary if the language pack specifies one.
+  if (!out.lang.pronunciationDict.empty()) {
+    out.pronDict = std::make_unique<PronDict>();
+    fs::path dictPath = packsRoot / out.lang.pronunciationDict;
+    std::string dictErr;
+    if (!out.pronDict->loadTSV(dictPath.string(), dictErr)) {
+      // Non-fatal: warn but continue without dictionary.
+      if (!out.loadWarnings.empty()) out.loadWarnings += "\n";
+      out.loadWarnings += "PronDict: " + dictErr;
+      out.pronDict.reset();
+    }
+  }
 
   return true;
 }
