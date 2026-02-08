@@ -420,7 +420,11 @@ public:
                 // Mid-sentence, cascade resonators still ring from the previous vowel
                 // when the parallel burst fires — the sum causes an amplitude spike.
                 // burstEnv high + va low = voiceless stop burst = duck cascade by 70%.
-                double cascadeDuck = 1.0 - 0.7 * burstEnv * (1.0 - va);
+                // Nasal-aware: when caNP > 0, cascade carries wanted nasal murmur —
+                // don't duck it.  caNP fades to 0 during nasal→stop transition, so
+                // by the time the burst fires the full duck applies naturally.
+                double nasalProtect = 1.0 - frame->caNP;
+                double cascadeDuck = 1.0 - 0.7 * burstEnv * (1.0 - va) * nasalProtect;
                 double out=(cascadeOut*cascadeDuck+parallelOut)*frame->outputGain;
 
                 // DC blocking
