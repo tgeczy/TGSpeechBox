@@ -255,6 +255,7 @@ class SynthDriver(SynthDriver):
         self._audio = AudioThread(self, self._player, self._sampleRate)
         self._bgQueue: "queue.Queue" = queue.Queue()
         self._bgStop = threading.Event()
+        self._bgCancel = threading.Event()
         self._bgThread = BgThread(self._bgQueue, self._bgStop)
         self._bgThread.start()
 
@@ -1140,6 +1141,8 @@ class SynthDriver(SynthDriver):
             self._enqueue(self._notifyIndexesAndDone, indexes)
             return
 
+        # Clear cancel flag so the new _speakBg won't immediately bail out
+        self._bgCancel.clear()
         self._enqueue(self._speakBg, list(speechSequence))
 
     def _speakBg(self, speakList):
@@ -1169,9 +1172,17 @@ class SynthDriver(SynthDriver):
             return 0.0
 
         for (text, indexesAfter, blockPitchOffset) in blocks:
+            # Bail out if cancel() was called while we were processing
+            if self._bgCancel.is_set():
+                return
+
             # Speak text for this block.
             if text:
                 for chunk in re_textPause.split(text):
+                    # Check again between chunks for fast cancellation
+                    if self._bgCancel.is_set():
+                        return
+
                     if not chunk:
                         continue
 
@@ -1379,7 +1390,18 @@ class SynthDriver(SynthDriver):
                 return
             if not hasattr(self, "_audio") or not self._audio:
                 return
-               
+
+            # Signal BgThread to abort current _speakBg iteration
+            self._bgCancel.set()
+
+            # Drain any pending jobs so stale work doesn't run after cancel
+            try:
+                while True:
+                    self._bgQueue.get_nowait()
+                    self._bgQueue.task_done()
+            except queue.Empty:
+                pass
+
             self._player.queueFrame(None, 3.0, 3.0, purgeQueue=True)
             self._audio.isSpeaking = False
             self._audio.kick()
