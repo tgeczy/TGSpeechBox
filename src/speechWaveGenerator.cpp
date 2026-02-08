@@ -94,6 +94,12 @@ private:
     int startFadeRemaining;    // samples left in fade-in (prevents pop on speech start)
     int startFadeTotal;        // total fade-in length
 
+    // Cascade duck smoother: prevents gain discontinuity at stop→vowel boundary.
+    // The raw cascadeDuck can snap from 0.3→1.0 when va rises, causing a click.
+    // Smoothing mirrors what shelfMix already does for the shelf duck.
+    double smoothCascadeDuck;      // current smoothed duck value (1.0 = no duck)
+    double cascadeDuckAlpha;       // per-sample smoothing coefficient
+
     // Peak limiter: catches amplitude spikes before they reach the OS audio system.
     // Fast attack (~0.1ms) catches transients, slow release (~50ms) recovers smoothly.
     // This prevents Windows/PulseAudio volume ducking on stop bursts mid-sentence.
@@ -139,7 +145,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0), smoothCascadeDuck(1.0), cascadeDuckAlpha(0.0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -168,6 +174,12 @@ public:
         limiterReleaseAlpha = 1.0 - exp(-1.0 / (sampleRate * (limiterReleaseMs * 0.001)));
         // 32767 / 6000 = ~5.46 full scale; -3dB = 0.707 * 5.46 = ~3.86
         limiterThreshold = 3.86;
+
+        // Cascade duck smoother: ~3ms time constant.
+        // Fast enough to engage during a burst (~6ms hold), slow enough
+        // that the release back to 1.0 doesn't snap when va rises.
+        const double cascadeDuckMs = 3.0;
+        cascadeDuckAlpha = 1.0 - exp(-1.0 / (sampleRate * (cascadeDuckMs * 0.001)));
 
         // Initialize with default voicing tone
         currentTone = speechPlayer_getDefaultVoicingTone();
@@ -274,6 +286,7 @@ public:
                     fricSustainLp1.reset(); fricSustainLp2.reset();
                     aspLp1.reset(); aspLp2.reset();
                     shelfMix = 1.0;
+                    smoothCascadeDuck = 1.0;  // Reset duck (no ducking)
                     limiterGain = 1.0;  // Reset limiter (no gain reduction)
                     // Reset stop fade-out state
                     stopFadeTotal = 0;
@@ -424,8 +437,13 @@ public:
                 // don't duck it.  caNP fades to 0 during nasal→stop transition, so
                 // by the time the burst fires the full duck applies naturally.
                 double nasalProtect = 1.0 - frame->caNP;
-                double cascadeDuck = 1.0 - 0.7 * burstEnv * (1.0 - va) * nasalProtect;
-                double out=(cascadeOut*cascadeDuck+parallelOut)*frame->outputGain;
+                double targetCascadeDuck = 1.0 - 0.7 * burstEnv * (1.0 - va) * nasalProtect;
+                // Smooth the duck to prevent gain snap at stop→vowel boundary.
+                // Without this, cascadeDuck jumps from 0.3→1.0 when va rises,
+                // tripling the cascade ringing amplitude in one sample → click.
+                // (The shelf duck at line ~453 already does this via shelfMixAlpha.)
+                smoothCascadeDuck += cascadeDuckAlpha * (targetCascadeDuck - smoothCascadeDuck);
+                double out=(cascadeOut*smoothCascadeDuck+parallelOut)*frame->outputGain;
 
                 // DC blocking
                 double filteredOut=out-lastInput+0.9995*lastOutput;
