@@ -27,10 +27,19 @@ re_punctStrip = re.compile(r"^[^\w]*|[^\w]*$", re.UNICODE)
 # Characters that eSpeak silently drops from IPA output.  Stripping these
 # before the alignment check prevents false-positive word-count matches
 # (e.g. "—" occupies a text slot but produces no IPA token).
+# Includes punctuation (commas, periods, etc.) which become standalone
+# tokens after normalisation (e.g. em-dash → comma) but produce no IPA.
 # NOTE: Do NOT include apostrophes / smart quotes here — they are
 # linguistically meaningful (contractions like "I'm", "don't") and eSpeak
 # handles them correctly.
-re_espeakDropped = re.compile(r"[—–\-\(\)\[\]\{\}\"\u201c\u201d\u201e\u201a\u00ab\u00bb\u2039\u203a]")
+re_espeakDropped = re.compile(r"[—–\-\(\)\[\]\{\}\"\u201c\u201d\u201e\u201a\u00ab\u00bb\u2039\u203a,.?!:;]")
+
+# Words containing digits expand to an unpredictable number of IPA tokens.
+# Examples: "57" → 2, "G2P" → 3, "x64" → 3, "2024" → 4, "135205" → 6.
+# The sole exception is a bare single digit ("1", "2" … "9") which always
+# produces exactly 1 token.  Alignment must be skipped when any other
+# digit-containing word is present.
+_re_hasDigit = re.compile(r"\d")
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +229,14 @@ def overlayDictIPA(text, phraseIpa, dictLookup):
     ipaTokens = phraseIpa.split()
 
     if not words:
+        return phraseIpa
+
+    # Numbers expand unpredictably in eSpeak: "57" → "fifty seven" (2 tokens),
+    # "G2P" → 3 tokens, "135205" → 6 tokens.  This makes word↔IPA alignment
+    # unreliable — a coincidental token-count match can map every word to the
+    # wrong slot.  Bail to pure eSpeak when any word contains a digit, UNLESS
+    # the word is a bare single digit (0–9) which always produces 1 token.
+    if any(_re_hasDigit.search(w) and len(w) > 1 for w in words):
         return phraseIpa
 
     # Try to align (handles both exact match and function-word merges).
