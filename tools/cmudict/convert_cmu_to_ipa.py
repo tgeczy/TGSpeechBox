@@ -39,26 +39,23 @@ if sys.stderr.encoding != "utf-8":
 # ---------------------------------------------------------------------------
 
 # Vowels (base form, without stress digit)
-# Stress digit is stripped before lookup; AH and ER are context-sensitive.
-#
-# These mappings target eSpeak's IPA conventions so that CMUdict output can
-# pass through en-us.yaml normalization rules without double-corrections.
+# Stress digit is stripped before lookup; AH is context-sensitive (see below).
 ARPABET_VOWELS: dict[str, str] = {
-    "AA": "\u0251\u02d0",      # ɑː  (eSpeak uses ɑː for LOT/PALM/START)
-    "AE": "\u00e6",            # æ
-    "AH": "\u0259",            # ə   (default / unstressed; stressed → ʌ)
-    "AO": "\u0254\u02d0",      # ɔː  (eSpeak uses ɔː for THOUGHT/FORCE)
-    "AW": "a\u0361\u028a",     # a͡ʊ (tie bar protects from a→æ rule)
-    "AY": "a\u0361\u026a",     # a͡ɪ (tie bar protects from a→æ rule)
-    "EH": "\u025b",            # ɛ
-    "ER": "\u025a",            # ɚ   (unstressed lettER; stressed → ɜː)
-    "EY": "e\u026a",           # eɪ
-    "IH": "\u026a",            # ɪ
-    "IY": "i\u02d0",           # iː
-    "OW": "o\u028a",           # oʊ
-    "OY": "\u0254\u026a",      # ɔɪ
-    "UH": "\u028a",            # ʊ
-    "UW": "u\u02d0",           # uː
+    "AA": "\u0251\u02d0",  # ɑː
+    "AE": "\u00e6",      # æ
+    "AH": "\u0259",      # ə  (default / unstressed; stressed handled specially)
+    "AO": "\u0254\u02d0",  # ɔː
+    "AW": "a\u0361\u028a",  # a͡ʊ
+    "AY": "a\u0361\u026a",  # a͡ɪ
+    "EH": "\u025b",      # ɛ
+    "ER": "\u025a",      # ɚ  (unstressed lettER; stressed NURSE handled specially)
+    "EY": "e\u026a",     # eɪ
+    "IH": "\u026a",      # ɪ
+    "IY": "i\u02d0",     # iː
+    "OW": "o\u028a",     # oʊ
+    "OY": "\u0254\u026a",# ɔɪ
+    "UH": "\u028a",      # ʊ
+    "UW": "u\u02d0",     # uː
 }
 
 # AH with primary or secondary stress becomes ʌ instead of ə
@@ -169,9 +166,9 @@ def parse_phone(phone: str) -> tuple[str, int | None]:
 def phone_to_ipa(base: str, stress: int | None) -> str:
     """Convert a single ARPAbet phone to IPA."""
     if base == "AH" and stress is not None and stress > 0:
-        return AH_STRESSED   # ʌ (stressed STRUT)
+        return AH_STRESSED
     if base == "ER" and stress is not None and stress > 0:
-        return ER_STRESSED   # ɜː (stressed NURSE)
+        return ER_STRESSED
     ipa = ARPABET_TO_IPA.get(base)
     if ipa is None:
         # Unknown phone -- pass through wrapped in angle brackets
@@ -214,32 +211,22 @@ def arpabet_to_ipa(phones: list[str]) -> str:
     stress_levels: list[int | None] = [seg[2] for seg in segments]
     is_vowel_flags: list[bool] = [seg[1] for seg in segments]
 
-    # For each stressed vowel, walk backwards to find the onset start,
-    # constrained by English onset legality (maximal onset principle).
+    # For each stressed vowel, insert the stress mark directly before the
+    # vowel nucleus (eSpeak convention).  The frontend's tokenizer expects
+    # stress marks adjacent to the vowel for correct duration scaling —
+    # placing them before the onset (IPA standard) causes the stress boost
+    # to be consumed by the onset consonant and reset before the vowel.
     insert_marks: dict[int, str] = {}  # index -> mark to insert *before* that index
     for i, (ipa, is_v, stress) in enumerate(segments):
         if not is_v or stress is None or stress == 0:
             continue
         mark = "\u02c8" if stress == 1 else "\u02cc"  # ˈ or ˌ
-        # Walk backwards over consonants, building the onset cluster.
-        # Only extend the onset if the resulting cluster is a legal English onset.
-        onset_start = i
-        cluster: list[str] = []
-        j = i - 1
-        while j >= 0 and not is_vowel_flags[j]:
-            candidate = tuple([ipa_pieces[j]] + cluster)
-            if _is_legal_onset(candidate):
-                cluster = list(candidate)
-                onset_start = j
-                j -= 1
-            else:
-                break
-        if onset_start in insert_marks:
+        if i in insert_marks:
             # Higher stress wins
             if mark == "\u02c8":
-                insert_marks[onset_start] = mark
+                insert_marks[i] = mark
         else:
-            insert_marks[onset_start] = mark
+            insert_marks[i] = mark
 
     # Phase 3: assemble output
     result: list[str] = []
@@ -278,6 +265,27 @@ def parse_cmudict_line(line: str) -> tuple[str, list[str]] | None:
     return word, phones
 
 
+# ---------------------------------------------------------------------------
+# Word-level IPA overrides
+# ---------------------------------------------------------------------------
+# Fixes known CMUdict inconsistencies that can't be caught by the generic
+# converter rules.  Applied after arpabet_to_ipa() conversion.
+#
+# Example: CMUdict encodes Monday–Saturday with "D IY0" (sounds like "dee")
+# but Sunday/Thursday with "D EY2" (sounds like "day").  The latter is
+# correct for TTS; the former is a casual reduction that sounds wrong
+# when synthesised.
+
+_WORD_IPA_OVERRIDES: dict[str, str] = {
+    # Weekday names: CMUdict has IY0 ("dee") instead of EY ("day")
+    "monday":    "mˈʌndeɪ",
+    "tuesday":   "tˈuːzdeɪ",
+    "wednesday": "wˈɛnzdeɪ",
+    "friday":    "fɹˈa͡ɪdeɪ",
+    "saturday":  "sˈætɚdeɪ",
+}
+
+
 def convert_file(
     input_path: Path,
     output_path: Path,
@@ -288,6 +296,7 @@ def convert_file(
     total = 0
     written = 0
     unknown_phones: dict[str, int] = {}
+    overridden = 0
 
     print(f"Reading: {input_path}")
     print(f"Writing: {output_path}")
@@ -303,6 +312,13 @@ def convert_file(
             word, phones = parsed
             ipa = arpabet_to_ipa(phones)
 
+            # Apply word-level overrides for known CMUdict issues.
+            base = re.sub(r"\(\d+\)$", "", word).lower()
+            override = _WORD_IPA_OVERRIDES.get(base)
+            if override and ipa != override:
+                ipa = override
+                overridden += 1
+
             # Track unknown phones
             for ch in re.findall(r"<([A-Z]+)>", ipa):
                 unknown_phones[ch] = unknown_phones.get(ch, 0) + 1
@@ -311,6 +327,8 @@ def convert_file(
             written += 1
 
     print(f"Done. {written} entries written from {total} lines.")
+    if overridden:
+        print(f"  ({overridden} entries corrected by word-level overrides)")
 
     if show_stats or unknown_phones:
         if unknown_phones:
