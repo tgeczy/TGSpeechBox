@@ -255,7 +255,7 @@ class SynthDriver(SynthDriver):
         self._audio = AudioThread(self, self._player, self._sampleRate)
         self._bgQueue: "queue.Queue" = queue.Queue()
         self._bgStop = threading.Event()
-        self._bgCancel = threading.Event()
+        self._speakGen = 0  # Generation counter: cancel/speak race guard
         self._bgThread = BgThread(self._bgQueue, self._bgStop)
         self._bgThread.start()
 
@@ -1141,11 +1141,14 @@ class SynthDriver(SynthDriver):
             self._enqueue(self._notifyIndexesAndDone, indexes)
             return
 
-        # Clear cancel flag so the new _speakBg won't immediately bail out
-        self._bgCancel.clear()
-        self._enqueue(self._speakBg, list(speechSequence))
+        # Stamp this speak with a generation number so cancel() can invalidate it
+        self._speakGen += 1
+        self._enqueue(self._speakBg, list(speechSequence), self._speakGen)
 
-    def _speakBg(self, speakList):
+    def _speakBg(self, speakList, generation):
+        # Bail immediately if a cancel() already invalidated this generation
+        if generation != self._speakGen:
+            return
         hadRealSpeech = False
         hasIndex = bool(IndexCommand) and any(isinstance(i, IndexCommand) for i in speakList)
         blocks = self._buildBlocks(speakList, coalesceSayAll=hasIndex)
@@ -1172,15 +1175,15 @@ class SynthDriver(SynthDriver):
             return 0.0
 
         for (text, indexesAfter, blockPitchOffset) in blocks:
-            # Bail out if cancel() was called while we were processing
-            if self._bgCancel.is_set():
+            # Bail if cancel() invalidated this generation
+            if generation != self._speakGen:
                 return
 
             # Speak text for this block.
             if text:
                 for chunk in re_textPause.split(text):
                     # Check again between chunks for fast cancellation
-                    if self._bgCancel.is_set():
+                    if generation != self._speakGen:
                         return
 
                     if not chunk:
@@ -1258,6 +1261,10 @@ class SynthDriver(SynthDriver):
 
                     def _onFrame(framePtr, frameExPtr, frameDuration, fadeDuration, idxToSet):
                         nonlocal queuedCount, hadRealSpeech, sawRealFrameInThisUtterance, sawSilenceAfterVoice, lastStreamWasVoiced
+
+                        # Bail immediately if cancel() invalidated this generation mid-word
+                        if generation != self._speakGen:
+                            return
 
                         # Reduce leading silence frames to minimize gaps
                         if (not framePtr) and suppressLeadingSilence and (not sawRealFrameInThisUtterance):
@@ -1391,10 +1398,12 @@ class SynthDriver(SynthDriver):
             if not hasattr(self, "_audio") or not self._audio:
                 return
 
-            # Signal BgThread to abort current _speakBg iteration
-            self._bgCancel.set()
+            # Bump generation to invalidate any in-flight or pending _speakBg jobs.
+            # BgThread checks this counter between chunks and inside _onFrame callbacks.
+            self._speakGen += 1
 
-            # Drain any pending jobs so stale work doesn't run after cancel
+            # Drain pending jobs as an optimisation (they'd bail on generation
+            # mismatch anyway, but this avoids the dequeue-and-bail overhead).
             try:
                 while True:
                     self._bgQueue.get_nowait()
