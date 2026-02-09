@@ -87,7 +87,7 @@ struct VoicingToneV3 {
 };
 
 // ============================================================================
-// FrameEx structure (must match frame.h - 22 doubles = 176 bytes)
+// FrameEx structure (must match frame.h - 23 doubles = 184 bytes)
 // ============================================================================
 
 struct FrameEx {
@@ -118,6 +118,9 @@ struct FrameEx {
   double transF2Scale;
   double transF3Scale;
   double transNasalScale;
+  // Amplitude crossfade curve (DSP v7.1)
+  // 0.0 = linear, 1.0 = equal-power (sin/cos)
+  double transAmplitudeMode;
 };
 
 // ============================================================================
@@ -477,7 +480,7 @@ static void onFrontendFrameEx(
       
       // Start with per-phoneme values from frontend (includes Fujisaki pitch model)
       if (frameExOrNull) {
-        // Copy all 18 fields - frontend provides formant ramping and Fujisaki data
+        // Copy all 23 fields - frontend provides formant ramping, Fujisaki, and transition data
         std::memcpy(&merged, frameExOrNull, sizeof(FrameEx));
       } else {
         merged.sharpness = 1.0;  // Neutral default for sharpness
