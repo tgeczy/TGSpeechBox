@@ -100,8 +100,14 @@ bool runClusterTiming(PassContext& ctx, std::vector<Token>& tokens, std::string&
     double scale = 1.0;
 
     if (inCluster) {
-      // Triple cluster: both neighbors are consonants.
-      if (prevIsConsonant && nextIsConsonant) {
+      // Triple cluster: both neighbors are consonants AND no syllable/word
+      // boundary splits the sequence.  E.g. /kstr/ in "extra" is a true
+      // triple, but /b.str/ in "abstract" has a syllable break — the middle
+      // consonant starts a new onset and shouldn't get the extra shortening.
+      const bool boundaryBreaksCluster =
+          t.wordStart || t.syllableStart ||
+          (next && (next->wordStart || next->syllableStart));
+      if (prevIsConsonant && nextIsConsonant && !boundaryBreaksCluster) {
         scale = std::min(scale, lang.clusterTimingTripleClusterMiddleScale);
       } else {
         // Two-consonant cluster: classify by type pair.

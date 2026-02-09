@@ -400,6 +400,12 @@ void emitFramesEx(
     frameEx.endPf3 = t.hasEndCf3 ? t.endCf3 :
                      (t.def && t.def->hasEndPf3) ? t.def->endPf3 : NAN;
 
+    // Per-parameter transition speed scales (set by boundary_smoothing pass).
+    frameEx.transF1Scale = t.transF1Scale;
+    frameEx.transF2Scale = t.transF2Scale;
+    frameEx.transF3Scale = t.transF3Scale;
+    frameEx.transNasalScale = t.transNasalScale;
+
     // Fujisaki pitch model parameters (set by calculatePitchesFujisaki)
     // These pass phrase/accent commands to the DSP for natural prosody contours.
     frameEx.fujisakiEnabled = t.fujisakiEnabled ? 1.0 : 0.0;

@@ -124,8 +124,14 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
   const double s2f = 14.0 / sp;      // Stop -> Fricative
   const double v2v = 18.0 / sp;      // Vowel -> Vowel (hiatus)
 
-  // Maximum fade as fraction of token duration (preserve steady-state)
-  constexpr double kMaxFadeRatio = 0.50;
+  // Maximum fade as fraction of token duration (preserve steady-state).
+  // 0.75 allows short phones to be mostly transition (they have no
+  // meaningful steady-state anyway) while still reserving 25% hold.
+  constexpr double kMaxFadeRatio = 0.75;
+
+  // Minimum fade floor (ms).  Prevents the ratio cap from creating
+  // near-discontinuities on very short sentence-final phones.
+  constexpr double kMinFadeMs = 6.0;
   
   // If there's a real pause, don't treat earlier phonemes as adjacent.
   const double maxSkipSilenceMs = 60.0;
@@ -183,14 +189,36 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       targetFade = s2f;  // Stop -> Fricative (e.g., "ts" release)
     }
 
+    // Apply per-formant transition scaling if the language pack specifies it.
+    if (lang.boundarySmoothingF1Scale > 0.0 && lang.boundarySmoothingF1Scale != 1.0) {
+      cur.transF1Scale = lang.boundarySmoothingF1Scale;
+    }
+    if (lang.boundarySmoothingF2Scale > 0.0 && lang.boundarySmoothingF2Scale != 1.0) {
+      cur.transF2Scale = lang.boundarySmoothingF2Scale;
+    }
+    if (lang.boundarySmoothingF3Scale > 0.0 && lang.boundarySmoothingF3Scale != 1.0) {
+      cur.transF3Scale = lang.boundarySmoothingF3Scale;
+    }
+
+    // Nasal F1 should jump nearly instantly (overrides general F1 scale).
+    if (lang.boundarySmoothingNasalF1Instant && (curNasal || prevNasal)) {
+      cur.transF1Scale = 0.05;  // 5% of fade = nearly instant
+    }
+
     // Apply if we have a target and it's larger than current fade
     if (targetFade > 0.0 && targetFade > cur.fadeMs) {
       // Cap fade to fraction of duration to preserve phoneme steady-state
       if (cur.durationMs > 0.0) {
         const double maxFade = cur.durationMs * kMaxFadeRatio;
         targetFade = std::min(targetFade, maxFade);
+        // Floor: don't let the cap shrink fade below kMinFadeMs.
+        // For truly tiny phones, clampFadeToDuration below will
+        // ensure fade <= duration.
+        if (targetFade < kMinFadeMs) {
+          targetFade = std::min(kMinFadeMs, cur.durationMs);
+        }
       }
-      
+
       if (targetFade > cur.fadeMs) {
         cur.fadeMs = targetFade;
         clampFadeToDuration(cur);

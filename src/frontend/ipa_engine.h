@@ -79,6 +79,13 @@ struct Token {
   double endCf2 = 0.0;
   double endCf3 = 0.0;
 
+  // Per-parameter transition speed scales (carried to FrameEx).
+  // 0.0 = no override.  See speechPlayer_frameEx_t for semantics.
+  double transF1Scale = 0.0;
+  double transF2Scale = 0.0;
+  double transF3Scale = 0.0;
+  double transNasalScale = 0.0;
+
   // Fujisaki pitch model markers (set by calculatePitchesFujisaki)
   // These are passed through to frameEx for DSP-level pitch contour generation.
   bool fujisakiEnabled = false;

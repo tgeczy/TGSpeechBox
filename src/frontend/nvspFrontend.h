@@ -101,10 +101,18 @@ typedef struct nvspFrontend_FrameEx {
   double fujisakiAccentAmp;   /* accent command amplitude (e.g. 0.4) */
   double fujisakiAccentDur;   /* accent duration D (samples). 0 = use default */
   double fujisakiAccentLen;   /* accent filter L (samples). 0 = use default */
+
+  /* Per-parameter transition speed scales (0.0 = no override, 1.0 = normal).
+     Scale < 1.0 means the parameter reaches its target in that fraction of the
+     fade, then holds.  E.g. 0.6 = reach target at 60% of fade window. */
+  double transF1Scale;        /* cf1, pf1, cb1, pb1 */
+  double transF2Scale;        /* cf2, pf2, cb2, pb2 */
+  double transF3Scale;        /* cf3, pf3, cb3, pb3 */
+  double transNasalScale;     /* cfN0, cfNP, cbN0, cbNP, caNP */
 } nvspFrontend_FrameEx;
 
 /* Number of fields in FrameEx struct (for size validation) */
-#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 18
+#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 22
 
 /*
   VoicingTone parameters for DSP-level voice quality (ABI v2+).
