@@ -6,7 +6,7 @@
 
 namespace fs = std::filesystem;
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 static void writeLE16(std::ofstream& f, std::uint16_t v) {
   char b[2];
@@ -106,4 +106,4 @@ std::wstring makeTempWavPath(const std::wstring& prefix) {
   return out;
 }
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

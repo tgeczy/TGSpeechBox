@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 // A "CLI phonemizer" is any executable that can convert text -> IPA/phonemes
 // and writes that conversion to stdout.
@@ -47,4 +47,4 @@ bool phonemizeTextToIpa(
   std::string& outError
 );
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

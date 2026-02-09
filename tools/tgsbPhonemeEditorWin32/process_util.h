@@ -5,7 +5,7 @@
 
 #include <windows.h>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 // Run a process and capture its stdout as UTF-8 bytes.
 // exePath: full path to the exe.
@@ -38,4 +38,4 @@ std::wstring findEspeakExe(const std::wstring& espeakDir);
 // Returns a full path to either espeak-ng-data or espeak-data if present.
 std::wstring findEspeakDataDir(const std::wstring& espeakDir);
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

@@ -6,7 +6,7 @@
 
 namespace fs = std::filesystem;
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 static std::wstring quoteArg(const std::wstring& s) {
   // Simple quoting for CreateProcess command lines.
@@ -416,4 +416,4 @@ std::wstring findEspeakDataDir(const std::wstring& espeakDir) {
 
   return L"";
 }
-} // namespace nvsp_editor
+} // namespace tgsb_editor

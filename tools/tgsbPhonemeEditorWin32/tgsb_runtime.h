@@ -13,7 +13,7 @@
 // These types are used only for layout compatibility.
 #include "nvspFrontend.h"
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 // Mirrors the NVDA driver's public-facing speech settings.
 // - Voice: preset that applies multipliers/overrides to the generated frames.
@@ -89,7 +89,7 @@ struct EditorVoicingToneV1 {
 };
 
 // FrameEx struct - per-frame voice quality extensions (DSP v5+)
-// Must match nvspFrontend_FrameEx / speechPlayer_frameEx_t exactly (22 doubles = 176 bytes)
+// Must match nvspFrontend_FrameEx / speechPlayer_frameEx_t exactly (23 doubles = 184 bytes)
 struct EditorFrameEx {
   // Voice quality parameters (DSP v5)
   double creakiness;      // laryngealization / creaky voice
@@ -117,6 +117,8 @@ struct EditorFrameEx {
   double transF2Scale;        // cf2, pf2, cb2, pb2
   double transF3Scale;        // cf3, pf3, cb3, pb3
   double transNasalScale;     // cfN0, cfNP, cbN0, cbNP, caNP
+  // Amplitude crossfade mode: 0.0 = linear, 1.0 = equal-power
+  double transAmplitudeMode;
 };
 
 // speechPlayer.dll API
@@ -179,10 +181,10 @@ using fe_queueIPA_Ex_fn = int(*)(
   void*
 );
 
-class NvspRuntime {
+class TgsbRuntime {
 public:
-  NvspRuntime();
-  ~NvspRuntime();
+  TgsbRuntime();
+  ~TgsbRuntime();
 
   // Speech settings (voice, sliders). Safe to call before DLLs are loaded.
   void setSpeechSettings(const SpeechSettings& s);
@@ -296,4 +298,4 @@ private:
   SpeechSettings m_speech;
 };
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

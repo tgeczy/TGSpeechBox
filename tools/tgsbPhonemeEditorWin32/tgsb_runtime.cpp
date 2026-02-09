@@ -1,4 +1,4 @@
-#include "nvsp_runtime.h"
+#include "tgsb_runtime.h"
 #include "VoiceProfileEditor.h"
 
 #include <algorithm>
@@ -11,7 +11,7 @@
 #include <sstream>
 #include <unordered_set>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 static std::string wideToUtf8(const std::wstring& w) {
   if (w.empty()) return {};
@@ -120,7 +120,7 @@ static size_t kFieldCount() {
   return sizeof(kFieldMap) / sizeof(kFieldMap[0]);
 }
 
-const std::vector<std::string>& NvspRuntime::frameParamNames() {
+const std::vector<std::string>& TgsbRuntime::frameParamNames() {
   static std::vector<std::string> names;
   if (names.empty()) {
     names.reserve(kFieldCount());
@@ -129,7 +129,7 @@ const std::vector<std::string>& NvspRuntime::frameParamNames() {
   return names;
 }
 
-const std::vector<std::string>& NvspRuntime::voicingParamNames() {
+const std::vector<std::string>& TgsbRuntime::voicingParamNames() {
   static std::vector<std::string> names;
   if (names.empty()) {
     names = {
@@ -152,7 +152,7 @@ const std::vector<std::string>& NvspRuntime::voicingParamNames() {
   return names;
 }
 
-const std::vector<std::string>& NvspRuntime::frameExParamNames() {
+const std::vector<std::string>& TgsbRuntime::frameExParamNames() {
   static std::vector<std::string> names;
   if (names.empty()) {
     names = {
@@ -193,7 +193,7 @@ static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t&
   }
 }
 
-NvspRuntime::NvspRuntime() {
+TgsbRuntime::TgsbRuntime() {
   // No static layout assumptions: we convert frames field-by-field in the callback.
   m_speech.frameParams.assign(frameParamNames().size(), 50);
   m_speech.voicingParams.assign(voicingParamNames().size(), 50);
@@ -204,11 +204,11 @@ if (m_speech.voicingParams.size() > 13) m_speech.voicingParams[13] = 0;
   if (m_speech.frameExParams.size() >= 5) m_speech.frameExParams[4] = 50; // sharpness default
 }
 
-NvspRuntime::~NvspRuntime() {
+TgsbRuntime::~TgsbRuntime() {
   unload();
 }
 
-void NvspRuntime::setSpeechSettings(const SpeechSettings& s) {
+void TgsbRuntime::setSpeechSettings(const SpeechSettings& s) {
   m_speech = s;
   if (m_speech.voiceName.empty()) m_speech.voiceName = "Adam";
   // Normalize pauseMode (matches NVDA driver: off | short | long).
@@ -232,7 +232,7 @@ void NvspRuntime::setSpeechSettings(const SpeechSettings& s) {
   }
 }
 
-SpeechSettings NvspRuntime::getSpeechSettings() const {
+SpeechSettings TgsbRuntime::getSpeechSettings() const {
   return m_speech;
 }
 
@@ -438,7 +438,7 @@ static const FieldMap* findField(const char* name) {
   return nullptr;
 }
 
-void NvspRuntime::applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const {
+void TgsbRuntime::applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const {
   // 1) Voice preset (from NVDA driver's __init__.py)
   // Skip Python presets if using a C++ voice profile (formant transforms already applied by frontend)
   const std::string voice = m_speech.voiceName.empty() ? "Adam" : m_speech.voiceName;
@@ -547,7 +547,7 @@ void NvspRuntime::applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const 
   frame.preFormantGain = static_cast<speechPlayer_frameParam_t>(static_cast<double>(frame.preFormantGain) * vol);
 }
 
-void NvspRuntime::unload() {
+void TgsbRuntime::unload() {
   if (m_feHandle && m_feDestroy) {
     m_feDestroy(m_feHandle);
     m_feHandle = nullptr;
@@ -583,7 +583,7 @@ void NvspRuntime::unload() {
   }
 }
 
-bool NvspRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outError) {
+bool TgsbRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outError) {
   outError.clear();
   unload();
 
@@ -669,7 +669,7 @@ bool NvspRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
   return true;
 }
 
-bool NvspRuntime::setPackRoot(const std::wstring& packRootDir, std::string& outError) {
+bool TgsbRuntime::setPackRoot(const std::wstring& packRootDir, std::string& outError) {
   outError.clear();
   m_packRoot = packRootDir;
 
@@ -682,7 +682,7 @@ bool NvspRuntime::setPackRoot(const std::wstring& packRootDir, std::string& outE
   return true;
 }
 
-bool NvspRuntime::setLanguage(const std::string& langTagUtf8, std::string& outError) {
+bool TgsbRuntime::setLanguage(const std::string& langTagUtf8, std::string& outError) {
   outError.clear();
   m_langTag = langTagUtf8;
 
@@ -717,7 +717,7 @@ bool NvspRuntime::setLanguage(const std::string& langTagUtf8, std::string& outEr
   return true;
 }
 
-bool NvspRuntime::dllsLoaded() const {
+bool TgsbRuntime::dllsLoaded() const {
   return m_speechPlayer && m_frontend && m_spInitialize && m_spQueueFrame && m_spSynthesize && m_spTerminate && m_feCreate;
 }
 
@@ -738,7 +738,7 @@ static bool synthesizeAll(
   return true;
 }
 
-bool NvspRuntime::synthPreviewPhoneme(
+bool TgsbRuntime::synthPreviewPhoneme(
   const Node& phonemeMap,
   int sampleRate,
   std::vector<sample>& outSamples,
@@ -949,7 +949,7 @@ struct QueueCtx {
   speechPlayer_handle_t player;
   int sampleRate;
   bool first;
-  const NvspRuntime* runtime;
+  const TgsbRuntime* runtime;
 };
 
 static void __cdecl frameCallback(
@@ -1131,7 +1131,7 @@ static void __cdecl frameExCallback(
     // Use the MIXED FrameEx from frontend (phoneme + user defaults + Fujisaki pitch)
     if (ctx->queueFrameEx && frameExOrNull) {
       EditorFrameEx mixedEx{};
-      // Copy all 22 fields - includes formant ramping, Fujisaki pitch model, and transition scales
+      // Copy all 23 fields - includes formant ramping, Fujisaki pitch model, transition scales, and amplitude mode
       static_assert(sizeof(EditorFrameEx) == sizeof(nvspFrontend_FrameEx), "EditorFrameEx size mismatch");
       std::memcpy(&mixedEx, frameExOrNull, sizeof(EditorFrameEx));
       ctx->queueFrameEx(ctx->player, &f, &mixedEx, 
@@ -1158,7 +1158,7 @@ static void __cdecl frameExCallback(
   ctx->first = false;
 }
 
-bool NvspRuntime::synthIpa(
+bool TgsbRuntime::synthIpa(
   const std::string& ipaUtf8,
   int sampleRate,
   std::vector<sample>& outSamples,
@@ -1358,16 +1358,16 @@ if (!ok) {
 // Voice profile support
 // -----------------------------------------------------------------------------
 
-bool NvspRuntime::isVoiceProfile(const std::string& voiceName) {
+bool TgsbRuntime::isVoiceProfile(const std::string& voiceName) {
   return voiceName.rfind(kVoiceProfilePrefix, 0) == 0;
 }
 
-std::string NvspRuntime::getProfileNameFromVoice(const std::string& voiceName) {
+std::string TgsbRuntime::getProfileNameFromVoice(const std::string& voiceName) {
   if (!isVoiceProfile(voiceName)) return "";
   return voiceName.substr(std::strlen(kVoiceProfilePrefix));
 }
 
-std::vector<std::string> NvspRuntime::discoverVoiceProfiles() const {
+std::vector<std::string> TgsbRuntime::discoverVoiceProfiles() const {
   std::vector<std::string> profiles;
   
   if (m_packRoot.empty()) return profiles;
@@ -1466,7 +1466,7 @@ std::vector<std::string> NvspRuntime::discoverVoiceProfiles() const {
   return profiles;
 }
 
-bool NvspRuntime::setVoiceProfile(const std::string& profileName, std::string& outError) {
+bool TgsbRuntime::setVoiceProfile(const std::string& profileName, std::string& outError) {
   outError.clear();
   
   if (!m_feHandle) {
@@ -1490,14 +1490,14 @@ bool NvspRuntime::setVoiceProfile(const std::string& profileName, std::string& o
   return true;
 }
 
-std::string NvspRuntime::getVoiceProfile() const {
+std::string TgsbRuntime::getVoiceProfile() const {
   if (!m_feHandle || !m_feGetVoiceProfile) return "";
   
   const char* name = m_feGetVoiceProfile(m_feHandle);
   return name ? name : "";
 }
 
-bool NvspRuntime::saveVoiceProfileSliders(const std::string& profileName,
+bool TgsbRuntime::saveVoiceProfileSliders(const std::string& profileName,
                                           const std::vector<int>& voicingSliders,
                                           const std::vector<int>& frameExSliders,
                                           std::string& outError) {
@@ -1615,4 +1615,4 @@ bool NvspRuntime::saveVoiceProfileSliders(const std::string& profileName,
   return true;
 }
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

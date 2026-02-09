@@ -6,7 +6,7 @@
 #include <locale>
 #include <sstream>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 static Node* getMapChild(Node& mapNode, const char* key) {
   if (mapNode.type != Node::Type::Map) {
@@ -436,18 +436,12 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"liquidDynamicsLabialGlideStartF2", "liquidDynamics", "labialGlideTransition"},
   {"liquidDynamicsLabialGlideTransitionPct", "liquidDynamics", "labialGlideTransition"},
   
-  // positionalAllophones settings  
-  {"positionalAllophonesEnabled", "positionalAllophones", nullptr},
-  {"positionalAllophonesGlottalReinforcementEnabled", "positionalAllophones", "glottalReinforcement"},
-  {"positionalAllophonesGlottalReinforcementDurationMs", "positionalAllophones", "glottalReinforcement"},
-  {"positionalAllophonesLateralDarknessPreVocalic", "positionalAllophones", "lateralDarkness"},
-  {"positionalAllophonesLateralDarknessPostVocalic", "positionalAllophones", "lateralDarkness"},
-  {"positionalAllophonesLateralDarknessSyllabic", "positionalAllophones", "lateralDarkness"},
-  {"positionalAllophonesLateralDarkF2TargetHz", "positionalAllophones", "lateralDarkness"},
-  {"positionalAllophonesStopAspirationWordInitial", "positionalAllophones", "stopAspiration"},
-  {"positionalAllophonesStopAspirationWordInitialStressed", "positionalAllophones", "stopAspiration"},
-  {"positionalAllophonesStopAspirationIntervocalic", "positionalAllophones", "stopAspiration"},
-  {"positionalAllophonesStopAspirationWordFinal", "positionalAllophones", "stopAspiration"},
+  // allophoneRules settings (scalar fields only — rules array handled separately)
+  {"allophoneRulesEnabled", "allophoneRules", nullptr},
+
+  // specialCoarticulation settings (scalar fields only — rules array handled separately)
+  {"specialCoarticulationEnabled", "specialCoarticulation", nullptr},
+  {"specialCoarticMaxDeltaHz", "specialCoarticulation", nullptr},
 };
 
 // Extract the leaf key name from a flattened key given the prefix info
@@ -520,6 +514,17 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
   }
 
   Node* s = getNestedMap(m_root, "settings");
+
+  // Preserve complex sub-trees that contain sequence-of-maps data
+  // (the flatten/unflatten cycle would lose these).
+  Node savedAllophoneRules, savedSpecialCoartic;
+  if (const Node* ar = s->get("allophoneRules")) {
+    if (ar->isMap() && ar->get("rules")) savedAllophoneRules = *ar;
+  }
+  if (const Node* sc = s->get("specialCoarticulation")) {
+    if (sc->isMap() && sc->get("rules")) savedSpecialCoartic = *sc;
+  }
+
   s->map.clear();
   s->seq.clear();
   s->scalar.clear();
@@ -570,6 +575,22 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
       v.type = Node::Type::Scalar;
       v.scalar = kv.second;
       s->map[kv.first] = std::move(v);
+    }
+  }
+
+  // Restore complex sub-trees, merging with any scalar keys the loop just wrote.
+  if (!savedAllophoneRules.map.empty()) {
+    Node& ar = s->map["allophoneRules"];
+    // The loop may have written "enabled" into this map via kNestedMappings.
+    // Merge the saved "rules" key back in.
+    if (const Node* rules = savedAllophoneRules.get("rules")) {
+      ar.map["rules"] = *rules;
+    }
+  }
+  if (!savedSpecialCoartic.map.empty()) {
+    Node& sc = s->map["specialCoarticulation"];
+    if (const Node* rules = savedSpecialCoartic.get("rules")) {
+      sc.map["rules"] = *rules;
     }
   }
 }
@@ -652,6 +673,245 @@ bool LanguageYaml::removeSetting(const std::string& key) {
   }
 
   return s.map.erase(key) > 0;
+}
+
+// -------------------------
+// Allophone rules YAML I/O
+// -------------------------
+
+// Helper: read a YAML sequence of scalars into a vector<string>.
+static std::vector<std::string> readStringSeq(const Node* n) {
+  std::vector<std::string> out;
+  if (!n || !n->isSeq()) return out;
+  for (const auto& item : n->seq) {
+    if (item.isScalar()) out.push_back(item.scalar);
+  }
+  return out;
+}
+
+// Helper: read a scalar as double (0.0 if missing or parse error).
+static double readDouble(const Node* n, double def = 0.0) {
+  if (!n || !n->isScalar()) return def;
+  try { return std::stod(n->scalar); } catch (...) { return def; }
+}
+
+// Helper: read a scalar as bool (false if missing).
+static bool readBoolNode(const Node* n, bool def = false) {
+  if (!n) return def;
+  bool b;
+  if (n->asBool(b)) return b;
+  return def;
+}
+
+// Helper: make a scalar node.
+static Node makeScalar(const std::string& s) {
+  Node n;
+  n.type = Node::Type::Scalar;
+  n.scalar = s;
+  return n;
+}
+
+// Helper: make a scalar node from double.
+static Node makeScalarD(double v) {
+  std::ostringstream os;
+  os << v;
+  return makeScalar(os.str());
+}
+
+// Helper: write a vector<string> as a YAML sequence of scalars.
+static Node makeStringSeqNode(const std::vector<std::string>& vec) {
+  Node seq;
+  seq.type = Node::Type::Seq;
+  for (const auto& s : vec) seq.seq.push_back(makeScalar(s));
+  return seq;
+}
+
+std::vector<AllophoneRuleEntry> LanguageYaml::allophoneRules() const {
+  std::vector<AllophoneRuleEntry> out;
+  const Node* s = m_root.get("settings");
+  if (!s || !s->isMap()) return out;
+  const Node* ar = s->get("allophoneRules");
+  if (!ar || !ar->isMap()) return out;
+  const Node* rulesN = ar->get("rules");
+  if (!rulesN || !rulesN->isSeq()) return out;
+
+  for (const auto& item : rulesN->seq) {
+    if (!item.isMap()) continue;
+    AllophoneRuleEntry r;
+    if (const Node* n = item.get("name")) if (n->isScalar()) r.name = n->scalar;
+    r.phonemes = readStringSeq(item.get("phonemes"));
+    r.flags = readStringSeq(item.get("flags"));
+    r.notFlags = readStringSeq(item.get("notFlags"));
+    if (const Node* n = item.get("tokenType")) if (n->isScalar()) r.tokenType = n->scalar;
+    if (const Node* n = item.get("position")) if (n->isScalar()) r.position = n->scalar;
+    if (const Node* n = item.get("stress")) if (n->isScalar()) r.stress = n->scalar;
+    r.after = readStringSeq(item.get("after"));
+    r.before = readStringSeq(item.get("before"));
+    if (const Node* n = item.get("action")) if (n->isScalar()) r.action = n->scalar;
+    // Replace params
+    if (const Node* n = item.get("replaceTo")) if (n->isScalar()) r.replaceTo = n->scalar;
+    r.replaceDurationMs = readDouble(item.get("replaceDurationMs"));
+    r.replaceRemovesClosure = readBoolNode(item.get("replaceRemovesClosure"));
+    r.replaceRemovesAspiration = readBoolNode(item.get("replaceRemovesAspiration"));
+    // Scale params
+    r.durationScale = readDouble(item.get("durationScale"), 1.0);
+    r.fadeScale = readDouble(item.get("fadeScale"), 1.0);
+    if (const Node* fs = item.get("fieldScales")) {
+      if (fs->isMap()) {
+        for (const auto& kv : fs->map) {
+          if (kv.second.isScalar()) {
+            try { r.fieldScales.emplace_back(kv.first, std::stod(kv.second.scalar)); }
+            catch (...) {}
+          }
+        }
+      }
+    }
+    // Shift params
+    if (const Node* fsh = item.get("fieldShifts")) {
+      if (fsh->isSeq()) {
+        for (const auto& se : fsh->seq) {
+          if (!se.isMap()) continue;
+          AllophoneRuleEntry::ShiftEntry entry;
+          if (const Node* n = se.get("field")) if (n->isScalar()) entry.field = n->scalar;
+          entry.deltaHz = readDouble(se.get("deltaHz"));
+          entry.targetHz = readDouble(se.get("targetHz"));
+          entry.blend = readDouble(se.get("blend"), 1.0);
+          r.fieldShifts.push_back(std::move(entry));
+        }
+      }
+    }
+    // Insert params
+    if (const Node* n = item.get("insertPhoneme")) if (n->isScalar()) r.insertPhoneme = n->scalar;
+    r.insertDurationMs = readDouble(item.get("insertDurationMs"), 18.0);
+    r.insertFadeMs = readDouble(item.get("insertFadeMs"), 3.0);
+    r.insertContexts = readStringSeq(item.get("insertContexts"));
+    out.push_back(std::move(r));
+  }
+  return out;
+}
+
+void LanguageYaml::setAllophoneRules(const std::vector<AllophoneRuleEntry>& rules) {
+  if (m_root.type != Node::Type::Map) {
+    m_root.type = Node::Type::Map;
+    m_root.map.clear();
+  }
+  Node* s = getNestedMap(m_root, "settings");
+  Node* ar = getNestedMap(*s, "allophoneRules");
+
+  // Rebuild the rules sequence; preserve other keys (like "enabled").
+  Node rulesSeq;
+  rulesSeq.type = Node::Type::Seq;
+
+  for (const auto& r : rules) {
+    Node item;
+    item.type = Node::Type::Map;
+    if (!r.name.empty()) item.map["name"] = makeScalar(r.name);
+    if (!r.phonemes.empty()) item.map["phonemes"] = makeStringSeqNode(r.phonemes);
+    if (!r.flags.empty()) item.map["flags"] = makeStringSeqNode(r.flags);
+    if (!r.notFlags.empty()) item.map["notFlags"] = makeStringSeqNode(r.notFlags);
+    if (r.tokenType != "phoneme") item.map["tokenType"] = makeScalar(r.tokenType);
+    if (r.position != "any") item.map["position"] = makeScalar(r.position);
+    if (r.stress != "any") item.map["stress"] = makeScalar(r.stress);
+    if (!r.after.empty()) item.map["after"] = makeStringSeqNode(r.after);
+    if (!r.before.empty()) item.map["before"] = makeStringSeqNode(r.before);
+    if (!r.action.empty()) item.map["action"] = makeScalar(r.action);
+    // Replace
+    if (!r.replaceTo.empty()) item.map["replaceTo"] = makeScalar(r.replaceTo);
+    if (r.replaceDurationMs != 0.0) item.map["replaceDurationMs"] = makeScalarD(r.replaceDurationMs);
+    if (r.replaceRemovesClosure) item.map["replaceRemovesClosure"] = makeScalar("true");
+    if (r.replaceRemovesAspiration) item.map["replaceRemovesAspiration"] = makeScalar("true");
+    // Scale
+    if (r.durationScale != 1.0) item.map["durationScale"] = makeScalarD(r.durationScale);
+    if (r.fadeScale != 1.0) item.map["fadeScale"] = makeScalarD(r.fadeScale);
+    if (!r.fieldScales.empty()) {
+      Node fs;
+      fs.type = Node::Type::Map;
+      for (const auto& kv : r.fieldScales) fs.map[kv.first] = makeScalarD(kv.second);
+      item.map["fieldScales"] = std::move(fs);
+    }
+    // Shift
+    if (!r.fieldShifts.empty()) {
+      Node fsh;
+      fsh.type = Node::Type::Seq;
+      for (const auto& se : r.fieldShifts) {
+        Node entry;
+        entry.type = Node::Type::Map;
+        if (!se.field.empty()) entry.map["field"] = makeScalar(se.field);
+        if (se.deltaHz != 0.0) entry.map["deltaHz"] = makeScalarD(se.deltaHz);
+        if (se.targetHz != 0.0) entry.map["targetHz"] = makeScalarD(se.targetHz);
+        if (se.blend != 1.0) entry.map["blend"] = makeScalarD(se.blend);
+        fsh.seq.push_back(std::move(entry));
+      }
+      item.map["fieldShifts"] = std::move(fsh);
+    }
+    // Insert
+    if (!r.insertPhoneme.empty()) item.map["insertPhoneme"] = makeScalar(r.insertPhoneme);
+    if (r.insertDurationMs != 18.0) item.map["insertDurationMs"] = makeScalarD(r.insertDurationMs);
+    if (r.insertFadeMs != 3.0) item.map["insertFadeMs"] = makeScalarD(r.insertFadeMs);
+    if (!r.insertContexts.empty()) item.map["insertContexts"] = makeStringSeqNode(r.insertContexts);
+    rulesSeq.seq.push_back(std::move(item));
+  }
+
+  ar->map["rules"] = std::move(rulesSeq);
+}
+
+// -------------------------
+// Special coarticulation rules YAML I/O
+// -------------------------
+
+std::vector<SpecialCoarticRuleEntry> LanguageYaml::specialCoarticRules() const {
+  std::vector<SpecialCoarticRuleEntry> out;
+  const Node* s = m_root.get("settings");
+  if (!s || !s->isMap()) return out;
+  const Node* sc = s->get("specialCoarticulation");
+  if (!sc || !sc->isMap()) return out;
+  const Node* rulesN = sc->get("rules");
+  if (!rulesN || !rulesN->isSeq()) return out;
+
+  for (const auto& item : rulesN->seq) {
+    if (!item.isMap()) continue;
+    SpecialCoarticRuleEntry r;
+    if (const Node* n = item.get("name")) if (n->isScalar()) r.name = n->scalar;
+    r.triggers = readStringSeq(item.get("triggers"));
+    if (const Node* n = item.get("vowelFilter")) if (n->isScalar()) r.vowelFilter = n->scalar;
+    if (const Node* n = item.get("formant")) if (n->isScalar()) r.formant = n->scalar;
+    r.deltaHz = readDouble(item.get("deltaHz"));
+    if (const Node* n = item.get("side")) if (n->isScalar()) r.side = n->scalar;
+    r.cumulative = readBoolNode(item.get("cumulative"));
+    r.unstressedScale = readDouble(item.get("unstressedScale"), 1.0);
+    r.phraseFinalStressedScale = readDouble(item.get("phraseFinalStressedScale"), 1.0);
+    out.push_back(std::move(r));
+  }
+  return out;
+}
+
+void LanguageYaml::setSpecialCoarticRules(const std::vector<SpecialCoarticRuleEntry>& rules) {
+  if (m_root.type != Node::Type::Map) {
+    m_root.type = Node::Type::Map;
+    m_root.map.clear();
+  }
+  Node* s = getNestedMap(m_root, "settings");
+  Node* sc = getNestedMap(*s, "specialCoarticulation");
+
+  Node rulesSeq;
+  rulesSeq.type = Node::Type::Seq;
+
+  for (const auto& r : rules) {
+    Node item;
+    item.type = Node::Type::Map;
+    if (!r.name.empty()) item.map["name"] = makeScalar(r.name);
+    if (!r.triggers.empty()) item.map["triggers"] = makeStringSeqNode(r.triggers);
+    if (r.vowelFilter != "all") item.map["vowelFilter"] = makeScalar(r.vowelFilter);
+    if (r.formant != "f2") item.map["formant"] = makeScalar(r.formant);
+    if (r.deltaHz != 0.0) item.map["deltaHz"] = makeScalarD(r.deltaHz);
+    if (r.side != "both") item.map["side"] = makeScalar(r.side);
+    if (r.cumulative) item.map["cumulative"] = makeScalar("true");
+    if (r.unstressedScale != 1.0) item.map["unstressedScale"] = makeScalarD(r.unstressedScale);
+    if (r.phraseFinalStressedScale != 1.0) item.map["phraseFinalStressedScale"] = makeScalarD(r.phraseFinalStressedScale);
+    rulesSeq.seq.push_back(std::move(item));
+  }
+
+  sc->map["rules"] = std::move(rulesSeq);
 }
 
 // -------------------------
@@ -926,4 +1186,4 @@ std::string dumpYaml(const Node& root) {
   return out;
 }
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

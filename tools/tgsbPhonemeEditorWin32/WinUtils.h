@@ -17,7 +17,7 @@ std::string wideToUtf8(const std::wstring& w);
 
 std::wstring exeDir();
 
-// INI storage in nvspPhonemeEditor.ini next to the EXE.
+// INI storage in tgsbPhonemeEditor.ini next to the EXE.
 std::wstring iniPath();
 std::wstring readIni(const wchar_t* section, const wchar_t* key, const wchar_t* def = L"");
 void writeIni(const wchar_t* section, const wchar_t* key, const std::wstring& value);

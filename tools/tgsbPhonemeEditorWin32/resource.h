@@ -212,3 +212,81 @@
 // Add Mapping dialog: Edit Classes button
 // -----------------
 #define IDC_MAP_EDIT_CLASSES         2109
+
+// -----------------
+// Menu commands: Rule editors
+// -----------------
+#define IDM_SETTINGS_EDIT_ALLOPHONES       40106
+#define IDM_SETTINGS_EDIT_SPECIAL_COARTIC  40107
+
+// -----------------
+// Dialog: Allophone rules list
+// -----------------
+#define IDD_ALLOPHONE_RULES_LIST    214
+#define IDC_AR_LIST          3401
+#define IDC_AR_ADD           3402
+#define IDC_AR_EDIT          3403
+#define IDC_AR_REMOVE        3404
+#define IDC_AR_MOVEUP        3405
+#define IDC_AR_MOVEDOWN      3406
+
+// -----------------
+// Dialog: Allophone rule edit
+// -----------------
+#define IDD_ALLOPHONE_RULE_EDIT     215
+#define IDC_AR_NAME          3410
+#define IDC_AR_PHONEMES      3411
+#define IDC_AR_FLAGS         3412
+#define IDC_AR_NOTFLAGS      3413
+#define IDC_AR_TOKENTYPE     3414
+#define IDC_AR_POSITION      3415
+#define IDC_AR_STRESS        3416
+#define IDC_AR_AFTER         3417
+#define IDC_AR_BEFORE        3418
+#define IDC_AR_ACTION        3419
+// Replace action controls
+#define IDC_AR_REPLACE_TO         3420
+#define IDC_AR_REPLACE_DURMS      3421
+#define IDC_AR_REPLACE_RMCLOSURE  3422
+#define IDC_AR_REPLACE_RMASP      3423
+// Scale action controls
+#define IDC_AR_SCALE_DUR          3430
+#define IDC_AR_SCALE_FADE         3431
+#define IDC_AR_SCALE_FIELDS       3432
+// Shift action controls
+#define IDC_AR_SHIFT_FIELDS       3440
+// Insert action controls
+#define IDC_AR_INSERT_PHONEME     3450
+#define IDC_AR_INSERT_DURMS       3451
+#define IDC_AR_INSERT_FADEMS      3452
+#define IDC_AR_INSERT_CONTEXTS    3453
+// Groupboxes for action sections
+#define IDC_AR_GRP_REPLACE   3460
+#define IDC_AR_GRP_SCALE     3461
+#define IDC_AR_GRP_SHIFT     3462
+#define IDC_AR_GRP_INSERT    3463
+
+// -----------------
+// Dialog: Special coarticulation rules list
+// -----------------
+#define IDD_SPECIAL_COARTIC_LIST    216
+#define IDC_SC_LIST          3501
+#define IDC_SC_ADD           3502
+#define IDC_SC_EDIT          3503
+#define IDC_SC_REMOVE        3504
+#define IDC_SC_MOVEUP        3505
+#define IDC_SC_MOVEDOWN      3506
+
+// -----------------
+// Dialog: Special coarticulation rule edit
+// -----------------
+#define IDD_SPECIAL_COARTIC_EDIT    217
+#define IDC_SC_NAME          3510
+#define IDC_SC_TRIGGERS      3511
+#define IDC_SC_VOWELFILTER   3512
+#define IDC_SC_FORMANT       3513
+#define IDC_SC_DELTAHZ       3514
+#define IDC_SC_SIDE          3515
+#define IDC_SC_CUMULATIVE    3516
+#define IDC_SC_UNSTRESSED    3517
+#define IDC_SC_PHRASEFINAL   3518

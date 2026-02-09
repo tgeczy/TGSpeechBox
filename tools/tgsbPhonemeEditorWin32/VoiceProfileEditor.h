@@ -9,10 +9,10 @@
 #include <map>
 #include <array>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 // Forward declaration
-class NvspRuntime;
+class TgsbRuntime;
 
 // Multiplier field types for class scales
 struct VPClassScales {
@@ -154,4 +154,4 @@ bool ShowVoiceProfilesDialog(HINSTANCE hInst, HWND parent, VoiceProfilesDialogSt
 bool ShowEditVoiceProfileDialog(HINSTANCE hInst, HWND parent, EditVoiceProfileDialogState& st);
 bool ShowEditPhonemeOverrideDialog(HINSTANCE hInst, HWND parent, EditPhonemeOverrideDialogState& st);
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

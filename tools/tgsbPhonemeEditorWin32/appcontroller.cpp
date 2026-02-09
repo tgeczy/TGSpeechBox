@@ -6,6 +6,7 @@
 #include "AccessibilityUtils.h"
 #include "Dialogs.h"
 #include "VoiceProfileEditor.h"
+#include "RulesEditor.h"
 #include "WinUtils.h"
 
 #include "process_util.h"
@@ -26,10 +27,10 @@
 
 namespace fs = std::filesystem;
 
-// yaml_edit.* and nvsp_runtime.* live in the nvsp_editor namespace.
-using nvsp_editor::ReplacementRule;
-using nvsp_editor::ReplacementWhen;
-using nvsp_editor::NvspRuntime;
+// yaml_edit.* and tgsb_runtime.* live in the tgsb_editor namespace.
+using tgsb_editor::ReplacementRule;
+using tgsb_editor::ReplacementWhen;
+using tgsb_editor::TgsbRuntime;
 
 static constexpr int kSampleRate = 22050;
 
@@ -549,9 +550,9 @@ static void playSamplesTemp(AppController& app, const std::vector<sample>& sampl
     return;
   }
 
-  std::wstring wavPath = nvsp_editor::makeTempWavPath(L"nvp");
+  std::wstring wavPath = tgsb_editor::makeTempWavPath(L"nvp");
   std::string err;
-  if (!nvsp_editor::writeWav16Mono(wavPath, kSampleRate, samples, err)) {
+  if (!tgsb_editor::writeWav16Mono(wavPath, kSampleRate, samples, err)) {
     msgBox(app.wnd, L"WAV write failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
@@ -568,7 +569,7 @@ static void onPlaySelectedPhoneme(AppController& app, bool fromLanguageList) {
     return;
   }
 
-  nvsp_editor::Node* node = app.phonemes.getPhonemeNode(key);
+  tgsb_editor::Node* node = app.phonemes.getPhonemeNode(key);
   if (!node || !node->isMap()) {
     msgBox(app.wnd, L"Phoneme not found in phonemes.yaml.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
@@ -661,6 +662,7 @@ static void onRemoveSelectedMapping(AppController& app) {
 static std::vector<std::string> knownLanguageSettingKeys() {
   return {
     // Alphabetically sorted list of all language pack settings
+    "allophoneRulesEnabled",
     "applyLengthenedScaleToVowelsOnly",
     "autoDiphthongOffglideToSemivowel",
     "autoTieDiphthongs",
@@ -758,17 +760,6 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "phraseFinalLengtheningPenultimateSyllableScale",
     "phraseFinalLengtheningQuestionScale",
     "phraseFinalLengtheningStatementScale",
-    "positionalAllophonesEnabled",
-    "positionalAllophonesGlottalReinforcementDurationMs",
-    "positionalAllophonesGlottalReinforcementEnabled",
-    "positionalAllophonesLateralDarkF2TargetHz",
-    "positionalAllophonesLateralDarknessPostVocalic",
-    "positionalAllophonesLateralDarknessPreVocalic",
-    "positionalAllophonesLateralDarknessSyllabic",
-    "positionalAllophonesStopAspirationIntervocalic",
-    "positionalAllophonesStopAspirationWordFinal",
-    "positionalAllophonesStopAspirationWordInitial",
-    "positionalAllophonesStopAspirationWordInitialStressed",
     "postStopAspirationEnabled",
     "postStopAspirationPhoneme",
     "primaryStressDiv",
@@ -883,7 +874,7 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
     return;
   }
 
-  nvsp_editor::Node* node = app.phonemes.getPhonemeNode(key);
+  tgsb_editor::Node* node = app.phonemes.getPhonemeNode(key);
   if (!node || !node->isMap()) {
     msgBox(app.wnd, L"Phoneme not found in phonemes.yaml.", L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
@@ -1088,14 +1079,14 @@ static bool convertTextToIpaViaPhonemizer(AppController& app, const std::wstring
 
   std::string langTag = selectedLangTagUtf8(app);
 
-  // Config lives in nvspPhonemeEditor.ini.
+  // Config lives in tgsbPhonemeEditor.ini.
   //
   // If [phonemizer].exe is empty, we use the configured eSpeak directory and call
   // espeak-ng.exe/espeak.exe.
   //
   // This is intentionally CLI-only (no DLL loading) to keep licensing simpler and
   // to let advanced users point the tool at other phonemizers.
-  nvsp_editor::CliPhonemizerConfig cfg;
+  tgsb_editor::CliPhonemizerConfig cfg;
   cfg.preferStdin = (readIniInt(L"phonemizer", L"preferStdin", 1) != 0);
   cfg.maxChunkChars = static_cast<size_t>(readIniInt(L"phonemizer", L"maxChunkChars", 420));
 
@@ -1111,9 +1102,9 @@ static bool convertTextToIpaViaPhonemizer(AppController& app, const std::wstring
     }
 
     cfg.espeakDir = app.espeakDir;
-    cfg.espeakDataDir = nvsp_editor::findEspeakDataDir(app.espeakDir);
+    cfg.espeakDataDir = tgsb_editor::findEspeakDataDir(app.espeakDir);
 
-    cfg.exePath = nvsp_editor::findEspeakExe(app.espeakDir);
+    cfg.exePath = tgsb_editor::findEspeakExe(app.espeakDir);
     if (cfg.exePath.empty()) {
       outError = "Could not find espeak-ng.exe or espeak.exe in the configured directory";
       return false;
@@ -1130,7 +1121,7 @@ static bool convertTextToIpaViaPhonemizer(AppController& app, const std::wstring
     }
   }
 
-  return nvsp_editor::phonemizeTextToIpa(cfg, langTag, text, outIpaUtf8, outError);
+  return tgsb_editor::phonemizeTextToIpa(cfg, langTag, text, outIpaUtf8, outError);
 }
 
 static void onConvertIpa(AppController& app) {
@@ -1216,7 +1207,7 @@ static void onSaveWav(AppController& app) {
   std::wstring outPath;
   if (!pickSaveWav(app.wnd, outPath)) return;
 
-  if (!nvsp_editor::writeWav16Mono(outPath, kSampleRate, samples, err)) {
+  if (!tgsb_editor::writeWav16Mono(outPath, kSampleRate, samples, err)) {
     msgBox(app.wnd, L"WAV write failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
     return;
   }
@@ -1684,9 +1675,9 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
       if (id == IDM_SETTINGS_SPEECH_SETTINGS) {
         SpeechSettingsDialogState st;
         st.settings = app.runtime.getSpeechSettings();
-        st.paramNames = std::vector<std::string>(NvspRuntime::frameParamNames().begin(), NvspRuntime::frameParamNames().end());
-        st.voicingParamNames = std::vector<std::string>(NvspRuntime::voicingParamNames().begin(), NvspRuntime::voicingParamNames().end());
-        st.frameExParamNames = std::vector<std::string>(NvspRuntime::frameExParamNames().begin(), NvspRuntime::frameExParamNames().end());
+        st.paramNames = std::vector<std::string>(TgsbRuntime::frameParamNames().begin(), TgsbRuntime::frameParamNames().end());
+        st.voicingParamNames = std::vector<std::string>(TgsbRuntime::voicingParamNames().begin(), TgsbRuntime::voicingParamNames().end());
+        st.frameExParamNames = std::vector<std::string>(TgsbRuntime::frameExParamNames().begin(), TgsbRuntime::frameExParamNames().end());
         if (st.settings.frameParams.size() != st.paramNames.size()) {
           st.settings.frameParams.assign(st.paramNames.size(), 50);
         }
@@ -1724,22 +1715,52 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         }
         yamlPath += L"phonemes.yaml";
         
-        nvsp_editor::VoiceProfilesDialogState vpst;
+        tgsb_editor::VoiceProfilesDialogState vpst;
         vpst.phonemesYamlPath = yamlPath;
         
         std::string loadErr;
-        if (!nvsp_editor::loadVoiceProfilesFromYaml(yamlPath, vpst.profiles, loadErr)) {
+        if (!tgsb_editor::loadVoiceProfilesFromYaml(yamlPath, vpst.profiles, loadErr)) {
           msgBox(hWnd, (L"Could not load voice profiles: " + utf8ToWide(loadErr)).c_str(), L"Voice Profiles", MB_ICONERROR);
           return 0;
         }
         
-        if (nvsp_editor::ShowVoiceProfilesDialog(app.hInst, hWnd, vpst) && vpst.ok && vpst.modified) {
+        if (tgsb_editor::ShowVoiceProfilesDialog(app.hInst, hWnd, vpst) && vpst.ok && vpst.modified) {
           std::string saveErr;
-          if (nvsp_editor::saveVoiceProfilesToYaml(yamlPath, vpst.profiles, saveErr)) {
+          if (tgsb_editor::saveVoiceProfilesToYaml(yamlPath, vpst.profiles, saveErr)) {
             app.setStatus(L"Saved voice profiles to phonemes.yaml.");
           } else {
             msgBox(hWnd, (L"Could not save voice profiles: " + utf8ToWide(saveErr)).c_str(), L"Voice Profiles", MB_ICONERROR);
           }
+        }
+        return 0;
+      }
+
+      if (id == IDM_SETTINGS_EDIT_ALLOPHONES) {
+        if (!app.language.isLoaded()) {
+          msgBox(hWnd, L"Load a language first.", L"Allophone Rules", MB_ICONINFORMATION);
+          return 0;
+        }
+        tgsb_editor::AllophoneRulesDialogState arst;
+        arst.rules = app.language.allophoneRules();
+        arst.language = &app.language;
+        if (tgsb_editor::ShowAllophoneRulesDialog(app.hInst, hWnd, arst) && arst.modified) {
+          app.languageDirty = true;
+          app.setStatus(L"Updated allophone rules.");
+        }
+        return 0;
+      }
+
+      if (id == IDM_SETTINGS_EDIT_SPECIAL_COARTIC) {
+        if (!app.language.isLoaded()) {
+          msgBox(hWnd, L"Load a language first.", L"Special Coarticulation", MB_ICONINFORMATION);
+          return 0;
+        }
+        tgsb_editor::SpecialCoarticDialogState scst;
+        scst.rules = app.language.specialCoarticRules();
+        scst.language = &app.language;
+        if (tgsb_editor::ShowSpecialCoarticDialog(app.hInst, hWnd, scst) && scst.modified) {
+          app.languageDirty = true;
+          app.setStatus(L"Updated special coarticulation rules.");
         }
         return 0;
       }

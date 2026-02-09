@@ -7,7 +7,7 @@
 
 #include "sample.h"
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 bool writeWav16Mono(
   const std::wstring& path,
@@ -19,4 +19,4 @@ bool writeWav16Mono(
 // Convenience for building a temp file name in %TEMP%.
 std::wstring makeTempWavPath(const std::wstring& prefix);
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

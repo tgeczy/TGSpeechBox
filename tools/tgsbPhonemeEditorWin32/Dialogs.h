@@ -10,13 +10,13 @@
 #include <utility>
 #include <vector>
 
-#include "nvsp_runtime.h"
+#include "tgsb_runtime.h"
 #include "yaml_edit.h"
 
 struct AddMappingDialogState {
-  nvsp_editor::ReplacementRule rule;
+  tgsb_editor::ReplacementRule rule;
   std::vector<std::string> classNames;
-  nvsp_editor::LanguageYaml* language = nullptr;  // for class editing
+  tgsb_editor::LanguageYaml* language = nullptr;  // for class editing
   bool ok = false;
 };
 
@@ -35,8 +35,8 @@ struct ClonePhonemeDialogState {
 struct EditValueDialogState {
   std::string field;
   std::string value;
-  nvsp_editor::Node baseMap;
-  nvsp_editor::NvspRuntime* runtime = nullptr;
+  tgsb_editor::Node baseMap;
+  tgsb_editor::TgsbRuntime* runtime = nullptr;
 
   bool livePreview = true;
   bool ok = false;
@@ -60,15 +60,15 @@ struct EditSettingsDialogState {
 
 struct EditPhonemeDialogState {
   std::string phonemeKey;
-  nvsp_editor::Node original;
-  nvsp_editor::Node working;
-  nvsp_editor::NvspRuntime* runtime = nullptr;
+  tgsb_editor::Node original;
+  tgsb_editor::Node working;
+  tgsb_editor::TgsbRuntime* runtime = nullptr;
   bool ok = false;
 };
 
 struct SpeechSettingsDialogState {
-  nvsp_editor::SpeechSettings settings;
-  nvsp_editor::NvspRuntime* runtime = nullptr;
+  tgsb_editor::SpeechSettings settings;
+  tgsb_editor::TgsbRuntime* runtime = nullptr;
 
   // Discovered voice profiles from phonemes.yaml
   std::vector<std::string> voiceProfiles;
@@ -116,5 +116,5 @@ bool ShowPhonemizerSettingsDialog(HINSTANCE hInst, HWND parent, PhonemizerSettin
 bool ShowClassEditorDialog(HINSTANCE hInst, HWND parent, ClassEditorDialogState& st);
 
 // Persistence for speech settings (tgsbPhonemeEditor.ini).
-nvsp_editor::SpeechSettings loadSpeechSettingsFromIni();
-void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s);
+tgsb_editor::SpeechSettings loadSpeechSettingsFromIni();
+void saveSpeechSettingsToIni(const tgsb_editor::SpeechSettings& s);

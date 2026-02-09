@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 static bool isSentenceEnd(wchar_t c) {
   switch (c) {
@@ -195,4 +195,4 @@ std::vector<TextChunk> chunkTextForPhonemizer(const std::wstring& text, size_t m
   return chunks;
 }
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

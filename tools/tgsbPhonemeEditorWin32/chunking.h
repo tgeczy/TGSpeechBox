@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 struct TextChunk {
   std::wstring text;
@@ -27,4 +27,4 @@ std::vector<TextChunk> chunkTextForPhonemizer(
   size_t maxChars
 );
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

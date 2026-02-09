@@ -12,7 +12,7 @@
 #include <regex>
 #include <iomanip>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 // =============================================================================
 // YAML Parsing helpers
@@ -1042,4 +1042,4 @@ bool ShowEditPhonemeOverrideDialog(HINSTANCE hInst, HWND parent, EditPhonemeOver
   return st.ok;
 }
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

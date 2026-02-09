@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "nvsp_runtime.h"
+#include "tgsb_runtime.h"
 #include "yaml_edit.h"
 
 class AppController {
@@ -69,9 +69,9 @@ public:
 
   std::vector<std::wstring> languageFiles; // full paths
 
-  nvsp_editor::PhonemesYaml phonemes;
-  nvsp_editor::LanguageYaml language;
-  std::vector<nvsp_editor::ReplacementRule> repls;
+  tgsb_editor::PhonemesYaml phonemes;
+  tgsb_editor::LanguageYaml language;
+  std::vector<tgsb_editor::ReplacementRule> repls;
   std::vector<std::string> classNames;
 
   std::vector<std::string> phonemeKeys;
@@ -80,7 +80,7 @@ public:
 
   std::vector<std::string> usedPhonemeKeys;
 
-  nvsp_editor::NvspRuntime runtime;
+  tgsb_editor::TgsbRuntime runtime;
 
   // Track last focused child control for focus restoration on WM_ACTIVATE.
   HWND lastFocus = nullptr;

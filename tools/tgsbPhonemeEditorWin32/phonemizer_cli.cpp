@@ -8,7 +8,7 @@
 #include <sstream>
 #include <vector>
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 static bool endsWithCaseInsensitive(const std::wstring& s, const std::wstring& suffix) {
   if (suffix.size() > s.size()) return false;
@@ -337,4 +337,4 @@ if (endsSentence && (i + 1) < chunks.size()) {
   return true;
 }
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor

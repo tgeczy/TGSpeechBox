@@ -21,7 +21,7 @@
 
 static constexpr int kSampleRate = 22050;
 
-using nvsp_editor::NvspRuntime;
+using tgsb_editor::TgsbRuntime;
 
 static std::wstring paramHintW(const std::string& key) {
   // Short hints. These are not meant to be textbook-perfect, just a useful nudge while tuning.
@@ -402,14 +402,14 @@ static INT_PTR CALLBACK EditValueDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPA
     GetDlgItemTextW(hDlg, IDC_VAL_VALUE, buf, 1024);
     st->value = wideToUtf8(buf);
 
-    nvsp_editor::Node tmp = st->baseMap;
+    tgsb_editor::Node tmp = st->baseMap;
     auto it = tmp.map.find(st->field);
     if (it == tmp.map.end()) {
       // If missing, create it.
-      tmp.map[st->field] = nvsp_editor::Node{};
+      tmp.map[st->field] = tgsb_editor::Node{};
       it = tmp.map.find(st->field);
     }
-    it->second.type = nvsp_editor::Node::Type::Scalar;
+    it->second.type = tgsb_editor::Node::Type::Scalar;
     it->second.scalar = st->value;
 
     std::vector<sample> samples;
@@ -419,8 +419,8 @@ static INT_PTR CALLBACK EditValueDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPA
     }
     if (samples.empty()) return;
 
-    std::wstring wavPath = nvsp_editor::makeTempWavPath(L"nvpe");
-    if (!nvsp_editor::writeWav16Mono(wavPath, kSampleRate, samples, err)) {
+    std::wstring wavPath = tgsb_editor::makeTempWavPath(L"nvpe");
+    if (!tgsb_editor::writeWav16Mono(wavPath, kSampleRate, samples, err)) {
       return;
     }
     PlaySoundW(nullptr, NULL, SND_ASYNC);
@@ -744,7 +744,7 @@ static void listviewAddColumns(HWND lv) {
   ListView_InsertColumn(lv, 1, &col);
 }
 
-static std::vector<std::string> sortedNodeKeys(const nvsp_editor::Node& n) {
+static std::vector<std::string> sortedNodeKeys(const tgsb_editor::Node& n) {
   std::vector<std::string> keys;
   if (!n.isMap()) return keys;
   keys.reserve(n.map.size());
@@ -785,7 +785,7 @@ static const std::vector<std::string>& getStandardPhonemeTypeFlags() {
   return flags;
 }
 
-static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeMap) {
+static void populatePhonemeFieldsList(HWND lv, const tgsb_editor::Node& phonemeMap) {
   ListView_DeleteAllItems(lv);
   
   // First, collect all keys from the phoneme map
@@ -866,7 +866,7 @@ static void populatePhonemeFieldsList(HWND lv, const nvsp_editor::Node& phonemeM
   }
 }
 
-static std::string getSelectedField(HWND lv, const nvsp_editor::Node& phonemeMap) {
+static std::string getSelectedField(HWND lv, const tgsb_editor::Node& phonemeMap) {
   int sel = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
   if (sel < 0) return {};
 
@@ -947,22 +947,22 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
             // Create frameEx map if it doesn't exist
             auto fxIt = st->working.map.find("frameEx");
             if (fxIt == st->working.map.end()) {
-              st->working.map["frameEx"] = nvsp_editor::Node{};
-              st->working.map["frameEx"].type = nvsp_editor::Node::Type::Map;
+              st->working.map["frameEx"] = tgsb_editor::Node{};
+              st->working.map["frameEx"].type = tgsb_editor::Node::Type::Map;
               fxIt = st->working.map.find("frameEx");
             }
             // Create or update the subkey
-            fxIt->second.map[subKey] = nvsp_editor::Node{};
-            fxIt->second.map[subKey].type = nvsp_editor::Node::Type::Scalar;
+            fxIt->second.map[subKey] = tgsb_editor::Node{};
+            fxIt->second.map[subKey].type = tgsb_editor::Node::Type::Scalar;
             fxIt->second.map[subKey].scalar = vs.value;
           } else {
             // Create or update the field at top level
             auto it = st->working.map.find(field);
             if (it == st->working.map.end()) {
-              st->working.map[field] = nvsp_editor::Node{};
+              st->working.map[field] = tgsb_editor::Node{};
               it = st->working.map.find(field);
             }
-            it->second.type = nvsp_editor::Node::Type::Scalar;
+            it->second.type = tgsb_editor::Node::Type::Scalar;
             it->second.scalar = vs.value;
           }
           populatePhonemeFieldsList(lv, st->working);
@@ -1014,8 +1014,8 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
 // -------------------------
 // Speech settings persistence
 // -------------------------
-nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
-  nvsp_editor::SpeechSettings s;
+tgsb_editor::SpeechSettings loadSpeechSettingsFromIni() {
+  tgsb_editor::SpeechSettings s;
   s.voiceName = wideToUtf8(readIni(L"speech", L"voice", L"Adam"));
   s.rate = readIniInt(L"speech", L"rate", s.rate);
   s.pitch = readIniInt(L"speech", L"pitch", s.pitch);
@@ -1023,7 +1023,7 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
   s.inflection = readIniInt(L"speech", L"inflection", s.inflection);
   s.pauseMode = wideToUtf8(readIni(L"speech", L"pauseMode", L"short"));
 
-  const auto& names = NvspRuntime::frameParamNames();
+  const auto& names = TgsbRuntime::frameParamNames();
   s.frameParams.assign(names.size(), 50);
   for (size_t i = 0; i < names.size(); ++i) {
     std::wstring key = L"frame_" + utf8ToWide(names[i]);
@@ -1031,7 +1031,7 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
   }
   
   // Load voicing params from per-voice section if available, else from [speech]
-  const auto& voicingNames = NvspRuntime::voicingParamNames();
+  const auto& voicingNames = TgsbRuntime::voicingParamNames();
   s.voicingParams.assign(voicingNames.size(), 50);
   // tremorDepth (index 13) defaults to 0, not 50
   if (s.voicingParams.size() > 13) s.voicingParams[13] = 0;
@@ -1040,7 +1040,7 @@ nvsp_editor::SpeechSettings loadSpeechSettingsFromIni() {
   // For Python presets: [voice_Adam], [voice_Benjamin], etc.
   // For profiles: use [speech] defaults (profiles get voicingTone from YAML)
   std::wstring voiceSection = L"speech";
-  if (!NvspRuntime::isVoiceProfile(s.voiceName)) {
+  if (!TgsbRuntime::isVoiceProfile(s.voiceName)) {
     voiceSection = L"voice_" + utf8ToWide(s.voiceName);
   }
   
@@ -1058,7 +1058,7 @@ std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
   return s;
 }
 
-void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s) {
+void saveSpeechSettingsToIni(const tgsb_editor::SpeechSettings& s) {
   writeIni(L"speech", L"voice", utf8ToWide(s.voiceName));
   writeIniInt(L"speech", L"rate", s.rate);
   writeIniInt(L"speech", L"pitch", s.pitch);
@@ -1066,7 +1066,7 @@ void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s) {
   writeIniInt(L"speech", L"inflection", s.inflection);
   writeIni(L"speech", L"pauseMode", utf8ToWide(s.pauseMode));
 
-  const auto& names = NvspRuntime::frameParamNames();
+  const auto& names = TgsbRuntime::frameParamNames();
   for (size_t i = 0; i < names.size() && i < s.frameParams.size(); ++i) {
     std::wstring key = L"frame_" + utf8ToWide(names[i]);
     writeIniInt(L"speech", key.c_str(), s.frameParams[i]);
@@ -1074,10 +1074,10 @@ void saveSpeechSettingsToIni(const nvsp_editor::SpeechSettings& s) {
   
   // Save voicing params to per-voice section for Python presets
   // For profiles, voicingTone is stored in YAML, so we still save to [speech] as fallback
-  const auto& voicingNames = NvspRuntime::voicingParamNames();
+  const auto& voicingNames = TgsbRuntime::voicingParamNames();
   
   std::wstring voiceSection = L"speech";
-  if (!NvspRuntime::isVoiceProfile(s.voiceName)) {
+  if (!TgsbRuntime::isVoiceProfile(s.voiceName)) {
     voiceSection = L"voice_" + utf8ToWide(s.voiceName);
   }
   
@@ -1130,7 +1130,7 @@ static void fillVoices(HWND combo, const std::string& selected, const std::vecto
     int pos = static_cast<int>(SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(w.c_str())));
     
     // Voice ID uses prefix
-    std::string voiceId = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
+    std::string voiceId = std::string(tgsb_editor::TgsbRuntime::kVoiceProfilePrefix) + profileName;
     if (selected == voiceId) sel = pos;
   }
   
@@ -1329,7 +1329,7 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
               displayName.substr(displayName.size() - suffix.size()) == suffix) {
             // Extract profile name and add prefix
             std::string profileName = displayName.substr(0, displayName.size() - suffix.size());
-            newVoiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
+            newVoiceName = std::string(tgsb_editor::TgsbRuntime::kVoiceProfilePrefix) + profileName;
             
             // Set the voice profile on the frontend
             if (st->runtime) {
@@ -1351,11 +1351,11 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
           st->settings.voiceName = newVoiceName;
           
           std::wstring voiceSection = L"speech";
-          if (!nvsp_editor::NvspRuntime::isVoiceProfile(newVoiceName)) {
+          if (!tgsb_editor::TgsbRuntime::isVoiceProfile(newVoiceName)) {
             voiceSection = L"voice_" + utf8ToWide(newVoiceName);
           }
           
-          const auto& voicingNames = nvsp_editor::NvspRuntime::voicingParamNames();
+          const auto& voicingNames = tgsb_editor::TgsbRuntime::voicingParamNames();
           for (size_t i = 0; i < voicingNames.size() && i < st->settings.voicingParams.size(); ++i) {
             std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
             int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
@@ -1469,8 +1469,8 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
       if (id == IDC_SPEECH_SAVE_TO_PROFILE) {
         // Get profile name - strip "profile:" prefix if present, otherwise use voice name directly
         std::string profileName;
-        if (nvsp_editor::NvspRuntime::isVoiceProfile(st->settings.voiceName)) {
-          profileName = nvsp_editor::NvspRuntime::getProfileNameFromVoice(st->settings.voiceName);
+        if (tgsb_editor::TgsbRuntime::isVoiceProfile(st->settings.voiceName)) {
+          profileName = tgsb_editor::TgsbRuntime::getProfileNameFromVoice(st->settings.voiceName);
         } else {
           profileName = st->settings.voiceName;
         }
@@ -1494,7 +1494,7 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
           
           // Refresh voice list so the new profile appears
           st->voiceProfiles = st->runtime->discoverVoiceProfiles();
-          st->settings.voiceName = std::string(nvsp_editor::NvspRuntime::kVoiceProfilePrefix) + profileName;
+          st->settings.voiceName = std::string(tgsb_editor::TgsbRuntime::kVoiceProfilePrefix) + profileName;
           HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
           fillVoices(combo, st->settings.voiceName, st->voiceProfiles);
         } else {

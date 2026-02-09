@@ -7,7 +7,7 @@
 
 #include "yaml_min.h"
 
-namespace nvsp_editor {
+namespace tgsb_editor {
 
 using Node = nvsp_frontend::yaml_min::Node;
 
@@ -29,6 +29,58 @@ struct ReplacementRule {
   std::string from;
   std::string to;
   ReplacementWhen when;
+};
+
+// Allophone rule entry for editor round-trip.
+// Vectors of IPA keys are stored as UTF-8 strings (not u32string).
+struct AllophoneRuleEntry {
+  std::string name;
+  // Match conditions
+  std::vector<std::string> phonemes;   // IPA keys
+  std::vector<std::string> flags;      // e.g. "stop","voiced"
+  std::vector<std::string> notFlags;
+  std::string tokenType = "phoneme";   // "phoneme"/"aspiration"/"closure"
+  std::string position = "any";        // "any"/"word-initial"/"word-final"/"intervocalic"/etc.
+  std::string stress = "any";          // "any"/"stressed"/"unstressed"/"next-unstressed"/"prev-stressed"
+  std::vector<std::string> after;      // neighbor IPA filter
+  std::vector<std::string> before;
+  // Action
+  std::string action;                  // "replace"/"scale"/"shift"/"insert-before"/"insert-after"
+  // Replace params
+  std::string replaceTo;
+  double replaceDurationMs = 0.0;
+  bool replaceRemovesClosure = false;
+  bool replaceRemovesAspiration = false;
+  // Scale params
+  double durationScale = 1.0;
+  double fadeScale = 1.0;
+  std::vector<std::pair<std::string, double>> fieldScales;
+  // Shift params
+  struct ShiftEntry {
+    std::string field;
+    double deltaHz = 0.0;
+    double targetHz = 0.0;
+    double blend = 1.0;
+  };
+  std::vector<ShiftEntry> fieldShifts;
+  // Insert params
+  std::string insertPhoneme;
+  double insertDurationMs = 18.0;
+  double insertFadeMs = 3.0;
+  std::vector<std::string> insertContexts;
+};
+
+// Special coarticulation rule entry for editor round-trip.
+struct SpecialCoarticRuleEntry {
+  std::string name;
+  std::vector<std::string> triggers;    // IPA keys
+  std::string vowelFilter = "all";      // "all"/"front"/"back"/specific IPA key
+  std::string formant = "f2";           // "f2" or "f3"
+  double deltaHz = 0.0;
+  std::string side = "both";            // "left"/"right"/"both"
+  bool cumulative = false;
+  double unstressedScale = 1.0;
+  double phraseFinalStressedScale = 1.0;
 };
 
 class PhonemesYaml {
@@ -75,6 +127,14 @@ public:
   void setSetting(const std::string& key, const std::string& value);
   bool removeSetting(const std::string& key);
 
+  // Allophone rules: settings.allophoneRules.rules
+  std::vector<AllophoneRuleEntry> allophoneRules() const;
+  void setAllophoneRules(const std::vector<AllophoneRuleEntry>& rules);
+
+  // Special coarticulation rules: settings.specialCoarticulation.rules
+  std::vector<SpecialCoarticRuleEntry> specialCoarticRules() const;
+  void setSpecialCoarticRules(const std::vector<SpecialCoarticRuleEntry>& rules);
+
 private:
   Node m_root;
   std::string m_path;
@@ -84,4 +144,4 @@ private:
 // Note: comments are not preserved.
 std::string dumpYaml(const Node& root);
 
-} // namespace nvsp_editor
+} // namespace tgsb_editor
