@@ -82,7 +82,9 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 
 ### FrameEx struct (DSP version 5+)
 
-DSP version 5 introduced an optional per-frame extension struct for voice quality parameters that vary during speech (e.g., Danish stød). DSP version 6 adds formant end targets and Fujisaki pitch model parameters. This keeps the original 47-parameter frame ABI stable.
+DSP version 5 introduced an optional per-frame extension struct for voice quality parameters that vary during speech (e.g., Danish stød). DSP version 6 adds formant end targets and Fujisaki pitch model parameters. DSP version 7 adds per-parameter transition speed scales for boundary smoothing. This keeps the original 47-parameter frame ABI stable.
+
+The struct is currently **22 doubles = 176 bytes**. The `speechPlayer_queueFrameEx()` function takes a `frameExSize` parameter; the DSP starts with defaults then overlays `min(frameExSize, sizeof(speechPlayer_frameEx_t))` bytes. This provides forward/backward ABI compatibility — callers with smaller structs simply don't override the trailing fields.
 
 #### New API function
 
@@ -128,6 +130,22 @@ The Fujisaki pitch model provides natural-sounding intonation with phrase-level 
 | `fujisakiAccentLen` | double | 0.0 | Accent filter length in samples. 0 = use DSP default (~1024 @ 22050 Hz). |
 
 These parameters are interpolated during frame crossfades, just like the core frame parameters.
+
+##### Per-parameter transition speed scales (DSP v7+)
+
+These control how fast individual formant groups reach their targets during boundary crossfades. The boundary smoothing pass sets these on tokens based on language pack settings (`boundarySmoothingF1Scale`, etc.). A scale value < 1.0 means "reach the target in that fraction of the fade time, then hold." 0.0 means no override (all formants fade at the same rate).
+
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `transF1Scale` | double | 0.0 | Transition speed for F1 group (cf1, pf1, cb1, pb1). 0.0 = no override. |
+| `transF2Scale` | double | 0.0 | Transition speed for F2 group (cf2, pf2, cb2, pb2). 0.0 = no override. |
+| `transF3Scale` | double | 0.0 | Transition speed for F3 group (cf3, pf3, cb3, pb3). 0.0 = no override. |
+| `transNasalScale` | double | 0.0 | Transition speed for nasal group (cfN0, cfNP, cbN0, cbNP, caNP). 0.0 = no override. |
+
+Example: with `transF1Scale = 0.6` and a 20ms fade, F1 reaches its target at 12ms and holds for the remaining 8ms, while F2 (at default) ramps across the full 20ms. This makes F1 "arrive first" at segment boundaries, which is perceptually important for place-of-articulation cues.
+
+**ABI note:** These 4 fields sit at offsets 18–21 (bytes 144–175) of the FrameEx struct. Callers passing `frameExSize = 144` (the old 18-double size) will silently not set these fields, and the DSP defaults (0.0 = no override) apply. This is why it was important to update `speechPlayer.py`, `_frontend.py`, and `tgsbRender.cpp` to the full 22-double / 176-byte struct.
 
 ### Usage example (Python/ctypes, v3 struct)
 
