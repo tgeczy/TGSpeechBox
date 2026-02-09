@@ -115,7 +115,7 @@ class SynthDriver(SynthDriver):
     supportedCommands = {c for c in (IndexCommand, PitchCommand) if c}
     supportedNotifications = {synthIndexReached, synthDoneSpeaking}
 
-    exposeExtraParams = True
+    exposeExtraParams = False
     _ESPEAK_PHONEME_MODE = 0x36100 + 0x82
 
     def __init__(self):
@@ -1141,8 +1141,10 @@ class SynthDriver(SynthDriver):
             self._enqueue(self._notifyIndexesAndDone, indexes)
             return
 
-        # Stamp this speak with a generation number so cancel() can invalidate it
-        self._speakGen += 1
+        # Stamp this speak with the current generation so cancel() can invalidate it.
+        # IMPORTANT: Do NOT increment here — only cancel() bumps the counter.
+        # If speak() bumped it, a benign second speak() (e.g. from synthDoneSpeaking)
+        # would kill an in-flight _speakBg that was never cancelled.
         self._enqueue(self._speakBg, list(speechSequence), self._speakGen)
 
     def _speakBg(self, speakList, generation):
