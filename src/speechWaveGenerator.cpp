@@ -301,8 +301,21 @@ public:
                 }
 
                 double targetPreGain = frame->preFormantGain;
+                double prevSmooth = smoothPreGain;
                 double alpha = (targetPreGain > smoothPreGain) ? preGainAttackAlpha : preGainReleaseAlpha;
                 smoothPreGain += (targetPreGain - smoothPreGain) * alpha;
+
+                // If preFormantGain was near zero (word-boundary gap, pre-stop
+                // closure) and is now rising, reset cascade/parallel resonators.
+                // Without this, residual IIR state from the previous phoneme
+                // colors the first few ms of the new phoneme (e.g. /d/'s formants
+                // bleeding into /h/ across a 24ms gap in "had helped").
+                // wasSilence only fires on full NULL-frame silence; this catches
+                // the subtler case of preFormantGain=0 gaps.
+                if (prevSmooth < 0.005 && targetPreGain > 0.01) {
+                    cascade.reset();
+                    parallel.reset();
+                }
 
                 double voice=voiceGenerator.getNext(frame, frameEx);
 

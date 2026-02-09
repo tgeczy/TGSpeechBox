@@ -191,6 +191,60 @@ struct SpecialCoarticRule {
   double phraseFinalStressedScale = 1.0; // multiply delta for phrase-final stressed
 };
 
+struct AllophoneRule {
+    std::string name;
+
+    // ── Match conditions ──────────────────────────────────────────────
+    std::vector<std::u32string> phonemes;   // IPA keys (empty = match by flags only)
+    std::vector<std::string> flags;         // ALL listed flags must be present
+    std::vector<std::string> notFlags;      // exclude if ANY listed flag present
+
+    // "phoneme" (default), "aspiration", "closure"
+    std::string tokenType = "phoneme";
+
+    // "any", "word-initial", "word-final", "intervocalic",
+    // "pre-vocalic", "post-vocalic", "syllabic"
+    std::string position = "any";
+
+    // "any", "stressed", "unstressed", "next-unstressed", "prev-stressed"
+    std::string stress = "any";
+
+    std::vector<std::u32string> after;      // prev phoneme key filter
+    std::vector<std::u32string> before;     // next phoneme key filter
+
+    // ── Action ────────────────────────────────────────────────────────
+    // "replace", "scale", "shift", "insert-before", "insert-after"
+    std::string action;
+
+    // ── Action parameters ─────────────────────────────────────────────
+
+    // For "replace":
+    std::u32string replaceTo;
+    double replaceDurationMs = 0.0;
+    bool replaceRemovesClosure = false;
+    bool replaceRemovesAspiration = false;
+
+    // For "scale":
+    std::vector<std::pair<std::string, double>> fieldScales;
+    double durationScale = 1.0;
+    double fadeScale = 1.0;
+
+    // For "shift":
+    struct ShiftEntry {
+        std::string field;
+        double deltaHz = 0.0;
+        double targetHz = 0.0;
+        double blend = 1.0;
+    };
+    std::vector<ShiftEntry> fieldShifts;
+
+    // For "insert-before" / "insert-after":
+    std::u32string insertPhoneme;
+    double insertDurationMs = 18.0;
+    double insertFadeMs = 3.0;
+    std::vector<std::string> insertContexts;
+};
+
 struct LanguagePack {
   std::string langTag; // normalized (lowercase, '-')
 
@@ -646,29 +700,9 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double nasalizationAnticipatoryAmplitude = 0.4;
   double nasalizationAnticipatoryBlend = 0.5;
 
-// Positional allophones (optional; frontend-level, pack-configurable).
-// Small "how to say it" tweaks by position, without requiring new phonemes.
-bool positionalAllophonesEnabled = false;
-
-// Stop aspiration scaling (applies to the inserted post-stop aspiration phoneme).
-// Multipliers: 1.0 keeps the default aspiration; lower values reduce it.
-double positionalAllophonesStopAspirationWordInitialStressed = 0.8;
-double positionalAllophonesStopAspirationWordInitial = 0.5;
-double positionalAllophonesStopAspirationIntervocalic = 0.2;
-double positionalAllophonesStopAspirationWordFinal = 0.1;
-
-// /l/ darkness (0..1). Higher = darker (more [ɫ]-like).
-double positionalAllophonesLateralDarknessPreVocalic = 0.2;
-double positionalAllophonesLateralDarknessPostVocalic = 0.8;
-double positionalAllophonesLateralDarknessSyllabic = 0.9;
-
-// Darkness target for /l/ (used as a simple F2 pull).
-double positionalAllophonesLateralDarkF2TargetHz = 900.0;
-
-// Glottal reinforcement of (typically voiceless) word-final stops.
-bool positionalAllophonesGlottalReinforcementEnabled = false;
-std::vector<std::string> positionalAllophonesGlottalReinforcementContexts = {"V_#"};
-double positionalAllophonesGlottalReinforcementDurationMs = 18.0;
+  // Data-driven allophone rules (replaces all old positionalAllophones* settings).
+  bool allophoneRulesEnabled = false;
+  std::vector<AllophoneRule> allophoneRules;
 
   // Language-specific duration tweaks.
   bool huShortAVowelEnabled = true;

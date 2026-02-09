@@ -76,6 +76,29 @@ static inline bool isNasalParam(int idx) {
 	return false;
 }
 
+// Identifies which frame parameters are amplitude/gain sources.
+// These get equal-power crossfade when transAmplitudeMode > 0.5,
+// preventing energy dips at voiced→voiceless transitions.
+// Intentionally does NOT include:
+//   - outputGain (master volume, not a source)
+//   - pa1-pa6 (parallel amplitudes track their formants, not sources)
+//   - caNP (nasal pole amplitude — tracks nasal formant, not a source)
+static inline bool isAmplitudeParam(int idx) {
+	const int szP = sizeof(speechPlayer_frameParam_t);
+	int i;
+	i = (int)(offsetof(speechPlayer_frame_t, voiceAmplitude) / szP);
+	if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, aspirationAmplitude) / szP);
+	if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, fricationAmplitude) / szP);
+	if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, voiceTurbulenceAmplitude) / szP);
+	if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, preFormantGain) / szP);
+	if(idx == i) return true;
+	return false;
+}
+
 struct frameRequest_t {
 	unsigned int minNumSamples;
 	unsigned int numFadeSamples;
@@ -142,6 +165,7 @@ class FrameManagerImpl: public FrameManager {
 				const double scF2 = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transF2Scale : 0.0;
 				const double scF3 = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transF3Scale : 0.0;
 				const double scN  = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transNasalScale : 0.0;
+				const double ampMode = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transAmplitudeMode : 0.0;
 
 				for(int i=0;i<speechPlayer_frame_numParams;++i) {
 					double oldVal = ((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[i];
@@ -166,6 +190,12 @@ class FrameManagerImpl: public FrameManager {
 					if(isFrequencyParam(i)) {
 						double paramCosine = cosineSmooth(paramLinear);
 						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateFreqAtFadePosition(oldVal, newVal, paramCosine);
+					} else if(isAmplitudeParam(i) && ampMode > 0.5) {
+						// Equal-power crossfade: sin²(θ) + cos²(θ) = 1
+						// Total energy stays constant across source transitions.
+						double theta = paramLinear * 1.5707963267948966;
+						double val = oldVal * cos(theta) + newVal * sin(theta);
+						((speechPlayer_frameParam_t*)&curFrame)[i] = val;
 					} else {
 						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, paramLinear);
 					}
@@ -200,6 +230,11 @@ class FrameManagerImpl: public FrameManager {
 				if(newFrameRequest->NULLFrame) {
 					memcpy(&(newFrameRequest->frame),&(oldFrameRequest->frame),sizeof(speechPlayer_frame_t));
 					newFrameRequest->frame.preFormantGain=0;
+					// Zero source amplitudes so they fade out WITH preFormantGain.
+					newFrameRequest->frame.voiceAmplitude=0;
+					newFrameRequest->frame.aspirationAmplitude=0;
+					newFrameRequest->frame.fricationAmplitude=0;
+					newFrameRequest->frame.voiceTurbulenceAmplitude=0;
 					newFrameRequest->frame.voicePitch=curFrame.voicePitch;
 					newFrameRequest->voicePitchInc=0;
 
@@ -209,6 +244,13 @@ class FrameManagerImpl: public FrameManager {
 				} else if(oldFrameRequest->NULLFrame) {
 					memcpy(&(oldFrameRequest->frame),&(newFrameRequest->frame),sizeof(speechPlayer_frame_t));
 					oldFrameRequest->frame.preFormantGain=0;
+					// Zero source amplitudes so they fade in WITH preFormantGain.
+					// Without this, noise/voicing hits the resonators at full strength
+					// on sample 1, exciting residual IIR state → pop/click.
+					oldFrameRequest->frame.voiceAmplitude=0;
+					oldFrameRequest->frame.aspirationAmplitude=0;
+					oldFrameRequest->frame.fricationAmplitude=0;
+					oldFrameRequest->frame.voiceTurbulenceAmplitude=0;
 					// FIX: We are transitioning from silence to real audio.
 					// Mark the old request as non-NULL so subsequent transitions don't keep
 					// taking the "from silence" path with stale state.

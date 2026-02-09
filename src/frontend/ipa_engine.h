@@ -25,6 +25,10 @@ struct TrajectoryState {
   bool hasPrevFrame = false;
   bool prevWasNasal = false;  // Skip limiting on frames following nasals
 
+  // For equal-power amplitude crossfade detection
+  double prevVoiceAmp = 0.0;
+  double prevFricAmp = 0.0;
+
   void reset() {
     prevCf2 = 0.0;
     prevCf3 = 0.0;
@@ -32,6 +36,8 @@ struct TrajectoryState {
     prevPf3 = 0.0;
     hasPrevFrame = false;
     prevWasNasal = false;
+    prevVoiceAmp = 0.0;
+    prevFricAmp = 0.0;
   }
 };
 

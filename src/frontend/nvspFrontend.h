@@ -109,10 +109,15 @@ typedef struct nvspFrontend_FrameEx {
   double transF2Scale;        /* cf2, pf2, cb2, pb2 */
   double transF3Scale;        /* cf3, pf3, cb3, pb3 */
   double transNasalScale;     /* cfN0, cfNP, cbN0, cbNP, caNP */
+
+  /* Amplitude crossfade mode: 0.0 = linear (default), 1.0 = equal-power.
+     Equal-power prevents energy dips at source transitions (voiced→voiceless).
+     Set by frame_emit when it detects a voicing source change. */
+  double transAmplitudeMode;
 } nvspFrontend_FrameEx;
 
 /* Number of fields in FrameEx struct (for size validation) */
-#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 22
+#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 23
 
 /*
   VoicingTone parameters for DSP-level voice quality (ABI v2+).

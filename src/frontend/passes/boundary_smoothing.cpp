@@ -188,6 +188,34 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     } else if (prevStop && curFric) {
       targetFade = s2f;  // Stop -> Fricative (e.g., "ts" release)
     }
+    // === Missing consonant-to-consonant transitions ===
+    else if (prevNasal && curFric) {
+      targetFade = n2s;  // Nasal -> Fricative (e.g. "nh" in "enhance")
+    } else if (prevFric && curNasal) {
+      targetFade = n2s;  // Fricative -> Nasal
+    } else if (prevStop && curNasal) {
+      targetFade = n2s;  // Stop -> Nasal
+    } else if (prevNasal && curLiquid) {
+      targetFade = n2s;  // Nasal -> Liquid
+    } else if (prevLiquid && curFric) {
+      targetFade = l2s;  // Liquid -> Fricative
+    }
+    // === FALLBACK: any real consonant -> any real consonant not yet covered ===
+    else if (!prevVowelLike && !curVowelLike &&
+             !tokIsSilenceOrMissing(prev) && !tokIsSilenceOrMissing(cur)) {
+      targetFade = 10.0 / sp;  // generic consonant cluster
+    }
+    // === FALLBACK: sonorant -> unclassified consonant (e.g. /h/) ===
+    // /h/ uses aspirationAmplitude not fricationAmplitude, so tokIsFricative
+    // returns false.  Without this, transitions like /n/→/h/ get zero fade.
+    else if ((prevVowelLike || prevNasal || prevLiquid) &&
+             !curVowelLike && !curStop && !curFric && !curNasal && !curLiquid) {
+      targetFade = v2fEff;  // treat like vowel->fricative
+    }
+    else if (!prevVowelLike && !prevStop && !prevFric && !prevNasal && !prevLiquid &&
+             (curVowelLike || curNasal || curLiquid)) {
+      targetFade = f2v;  // treat like fricative->vowel
+    }
 
     // Apply per-formant transition scaling if the language pack specifies it.
     if (lang.boundarySmoothingF1Scale > 0.0 && lang.boundarySmoothingF1Scale != 1.0) {
@@ -205,8 +233,18 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       cur.transF1Scale = 0.05;  // 5% of fade = nearly instant
     }
 
+    // Voicing flip (voiced→voiceless or vice-versa): don't increase fade.
+    // A longer crossfade across a voicing boundary makes voicing and
+    // aspiration overlap, producing a buzz/pop.  Leave the base fade alone.
+    // Vowels are inherently voiced, so vowel↔consonant transitions are
+    // exempt — those need the longer fade for smooth formant movement.
+    const bool prevVoiced = tokIsVowelLike(prev) || tokIsVoiced(prev);
+    const bool curVoiced = tokIsVowelLike(cur) || tokIsVoiced(cur);
+    const bool voicingFlip = (prevVoiced != curVoiced) &&
+                             !prevVowelLike && !curVowelLike;
+
     // Apply if we have a target and it's larger than current fade
-    if (targetFade > 0.0 && targetFade > cur.fadeMs) {
+    if (targetFade > 0.0 && targetFade > cur.fadeMs && !voicingFlip) {
       // Cap fade to fraction of duration to preserve phoneme steady-state
       if (cur.durationMs > 0.0) {
         const double maxFade = cur.durationMs * kMaxFadeRatio;

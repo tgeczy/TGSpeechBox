@@ -110,6 +110,22 @@ typedef struct {
 	double transF2Scale;    // cf2, pf2, cb2, pb2
 	double transF3Scale;    // cf3, pf3, cb3, pb3
 	double transNasalScale; // cfN0, cfNP, cbN0, cbNP, caNP
+
+	/* Amplitude crossfade curve selection (DSP v7.1)
+	 *
+	 * Controls the interpolation curve used for amplitude/gain parameters
+	 * (voiceAmplitude, aspirationAmplitude, fricationAmplitude,
+	 * voiceTurbulenceAmplitude, preFormantGain) during frame transitions.
+	 *
+	 * 0.0 = linear crossfade (legacy default — works fine when both frames
+	 *        have similar total energy, e.g. vowel→vowel)
+	 * 0.0 = equal-power crossfade (sin/cos curves — maintains constant
+	 *        total energy across source transitions like voiced→voiceless)
+	 *
+	 * The frontend sets this based on whether the transition involves a
+	 * change in voicing source. The DSP does not need phoneme awareness.
+	 */
+	double transAmplitudeMode;
 } speechPlayer_frameEx_t;
 
 // Default values for frameEx parameters. Used when:
@@ -139,7 +155,8 @@ static const speechPlayer_frameEx_t speechPlayer_frameEx_defaults = {
 	0.0,  // transF1Scale: no override
 	0.0,  // transF2Scale: no override
 	0.0,  // transF3Scale: no override
-	0.0   // transNasalScale: no override
+	0.0,  // transNasalScale: no override
+	1.0   // transAmplitudeMode: linear (legacy)
 };
 
 const int speechPlayer_frameEx_numParams=sizeof(speechPlayer_frameEx_t)/sizeof(double);

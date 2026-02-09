@@ -634,7 +634,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("nasalizationAnticipatoryAmplitude", lp.nasalizationAnticipatoryAmplitude);
   getNum("nasalizationAnticipatoryBlend", lp.nasalizationAnticipatoryBlend);
 
-  getBool("positionalAllophonesEnabled", lp.positionalAllophonesEnabled);
+  getBool("allophoneRulesEnabled", lp.allophoneRulesEnabled);
 
 // Length contrast / gemination (optional)
 getBool("lengthContrastEnabled", lp.lengthContrastEnabled);
@@ -643,20 +643,6 @@ getNum("lengthContrastLongVowelFloorMs", lp.lengthContrastLongVowelFloorMs);
 getNum("lengthContrastGeminateClosureScale", lp.lengthContrastGeminateClosureScale);
 getNum("lengthContrastGeminateReleaseScale", lp.lengthContrastGeminateReleaseScale);
 getNum("lengthContrastPreGeminateVowelScale", lp.lengthContrastPreGeminateVowelScale);
-
-// Positional allophones details (optional)
-getNum("positionalAllophonesStopAspirationWordInitialStressed", lp.positionalAllophonesStopAspirationWordInitialStressed);
-getNum("positionalAllophonesStopAspirationWordInitial", lp.positionalAllophonesStopAspirationWordInitial);
-getNum("positionalAllophonesStopAspirationIntervocalic", lp.positionalAllophonesStopAspirationIntervocalic);
-getNum("positionalAllophonesStopAspirationWordFinal", lp.positionalAllophonesStopAspirationWordFinal);
-
-getNum("positionalAllophonesLateralDarknessPreVocalic", lp.positionalAllophonesLateralDarknessPreVocalic);
-getNum("positionalAllophonesLateralDarknessPostVocalic", lp.positionalAllophonesLateralDarknessPostVocalic);
-getNum("positionalAllophonesLateralDarknessSyllabic", lp.positionalAllophonesLateralDarknessSyllabic);
-getNum("positionalAllophonesLateralDarkF2TargetHz", lp.positionalAllophonesLateralDarkF2TargetHz);
-
-getBool("positionalAllophonesGlottalReinforcementEnabled", lp.positionalAllophonesGlottalReinforcementEnabled);
-getNum("positionalAllophonesGlottalReinforcementDurationMs", lp.positionalAllophonesGlottalReinforcementDurationMs);
 
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
@@ -741,30 +727,117 @@ if (const yaml_min::Node* lc = settings.get("lengthContrast"); lc && lc->isMap()
   getNumFrom(*lc, "preGeminateVowelScale", lp.lengthContrastPreGeminateVowelScale);
 }
 
+// Data-driven allophone rules (replaces old positionalAllophones: block).
+if (const yaml_min::Node* ar = settings.get("allophoneRules"); ar && ar->isMap()) {
+  getBoolFrom(*ar, "enabled", lp.allophoneRulesEnabled);
+
+  if (const yaml_min::Node* rules = ar->get("rules"); rules && rules->isSeq()) {
+    lp.allophoneRules.clear();
+    for (const auto& item : rules->seq) {
+      if (!item.isMap()) continue;
+      AllophoneRule rule;
+      getStrFrom(item, "name", rule.name);
+      getStrFrom(item, "action", rule.action);
+      getStrFrom(item, "tokenType", rule.tokenType);
+      getStrFrom(item, "position", rule.position);
+      getStrFrom(item, "stress", rule.stress);
+
+      // Parse phonemes (UTF-8 → u32)
+      if (const yaml_min::Node* ph = item.get("phonemes"); ph && ph->isSeq()) {
+        for (const auto& el : ph->seq) {
+          if (el.isScalar()) rule.phonemes.push_back(utf8ToU32(el.scalar));
+        }
+      }
+
+      // Parse flags / notFlags
+      if (const yaml_min::Node* fl = item.get("flags"); fl && fl->isSeq()) {
+        for (const auto& el : fl->seq) {
+          if (el.isScalar()) rule.flags.push_back(el.scalar);
+        }
+      }
+      if (const yaml_min::Node* nf = item.get("notFlags"); nf && nf->isSeq()) {
+        for (const auto& el : nf->seq) {
+          if (el.isScalar()) rule.notFlags.push_back(el.scalar);
+        }
+      }
+
+      // Parse after / before neighbor filters
+      if (const yaml_min::Node* af = item.get("after"); af && af->isSeq()) {
+        for (const auto& el : af->seq) {
+          if (el.isScalar()) rule.after.push_back(utf8ToU32(el.scalar));
+        }
+      }
+      if (const yaml_min::Node* bf = item.get("before"); bf && bf->isSeq()) {
+        for (const auto& el : bf->seq) {
+          if (el.isScalar()) rule.before.push_back(utf8ToU32(el.scalar));
+        }
+      }
+
+      // Parse replace params
+      {
+        std::string rTo;
+        getStrFrom(item, "replaceTo", rTo);
+        if (!rTo.empty()) rule.replaceTo = utf8ToU32(rTo);
+        getNumFrom(item, "replaceDurationMs", rule.replaceDurationMs);
+        getBoolFrom(item, "replaceRemovesClosure", rule.replaceRemovesClosure);
+        getBoolFrom(item, "replaceRemovesAspiration", rule.replaceRemovesAspiration);
+      }
+
+      // Parse scale params
+      getNumFrom(item, "durationScale", rule.durationScale);
+      getNumFrom(item, "fadeScale", rule.fadeScale);
+      if (const yaml_min::Node* fs = item.get("fieldScales"); fs && fs->isMap()) {
+        for (const auto& kv : fs->map) {
+          double val = 1.0;
+          if (kv.second.isScalar()) {
+            try { val = std::stod(kv.second.scalar); } catch (...) {}
+          }
+          rule.fieldScales.emplace_back(kv.first, val);
+        }
+      }
+
+      // Parse shift params
+      if (const yaml_min::Node* sh = item.get("fieldShifts"); sh && sh->isSeq()) {
+        for (const auto& entry : sh->seq) {
+          if (!entry.isMap()) continue;
+          AllophoneRule::ShiftEntry se;
+          getStrFrom(entry, "field", se.field);
+          getNumFrom(entry, "deltaHz", se.deltaHz);
+          getNumFrom(entry, "targetHz", se.targetHz);
+          getNumFrom(entry, "blend", se.blend);
+          if (!se.field.empty()) rule.fieldShifts.push_back(se);
+        }
+      }
+
+      // Parse insert params
+      {
+        std::string ins;
+        getStrFrom(item, "insertPhoneme", ins);
+        if (!ins.empty()) rule.insertPhoneme = utf8ToU32(ins);
+        getNumFrom(item, "insertDurationMs", rule.insertDurationMs);
+        getNumFrom(item, "insertFadeMs", rule.insertFadeMs);
+      }
+      if (const yaml_min::Node* ic = item.get("insertContexts"); ic && ic->isSeq()) {
+        for (const auto& el : ic->seq) {
+          if (el.isScalar()) rule.insertContexts.push_back(el.scalar);
+        }
+      }
+
+      // Validate: must have an action
+      if (!rule.action.empty()) {
+        lp.allophoneRules.push_back(std::move(rule));
+      }
+    }
+  }
+}
+
+// Backward compat: read old "positionalAllophones: enabled: true" and set the new flag.
 if (const yaml_min::Node* pa = settings.get("positionalAllophones"); pa && pa->isMap()) {
-  getBoolFrom(*pa, "enabled", lp.positionalAllophonesEnabled);
-
-  if (const yaml_min::Node* sa = pa->get("stopAspiration"); sa && sa->isMap()) {
-    getNumFrom(*sa, "wordInitialStressed", lp.positionalAllophonesStopAspirationWordInitialStressed);
-    getNumFrom(*sa, "wordInitial", lp.positionalAllophonesStopAspirationWordInitial);
-    getNumFrom(*sa, "intervocalic", lp.positionalAllophonesStopAspirationIntervocalic);
-    getNumFrom(*sa, "wordFinal", lp.positionalAllophonesStopAspirationWordFinal);
+  bool oldEnabled = false;
+  getBoolFrom(*pa, "enabled", oldEnabled);
+  if (oldEnabled && !lp.allophoneRulesEnabled) {
+    lp.allophoneRulesEnabled = true;
   }
-
-  if (const yaml_min::Node* ld = pa->get("lateralDarkness"); ld && ld->isMap()) {
-    getNumFrom(*ld, "preVocalic", lp.positionalAllophonesLateralDarknessPreVocalic);
-    getNumFrom(*ld, "postVocalic", lp.positionalAllophonesLateralDarknessPostVocalic);
-    getNumFrom(*ld, "syllabic", lp.positionalAllophonesLateralDarknessSyllabic);
-  }
-  // Optional explicit target for darkness
-  getNumFrom(*pa, "lateralDarkF2Target", lp.positionalAllophonesLateralDarkF2TargetHz);
-
-  if (const yaml_min::Node* gr = pa->get("glottalReinforcement"); gr && gr->isMap()) {
-    getBoolFrom(*gr, "enabled", lp.positionalAllophonesGlottalReinforcementEnabled);
-    getStrListFrom(*gr, "contexts", lp.positionalAllophonesGlottalReinforcementContexts);
-  }
-  // Optional explicit duration for inserted glottal stop (ms at speed=1)
-  getNumFrom(*pa, "glottalReinforcementDurationMs", lp.positionalAllophonesGlottalReinforcementDurationMs);
 }
 
 if (const yaml_min::Node* sc = settings.get("specialCoarticulation"); sc && sc->isMap()) {

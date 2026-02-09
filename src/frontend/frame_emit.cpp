@@ -283,6 +283,8 @@ void emitFrames(
     trajectoryState->prevCf3 = frame.cf3;
     trajectoryState->prevPf2 = frame.pf2;
     trajectoryState->prevPf3 = frame.pf3;
+    trajectoryState->prevVoiceAmp = base[va];
+    trajectoryState->prevFricAmp = base[fa];
     trajectoryState->hasPrevFrame = true;
     trajectoryState->prevWasNasal = isNasal;
 
@@ -405,6 +407,27 @@ void emitFramesEx(
     frameEx.transF2Scale = t.transF2Scale;
     frameEx.transF3Scale = t.transF3Scale;
     frameEx.transNasalScale = t.transNasalScale;
+
+    // Detect source transitions for equal-power amplitude crossfade.
+    // When voicing source type changes (voiced→voiceless or vice versa),
+    // linear crossfade creates an energy dip. Equal-power fixes this.
+    // We check the FRAME values (not token flags) because that's what
+    // the DSP actually interpolates between.
+    {
+      double curVA = base[va];   // voiceAmplitude of this frame
+      double curFA = base[fa];   // fricationAmplitude of this frame
+      bool curVoiced   = (curVA > 0.05);
+      bool curFricated = (curFA > 0.05);
+      if (trajectoryState->hasPrevFrame) {
+        bool prevVoiced   = (trajectoryState->prevVoiceAmp > 0.05);
+        bool prevFricated = (trajectoryState->prevFricAmp > 0.05);
+        bool sourceChange = (prevVoiced != curVoiced) ||
+                            (prevFricated != curFricated);
+        frameEx.transAmplitudeMode = sourceChange ? 1.0 : 0.0;
+      } else {
+        frameEx.transAmplitudeMode = 0.0;
+      }
+    }
 
     // Fujisaki pitch model parameters (set by applyPitchFujisaki)
     // These pass phrase/accent commands to the DSP for natural prosody contours.
@@ -557,6 +580,8 @@ void emitFramesEx(
     trajectoryState->prevCf3 = frame.cf3;
     trajectoryState->prevPf2 = frame.pf2;
     trajectoryState->prevPf3 = frame.pf3;
+    trajectoryState->prevVoiceAmp = base[va];
+    trajectoryState->prevFricAmp = base[fa];
     trajectoryState->hasPrevFrame = true;
     trajectoryState->prevWasNasal = isNasal;
 
