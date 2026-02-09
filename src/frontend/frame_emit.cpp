@@ -406,7 +406,7 @@ void emitFramesEx(
     frameEx.transF3Scale = t.transF3Scale;
     frameEx.transNasalScale = t.transNasalScale;
 
-    // Fujisaki pitch model parameters (set by calculatePitchesFujisaki)
+    // Fujisaki pitch model parameters (set by applyPitchFujisaki)
     // These pass phrase/accent commands to the DSP for natural prosody contours.
     frameEx.fujisakiEnabled = t.fujisakiEnabled ? 1.0 : 0.0;
     frameEx.fujisakiReset = t.fujisakiReset ? 1.0 : 0.0;

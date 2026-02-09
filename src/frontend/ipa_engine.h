@@ -86,7 +86,7 @@ struct Token {
   double transF3Scale = 0.0;
   double transNasalScale = 0.0;
 
-  // Fujisaki pitch model markers (set by calculatePitchesFujisaki)
+  // Fujisaki pitch model markers (set by applyPitchFujisaki)
   // These are passed through to frameEx for DSP-level pitch contour generation.
   bool fujisakiEnabled = false;
   bool fujisakiReset = false;         // Reset model state (at clause start)

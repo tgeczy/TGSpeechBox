@@ -281,9 +281,14 @@ struct LanguagePack {
   double fujisakiPhraseLen = 0.0;    // Phrase filter rise time (samples)
   double fujisakiAccentLen = 0.0;    // Accent filter attack time (samples)
   double fujisakiAccentDur = 0.0;    // Accent pulse duration (samples)
-  double fujisakiDeclinationScale = 25.0;  // Scale for linear pitch declination (lower = gentler slope)
-  double fujisakiDeclinationMax = 1.25;    // Max declination ratio (1.25 = pitch can't drop below ~80% of base)
-  double fujisakiDeclinationPostFloor = 0.15; // Continued gentle slope after hitting floor (0 = flat)
+  double fujisakiDeclinationRate = 0.0003;  // Exponential declination steepness (higher = steeper fall)
+
+  // DEPRECATED: These settings are unused by the exponential declination
+  // implementation. Kept for YAML backward compatibility.
+  double fujisakiPhraseDecay = 0.75;
+  double fujisakiDeclinationScale = 25.0;
+  double fujisakiDeclinationMax = 1.25;
+  double fujisakiDeclinationPostFloor = 0.15;
 
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";
