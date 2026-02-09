@@ -417,7 +417,7 @@ The frontend supports three pitch models, selected via `legacyPitchMode`:
 
 - `legacyPitchMode: "espeak_style"` (default) — Table-based intonation model (same contours as `ipa.py`).
 - `legacyPitchMode: "legacy"` — Older time-based pitch curves ported from the ee80f4d-era `ipa.py`.
-- `legacyPitchMode: "fujisaki_style"` — Fujisaki pitch model with natural declination and accent peaks. This provides Eloquence-like intonation with phrase-level pitch fall and stressed syllable peaks.
+- `legacyPitchMode: "fujisaki_style"` — Fujisaki pitch model with exponential declination and accent peaks. This provides Eloquence-like intonation with smooth phrase-level pitch fall, stressed syllable peaks, and clause-final pitch shaping.
 
 Additional pitch settings:
 
@@ -438,17 +438,23 @@ When `legacyPitchMode: "fujisaki_style"` is enabled, these settings control the 
 - `fujisakiAccentLen` (number, default `0`): Accent filter attack time in samples. 0 = DSP default (~1024 @ 22050 Hz = 46ms).
 - `fujisakiAccentDur` (number, default `0`): Accent pulse duration in samples. 0 = DSP default (~7500 @ 22050 Hz = 340ms).
 
-**Declination settings (linear pitch fall across utterance):**
-- `fujisakiDeclinationScale` (number, default `25.0`): How fast pitch falls. Lower = gentler slope.
-- `fujisakiDeclinationMax` (number, default `1.25`): Maximum declination ratio (floor). 1.25 means pitch can't drop below ~80% of base. Lower values = shallower floor.
-- `fujisakiDeclinationPostFloor` (number, default `0.15`): Continued slope after hitting floor (0-1). 0 = flat after floor, 0.15 = continue at 15% rate.
+**Declination settings (exponential pitch fall across utterance):**
+- `fujisakiDeclinationRate` (number, default `0.0003`): Exponential decay steepness. Controls how fast pitch falls across the utterance. Higher = steeper fall. The exponential formula `basePitch * exp(-rate * timeMs)` naturally asymptotes — fast initial fall that gradually flattens — so long sentences decline smoothly without ever hitting a hard floor.
+  - `0.0002` = gentle slope, stays lively longer
+  - `0.0003` = natural conversational declination (default)
+  - `0.0005` = steep fall for dramatic effect
+
+**Deprecated declination settings** (kept for YAML backward compatibility, no longer used):
+- `fujisakiDeclinationScale`, `fujisakiDeclinationMax`, `fujisakiDeclinationPostFloor`, `fujisakiPhraseDecay` — these were used by earlier linear and multi-phrase implementations. Existing YAML files referencing them will parse without warnings but the values have no effect.
 
 **Clause-type prosody:**
-The Fujisaki model automatically adjusts prosody based on punctuation:
-- `.` (period): Full declarative fall (default behavior)
-- `?` (question): Higher pitch, less declination, strong final rise
-- `!` (exclamation): Punchy accents, dramatic fall
-- `,` (comma): Less declination, continuation feel
+The Fujisaki model automatically adjusts prosody based on punctuation. Each clause type gets distinct behavior through phrase amplitude scaling, declination rate, and direct pitch shaping on the final vowel:
+- `.` (period): Full declarative fall; final vowel ends 15% lower for a definitive finish
+- `?` (question): Higher base pitch (+18%), reduced declination, final vowel rises 25% with a strong accent hump
+- `!` (exclamation): High start (+15%), steep declination (2.5x), punchy accents, final vowel snaps down hard
+- `,` (comma): Slight raise (+4%), gentle declination, no final shaping (level = continuation)
+
+This clause-final pitch shaping is essential for short utterances (single words, spelled letters) where exponential declination barely has time to create within-word pitch movement.
 
 Example configuration for Eloquence-like prosody:
 ```yaml
@@ -457,8 +463,7 @@ settings:
   fujisakiPhraseAmp: 0.24
   fujisakiPrimaryAccentAmp: 0.24
   fujisakiSecondaryAccentAmp: 0.12
-  fujisakiDeclinationScale: 25.0
-  fujisakiDeclinationMax: 1.25
+  fujisakiDeclinationRate: 0.0003
 ```
 
 *Note: The Fujisaki pitch model implementation was developed with assistance from Rommix, whose extensive testing and feedback on timing parameters helped shape the final behavior.*
