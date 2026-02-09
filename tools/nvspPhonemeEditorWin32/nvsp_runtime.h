@@ -89,7 +89,7 @@ struct EditorVoicingToneV1 {
 };
 
 // FrameEx struct - per-frame voice quality extensions (DSP v5+)
-// Must match nvspFrontend_FrameEx / speechPlayer_frameEx_t exactly (18 doubles = 144 bytes)
+// Must match nvspFrontend_FrameEx / speechPlayer_frameEx_t exactly (22 doubles = 176 bytes)
 struct EditorFrameEx {
   // Voice quality parameters (DSP v5)
   double creakiness;      // laryngealization / creaky voice
@@ -112,6 +112,11 @@ struct EditorFrameEx {
   double fujisakiAccentAmp;   // accent command amplitude
   double fujisakiAccentDur;   // accent duration D (samples). 0 = use default
   double fujisakiAccentLen;   // accent filter L (samples). 0 = use default
+  // Per-parameter transition speed scales
+  double transF1Scale;        // cf1, pf1, cb1, pb1
+  double transF2Scale;        // cf2, pf2, cb2, pb2
+  double transF3Scale;        // cf3, pf3, cb3, pb3
+  double transNasalScale;     // cfN0, cfNP, cbN0, cbNP, caNP
 };
 
 // speechPlayer.dll API

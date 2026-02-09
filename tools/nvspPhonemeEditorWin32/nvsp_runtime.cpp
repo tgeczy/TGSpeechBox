@@ -1131,7 +1131,7 @@ static void __cdecl frameExCallback(
     // Use the MIXED FrameEx from frontend (phoneme + user defaults + Fujisaki pitch)
     if (ctx->queueFrameEx && frameExOrNull) {
       EditorFrameEx mixedEx{};
-      // Copy all 18 fields - includes formant ramping and Fujisaki pitch model
+      // Copy all 22 fields - includes formant ramping, Fujisaki pitch model, and transition scales
       static_assert(sizeof(EditorFrameEx) == sizeof(nvspFrontend_FrameEx), "EditorFrameEx size mismatch");
       std::memcpy(&mixedEx, frameExOrNull, sizeof(EditorFrameEx));
       ctx->queueFrameEx(ctx->player, &f, &mixedEx, 
