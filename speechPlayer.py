@@ -76,7 +76,7 @@ class FrameEx(Structure):
     If you don't need these, just use queueFrame() as before.
     
     IMPORTANT: This struct must match nvspFrontend_FrameEx / speechPlayer_frameEx_t
-    exactly (18 doubles = 144 bytes). Field order matters for ctypes.memmove().
+    exactly (22 doubles = 176 bytes). Field order matters for ctypes.memmove().
     """
     _fields_ = [
         # Voice quality parameters (DSP v5)
@@ -105,6 +105,13 @@ class FrameEx(Structure):
         ("fujisakiAccentAmp", c_double), # Accent command amplitude (e.g. 0.4)
         ("fujisakiAccentDur", c_double), # Accent duration D (samples). 0 = use default
         ("fujisakiAccentLen", c_double), # Accent filter L (samples). 0 = use default
+
+        # Per-parameter transition speed scales (DSP v7)
+        # 0.0 = no override, <1.0 = reach target faster, 1.0 = normal fade rate
+        ("transF1Scale", c_double),     # cf1, pf1, cb1, pb1
+        ("transF2Scale", c_double),     # cf2, pf2, cb2, pb2
+        ("transF3Scale", c_double),     # cf3, pf3, cb3, pb3
+        ("transNasalScale", c_double),  # cfN0, cfNP, cbN0, cbNP, caNP
     ]
     
     @classmethod
@@ -141,6 +148,11 @@ class FrameEx(Structure):
         ex.fujisakiAccentAmp = 0.0
         ex.fujisakiAccentDur = 0.0
         ex.fujisakiAccentLen = 0.0
+        # Transition scales: 0.0 = no override (use base fade rate)
+        ex.transF1Scale = 0.0
+        ex.transF2Scale = 0.0
+        ex.transF3Scale = 0.0
+        ex.transNasalScale = 0.0
         return ex
 
 
