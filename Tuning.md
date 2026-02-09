@@ -294,59 +294,91 @@ This is a more speech-like alternative to inserting a pause. It changes how some
 - `postStopAspirationEnabled` (bool, default `false`): Inserts a short aspiration phoneme after unvoiced stops in specific contexts.
 - `postStopAspirationPhoneme` (string/IPA key, default `"h"`): Which phoneme key to insert for aspiration.
 
-### Positional allophones (optional)
+### Allophone rules (YAML-driven rule engine)
 
-This pass applies small, position-based tweaks without needing new phonemes in your pack.
+This pass replaces the older hardcoded `positionalAllophones` system with a generic, data-driven rule engine. Language pack authors can define allophone rules entirely in YAML without C++ changes.
 
-Nested block form (preferred):
+Rules support five action types: **replace** (swap phoneme), **scale** (multiply duration/fields), **shift** (Hz deltas or blend-toward-target), **insert-before**, and **insert-after**. Replace and insert rules are first-match-wins (exclusive); scale and shift rules are cumulative (all matching rules apply).
 
 ```yaml
 settings:
-  positionalAllophones:
+  allophoneRules:
     enabled: true
+    rules:
+      # Intervocalic flapping: /t,d/ → [ɾ] before unstressed vowel
+      - name: american_flapping
+        phonemes: [t, d]
+        position: intervocalic
+        stress: next-unstressed
+        action: replace
+        replaceTo: "ɾ"
+        replaceDurationMs: 14.0
+        replaceRemovesClosure: true
+        replaceRemovesAspiration: true
 
-    # Applies to the inserted post-stop aspiration phoneme (see `postStopAspirationEnabled`)
-    stopAspiration:
-      wordInitialStressed: 0.8
-      wordInitial: 0.5
-      intervocalic: 0.2
-      wordFinal: 0.1
+      # /l/ darkness: post-vocalic /l/ blends F2 toward 900 Hz
+      - name: dark_l_post_vocalic
+        flags: [liquid]
+        position: post-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900
+            blend: 0.8
+          - field: pf2
+            targetHz: 900
+            blend: 0.8
 
-    # /l/ -> more [ɫ]-like as it moves later in the syllable/word
-    lateralDarkness:
-      preVocalic: 0.2
-      postVocalic: 0.8
-      syllabic: 0.9
+      # Unreleased word-final voiceless stops
+      - name: unreleased_word_final
+        flags: [stop]
+        notFlags: [voiced]
+        position: word-final
+        action: scale
+        durationScale: 0.85
+        fieldScales:
+          fricationAmplitude: 0.4
+          aspirationAmplitude: 0.3
 
-    # Simple target used for the F2 pull (Hz)
-    lateralDarkF2Target: 900
-
-    # Insert /ʔ/ before word-final voiceless stops in selected contexts
-    glottalReinforcement:
-      enabled: false
-      contexts: ["V_#"]   # "vowel before word-final stop"
-
-    # Inserted /ʔ/ duration in ms (at speed=1)
-    glottalReinforcementDurationMs: 18
+      # Glottal reinforcement: insert [ʔ] before word-final voiceless stops
+      - name: glottal_reinforcement
+        flags: [stop]
+        notFlags: [voiced]
+        position: word-final
+        action: insert-before
+        insertPhoneme: "ʔ"
+        insertDurationMs: 18.0
 ```
 
-Flat-key equivalents are also supported:
+#### Rule match conditions
 
-- `positionalAllophonesEnabled`
-- `positionalAllophonesStopAspirationWordInitialStressed`
-- `positionalAllophonesStopAspirationWordInitial`
-- `positionalAllophonesStopAspirationIntervocalic`
-- `positionalAllophonesStopAspirationWordFinal`
-- `positionalAllophonesLateralDarknessPreVocalic`
-- `positionalAllophonesLateralDarknessPostVocalic`
-- `positionalAllophonesLateralDarknessSyllabic`
-- `positionalAllophonesLateralDarkF2TargetHz`
-- `positionalAllophonesGlottalReinforcementEnabled`
-- `positionalAllophonesGlottalReinforcementDurationMs`
+| Field | Type | Description |
+|-------|------|-------------|
+| `phonemes` | list | IPA keys that match (e.g. `[t, d]`). Empty = match any. |
+| `flags` | list | Required phoneme flags: `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `fricative`, `affricate`, `tap`, `trill` |
+| `notFlags` | list | Excluded phoneme flags (rule won't match if any of these are set) |
+| `tokenType` | string | Token type filter: `"phoneme"` (default), `"aspiration"`, `"closure"` |
+| `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"` |
+| `stress` | string | Stress filter: `"stressed"`, `"unstressed"`, `"next-unstressed"` |
+| `after` | list | Previous phoneme must be one of these IPA keys |
+| `before` | list | Next phoneme must be one of these IPA keys |
 
-Notes:
-- Aspiration scaling only has an effect if `postStopAspirationEnabled` is already inserting aspiration tokens.
-- Glottal reinforcement requires the phoneme **`ʔ`** to exist in `phonemes.yaml`.
+#### Action types
+
+| Action | Description |
+|--------|-------------|
+| `replace` | Swap phoneme def, optionally remove adjacent closure/aspiration tokens. Fields: `replaceTo`, `replaceDurationMs`, `replaceRemovesClosure`, `replaceRemovesAspiration` |
+| `scale` | Multiply duration and/or specific fields. Fields: `durationScale`, `fieldScales` (map of field name to multiplier) |
+| `shift` | Apply Hz deltas or blend-toward-target. Fields: `fieldShifts` (list of `{field, deltaHz, targetHz, blend}`) |
+| `insert-before` | Insert a new token before this one. Fields: `insertPhoneme`, `insertDurationMs` |
+| `insert-after` | Insert a new token after this one. Fields: `insertPhoneme`, `insertDurationMs` |
+
+#### Important notes
+
+- **Neighbor matching** uses `prevPhoneme`/`nextPhoneme` which skip closure, aspiration, and gap tokens — so intervocalic checks work correctly even when stops have inserted closure/aspiration tokens between them.
+- **`isWordFinalPhoneme`** looks past trailing aspiration/closure tokens, so a stop followed by its aspiration token is still considered word-final.
+- **eSpeak stress marks** land on syllable-initial consonants, not vowels. The `next-unstressed` check verifies both that the current token has `stress <= 0` AND that the next vowel is unstressed, preventing false matches on stressed consonants.
+- **Backward compatibility**: the old `positionalAllophones: enabled: true` syntax is still parsed and sets `allophoneRulesEnabled = true` (no rules are loaded from the old format).
 
 ### Length mark handling (ː)
 - `lengthenedScale` (number, default `1.05`): Duration multiplier when a phoneme is lengthened with ː.
@@ -816,10 +848,29 @@ Flat-key equivalents are also supported:
 - `boundarySmoothingNasalF1Instant`
 - `boundarySmoothingNasalF2F3SpansPhone`
 
+#### Transition coverage
+
+The pass handles a comprehensive set of boundary types:
+
+**Vowel transitions:** vowel→stop, stop→vowel, vowel→fricative, fricative→vowel, vowel→nasal, nasal→vowel, vowel→liquid, liquid→vowel, vowel→vowel (hiatus, but not tied diphthongs).
+
+**Consonant cluster transitions:** nasal→stop, liquid→stop, fricative→stop, stop→fricative, nasal→fricative, fricative→nasal, stop→nasal, nasal→liquid, liquid→fricative.
+
+**Fallback transitions:** Any consonant→consonant pair not covered above gets a generic 10ms fade. Additionally, sonorant→unclassified-consonant and unclassified-consonant→sonorant transitions (e.g. /n/→/h/, where /h/ uses `aspirationAmplitude` not `fricationAmplitude` and thus `tokIsFricative()` returns false) get vowel-to-fricative-equivalent fades.
+
+#### Voicing-flip guard
+
+When voicing flips between two consonants (voiced→voiceless or vice versa, e.g. /n/→/h/), the pass does **not** increase the fade duration. A longer crossfade across a voicing boundary makes voicing and aspiration overlap, producing a buzz or pop that's worse than the original transition. Vowel↔consonant transitions are exempt from this guard — those need the longer fade for smooth formant movement.
+
+#### Fade cap and floor
+
+The maximum fade is capped at 75% of the token's duration (`kMaxFadeRatio = 0.75`) to preserve some steady-state. A 6ms floor (`kMinFadeMs`) prevents the ratio cap from creating near-discontinuities on very short sentence-final phones.
+
 Tuning notes:
 - If speech starts sounding "mushy", lower `f3Scale` first (or try `f2Scale: 0.8`).
 - `nasalF1Instant: true` is important for natural nasal transitions — F1 jumps sharply at the velum opening/closing.
 - The per-formant scales multiply the pass's internal fade values, so `f1Scale: 0.6` means F1 transitions happen in 60% of the time that F2 uses.
+- If consonant-to-consonant transitions sound harsh, the generic fallback (10ms) may need tuning for your language.
 
 ### Trajectory limiting
 
@@ -977,33 +1028,46 @@ settings:
     preGeminateVowelScale: 0.85
 ```
 
-### Positional allophones
+### Allophone rules
 
-Systematic, position-based allophones (aspiration scaling, /l/ darkness, optional glottal reinforcement of final stops).
+YAML-driven allophone rule engine. Replaces the older `positionalAllophones` system. See the [allophone rules reference](#allophone-rules-yaml-driven-rule-engine) earlier in this document for the full rule format.
 
 ```yaml
 settings:
-  positionalAllophones:
-    enabled: false
+  allophoneRules:
+    enabled: true
+    rules:
+      - name: american_flapping
+        phonemes: [t, d]
+        position: intervocalic
+        stress: next-unstressed
+        action: replace
+        replaceTo: "ɾ"
+        replaceDurationMs: 14.0
+        replaceRemovesClosure: true
+        replaceRemovesAspiration: true
 
-    stopAspiration:
-      wordInitialStressed: 0.80
-      wordInitial: 0.50
-      intervocalic: 0.20
-      wordFinal: 0.10
+      - name: dark_l_post_vocalic
+        flags: [liquid]
+        position: post-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900
+            blend: 0.8
+          - field: pf2
+            targetHz: 900
+            blend: 0.8
 
-    lateralDarkness:
-      preVocalic: 0.20
-      postVocalic: 0.80
-      syllabic: 0.90
-
-    # Optional /l/ darkness target (F2 pull).
-    lateralDarkF2Target: 900
-
-    glottalReinforcement:
-      enabled: true
-      contexts: ["#_#", "V_#"]
-      durationMs: 18
+      - name: unreleased_word_final
+        flags: [stop]
+        notFlags: [voiced]
+        position: word-final
+        action: scale
+        durationScale: 0.85
+        fieldScales:
+          fricationAmplitude: 0.4
+          aspirationAmplitude: 0.3
 ```
 
 ### Single-word tuning
