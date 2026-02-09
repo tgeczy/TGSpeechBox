@@ -33,6 +33,49 @@ static inline bool isFrequencyParam(int idx) {
 	return false;
 }
 
+// Identifies which frame parameter indices belong to the F1 group.
+// Used for per-parameter transition speed scaling.
+static inline bool isF1Param(int idx) {
+	const int szP = sizeof(speechPlayer_frameParam_t);
+	int i;
+	i = (int)(offsetof(speechPlayer_frame_t, cf1) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, pf1) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, cb1) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, pb1) / szP); if(idx == i) return true;
+	return false;
+}
+
+static inline bool isF2Param(int idx) {
+	const int szP = sizeof(speechPlayer_frameParam_t);
+	int i;
+	i = (int)(offsetof(speechPlayer_frame_t, cf2) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, pf2) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, cb2) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, pb2) / szP); if(idx == i) return true;
+	return false;
+}
+
+static inline bool isF3Param(int idx) {
+	const int szP = sizeof(speechPlayer_frameParam_t);
+	int i;
+	i = (int)(offsetof(speechPlayer_frame_t, cf3) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, pf3) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, cb3) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, pb3) / szP); if(idx == i) return true;
+	return false;
+}
+
+static inline bool isNasalParam(int idx) {
+	const int szP = sizeof(speechPlayer_frameParam_t);
+	int i;
+	i = (int)(offsetof(speechPlayer_frame_t, cfN0) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, cfNP) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, cbN0) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, cbNP) / szP); if(idx == i) return true;
+	i = (int)(offsetof(speechPlayer_frame_t, caNP) / szP); if(idx == i) return true;
+	return false;
+}
+
 struct frameRequest_t {
 	unsigned int minNumSamples;
 	unsigned int numFadeSamples;
@@ -87,13 +130,44 @@ class FrameManagerImpl: public FrameManager {
 				// source transitions (e.g. voiced stop → aspiration) that sound
 				// like pops.
 				double cosineRatio = cosineSmooth(linearRatio);
+
+				// Per-parameter transition scales: if the new frame carries
+				// a non-zero scale for a formant group, that group fades
+				// faster (or slower) than the base rate.  Scale < 1 means
+				// "reach target in that fraction of the fade, then hold."
+				// We read from the NEW frame's FrameEx because it represents
+				// the segment we're transitioning INTO — its transition
+				// metadata describes how to ARRIVE at its targets.
+				const double scF1 = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transF1Scale : 0.0;
+				const double scF2 = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transF2Scale : 0.0;
+				const double scF3 = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transF3Scale : 0.0;
+				const double scN  = newFrameRequest->hasFrameEx ? newFrameRequest->frameEx.transNasalScale : 0.0;
+
 				for(int i=0;i<speechPlayer_frame_numParams;++i) {
 					double oldVal = ((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[i];
 					double newVal = ((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[i];
+
+					// Determine this parameter's effective fade ratio.
+					double paramLinear = linearRatio;
+					double scale = 0.0;
+					if(scF1 > 0.0 && isF1Param(i))      scale = scF1;
+					else if(scF2 > 0.0 && isF2Param(i))  scale = scF2;
+					else if(scF3 > 0.0 && isF3Param(i))  scale = scF3;
+					else if(scN > 0.0 && isNasalParam(i)) scale = scN;
+
+					if(scale > 0.0 && scale != 1.0) {
+						// Accelerate (or decelerate) this parameter's fade.
+						// At scale=0.3, the parameter reaches its target when
+						// linearRatio hits 0.3, then holds for the remainder.
+						paramLinear = linearRatio / scale;
+						if(paramLinear > 1.0) paramLinear = 1.0;
+					}
+
 					if(isFrequencyParam(i)) {
-						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateFreqAtFadePosition(oldVal, newVal, cosineRatio);
+						double paramCosine = cosineSmooth(paramLinear);
+						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateFreqAtFadePosition(oldVal, newVal, paramCosine);
 					} else {
-						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, linearRatio);
+						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, paramLinear);
 					}
 				}
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
