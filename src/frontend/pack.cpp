@@ -504,8 +504,6 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Frontend rule passes (token-level)
   getBool("coarticulationEnabled", lp.coarticulationEnabled);
   getNum("coarticulationStrength", lp.coarticulationStrength);
-  getNum("coarticulationTransitionExtent", lp.coarticulationTransitionExtent);
-  getBool("coarticulationFadeIntoConsonants", lp.coarticulationFadeIntoConsonants);
   getNum("coarticulationWordInitialFadeScale", lp.coarticulationWordInitialFadeScale);
   getBool("coarticulationGraduated", lp.coarticulationGraduated);
   getNum("coarticulationAdjacencyMaxConsonants", lp.coarticulationAdjacencyMaxConsonants);
@@ -516,21 +514,34 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationF1Scale", lp.coarticulationF1Scale);
   getNum("coarticulationF2Scale", lp.coarticulationF2Scale);
   getNum("coarticulationF3Scale", lp.coarticulationF3Scale);
-  getBool("coarticulationAlveolarBackVowelEnabled", lp.coarticulationAlveolarBackVowelEnabled);
-  getNum("coarticulationBackVowelF2Threshold", lp.coarticulationBackVowelF2Threshold);
-  getNum("coarticulationAlveolarBackVowelStrengthBoost", lp.coarticulationAlveolarBackVowelStrengthBoost);
-  getBool("coarticulationLabializedFricativeFrontingEnabled", lp.coarticulationLabializedFricativeFrontingEnabled);
-  getNum("coarticulationLabializedFricativeF2Pull", lp.coarticulationLabializedFricativeF2Pull);
   getBool("coarticulationVelarPinchEnabled", lp.coarticulationVelarPinchEnabled);
   getNum("coarticulationVelarPinchThreshold", lp.coarticulationVelarPinchThreshold);
   getNum("coarticulationVelarPinchF2Scale", lp.coarticulationVelarPinchF2Scale);
   getNum("coarticulationVelarPinchF3", lp.coarticulationVelarPinchF3);
 
+  // Special coarticulation rules (language-specific Hz deltas)
+  getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);
+  getNum("specialCoarticMaxDeltaHz", lp.specialCoarticMaxDeltaHz);
+
+  // Cluster timing
+  getBool("clusterTimingEnabled", lp.clusterTimingEnabled);
+  getNum("clusterTimingFricBeforeStopScale", lp.clusterTimingFricBeforeStopScale);
+  getNum("clusterTimingStopBeforeFricScale", lp.clusterTimingStopBeforeFricScale);
+  getNum("clusterTimingFricBeforeFricScale", lp.clusterTimingFricBeforeFricScale);
+  getNum("clusterTimingStopBeforeStopScale", lp.clusterTimingStopBeforeStopScale);
+  getNum("clusterTimingTripleClusterMiddleScale", lp.clusterTimingTripleClusterMiddleScale);
+  getNum("clusterTimingWordMedialConsonantScale", lp.clusterTimingWordMedialConsonantScale);
+  getNum("clusterTimingWordFinalObstruentScale", lp.clusterTimingWordFinalObstruentScale);
+  getNum("clusterTimingAffricateInClusterScale", lp.clusterTimingAffricateInClusterScale);
+
   // Boundary smoothing / crossfade (optional)
   getBool("boundarySmoothingEnabled", lp.boundarySmoothingEnabled);
-  getNum("boundarySmoothingVowelToStopFadeMs", lp.boundarySmoothingVowelToStopFadeMs);
-  getNum("boundarySmoothingStopToVowelFadeMs", lp.boundarySmoothingStopToVowelFadeMs);
-  getNum("boundarySmoothingVowelToFricFadeMs", lp.boundarySmoothingVowelToFricFadeMs);
+  getNum("boundarySmoothingF1Scale", lp.boundarySmoothingF1Scale);
+  getNum("boundarySmoothingF2Scale", lp.boundarySmoothingF2Scale);
+  getNum("boundarySmoothingF3Scale", lp.boundarySmoothingF3Scale);
+  getBool("boundarySmoothingPlosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
+  getBool("boundarySmoothingNasalF1Instant", lp.boundarySmoothingNasalF1Instant);
+  getBool("boundarySmoothingNasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
 
   // Trajectory limiting (optional)
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
@@ -648,9 +659,12 @@ getNum("positionalAllophonesGlottalReinforcementDurationMs", lp.positionalAlloph
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
   getBoolFrom(*bs, "enabled", lp.boundarySmoothingEnabled);
-  getNumFrom(*bs, "vowelToStopFadeMs", lp.boundarySmoothingVowelToStopFadeMs);
-  getNumFrom(*bs, "stopToVowelFadeMs", lp.boundarySmoothingStopToVowelFadeMs);
-  getNumFrom(*bs, "vowelToFricFadeMs", lp.boundarySmoothingVowelToFricFadeMs);
+  getNumFrom(*bs, "f1Scale", lp.boundarySmoothingF1Scale);
+  getNumFrom(*bs, "f2Scale", lp.boundarySmoothingF2Scale);
+  getNumFrom(*bs, "f3Scale", lp.boundarySmoothingF3Scale);
+  getBoolFrom(*bs, "plosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
+  getBoolFrom(*bs, "nasalF1Instant", lp.boundarySmoothingNasalF1Instant);
+  getBoolFrom(*bs, "nasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {
@@ -751,7 +765,44 @@ if (const yaml_min::Node* pa = settings.get("positionalAllophones"); pa && pa->i
   getNumFrom(*pa, "glottalReinforcementDurationMs", lp.positionalAllophonesGlottalReinforcementDurationMs);
 }
 
+if (const yaml_min::Node* sc = settings.get("specialCoarticulation"); sc && sc->isMap()) {
+  getBoolFrom(*sc, "enabled", lp.specialCoarticulationEnabled);
+  getNumFrom(*sc, "maxDeltaHz", lp.specialCoarticMaxDeltaHz);
 
+  if (const yaml_min::Node* rules = sc->get("rules"); rules && rules->isSeq()) {
+    lp.specialCoarticRules.clear();
+    for (const auto& ruleNode : rules->seq) {
+      if (!ruleNode.isMap()) continue;
+      SpecialCoarticRule rule;
+      if (const yaml_min::Node* trig = ruleNode.get("triggers"); trig && trig->isSeq()) {
+        for (const auto& t : trig->seq) {
+          if (t.isScalar()) rule.triggers.push_back(t.scalar);
+        }
+      }
+      getStrFrom(ruleNode, "name", rule.name);
+      getStrFrom(ruleNode, "vowelFilter", rule.vowelFilter);
+      getStrFrom(ruleNode, "formant", rule.formant);
+      getNumFrom(ruleNode, "deltaHz", rule.deltaHz);
+      getStrFrom(ruleNode, "side", rule.side);
+      getBoolFrom(ruleNode, "cumulative", rule.cumulative);
+      getNumFrom(ruleNode, "unstressedScale", rule.unstressedScale);
+      getNumFrom(ruleNode, "phraseFinalStressedScale", rule.phraseFinalStressedScale);
+      if (!rule.triggers.empty() && !rule.formant.empty()) lp.specialCoarticRules.push_back(std::move(rule));
+    }
+  }
+}
+
+if (const yaml_min::Node* ct = settings.get("clusterTiming"); ct && ct->isMap()) {
+  getBoolFrom(*ct, "enabled", lp.clusterTimingEnabled);
+  getNumFrom(*ct, "fricBeforeStopScale", lp.clusterTimingFricBeforeStopScale);
+  getNumFrom(*ct, "stopBeforeFricScale", lp.clusterTimingStopBeforeFricScale);
+  getNumFrom(*ct, "fricBeforeFricScale", lp.clusterTimingFricBeforeFricScale);
+  getNumFrom(*ct, "stopBeforeStopScale", lp.clusterTimingStopBeforeStopScale);
+  getNumFrom(*ct, "tripleClusterMiddleScale", lp.clusterTimingTripleClusterMiddleScale);
+  getNumFrom(*ct, "affricateInClusterScale", lp.clusterTimingAffricateInClusterScale);
+  getNumFrom(*ct, "wordMedialConsonantScale", lp.clusterTimingWordMedialConsonantScale);
+  getNumFrom(*ct, "wordFinalObstruentScale", lp.clusterTimingWordFinalObstruentScale);
+}
 
   getBool("huShortAVowelEnabled", lp.huShortAVowelEnabled);
   {

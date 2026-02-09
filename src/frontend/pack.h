@@ -179,6 +179,18 @@ struct IntonationClause {
 };
 
 
+struct SpecialCoarticRule {
+  std::string name;
+  std::vector<std::string> triggers;  // IPA keys e.g. "ɹ", "r", "w"
+  std::string vowelFilter;            // "all", "front", "back", or specific IPA key
+  std::string formant;                // "f2", "f3"
+  double deltaHz = 0.0;
+  std::string side;                   // "left", "right", "both"
+  bool cumulative = false;            // apply from both sides additively
+  double unstressedScale = 1.0;       // multiply delta for unstressed vowels
+  double phraseFinalStressedScale = 1.0; // multiply delta for phrase-final stressed
+};
+
 struct LanguagePack {
   std::string langTag; // normalized (lowercase, '-')
 
@@ -480,8 +492,6 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Defaults are conservative.
   bool coarticulationEnabled = true;
   double coarticulationStrength = 0.25;          // 0..1
-  double coarticulationTransitionExtent = 0.35;  // fraction of consonant duration
-  bool coarticulationFadeIntoConsonants = true;
   double coarticulationWordInitialFadeScale = 1.0;
 
   // If true, scale coarticulation strength down when the nearest vowel is not
@@ -516,28 +526,43 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double coarticulationF2Scale = 1.0;
   double coarticulationF3Scale = 0.5;
 
-  // Special-case: alveolar consonants can front back vowels (e.g. "new", "suzie").
-  bool coarticulationAlveolarBackVowelEnabled = true;
-  double coarticulationBackVowelF2Threshold = 1400.0;           // F2 < threshold => "back"
-  double coarticulationAlveolarBackVowelStrengthBoost = 1.25;   // additional boost
-
-  // Small consonant-side exception: ʃ/ʒ can sound slightly "higher" next to front vowels.
-  bool coarticulationLabializedFricativeFrontingEnabled = true;
-  double coarticulationLabializedFricativeF2Pull = 0.15;        // 0..1
-
   bool coarticulationVelarPinchEnabled = true;
   double coarticulationVelarPinchThreshold = 1800.0;
   double coarticulationVelarPinchF2Scale = 0.9;
   double coarticulationVelarPinchF3 = 2400.0;
+
+  // Special coarticulation rules (language-specific Hz deltas).
+  bool specialCoarticulationEnabled = false;
+  std::vector<SpecialCoarticRule> specialCoarticRules;
+  double specialCoarticMaxDeltaHz = 400.0;
+
+  // Cluster timing — context-sensitive consonant duration adjustment.
+  bool clusterTimingEnabled = false;
+  double clusterTimingFricBeforeStopScale = 0.65;
+  double clusterTimingStopBeforeFricScale = 0.70;
+  double clusterTimingFricBeforeFricScale = 0.75;
+  double clusterTimingStopBeforeStopScale = 0.60;
+  double clusterTimingTripleClusterMiddleScale = 0.55;
+  double clusterTimingWordMedialConsonantScale = 0.85;
+  double clusterTimingWordFinalObstruentScale = 0.90;
+  double clusterTimingAffricateInClusterScale = 0.75;
 
   // Boundary crossfade / smoothing (optional).
   //
   // This is a simple way to soften harsh segment joins by increasing the fade
   // time only for certain boundary types.
   bool boundarySmoothingEnabled = false;
-  double boundarySmoothingVowelToStopFadeMs = 12.0;
-  double boundarySmoothingStopToVowelFadeMs = 10.0;
-  double boundarySmoothingVowelToFricFadeMs = 6.0;
+
+  // Per-formant transition scaling (multipliers on base fade values).
+  // F1 should transition faster (place perception), F2/F3 slower (smooth quality).
+  double boundarySmoothingF1Scale = 0.6;   // F1 fades are 60% of base
+  double boundarySmoothingF2Scale = 1.0;   // F2 at base
+  double boundarySmoothingF3Scale = 1.2;   // F3 slightly slower
+
+  // Plosive/nasal-specific transition behavior (universal defaults).
+  bool boundarySmoothingPlosiveSpansPhone = true;    // formants ramp across entire plosive
+  bool boundarySmoothingNasalF1Instant = true;       // F1 jumps instantly in nasals
+  bool boundarySmoothingNasalF2F3SpansPhone = true;  // F2/F3 ramp across entire nasal
 
   // Trajectory limiting (optional).
   //

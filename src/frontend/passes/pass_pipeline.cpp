@@ -10,6 +10,8 @@
 #include "length_contrast.h"
 #include "boundary_smoothing.h"
 #include "trajectory_limit.h"
+#include "cluster_timing.h"
+#include "special_coartic.h"
 
 namespace nvsp_frontend {
 
@@ -20,6 +22,8 @@ const PassDesc kPasses[] = {
     {"allophones", PassStage::PreTiming, &passes::runAllophones},
 
     {"coarticulation", PassStage::PostTiming, &passes::runCoarticulation},
+    {"special_coartic", PassStage::PostTiming, &passes::runSpecialCoarticulation},
+    {"cluster_timing", PassStage::PostTiming, &passes::runClusterTiming},
     {"prosody", PassStage::PostTiming, &passes::runProsody},
     {"reduction", PassStage::PostTiming, &passes::runReduction},
     {"liquid_dynamics", PassStage::PostTiming, &passes::runLiquidDynamics},
