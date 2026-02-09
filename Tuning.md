@@ -602,14 +602,6 @@ settings:
   # Overall amount of locus pull (0.0–1.0). Higher = stronger vowel influence on consonants.
   coarticulationStrength: 0.25
 
-  # How far into the consonant we allow the transition to extend (0.0–1.0 of the token).
-  # Higher = the consonant spends more time "moving" toward the vowel target.
-  coarticulationTransitionExtent: 0.35
-
-  # If true, the coarticulation blend is allowed to start inside the consonant,
-  # not only at the consonant→vowel boundary.
-  coarticulationFadeIntoConsonants: true
-
   # Optional scaling for word-initial consonants (often useful to keep word onsets crisp).
   coarticulationWordInitialFadeScale: 1.0
 ```
@@ -673,51 +665,156 @@ settings:
   coarticulationMitalkK: 0.42  # 0.0 = all vowel, 1.0 = all consonant locus
 ```
 
-#### Alveolar back-vowel enhancement
-
-Strengthens coarticulation for alveolars before back vowels (helps /t/ sound less fronted before /u/, /o/):
-
-```yaml
-settings:
-  coarticulationAlveolarBackVowelEnabled: true
-  coarticulationBackVowelF2Threshold: 1400      # F2 < this = "back vowel"
-  coarticulationAlveolarBackVowelStrengthBoost: 1.25
-```
-
-#### Labialized fricative fronting
-
-Pulls F2 forward slightly for fricatives before rounded vowels:
-
-```yaml
-settings:
-  coarticulationLabializedFricativeFrontingEnabled: true
-  coarticulationLabializedFricativeF2Pull: 0.15
-```
-
 Tuning notes:
-- If consonants start feeling "too vowel-y", lower `coarticulationStrength` or `coarticulationTransitionExtent`.
+- If consonants start feeling "too vowel-y", lower `coarticulationStrength`.
 - If clusters get mushy at speed, keep `coarticulationGraduated: true` and reduce `coarticulationAdjacencyMaxConsonants` to `1`.
 - If word onsets lose bite, lower `coarticulationWordInitialFadeScale`.
+- For language-specific coarticulation effects (e.g. rhotic F3 lowering, labial F2 pulling), use the **special coarticulation** pass instead of modifying the core locus pass.
 
+
+### Special coarticulation
+
+The special coarticulation pass applies **language-specific formant Hz deltas** to vowels adjacent to trigger consonants. Unlike the core coarticulation pass (which does MITalk-style locus interpolation), this pass lets you write explicit rules like "lower F3 by 200 Hz on vowels next to /ɹ/" directly in YAML.
+
+```yaml
+settings:
+  specialCoarticulation:
+    enabled: true
+    maxDeltaHz: 400       # safety clamp on accumulated deltas
+
+    rules:
+      - name: "rhotic F3 lowering"
+        triggers: ["ɹ", "r"]
+        vowelFilter: all        # "all", "front", "back", or a specific IPA key
+        formant: f3
+        deltaHz: -200
+        side: both              # "left", "right", or "both"
+        cumulative: true        # if both sides match, apply twice
+        unstressedScale: 0.7    # reduce effect on unstressed vowels
+        phraseFinalStressedScale: 1.2   # boost at phrase-final stress
+
+      - name: "labial F2 pull"
+        triggers: ["w"]
+        vowelFilter: front
+        formant: f2
+        deltaHz: -120
+        side: right             # only when /w/ precedes the vowel
+```
+
+Flat-key equivalents:
+
+- `specialCoarticulationEnabled`
+- `specialCoarticMaxDeltaHz`
+
+(Rules must be defined via the nested `rules:` sequence — there are no flat-key equivalents for individual rules.)
+
+#### Rule fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Human-readable label (for debugging) |
+| `triggers` | list | IPA keys that activate the rule (e.g. `["ɹ", "r"]`) |
+| `vowelFilter` | string | Which vowels to affect: `"all"`, `"front"` (F2 > 1600), `"back"` (F2 < 1400), or a specific IPA key |
+| `formant` | string | Which formant to shift: `"f2"` or `"f3"` |
+| `deltaHz` | number | Hz offset to apply (negative = lower) |
+| `side` | string | Where to look for triggers: `"left"`, `"right"`, or `"both"` |
+| `cumulative` | bool | If true and triggers match on both sides, apply the delta twice |
+| `unstressedScale` | number | Multiply delta by this for unstressed vowels (default `1.0`) |
+| `phraseFinalStressedScale` | number | Multiply delta by this for phrase-final stressed vowels (default `1.0`) |
+
+Tuning notes:
+- Deltas are accumulated across all matching rules and clamped to ±`maxDeltaHz`.
+- The pass also adjusts `endCf2`/`endCf3` if the locus pass set end targets, so transitions stay consistent.
+- Use `cumulative: true` for rhotics where vowels between two /ɹ/ should get a double dose of F3 lowering.
+
+### Cluster timing
+
+The cluster timing pass shortens consonants that occur in clusters (adjacent to other consonants) and adjusts word-medial/word-final obstruent durations. This prevents consonant clusters from feeling "stacked" at normal speech rates.
+
+```yaml
+settings:
+  clusterTiming:
+    enabled: true
+
+    # Two-consonant cluster scales (by type pair).
+    fricBeforeStopScale: 0.65       # e.g. /st/, /sp/
+    stopBeforeFricScale: 0.70       # e.g. /ts/, /pf/
+    fricBeforeFricScale: 0.75       # e.g. /sf/
+    stopBeforeStopScale: 0.60       # e.g. /kt/, /pt/
+
+    # Triple cluster: middle consonant gets extra shortening.
+    tripleClusterMiddleScale: 0.55  # e.g. the /t/ in /str/
+
+    # Affricates in clusters get an additional multiplier.
+    affricateInClusterScale: 0.75
+
+    # Non-cluster position adjustments.
+    wordMedialConsonantScale: 0.85  # word-internal consonants not in a cluster
+    wordFinalObstruentScale: 0.90   # word-final stops/fricatives/affricates
+```
+
+Flat-key equivalents are also supported:
+
+- `clusterTimingEnabled`
+- `clusterTimingFricBeforeStopScale`
+- `clusterTimingStopBeforeFricScale`
+- `clusterTimingFricBeforeFricScale`
+- `clusterTimingStopBeforeStopScale`
+- `clusterTimingTripleClusterMiddleScale`
+- `clusterTimingAffricateInClusterScale`
+- `clusterTimingWordMedialConsonantScale`
+- `clusterTimingWordFinalObstruentScale`
+
+How it behaves:
+
+- Consonants are classified as stop (including affricates), fricative, or other.
+- In a two-consonant cluster, both members can be scaled: the first by "X before Y" and the second by "Y after X" (but stops after fricatives are not double-scaled — the fricative absorbs the shortening).
+- Triple clusters (three consecutive consonants with no syllable/word boundary between them) apply `tripleClusterMiddleScale` to the middle consonant instead of the two-consonant rules.
+- Syllable and word boundaries break triple cluster detection — e.g. in "abstract" /b.str/, the /s/ starts a new onset and doesn't get the triple shortening.
+- All scale factors are clamped to ≤ 1.0 (never lengthen), and the result has a 2ms floor.
+
+Tuning notes:
+- If clusters sound "crushed" at high rates, raise the scale factors closer to 1.0.
+- If isolated word-final stops/fricatives sound too long, lower `wordFinalObstruentScale`.
+- The affricate multiplier stacks with the cluster type scale — so an affricate in a stop+stop cluster gets `stopBeforeStopScale × affricateInClusterScale`.
 
 ### Boundary smoothing
 
 Boundary smoothing increases crossfade time only at "harsh" boundaries (for example vowel→stop, stop→vowel, vowel→fricative). It's a simple way to reduce micro-clicks and make syllables feel less separated without changing phoneme targets.
+
+The pass uses internally tuned fade values for each boundary type (vowel→stop 22ms, stop→vowel 20ms, vowel→fricative 18ms, etc.) and exposes per-formant transition scaling and plosive/nasal behavior controls.
 
 ```yaml
 settings:
   boundarySmoothing:
     enabled: true
 
-    # Milliseconds at speed=1.0
-    vowelToStopFadeMs: 12
-    stopToVowelFadeMs: 10
-    vowelToFricFadeMs: 6
+    # Per-formant transition scaling (multipliers on base fade values).
+    # F1 should transition faster (place perception), F2/F3 slower.
+    f1Scale: 0.6    # F1 fades are 60% of base
+    f2Scale: 1.0    # F2 at base
+    f3Scale: 1.2    # F3 slightly slower (smoother quality)
+
+    # Plosive/nasal-specific transition behavior.
+    plosiveSpansPhone: true       # formants ramp across entire plosive burst
+    nasalF1Instant: true          # F1 jumps nearly instantly at nasal boundaries
+    nasalF2F3SpansPhone: true     # F2/F3 ramp across entire nasal
 ```
 
+Flat-key equivalents are also supported:
+
+- `boundarySmoothingEnabled`
+- `boundarySmoothingF1Scale`
+- `boundarySmoothingF2Scale`
+- `boundarySmoothingF3Scale`
+- `boundarySmoothingPlosiveSpansPhone`
+- `boundarySmoothingNasalF1Instant`
+- `boundarySmoothingNasalF2F3SpansPhone`
+
 Tuning notes:
-- If speech starts sounding "mushy", reduce `stopToVowelFadeMs` first.
-- If you still hear sharp releases on stops, raise `vowelToStopFadeMs` a little (2–4ms steps).
+- If speech starts sounding "mushy", lower `f3Scale` first (or try `f2Scale: 0.8`).
+- `nasalF1Instant: true` is important for natural nasal transitions — F1 jumps sharply at the velum opening/closing.
+- The per-formant scales multiply the pass's internal fade values, so `f1Scale: 0.6` means F1 transitions happen in 60% of the time that F2 uses.
 
 ### Trajectory limiting
 
