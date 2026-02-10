@@ -53,6 +53,7 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/prosody.cpp \
 	$(PASSESDIR)/reduction.cpp \
 	$(PASSESDIR)/special_coartic.cpp \
+	$(PASSESDIR)/pitch_fujisaki.cpp \
 	$(PASSESDIR)/trajectory_limit.cpp
 
 # tgsbRender sources
@@ -192,3 +193,5 @@ $(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp
 
 clean:
 	rm -rf $(BUILDDIR)
+$(BUILDDIR)/pitch_fujisaki.o: $(PASSESDIR)/pitch_fujisaki.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
