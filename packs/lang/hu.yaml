@@ -111,6 +111,7 @@ settings:
   # === TRAJECTORY LIMITING ===
   # Prevents jarring formant jumps across segment boundaries.
   # Slightly relaxed from previous (cf2: 22→24) to let consonants stay distinct.
+  boundarySmoothingEnabled: true
   trajectoryLimit:
     enabled: true
     applyTo: [cf2, cf3]
@@ -158,7 +159,20 @@ settings:
   # Liquid dynamics off — Hungarian /l/ and /r/ are fairly static.
   # The trill modulation above handles /r/ character.
   liquidDynamicsEnabled: false
-
+  # === ALLOPHONE RULES ===
+  # Hungarian intervocalic /h/ is realized as voiced [ɦ] in natural speech.
+  # This eliminates the voiced→voiceless→voiced energy dip that causes
+  # transition pops on words like "tehát", "ahogy", "ehez".
+  # The [ɦ] phoneme has _copyAdjacent: true, so it inherits surrounding
+  # vowel formant colors — just like /h/ does, but with voicing maintained.
+  allophoneRules:
+    enabled: true
+    rules:
+      - name: voiced_intervocalic_h
+        phonemes: [h]
+        position: intervocalic
+        action: replace
+        replaceTo: "ɦ"
   # === NASALIZATION ===
   # Hungarian doesn't have phonemic nasalization.
   nasalizationAnticipatoryEnabled: false

@@ -23,10 +23,8 @@ settings:
     enabled: false
   lengthContrast:
     enabled: false
-  positionalAllophones:
+  allophoneRules:
     enabled: false
-    glottalReinforcement:
-      enabled: false
   boundarySmoothing:
     enabled: false
   trajectoryLimit:

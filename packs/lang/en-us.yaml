@@ -49,22 +49,13 @@ settings:
   # Shorten semivowel offglides in diphthongs (e.g. the "j" in FACE eɪ→ej).
   # This makes diphthongs like "applications" sound more staccato/natural.
   semivowelOffglideScale: 0.65
-  coarticulationEnabled: false
+
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
-  coarticulationStrength: 0.5        # Higher = stronger locus effect
-  coarticulationF1Locus: 250         # F1 during constriction
-  coarticulationMitalkK: 0.42  # 0.0 = all vowel, 1.0 = all consonant locus  
-  #  F2 locus by place:
-  coarticulationLabialF2Locus: 1200      # /p/ /b/ /f/ /v/ /m/
-  coarticulationAlveolarF2Locus: 1800   # /t/ /d/ /s/ /z/ /n/ /l/
-  coarticulationPalatalF2Locus: 2200    # /ʃ/ /ʒ/ /tʃ/ /dʒ/
-  coarticulationVelarF2Locus: 2200      # /k/ /g/ /ŋ/
-  boundarySmoothingEnabled: false
+  coarticulationEnabled: false
   trajectoryLimitEnabled: false
-  microprosodyEnabled: true
+  microprosodyEnabled: tfalse
   rateReductionEnabled: true
   segmentBoundarySkipVowelToLiquid: false
-  coarticulationFadeIntoConsonants: false
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 0
@@ -84,16 +75,199 @@ settings:
       dipDurationPct: 0.25
   lengthContrast:
     enabled: false
-  positionalAllophones:
-    enabled: false
-    glottalReinforcement:
-      enabled: false
+  allophoneRules:
+    enabled: true
+    rules:
+    # ── Stop aspiration scaling ──────────────────────────────────
+    # Disabled: these weren't active before and cause regression on
+    # numbers like "442" where word-boundary /t/ needs full aspiration.
+    #- name: aspiration_word_initial_stressed
+    #  tokenType: aspiration
+    #  position: word-initial
+    #  stress: prev-stressed
+    #  action: scale
+    #  durationScale: 0.8
+    #  fadeScale: 0.8
+    #  fieldScales:
+    #    aspirationAmplitude: 0.8
+    #    fricationAmplitude: 0.8
+
+    #- name: aspiration_word_initial
+    #  tokenType: aspiration
+    #  position: word-initial
+    #  stress: unstressed
+    #  action: scale
+    #  durationScale: 0.5
+    #  fadeScale: 0.5
+    #  fieldScales:
+    #    aspirationAmplitude: 0.5
+    #    fricationAmplitude: 0.5
+
+    #- name: aspiration_word_final
+    #  tokenType: aspiration
+    #  position: word-final
+    #  action: scale
+    #  durationScale: 0.1
+    #  fadeScale: 0.1
+    #  fieldScales:
+    #    aspirationAmplitude: 0.1
+    #    fricationAmplitude: 0.1
+
+    #- name: aspiration_intervocalic
+    #  tokenType: aspiration
+    #  position: intervocalic
+    #  action: scale
+    #  durationScale: 0.2
+    #  fadeScale: 0.2
+    #  fieldScales:
+    #    aspirationAmplitude: 0.2
+    #    fricationAmplitude: 0.2
+
+    # ── Intervocalic flapping (/t,d/ → [ɾ]) ─────────────────────
+      - name: american_flapping
+        phonemes: [t, d]
+        position: intervocalic
+        stress: next-unstressed
+        action: replace
+        replaceTo: ɾ
+        replaceDurationMs: 22.0
+        replaceRemovesClosure: true
+        replaceRemovesAspiration: true
+
+    # ── /l/ darkness by position ─────────────────────────────────
+      - name: dark_l_post_vocalic
+        phonemes: [l, ɫ]
+        position: post-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.8
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.8
+
+      - name: dark_l_syllabic
+        phonemes: [l, ɫ]
+        position: syllabic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.9
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.9
+
+      - name: light_l_pre_vocalic
+        phonemes: [l, ɫ]
+        position: pre-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.2
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.2
+
+    # ── Glottal reinforcement (word-final voiceless stops) ───────
+    # Disabled: the unreleased rule already softens word-final stops,
+    # and the inserted [ʔ] was adding too much to the cluster.
+    #- name: glottal_reinforcement
+    #  flags: [stop]
+    #  notFlags: [voiced]
+    #  position: word-final
+    #  action: insert-before
+    #  insertPhoneme: ʔ
+    #  insertDurationMs: 18.0
+    #  insertFadeMs: 3.0
+    #  insertContexts: ["V_#"]
+
+    # ── Unreleased word-final stops (gentler — stop still audible) ─
+      - name: unreleased_word_final
+        flags: [stop]
+        notFlags: [voiced]
+        position: word-final
+        action: scale
+        durationScale: 0.85
+        fieldScales:
+          fricationAmplitude: 0.4
+          aspirationAmplitude: 0.3
   boundarySmoothing:
     enabled: false
+    f1Scale: 0.6
+    f3Scale: 1.2
+    nasalF1Instant: true
+    stopToFricFadeMs: 15
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: true
+  # ------------------------------------------------------------------
+  # Special coarticulation: YAML-driven Hz deltas on vowels adjacent
+  # to specific consonants.  Runs *after* the locus coarticulation pass,
+  # so these deltas stack on top of the DECTalk-style formant ramps.
+  # ------------------------------------------------------------------
+  specialCoarticulation:
+    enabled: false
+    maxDeltaHz: 400
+    rules:
+      # 1. Rhotic vowel coloring  (the signature American feature).
+      #    /ɹ/ and /ɻ/ pull F3 down on the vowel next to them.
+      #    liquid_dynamics handles the R *token* itself; this colors
+      #    the *vowel* token, which is the perceptual cue for rhoticity.
+      - name: rhotic-f3-lowering
+        triggers: ["ɹ", "ɻ"]
+        vowelFilter: all
+        formant: f3
+        deltaHz: -80
+        side: both
+        cumulative: true        # V between two R's gets double dose
+        unstressedScale: 0.6    # less effect on reduced vowels
+        phraseFinalStressedScale: 1.3  # phrase-final "star" gets extra color
+
+      # 2. Labial rounding  — /w/, /b/, /p/, /m/ pull F2 down.
+      #    Makes "water", "between", "maple" sound rounder.
+      - name: labial-f2-lowering
+        triggers: ["w", "b", "p", "m"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: -50
+        side: both
+        cumulative: false
+        unstressedScale: 0.5
+
+      # 3. Alveolar fronting of back vowels  — /t/, /d/, /n/, /s/, /z/
+      #    raise F2 on back vowels, subtly fronting them.
+      #    Replaces the old hardcoded alveolar-back-vowel experiment
+      #    that was just removed from coarticulation.cpp.
+      - name: alveolar-back-vowel-fronting
+        triggers: ["t", "d", "n", "s", "z"]
+        vowelFilter: back
+        formant: f2
+        deltaHz: 60
+        side: both
+        cumulative: false
+        unstressedScale: 0.5
+
+  # ------------------------------------------------------------------
+  # Cluster timing: shorten consonants in clusters so "adjust",
+  # "texts", "strengths" don't sound like each consonant was
+  # dictated separately.  Also trims word-medial and word-final
+  # obstruents for smoother connected speech.
+  # ------------------------------------------------------------------
+  clusterTiming:
+    enabled: false
+    fricBeforeStopScale: 0.65      # /st/ in "stop", "fast"
+    stopBeforeFricScale: 0.70      # /ks/ in "box", "tax"
+    fricBeforeFricScale: 0.75      # /sf/ rare but "asphalt"
+    stopBeforeStopScale: 0.60      # /kt/ in "act", "fact"
+    tripleClusterMiddleScale: 0.55 # middle C in /str/, /kst/
+    affricateInClusterScale: 0.75  # /tʃ/ in "lunchbox"
+    wordMedialConsonantScale: 0.85 # intervocalic C's
+    wordFinalObstruentScale: 0.90  # final /t/, /d/, /s/ etc.
   legacyPitchMode: espeak_style
+  fujisakiDeclinationRate: 0.001 
   singleWordClauseTypeOverrideCommaOnly: false
 normalization:
   preReplacements:
@@ -120,15 +294,13 @@ normalization:
     # Some consonants (f, m, b, d, st, word-initial) cause extra shortening.
     # Insert short ᵊ (semivowel) transition to give the vowel more presence.
     # f + FORCE (for, four):
-    - from: "fˈɔːɹ"
-      to:   "fˈɔːᵊɹ"
     - from: "fˈoːɹ"
       to:   "fˈoːᵊɹ"
     - from: "fɔːɹ"
       to:   "fɔːᵊɹ"
     - from: "foːɹ"
       to:   "foːᵊɹ"
-    # m + FORCE (more):
+      # m + FORCE (more):
     - from: "mˈoːɹ"
       to:   "mˈoːᵊɹ"
     - from: "moːɹ"
@@ -148,10 +320,6 @@ normalization:
       to:   "stˈoːᵊɹ"
     - from: "stoːɹ"
       to:   "stoːᵊɹ"
-    # Word-initial FORCE (or):
-    - from: "ˈɔːɹ"
-      to:   "ˈɔːᵊɹ"
-
   classes:
     # Vowels (including schwa/r-colored and extra internal keys used by English packs).
     VOWELS: ["a", "e", "i", "o", "u", "ɐ", "ə", "ɜ", "ɝ", "ɑ", "ɒ", "ɔ", "ɛ", "æ", "ʊ", "ɪ", "ᵾ", "ᵿ", "ᴏ", "ᴐ", "ᴒ", "ã", "ẽ", "ĩ", "õ", "ũ", "ᴜ"]

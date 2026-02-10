@@ -9,7 +9,6 @@ settings:
   stopClosureAfterNasalsEnabled: false
   segmentBoundarySkipVowelToLiquid: false
   coarticulationEnabled: false
-  coarticulationFadeIntoConsonants: false
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 2
@@ -24,15 +23,80 @@ settings:
     enabled: false
   lengthContrast:
     enabled: false
-  positionalAllophones:
+  allophoneRules:
     enabled: false
-    glottalReinforcement:
-      enabled: false
   boundarySmoothing:
-    enabled: false
+    enabled: true
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: false
+  # ------------------------------------------------------------------
+  # Special coarticulation for RP / British English.
+  #
+  # Key differences from en-us:
+  #   - Non-rhotic: no rhotic vowel coloring (post-vocalic R is deleted
+  #     by normalization; onset /ɹ/ before vowels doesn't strongly color
+  #     the vowel in RP the way American R does).
+  #   - Labial rounding is slightly less prominent.
+  #   - Palatal fronting from /j/ (yod) — RP preserves yod in "tune",
+  #     "new", "duke" where US drops it.  The /j/ raises F2 on the
+  #     following vowel, brightening the onset.
+  # ------------------------------------------------------------------
+  specialCoarticulation:
+    enabled: true
+    maxDeltaHz: 350
+    rules:
+      # 1. Labial rounding — /w/, /b/, /p/, /m/ pull F2 down.
+      #    Slightly less than US (RP labials are a touch less rounded).
+      - name: labial-f2-lowering
+        triggers: ["w", "b", "p", "m"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: -40
+        side: both
+        cumulative: false
+        unstressedScale: 0.5
+
+      # 2. Alveolar fronting of back vowels — /t/, /d/, /n/, /s/, /z/
+      #    raise F2 on back vowels.  Similar to US.
+      - name: alveolar-back-vowel-fronting
+        triggers: ["t", "d", "n", "s", "z"]
+        vowelFilter: back
+        formant: f2
+        deltaHz: 55
+        side: both
+        cumulative: false
+        unstressedScale: 0.5
+
+      # 3. Palatal fronting — /j/ (yod) raises F2 on the next vowel.
+      #    Gives "tune" (tjuːn), "new" (njuː), "due" (djuː) a brighter
+      #    onset that distinguishes RP from General American (which drops
+      #    yod after alveolars).
+      - name: palatal-f2-raising
+        triggers: ["j"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: 70
+        side: right           # only the vowel *after* /j/
+        cumulative: false
+        unstressedScale: 0.4
+
+  # ------------------------------------------------------------------
+  # Cluster timing for RP.
+  # RP keeps consonant clusters a bit more distinct than casual American
+  # English, so the scaling is more conservative (closer to 1.0).
+  # ------------------------------------------------------------------
+  clusterTiming:
+    enabled: true
+    fricBeforeStopScale: 0.75      # /st/ in "stop", "fast"
+    stopBeforeFricScale: 0.80      # /ks/ in "box", "tax"
+    fricBeforeFricScale: 0.80      # /sf/ rare
+    stopBeforeStopScale: 0.70      # /kt/ in "act", "fact"
+    tripleClusterMiddleScale: 0.65 # middle C in /str/, /kst/
+    affricateInClusterScale: 0.80  # /tʃ/ in "lunchbox"
+    wordMedialConsonantScale: 0.90 # intervocalic C's
+    wordFinalObstruentScale: 0.95  # RP enunciates final obstruents more
+  legacyPitchMode: espeak_style
 normalization:
   preReplacements:
   classes:
@@ -77,7 +141,6 @@ normalization:
       - "ɑj"
       - "ɑw"
       - "ɑ̃"
-      - "ᵅ"
       - "ɒ"
       - "ɔ"
       - "ɔ_r"
@@ -197,14 +260,6 @@ normalization:
         beforeClass: BATH_FOLLOW
     - from: "æ"
       to:   "a"
-
-    # UK PALM/START: Use properly back vowel quality.
-    # The generic ɑ is too fronted (Australian-sounding, F2≈1550).
-    # Route to UK-specific back variant ᵅ (F2≈1200) for proper RP "ah".
-    # This affects: START words (start, car, far), BATH words (bath, path, grass),
-    # and PALM words (calm, father, spa).
-    - from: "ɑ"
-      to:   "ᵅ"
 
     # UK THOUGHT rounding: use the internal UK-ish variant.
     - from: "ɔː"

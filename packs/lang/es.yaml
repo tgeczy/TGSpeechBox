@@ -55,13 +55,12 @@ settings:
     enabled: false
   lengthContrast:
     enabled: false
-  positionalAllophones:
+  allophoneRules:
     enabled: false
-    glottalReinforcement:
-      enabled: false
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: false
+  legacyPitchMode: espeak_style
 phonemes:
   e:
     _isVowel: true
