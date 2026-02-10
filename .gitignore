@@ -8,3 +8,4 @@ vowelcharts/
 *.pyo
 build/
 build-x64/
+.claude
