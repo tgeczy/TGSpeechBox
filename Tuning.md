@@ -817,25 +817,43 @@ Tuning notes:
 
 ### Boundary smoothing
 
-Boundary smoothing increases crossfade time only at "harsh" boundaries (for example vowel→stop, stop→vowel, vowel→fricative). It's a simple way to reduce micro-clicks and make syllables feel less separated without changing phoneme targets.
+Boundary smoothing extends **formant transition times** at segment boundaries without changing the amplitude crossfade. This smooths formant frequency movement (F1/F2/F3) across "harsh" boundaries (vowel→stop, stop→vowel, vowel→fricative, etc.) while leaving amplitude onsets crisp. The result is natural-sounding transitions without the mushy quality that amplitude stretching causes on aspiration-dominant sounds like /h/.
 
-The pass uses internally tuned fade values for each boundary type (vowel→stop 22ms, stop→vowel 20ms, vowel→fricative 18ms, etc.) and exposes per-formant transition scaling and plosive/nasal behavior controls.
+The pass computes a target transition time for each boundary type, then expresses it as a scale factor on the per-formant transition parameters (`transF1Scale`, `transF2Scale`, `transF3Scale`). For example, if a token's natural fade is 8ms and the boundary type calls for 22ms of formant smoothing, the formant transition scale becomes 22/8 = 2.75x. The amplitude fade stays at 8ms.
 
 ```yaml
 settings:
   boundarySmoothing:
     enabled: true
 
-    # Per-formant transition scaling (multipliers on base fade values).
+    # Per-formant scaling (multiplied on top of the boundary ratio).
     # F1 should transition faster (place perception), F2/F3 slower.
-    f1Scale: 0.6    # F1 fades are 60% of base
-    f2Scale: 1.0    # F2 at base
+    f1Scale: 0.6    # F1 transitions at 60% of target time
+    f2Scale: 1.0    # F2 at full target time
     f3Scale: 1.2    # F3 slightly slower (smoother quality)
 
     # Plosive/nasal-specific transition behavior.
     plosiveSpansPhone: true       # formants ramp across entire plosive burst
     nasalF1Instant: true          # F1 jumps nearly instantly at nasal boundaries
     nasalF2F3SpansPhone: true     # F2/F3 ramp across entire nasal
+
+    # Per-boundary-type target transition times (ms).
+    # These set how long formant frequencies should take to ramp at each
+    # boundary type.  Fast speech (speed > 1.0) shortens them proportionally;
+    # slow speech keeps them at the configured values (never stretched).
+    vowelToStopFadeMs: 22.0
+    stopToVowelFadeMs: 20.0
+    vowelToFricFadeMs: 18.0
+    fricToVowelFadeMs: 18.0
+    vowelToNasalFadeMs: 16.0
+    nasalToVowelFadeMs: 16.0
+    vowelToLiquidFadeMs: 14.0
+    liquidToVowelFadeMs: 14.0
+    nasalToStopFadeMs: 12.0
+    liquidToStopFadeMs: 12.0
+    fricToStopFadeMs: 10.0
+    stopToFricFadeMs: 14.0
+    vowelToVowelFadeMs: 18.0
 ```
 
 Flat-key equivalents are also supported:
@@ -847,6 +865,19 @@ Flat-key equivalents are also supported:
 - `boundarySmoothingPlosiveSpansPhone`
 - `boundarySmoothingNasalF1Instant`
 - `boundarySmoothingNasalF2F3SpansPhone`
+- `boundarySmoothingVowelToStopFadeMs`
+- `boundarySmoothingStopToVowelFadeMs`
+- `boundarySmoothingVowelToFricFadeMs`
+- `boundarySmoothingFricToVowelFadeMs`
+- `boundarySmoothingVowelToNasalFadeMs`
+- `boundarySmoothingNasalToVowelFadeMs`
+- `boundarySmoothingVowelToLiquidFadeMs`
+- `boundarySmoothingLiquidToVowelFadeMs`
+- `boundarySmoothingNasalToStopFadeMs`
+- `boundarySmoothingLiquidToStopFadeMs`
+- `boundarySmoothingFricToStopFadeMs`
+- `boundarySmoothingStopToFricFadeMs`
+- `boundarySmoothingVowelToVowelFadeMs`
 
 #### Transition coverage
 
@@ -856,20 +887,16 @@ The pass handles a comprehensive set of boundary types:
 
 **Consonant cluster transitions:** nasal→stop, liquid→stop, fricative→stop, stop→fricative, nasal→fricative, fricative→nasal, stop→nasal, nasal→liquid, liquid→fricative.
 
-**Fallback transitions:** Any consonant→consonant pair not covered above gets a generic 10ms fade. Additionally, sonorant→unclassified-consonant and unclassified-consonant→sonorant transitions (e.g. /n/→/h/, where /h/ uses `aspirationAmplitude` not `fricationAmplitude` and thus `tokIsFricative()` returns false) get vowel-to-fricative-equivalent fades.
+**Fallback transitions:** Any consonant→consonant pair not covered above gets a generic 10ms target. Additionally, sonorant→unclassified-consonant and unclassified-consonant→sonorant transitions (e.g. /n/→/h/, where /h/ uses `aspirationAmplitude` not `fricationAmplitude` and thus `tokIsFricative()` returns false) get vowel-to-fricative-equivalent targets.
 
-#### Voicing-flip guard
+#### Transition time cap
 
-When voicing flips between two consonants (voiced→voiceless or vice versa, e.g. /n/→/h/), the pass does **not** increase the fade duration. A longer crossfade across a voicing boundary makes voicing and aspiration overlap, producing a buzz or pop that's worse than the original transition. Vowel↔consonant transitions are exempt from this guard — those need the longer fade for smooth formant movement.
-
-#### Fade cap and floor
-
-The maximum fade is capped at 75% of the token's duration (`kMaxFadeRatio = 0.75`) to preserve some steady-state. A 6ms floor (`kMinFadeMs`) prevents the ratio cap from creating near-discontinuities on very short sentence-final phones.
+The target transition time is capped at 75% of the token's duration to preserve some steady-state. A 6ms floor prevents the cap from creating near-discontinuities on very short sentence-final phones. If the target time doesn't exceed the token's existing amplitude fade, the pass leaves it alone (formant scale stays at 1.0).
 
 Tuning notes:
-- If speech starts sounding "mushy", lower `f3Scale` first (or try `f2Scale: 0.8`).
-- `nasalF1Instant: true` is important for natural nasal transitions — F1 jumps sharply at the velum opening/closing.
-- The per-formant scales multiply the pass's internal fade values, so `f1Scale: 0.6` means F1 transitions happen in 60% of the time that F2 uses.
+- Since boundary smoothing only affects formant transitions (not amplitude), it won't make aspiration or frication sound mushy. If transitions still sound blurred, lower `f3Scale` first (or try `f2Scale: 0.8`).
+- `nasalF1Instant: true` is important for natural nasal transitions — F1 jumps sharply at the velum opening/closing, overriding the smoothing scale.
+- The per-formant scales multiply the boundary ratio, so `f1Scale: 0.6` means F1 transitions at 60% of the target time while `f3Scale: 1.2` means F3 takes 20% longer.
 - If consonant-to-consonant transitions sound harsh, the generic fallback (10ms) may need tuning for your language.
 
 ### Trajectory limiting
