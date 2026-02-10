@@ -281,8 +281,8 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 99
-    cb2: 75
-    cb3: 60
+    cb2: 90
+    cb3: 180
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -306,7 +306,7 @@ phonemes:
     parallelBypass: 0
     pb1: 90
     pb2: 100
-    pb3: 80
+    pb3: 200
     pb4: 250
     pb5: 200
     pb6: 1000
@@ -1216,6 +1216,54 @@ phonemes:
     cbN0: 100
     cbNP: 170
     # Alveolar nasal - lowered F2 to distinguish from palatal ɲ
+    cf1: 280
+    cf2: 1550
+    cf3: 2740
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 450
+    cfNP: 240
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 40
+    pb2: 300
+    pb3: 300
+    pb4: 300
+    pb5: 350
+    pb6: 1300
+    pf1: 480
+    pf2: 1550
+    pf3: 2600
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
+  "n̩":
+    # Syllabic nasal — same formants as /n/ but vowel-flagged so it gets
+    # vowel-like duration and breaks consonant clusters.
+    # eSpeak emits this for: button, kitten, written, shortened, forgotten.
+    _isLiquid: false
+    _isNasal: true
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 1
+    cb1: 90
+    cb2: 260
+    cb3: 225
+    cb4: 300
+    cb5: 350
+    cb6: 1300
+    cbN0: 100
+    cbNP: 170
     cf1: 280
     cf2: 1550
     cf3: 2740
@@ -3236,16 +3284,16 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 115.5
-    cb2: 52.5
-    cb3: 86.25
+    cb2: 90
+    cb3: 200
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 620
+    cf1: 660
     cf2: 1100
-    cf3: 2520
+    cf3: 2400
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -3260,14 +3308,14 @@ phonemes:
     pa6: 0
     parallelBypass: 0
     pb1: 130
-    pb2: 70
-    pb3: 160
+    pb2: 110
+    pb3: 250
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 700
-    pf2: 1220
-    pf3: 2600
+    pf1: 720
+    pf2: 1150
+    pf3: 2450
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -3281,8 +3329,8 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 99
-    cb2: 75
-    cb3: 60
+    cb2: 90
+    cb3: 180
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -3290,7 +3338,7 @@ phonemes:
     cbNP: 100
     cf1: 450
     cf2: 870
-    cf3: 2570
+    cf3: 2400
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -3306,13 +3354,13 @@ phonemes:
     parallelBypass: 0
     pb1: 90
     pb2: 100
-    pb3: 80
+    pb3: 200
     pb4: 250
     pb5: 200
     pb6: 1000
     pf1: 600
     pf2: 990
-    pf3: 2570
+    pf3: 2400
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -5518,7 +5566,7 @@ phonemes:
     cbNP: 100
     cf1: 610
     cf2: 1000
-    cf3: 2500
+    cf3: 2380
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -5540,7 +5588,7 @@ phonemes:
     pb6: 1000
     pf1: 600
     pf2: 990
-    pf3: 2570
+    pf3: 2400
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -5563,7 +5611,7 @@ phonemes:
     cbNP: 100
     cf1: 580
     cf2: 1100
-    cf3: 2500
+    cf3: 2380
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -5585,7 +5633,7 @@ phonemes:
     pb6: 1000
     pf1: 560
     pf2: 990
-    pf3: 2570
+    pf3: 2400
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -6284,8 +6332,8 @@ voiceProfiles:
       # ᵅ: UK RP PALM/START vowel - properly back "ah" quality (based on older tuning).
       # Research shows RP ɑː should have F2 around 1100-1200 Hz, not the fronted 1550+ of Australian.
       ᵅ: {cf1: 700, cf2: 1200, cf3: 2600, pf1: 700, pf2: 1200, pf3: 2600}
-      ɒ: {cf1: 698, cf2: 1294, cf3: 2771, pf1: 784, pf2: 1429, pf3: 2855}
-      ɔ: {cf1: 513, cf2: 1031, cf3: 2823, pf1: 677, pf2: 1169, pf3: 2823}
+      ɒ: {cf1: 698, cf2: 1294, cf3: 2520, pf1: 784, pf2: 1429, pf3: 2600}
+      ɔ: {cf1: 513, cf2: 1031, cf3: 2550, pf1: 677, pf2: 1169, pf3: 2550}
       ɘ: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
       ə: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
       ɚ: {cf1: 568, cf2: 1518, cf3: 2005, pf1: 568, pf2: 1518, pf3: 2005}
@@ -6299,12 +6347,12 @@ voiceProfiles:
       ɵ: {cf1: 513, cf2: 1630, cf3: 2750, pf1: 513, pf2: 1630, pf3: 2750}
       ʉ: {cf1: 368, cf2: 1740, cf3: 2539, pf1: 402, pf2: 1740, pf3: 2539}
       ʊ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592}
-      ʌ: {cf1: 698, cf2: 1429, cf3: 2802, pf1: 698, pf2: 1429, pf3: 2802}
+      ʌ: {cf1: 698, cf2: 1429, cf3: 2600, pf1: 698, pf2: 1429, pf3: 2600}
       ʏ: {cf1: 402, cf2: 1904, cf3: 2539, pf1: 402, pf2: 1904, pf3: 2539}
       ᴀ: {cf1: 890, cf2: 1462, cf3: 2855, pf1: 402, pf2: 1574, pf3: 2855}
       ᴇ: {cf1: 402, cf2: 2438, cf3: 3218, pf1: 458, pf2: 2490, pf3: 3218}
-      ᴏ: {cf1: 688, cf2: 1180, cf3: 2750, pf1: 677, pf2: 1169, pf3: 2823}
-      ᴐ: {cf1: 655, cf2: 1294, cf3: 2750, pf1: 633, pf2: 1169, pf3: 2823}
+      ᴏ: {cf1: 688, cf2: 1180, cf3: 2520, pf1: 677, pf2: 1169, pf3: 2550}
+      ᴐ: {cf1: 655, cf2: 1294, cf3: 2520, pf1: 633, pf2: 1169, pf3: 2550}
       ᴒ: {cf1: 848, cf2: 1294, cf3: 2697, pf1: 741, pf2: 1237, pf3: 2750}
       ᴜ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592}
       ᵁ: {cf1: 463, cf2: 1350, cf3: 2666, pf1: 513, pf2: 1462, pf3: 2592}
@@ -6430,8 +6478,8 @@ voiceProfiles:
       ɑ: {cf1: 893, cf2: 1769, cf3: 3164, pf1: 893, pf2: 1769, pf3: 3164}
       # ᵅ: UK RP PALM/START - properly back "ah" for British English
       ᵅ: {cf1: 795, cf2: 1350, cf3: 2935, pf1: 795, pf2: 1350, pf3: 2935}
-      ɒ: {cf1: 795, cf2: 1478, cf3: 3073, pf1: 893, pf2: 1631, pf3: 3164}
-      ɔ: {cf1: 585, cf2: 1181, cf3: 3130, pf1: 771, pf2: 1337, pf3: 3130}
+      ɒ: {cf1: 795, cf2: 1478, cf3: 2830, pf1: 893, pf2: 1631, pf3: 2900}
+      ɔ: {cf1: 585, cf2: 1181, cf3: 2830, pf1: 771, pf2: 1337, pf3: 2830}
       ɘ: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
       ə: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
       ɚ: {cf1: 648, cf2: 1732, cf3: 2234, pf1: 648, pf2: 1732, pf3: 2234}
@@ -6445,12 +6493,12 @@ voiceProfiles:
       ɵ: {cf1: 585, cf2: 1856, cf3: 3050, pf1: 585, pf2: 1856, pf3: 3050}
       ʉ: {cf1: 420, cf2: 1980, cf3: 2820, pf1: 458, pf2: 1980, pf3: 2820}
       ʊ: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878}
-      ʌ: {cf1: 795, cf2: 1631, cf3: 3107, pf1: 795, pf2: 1631, pf3: 3107}
+      ʌ: {cf1: 795, cf2: 1631, cf3: 2880, pf1: 795, pf2: 1631, pf3: 2880}
       ʏ: {cf1: 458, cf2: 2163, cf3: 2820, pf1: 458, pf2: 2163, pf3: 2820}
       ᴀ: {cf1: 1012, cf2: 1669, cf3: 3164, pf1: 458, pf2: 1794, pf3: 3164}
       ᴇ: {cf1: 458, cf2: 2754, cf3: 3559, pf1: 522, pf2: 2812, pf3: 3559}
-      ᴏ: {cf1: 783, cf2: 1350, cf3: 3050, pf1: 771, pf2: 1337, pf3: 3130}
-      ᴐ: {cf1: 746, cf2: 1478, cf3: 3050, pf1: 722, pf2: 1337, pf3: 3130}
+      ᴏ: {cf1: 783, cf2: 1350, cf3: 2830, pf1: 771, pf2: 1337, pf3: 2830}
+      ᴐ: {cf1: 746, cf2: 1478, cf3: 2830, pf1: 722, pf2: 1337, pf3: 2830}
       ᴒ: {cf1: 964, cf2: 1478, cf3: 2993, pf1: 844, pf2: 1414, pf3: 3050}
       ᴜ: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878}
       ᵁ: {cf1: 528, cf2: 1542, cf3: 2958, pf1: 585, pf2: 1669, pf3: 2878}
