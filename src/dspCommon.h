@@ -69,6 +69,22 @@ const double kSweepBwMinF3 = 60.0;
 const double kSweepBwMax = 1000.0;
 
 // ============================================================================
+// Sweep-rate adaptive resonator tuning
+// ============================================================================
+// During fast formant sweeps (e.g. /ɹ/ F3), IIR resonators ring at the old
+// frequency while being driven to the new one.  BW widening adds bandwidth
+// proportional to sweep rate so the resonator stays well-damped during
+// transitions.  Zero effect at steady state.
+
+const double kSweepBwScale = 0.3;            // Hz BW added per Hz/sample sweep rate
+
+// Minimum Hz separation between F3 and F2 in the cascade path.
+// When two cascade resonators converge to nearly the same frequency their
+// gains multiply, creating a metallic spectral spike.  This is most audible
+// during /ɹ/→vowel transitions where F2 and F3 cross paths mid-crossfade.
+const double kMinF3F2Sep = 300.0;
+
+// ============================================================================
 // Tuning knobs (DSP-layer)
 // ============================================================================
 
