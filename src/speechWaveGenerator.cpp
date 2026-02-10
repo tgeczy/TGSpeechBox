@@ -305,13 +305,20 @@ public:
                 double alpha = (targetPreGain > smoothPreGain) ? preGainAttackAlpha : preGainReleaseAlpha;
                 smoothPreGain += (targetPreGain - smoothPreGain) * alpha;
 
-                // If preFormantGain was near zero (word-boundary gap, pre-stop
-                // closure) and is now rising, reset cascade/parallel resonators.
-                // Without this, residual IIR state from the previous phoneme
-                // colors the first few ms of the new phoneme (e.g. /d/'s formants
-                // bleeding into /h/ across a 24ms gap in "had helped").
-                // wasSilence only fires on full NULL-frame silence; this catches
-                // the subtler case of preFormantGain=0 gaps.
+                // Drain resonator energy during silence.  When preFormantGain
+                // is near zero (closure, word-boundary gap), the source is off
+                // but IIR resonators still ring.  Real vocal tracts don't ring
+                // through a closed glottis, so we decay the state each sample.
+                // 0.95 ≈ 1ms time-constant at 22050 Hz — fast enough to drain
+                // before the next phoneme, gentle enough to avoid clicks.
+                if (smoothPreGain < 0.01) {
+                    cascade.decay(0.95);
+                    parallel.decay(0.95);
+                }
+
+                // If preFormantGain was near zero and is now rising, hard-reset
+                // any remaining resonator state so the previous phoneme's formants
+                // don't color the new one.
                 if (prevSmooth < 0.005 && targetPreGain > 0.01) {
                     cascade.reset();
                     parallel.reset();

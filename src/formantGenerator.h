@@ -35,7 +35,13 @@ public:
     void reset() {
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset(); rN0.reset(); rNP.reset();
     }
-    
+
+    void decay(double factor) {
+        r1.decay(factor); r2.decay(factor); r3.decay(factor);
+        r4.decay(factor); r5.decay(factor); r6.decay(factor);
+        rN0.decay(factor); rNP.decay(factor);
+    }
+
     void setPitchSyncParams(double f1DeltaHz, double b1DeltaHz) {
         pitchSyncF1Delta = f1DeltaHz;
         pitchSyncB1Delta = b1DeltaHz;
@@ -142,6 +148,11 @@ public:
 
     void reset() {
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset();
+    }
+
+    void decay(double factor) {
+        r1.decay(factor); r2.decay(factor); r3.decay(factor);
+        r4.decay(factor); r5.decay(factor); r6.decay(factor);
     }
 
     double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {

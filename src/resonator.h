@@ -166,6 +166,13 @@ public:
         z2=0.0;
         setOnce=false;
     }
+
+    // Drain residual energy during silence (e.g. preFormantGain ≈ 0).
+    // Real vocal tracts don't ring through a closed glottis.
+    void decay(double factor) {
+        y1 *= factor;
+        y2 *= factor;
+    }
 };
 
 // ============================================================================
@@ -239,6 +246,11 @@ public:
         setOnce = false;
         smoothFreq = 0.0;
         smoothBw = 0.0;
+    }
+
+    void decay(double factor) {
+        y1 *= factor;
+        y2 *= factor;
     }
 
     void setPitchSyncParams(double dF1, double dB1) {
