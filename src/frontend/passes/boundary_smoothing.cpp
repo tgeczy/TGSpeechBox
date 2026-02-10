@@ -220,55 +220,43 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       targetFade = f2v;  // treat like fricative->vowel
     }
 
-    // Apply per-formant transition scaling if the language pack specifies it.
-    if (lang.boundarySmoothingF1Scale > 0.0 && lang.boundarySmoothingF1Scale != 1.0) {
-      cur.transF1Scale = lang.boundarySmoothingF1Scale;
-    }
-    if (lang.boundarySmoothingF2Scale > 0.0 && lang.boundarySmoothingF2Scale != 1.0) {
-      cur.transF2Scale = lang.boundarySmoothingF2Scale;
-    }
-    if (lang.boundarySmoothingF3Scale > 0.0 && lang.boundarySmoothingF3Scale != 1.0) {
-      cur.transF3Scale = lang.boundarySmoothingF3Scale;
-    }
-
-    // Nasal F1 should jump nearly instantly (overrides general F1 scale).
-    if (lang.boundarySmoothingNasalF1Instant && (curNasal || prevNasal)) {
-      cur.transF1Scale = 0.05;  // 5% of fade = nearly instant
-    }
-
-    // Voicing flip (voiced→voiceless or vice-versa): don't increase fade.
-    // A longer crossfade across a voicing boundary makes voicing and
-    // aspiration overlap, producing a buzz/pop.  Leave the base fade alone.
-    // Vowels are inherently voiced, so vowel↔consonant transitions are
-    // exempt — those need the longer fade for smooth formant movement.
-    const bool prevVoiced = tokIsVowelLike(prev) || tokIsVoiced(prev);
-    const bool curVoiced = tokIsVowelLike(cur) || tokIsVoiced(cur);
-    // Exempt stops: their closure already creates a natural voicing cutoff,
-    // so a longer fade won't cause buzz (e.g. /d/→/h/ at word boundary).
-    // Also exempt word boundaries — the inter-word gap serves the same role.
-    const bool voicingFlip = (prevVoiced != curVoiced) &&
-                             !prevVowelLike && !curVowelLike &&
-                             !prevStop && !curStop &&
-                             !cur.wordStart;
-
-    // Apply if we have a target and it's larger than current fade
-    if (targetFade > 0.0 && targetFade > cur.fadeMs && !voicingFlip) {
-      // Cap fade to fraction of duration to preserve phoneme steady-state
+    // Formant-only smoothing: express the desired transition time as
+    // per-formant scale factors rather than stretching the amplitude
+    // crossfade.  The amplitude fade stays at its natural duration (the
+    // DSP handles that fine), while formant frequencies get a longer,
+    // smoother ramp.  This avoids the mushy onset that amplitude
+    // stretching causes on aspiration-dominant sounds like /h/.
+    if (targetFade > 0.0 && cur.fadeMs > 0.0) {
+      // Cap targetFade to preserve steady-state
+      double cappedFade = targetFade;
       if (cur.durationMs > 0.0) {
         const double maxFade = cur.durationMs * kMaxFadeRatio;
-        targetFade = std::min(targetFade, maxFade);
-        // Floor: don't let the cap shrink fade below kMinFadeMs.
-        // For truly tiny phones, clampFadeToDuration below will
-        // ensure fade <= duration.
-        if (targetFade < kMinFadeMs) {
-          targetFade = std::min(kMinFadeMs, cur.durationMs);
+        cappedFade = std::min(cappedFade, maxFade);
+        if (cappedFade < kMinFadeMs) {
+          cappedFade = std::min(kMinFadeMs, cur.durationMs);
         }
       }
 
-      if (targetFade > cur.fadeMs) {
-        cur.fadeMs = targetFade;
-        clampFadeToDuration(cur);
+      // Ratio: how much longer the formant transition should be vs
+      // the existing amplitude fade.  E.g. if fade is 8ms and we
+      // want 22ms of formant smoothing, scale = 2.75.
+      const double ratio = cappedFade / cur.fadeMs;
+      if (ratio > 1.0) {
+        // Apply per-formant scaling from the lang pack on top.
+        double f1 = ratio * lang.boundarySmoothingF1Scale;
+        double f2 = ratio * lang.boundarySmoothingF2Scale;
+        double f3 = ratio * lang.boundarySmoothingF3Scale;
+
+        // Only set if actually longer than current scale
+        if (f1 > cur.transF1Scale) cur.transF1Scale = f1;
+        if (f2 > cur.transF2Scale) cur.transF2Scale = f2;
+        if (f3 > cur.transF3Scale) cur.transF3Scale = f3;
       }
+    }
+
+    // Nasal F1 should jump nearly instantly (overrides the above).
+    if (lang.boundarySmoothingNasalF1Instant && (curNasal || prevNasal)) {
+      cur.transF1Scale = 0.05;  // 5% of fade = nearly instant
     }
   }
 
