@@ -436,6 +436,21 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"liquidDynamicsLabialGlideStartF2", "liquidDynamics", "labialGlideTransition"},
   {"liquidDynamicsLabialGlideTransitionPct", "liquidDynamics", "labialGlideTransition"},
   
+  // boundarySmoothing fade time settings
+  {"boundarySmoothingFricToStopFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingFricToVowelFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingLiquidToStopFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingLiquidToVowelFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingNasalToStopFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingNasalToVowelFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingStopToFricFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingStopToVowelFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingVowelToFricFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingVowelToLiquidFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingVowelToNasalFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingVowelToStopFadeMs", "boundarySmoothing", nullptr},
+  {"boundarySmoothingVowelToVowelFadeMs", "boundarySmoothing", nullptr},
+
   // allophoneRules settings (scalar fields only — rules array handled separately)
   {"allophoneRulesEnabled", "allophoneRules", nullptr},
 

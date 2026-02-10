@@ -92,7 +92,7 @@ endif()
 # Win32 phoneme editor GUI
 # -------------------------
 if(WIN32)
-  add_subdirectory(tools/nvspPhonemeEditorWin32)
+  add_subdirectory(tools/tgsbPhonemeEditorWin32)
 endif()
 
 # If nvspFrontend needs WinMM too (it usually doesn't), uncomment:

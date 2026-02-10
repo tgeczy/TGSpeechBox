@@ -192,10 +192,10 @@ settings:
         action: scale
         durationScale: 0.85
         fieldScales:
-          fricationAmplitude: 0.4
+          fricationAmplitude: 0.84
           aspirationAmplitude: 0.3
   boundarySmoothing:
-    enabled: false
+    enabled: true
     f1Scale: 0.6
     f3Scale: 1.2
     nasalF1Instant: true
@@ -209,7 +209,7 @@ settings:
   # so these deltas stack on top of the DECTalk-style formant ramps.
   # ------------------------------------------------------------------
   specialCoarticulation:
-    enabled: false
+    enabled: true
     maxDeltaHz: 400
     rules:
       # 1. Rhotic vowel coloring  (the signature American feature).
@@ -257,7 +257,7 @@ settings:
   # obstruents for smoother connected speech.
   # ------------------------------------------------------------------
   clusterTiming:
-    enabled: false
+    enabled: true
     fricBeforeStopScale: 0.65      # /st/ in "stop", "fast"
     stopBeforeFricScale: 0.70      # /ks/ in "box", "tax"
     fricBeforeFricScale: 0.75      # /sf/ rare but "asphalt"

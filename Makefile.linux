@@ -1,10 +1,23 @@
 # Makefile for TGSpeechBox (Linux)
-# Builds: libtgspeechbox.so, libtgsbFrontend.so, and tgsbRender
+# Builds: libtgspeechbox, libtgsbFrontend, and tgsbRender
+#
+# Usage:
+#   make -f Makefile.linux                             # shared libs (x86_64)
+#   make -f Makefile.linux STATIC=1                    # static build (x86_64)
+#   make -f Makefile.linux CROSS_COMPILE=aarch64-linux-gnu-              # shared (ARM64)
+#   make -f Makefile.linux CROSS_COMPILE=aarch64-linux-gnu- STATIC=1    # static (ARM64)
 
-CXX = g++
+# Cross-compilation prefix (e.g. aarch64-linux-gnu-)
+CROSS_COMPILE ?=
+CXX = $(CROSS_COMPILE)g++
+AR  = $(CROSS_COMPILE)ar
+
+# Static vs shared build
+STATIC ?= 0
+
 CXXFLAGS = -std=c++17 -O2 -Wall -fPIC
-LDFLAGS = -shared
-LIBS = -lpthread
+LDFLAGS_SHARED = -shared
+LIBS = -lpthread -lm
 
 # Directories
 SRCDIR = src
@@ -30,6 +43,7 @@ FRONTEND_SRCS = \
 	$(FRONTENDDIR)/yaml_min.cpp \
 	$(PASSESDIR)/allophones.cpp \
 	$(PASSESDIR)/boundary_smoothing.cpp \
+	$(PASSESDIR)/cluster_timing.cpp \
 	$(PASSESDIR)/coarticulation.cpp \
 	$(PASSESDIR)/length_contrast.cpp \
 	$(PASSESDIR)/liquid_dynamics.cpp \
@@ -38,6 +52,7 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/pass_pipeline.cpp \
 	$(PASSESDIR)/prosody.cpp \
 	$(PASSESDIR)/reduction.cpp \
+	$(PASSESDIR)/special_coartic.cpp \
 	$(PASSESDIR)/trajectory_limit.cpp
 
 # tgsbRender sources
@@ -51,8 +66,13 @@ SPEECHPLAYER_OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SPEECHPLAYER_SRC
 FRONTEND_OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(FRONTEND_SRCS)))
 
 # Output files
-SPEECHPLAYER_LIB = $(BUILDDIR)/libtgspeechbox.so
-FRONTEND_LIB = $(BUILDDIR)/libtgsbFrontend.so
+ifeq ($(STATIC),1)
+  SPEECHPLAYER_LIB = $(BUILDDIR)/libtgspeechbox.a
+  FRONTEND_LIB = $(BUILDDIR)/libtgsbFrontend.a
+else
+  SPEECHPLAYER_LIB = $(BUILDDIR)/libtgspeechbox.so
+  FRONTEND_LIB = $(BUILDDIR)/libtgsbFrontend.so
+endif
 RENDER_BIN = $(BUILDDIR)/tgsbRender
 
 # Targets
@@ -63,19 +83,38 @@ all: dirs $(SPEECHPLAYER_LIB) $(FRONTEND_LIB) $(RENDER_BIN)
 dirs:
 	@mkdir -p $(BUILDDIR)
 
-# Build tgspeechbox shared library
+ifeq ($(STATIC),1)
+
+# Build static archives
 $(SPEECHPLAYER_LIB): $(SPEECHPLAYER_OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(AR) rcs $@ $^
 
-# Build tgsbFrontend shared library
 $(FRONTEND_LIB): $(FRONTEND_OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $^ -DNVSP_FRONTEND_EXPORTS=1
+	$(AR) rcs $@ $^
 
-# Build tgsbRender executable
+# Link tgsbRender statically — single portable binary
+$(RENDER_BIN): $(TOOLSDIR)/tgsbRender.cpp $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(TOOLSDIR)/tgsbRender.cpp \
+		$(FRONTEND_LIB) $(SPEECHPLAYER_LIB) \
+		-static-libgcc -static-libstdc++ \
+		$(LIBS) -lstdc++fs
+
+else
+
+# Build shared libraries
+$(SPEECHPLAYER_LIB): $(SPEECHPLAYER_OBJS)
+	$(CXX) $(LDFLAGS_SHARED) -o $@ $^ $(LIBS)
+
+$(FRONTEND_LIB): $(FRONTEND_OBJS)
+	$(CXX) $(LDFLAGS_SHARED) -o $@ $^
+
+# Link tgsbRender against shared libs
 $(RENDER_BIN): $(TOOLSDIR)/tgsbRender.cpp $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(TOOLSDIR)/tgsbRender.cpp \
 		-L$(BUILDDIR) -ltgspeechbox -ltgsbFrontend \
 		-Wl,-rpath,'$$ORIGIN'
+
+endif
 
 # Pattern rules for object files
 
@@ -118,6 +157,9 @@ $(BUILDDIR)/allophones.o: $(PASSESDIR)/allophones.cpp
 $(BUILDDIR)/boundary_smoothing.o: $(PASSESDIR)/boundary_smoothing.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
+$(BUILDDIR)/cluster_timing.o: $(PASSESDIR)/cluster_timing.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
 $(BUILDDIR)/coarticulation.o: $(PASSESDIR)/coarticulation.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
@@ -140,6 +182,9 @@ $(BUILDDIR)/prosody.o: $(PASSESDIR)/prosody.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/reduction.o: $(PASSESDIR)/reduction.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/special_coartic.o: $(PASSESDIR)/special_coartic.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp

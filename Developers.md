@@ -82,9 +82,9 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 
 ### FrameEx struct (DSP version 5+)
 
-DSP version 5 introduced an optional per-frame extension struct for voice quality parameters that vary during speech (e.g., Danish stød). DSP version 6 adds formant end targets and Fujisaki pitch model parameters. DSP version 7 adds per-parameter transition speed scales for boundary smoothing. This keeps the original 47-parameter frame ABI stable.
+DSP version 5 introduced an optional per-frame extension struct for voice quality parameters that vary during speech (e.g., Danish stød). DSP version 6 adds formant end targets and Fujisaki pitch model parameters. DSP version 7 adds per-parameter transition speed scales for boundary smoothing and equal-power amplitude crossfade mode. This keeps the original 47-parameter frame ABI stable.
 
-The struct is currently **22 doubles = 176 bytes**. The `speechPlayer_queueFrameEx()` function takes a `frameExSize` parameter; the DSP starts with defaults then overlays `min(frameExSize, sizeof(speechPlayer_frameEx_t))` bytes. This provides forward/backward ABI compatibility — callers with smaller structs simply don't override the trailing fields.
+The struct is currently **23 doubles = 184 bytes**. The `speechPlayer_queueFrameEx()` function takes a `frameExSize` parameter; the DSP starts with defaults then overlays `min(frameExSize, sizeof(speechPlayer_frameEx_t))` bytes. This provides forward/backward ABI compatibility — callers with smaller structs simply don't override the trailing fields.
 
 #### New API function
 
@@ -145,7 +145,29 @@ These control how fast individual formant groups reach their targets during boun
 
 Example: with `transF1Scale = 0.6` and a 20ms fade, F1 reaches its target at 12ms and holds for the remaining 8ms, while F2 (at default) ramps across the full 20ms. This makes F1 "arrive first" at segment boundaries, which is perceptually important for place-of-articulation cues.
 
-**ABI note:** These 4 fields sit at offsets 18–21 (bytes 144–175) of the FrameEx struct. Callers passing `frameExSize = 144` (the old 18-double size) will silently not set these fields, and the DSP defaults (0.0 = no override) apply. This is why it was important to update `speechPlayer.py`, `_frontend.py`, and `tgsbRender.cpp` to the full 22-double / 176-byte struct.
+##### Equal-power amplitude crossfade (DSP v7+)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `transAmplitudeMode` | double | 1.0 | Amplitude crossfade curve: 0.0 = linear (legacy), 1.0 = equal-power (sin/cos). |
+
+When the voicing source type changes between frames (e.g. voiced /n/ with `voiceAmplitude=0.9` transitioning to voiceless /h/ with `aspirationAmplitude=0.15`), linear crossfade creates an energy valley at the midpoint — total energy dips to ~58% before recovering. This sounds like a pop or click.
+
+Equal-power crossfade uses `oldVal * cos(theta) + newVal * sin(theta)` where `theta = ratio * pi/2`. Since `sin^2 + cos^2 = 1`, total power stays constant throughout the transition. The DSP applies this curve only to amplitude/gain source parameters (`voiceAmplitude`, `aspirationAmplitude`, `fricationAmplitude`, `voiceTurbulenceAmplitude`, `preFormantGain`). Parallel amplitudes (`pa1`-`pa6`), `outputGain`, and `caNP` are excluded — they track formant structure, not energy sources.
+
+The frontend (`frame_emit.cpp`) detects source transitions by comparing current vs. previous frame amplitude values: if `voiceAmplitude` or `fricationAmplitude` cross a 0.05 threshold in either direction, `transAmplitudeMode` is set to 1.0. For same-source transitions (vowel-to-vowel, fricative-to-fricative), the mode stays at 0.0 and linear interpolation is used — the two curves produce nearly identical results when old and new amplitudes are similar.
+
+The `isAmplitudeParam()` helper in `frame.cpp` identifies the five source amplitude parameters using `offsetof`, matching the pattern of the existing `isFrequencyParam()`, `isF1Param()`, etc. helpers.
+
+##### Silence transition fixes (DSP v7+)
+
+Two additional fixes in the DSP prevent pops at silence boundaries:
+
+1. **Source amplitude zeroing** (`frame.cpp`): When transitioning from silence to a real frame (or vice versa), the "from" side now has all source amplitudes (`voiceAmplitude`, `aspirationAmplitude`, `fricationAmplitude`, `voiceTurbulenceAmplitude`) zeroed alongside `preFormantGain`. Previously, the silence path copied the target frame's amplitudes into the old frame, meaning noise/voicing hit cascade resonators at full strength from sample 1.
+
+2. **Resonator reset on preFormantGain recovery** (`speechWaveGenerator.cpp`): When `smoothPreGain` rises from near-zero (< 0.005) to above 0.01, cascade and parallel resonators are reset. This clears residual IIR state from the previous phoneme that would otherwise color the first few milliseconds of the new phoneme across word-boundary gaps (e.g. /d/'s formant pattern bleeding into /h/ in "had helped"). The existing `wasSilence` flag only fires on full NULL-frame silence; this catches the subtler case of `preFormantGain=0` gaps.
+
+**ABI note:** The 5 transition fields sit at offsets 18–22 (bytes 144–183) of the FrameEx struct. Callers passing `frameExSize = 144` (the old 18-double size) will silently not set these fields, and the DSP defaults (0.0 for scales, 1.0 for amplitude mode) apply. This is why it was important to update `speechPlayer.py`, `_frontend.py`, and `tgsbRender.cpp` to the full 23-double / 184-byte struct.
 
 ### Usage example (Python/ctypes, v3 struct)
 

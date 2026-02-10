@@ -612,11 +612,13 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // time only for certain boundary types.
   bool boundarySmoothingEnabled = false;
 
-  // Per-formant transition scaling (multipliers on base fade values).
-  // F1 should transition faster (place perception), F2/F3 slower (smooth quality).
-  double boundarySmoothingF1Scale = 0.6;   // F1 fades are 60% of base
-  double boundarySmoothingF2Scale = 1.0;   // F2 at base
-  double boundarySmoothingF3Scale = 1.2;   // F3 slightly slower
+  // Per-formant transition scaling (fraction of fade time).
+  // Values < 1.0 make formants arrive BEFORE the amplitude crossfade
+  // finishes, preventing "wrong formants at full amplitude" artifacts.
+  // F1 fastest (place perception), F2/F3 slightly longer.
+  double boundarySmoothingF1Scale = 0.3;   // F1 arrives in 30% of fade
+  double boundarySmoothingF2Scale = 0.5;   // F2 arrives in 50% of fade
+  double boundarySmoothingF3Scale = 0.5;   // F3 arrives in 50% of fade
 
   // Per-boundary-type fade times (ms, before speed division).
   double boundarySmoothingVowelToStopMs = 22.0;
