@@ -653,6 +653,19 @@ if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMa
   getBoolFrom(*bs, "plosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
   getBoolFrom(*bs, "nasalF1Instant", lp.boundarySmoothingNasalF1Instant);
   getBoolFrom(*bs, "nasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
+  getNumFrom(*bs, "vowelToStopFadeMs", lp.boundarySmoothingVowelToStopMs);
+  getNumFrom(*bs, "stopToVowelFadeMs", lp.boundarySmoothingStopToVowelMs);
+  getNumFrom(*bs, "vowelToFricFadeMs", lp.boundarySmoothingVowelToFricMs);
+  getNumFrom(*bs, "fricToVowelFadeMs", lp.boundarySmoothingFricToVowelMs);
+  getNumFrom(*bs, "vowelToNasalFadeMs", lp.boundarySmoothingVowelToNasalMs);
+  getNumFrom(*bs, "nasalToVowelFadeMs", lp.boundarySmoothingNasalToVowelMs);
+  getNumFrom(*bs, "vowelToLiquidFadeMs", lp.boundarySmoothingVowelToLiquidMs);
+  getNumFrom(*bs, "liquidToVowelFadeMs", lp.boundarySmoothingLiquidToVowelMs);
+  getNumFrom(*bs, "nasalToStopFadeMs", lp.boundarySmoothingNasalToStopMs);
+  getNumFrom(*bs, "liquidToStopFadeMs", lp.boundarySmoothingLiquidToStopMs);
+  getNumFrom(*bs, "fricToStopFadeMs", lp.boundarySmoothingFricToStopMs);
+  getNumFrom(*bs, "stopToFricFadeMs", lp.boundarySmoothingStopToFricMs);
+  getNumFrom(*bs, "vowelToVowelFadeMs", lp.boundarySmoothingVowelToVowelMs);
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {

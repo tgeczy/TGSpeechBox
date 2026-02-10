@@ -105,24 +105,27 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
   if (tokens.size() < 2) return true;
 
   const double sp = (ctx.speed > 0.0) ? ctx.speed : 1.0;
-  
-  // Fade values tuned for audible smoothing without "doubling" artifacts
-  // These are noticeably smoother than defaults but still crisp
-  const double v2sEff = 22.0 / sp;   // Vowel -> Stop
-  const double s2vEff = 20.0 / sp;   // Stop -> Vowel
-  const double v2fEff = 18.0 / sp;   // Vowel -> Fricative
-  
-  // Derived transition fades
-  const double f2v = 18.0 / sp;      // Fricative -> Vowel
-  const double v2n = 16.0 / sp;      // Vowel -> Nasal
-  const double n2v = 16.0 / sp;      // Nasal -> Vowel
-  const double v2l = 14.0 / sp;      // Vowel -> Liquid
-  const double l2v = 14.0 / sp;      // Liquid -> Vowel
-  const double n2s = 12.0 / sp;      // Nasal -> Stop (cluster)
-  const double l2s = 12.0 / sp;      // Liquid -> Stop (cluster)
-  const double f2s = 10.0 / sp;      // Fricative -> Stop (cluster)
-  const double s2f = 14.0 / sp;      // Stop -> Fricative
-  const double v2v = 18.0 / sp;      // Vowel -> Vowel (hiatus)
+
+  // For boundary fade scaling, never let slow speech make fades LONGER
+  // than the configured values. Fast speech shortens fades (less time
+  // available), but slow speech should NOT stretch them — the ear
+  // expects crisper boundaries when phonemes are longer.
+  const double fadeSpeed = std::max(sp, 1.0);
+
+  // Per-boundary-type fade times (from lang pack, ms / fadeSpeed).
+  const double v2sEff = lang.boundarySmoothingVowelToStopMs / fadeSpeed;
+  const double s2vEff = lang.boundarySmoothingStopToVowelMs / fadeSpeed;
+  const double v2fEff = lang.boundarySmoothingVowelToFricMs / fadeSpeed;
+  const double f2v = lang.boundarySmoothingFricToVowelMs / fadeSpeed;
+  const double v2n = lang.boundarySmoothingVowelToNasalMs / fadeSpeed;
+  const double n2v = lang.boundarySmoothingNasalToVowelMs / fadeSpeed;
+  const double v2l = lang.boundarySmoothingVowelToLiquidMs / fadeSpeed;
+  const double l2v = lang.boundarySmoothingLiquidToVowelMs / fadeSpeed;
+  const double n2s = lang.boundarySmoothingNasalToStopMs / fadeSpeed;
+  const double l2s = lang.boundarySmoothingLiquidToStopMs / fadeSpeed;
+  const double f2s = lang.boundarySmoothingFricToStopMs / fadeSpeed;
+  const double s2f = lang.boundarySmoothingStopToFricMs / fadeSpeed;
+  const double v2v = lang.boundarySmoothingVowelToVowelMs / fadeSpeed;
 
   // Maximum fade as fraction of token duration (preserve steady-state).
   // 0.75 allows short phones to be mostly transition (they have no
@@ -240,8 +243,13 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     // exempt — those need the longer fade for smooth formant movement.
     const bool prevVoiced = tokIsVowelLike(prev) || tokIsVoiced(prev);
     const bool curVoiced = tokIsVowelLike(cur) || tokIsVoiced(cur);
+    // Exempt stops: their closure already creates a natural voicing cutoff,
+    // so a longer fade won't cause buzz (e.g. /d/→/h/ at word boundary).
+    // Also exempt word boundaries — the inter-word gap serves the same role.
     const bool voicingFlip = (prevVoiced != curVoiced) &&
-                             !prevVowelLike && !curVowelLike;
+                             !prevVowelLike && !curVowelLike &&
+                             !prevStop && !curStop &&
+                             !cur.wordStart;
 
     // Apply if we have a target and it's larger than current fade
     if (targetFade > 0.0 && targetFade > cur.fadeMs && !voicingFlip) {

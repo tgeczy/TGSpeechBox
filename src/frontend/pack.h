@@ -618,6 +618,21 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double boundarySmoothingF2Scale = 1.0;   // F2 at base
   double boundarySmoothingF3Scale = 1.2;   // F3 slightly slower
 
+  // Per-boundary-type fade times (ms, before speed division).
+  double boundarySmoothingVowelToStopMs = 22.0;
+  double boundarySmoothingStopToVowelMs = 20.0;
+  double boundarySmoothingVowelToFricMs = 18.0;
+  double boundarySmoothingFricToVowelMs = 18.0;
+  double boundarySmoothingVowelToNasalMs = 16.0;
+  double boundarySmoothingNasalToVowelMs = 16.0;
+  double boundarySmoothingVowelToLiquidMs = 14.0;
+  double boundarySmoothingLiquidToVowelMs = 14.0;
+  double boundarySmoothingNasalToStopMs = 12.0;
+  double boundarySmoothingLiquidToStopMs = 12.0;
+  double boundarySmoothingFricToStopMs = 10.0;
+  double boundarySmoothingStopToFricMs = 14.0;
+  double boundarySmoothingVowelToVowelMs = 18.0;
+
   // Plosive/nasal-specific transition behavior (universal defaults).
   bool boundarySmoothingPlosiveSpansPhone = true;    // formants ramp across entire plosive
   bool boundarySmoothingNasalF1Instant = true;       // F1 jumps instantly in nasals

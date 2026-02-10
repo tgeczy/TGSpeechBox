@@ -268,6 +268,7 @@ static bool ruleMatches(
     if (!isWordFinalPhoneme(tokens, i)) return false;
   } else if (rule.position == "intervocalic") {
     if (!prevIsVowel || !nextIsVowel) return false;
+    if (t.wordStart) return false;  // word-initial is not intervocalic
   } else if (rule.position == "pre-vocalic") {
     if (!nextIsVowel) return false;
   } else if (rule.position == "post-vocalic") {
