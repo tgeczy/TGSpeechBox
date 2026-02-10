@@ -2,12 +2,12 @@
 
 A Klatt-based speech synthesis engine for Linux.
 
-This package contains pre-built binaries of TGSpeechBox for Linux x86_64.
+Pre-built binaries are available for Linux x86_64 and aarch64 (ARM64, e.g. Raspberry Pi 4/5).
 
 ## Contents
 
 ```
-tgspeechbox-linux-x86_64/
+tgspeechbox-linux-<arch>/        # where <arch> is x86_64 or aarch64
 ├── bin/
 │   ├── tgsbRender     # Core binary (IPA → raw PCM)
 │   └── tgsp           # Wrapper script with paths configured
@@ -314,7 +314,10 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNVSP_BUILD_TOOLS=ON
 cmake --build build -j
 
 # Or with the included Makefile (no CMake required)
-make
+make -f Makefile.linux                                                  # shared libs (x86_64)
+make -f Makefile.linux STATIC=1                                         # static build (x86_64)
+make -f Makefile.linux CROSS_COMPILE=aarch64-linux-gnu-                 # shared libs (ARM64)
+make -f Makefile.linux CROSS_COMPILE=aarch64-linux-gnu- STATIC=1        # static build (ARM64)
 ```
 
 ### Build Requirements
@@ -322,6 +325,22 @@ make
 - GCC 9+ or Clang 10+ (C++17 support)
 - CMake 3.21+ (if using CMake)
 - pthreads library
+- For ARM64 cross-compilation: `gcc-aarch64-linux-gnu` and `g++-aarch64-linux-gnu`
+
+### Cross-compiling for ARM64
+
+To build for Raspberry Pi or other aarch64 targets from an x86_64 host:
+
+```bash
+# Install the cross-compiler (Debian/Ubuntu)
+sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+# Build with Makefile
+make -f Makefile.linux CROSS_COMPILE=aarch64-linux-gnu-
+
+# Or static build (portable single binary)
+make -f Makefile.linux CROSS_COMPILE=aarch64-linux-gnu- STATIC=1
+```
 
 ## Troubleshooting
 
