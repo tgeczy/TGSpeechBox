@@ -195,7 +195,7 @@ settings:
           fricationAmplitude: 0.84
           aspirationAmplitude: 0.3
   boundarySmoothing:
-    enabled: true
+    enabled: false
     f1Scale: 0.6
     f3Scale: 1.2
     nasalF1Instant: true

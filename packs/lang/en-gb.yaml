@@ -26,7 +26,7 @@ settings:
   allophoneRules:
     enabled: false
   boundarySmoothing:
-    enabled: true
+    enabled: false
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: false
