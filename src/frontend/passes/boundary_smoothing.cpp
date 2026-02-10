@@ -224,8 +224,8 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     // onset is aspiration-dominant (e.g. /h/, voiceless fricatives).
     // Aspiration needs a crisp onset — a gradual fade-in sounds mushy.
     const bool curAspirationDominant =
-        cur.field[aspirationAmplitude] > 0.08 &&
-        cur.field[voiceAmplitude] < 0.1;
+        cur.field[static_cast<int>(FieldId::aspirationAmplitude)] > 0.08 &&
+        cur.field[static_cast<int>(FieldId::voiceAmplitude)] < 0.1;
 
     // Voicing flip guard: don't stretch fade across voiced↔voiceless
     // consonant boundaries (buzz/pop from overlapping voicing+aspiration).
