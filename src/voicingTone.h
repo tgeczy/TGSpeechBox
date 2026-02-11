@@ -312,7 +312,7 @@ typedef struct {
     0.0,    /* pitchSyncB1DeltaHz (off by default) */ \
     2.0,    /* speedQuotient (neutral, matches original behavior) */ \
     0.0,    /* aspirationTiltDbPerOct (no tilt by default) */ \
-    0.8,    /* cascadeBwScale (slight scaling by default for clearer vowels) */ \
+    0.9,    /* cascadeBwScale (mild narrowing for clearer vowels, less tubey than 0.8) */ \
     0.0     /* tremorDepth (no tremor by default) */ \
 }
 
