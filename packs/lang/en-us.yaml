@@ -185,37 +185,39 @@ settings:
     #  insertFadeMs: 3.0
     #  insertContexts: ["V_#"]
 
-    # ── Word-final voiceless stop aspiration + breathiness ───────
-    # Replace-self trick: replacing /p/→/p/ is a no-op on frame data,
-    # but triggers replaceAspirationScale which scales the aspiration
-    # token duration AND injects breathiness into the stop via FrameEx.
-    # The unreleased_word_final scale rule below stacks on top of these.
+    # ── Word-final voiceless stop aspiration ─────────────────────
+    # Insert a short /h/ burst after word-final voiceless stops to
+    # soften the abrupt Klatt cutoff.  Skipped when the next word
+    # starts with a vowel (notBeforeFlags) because the normal
+    # postStopAspiration system already handles stop→vowel transitions.
+    # The unreleased_word_final scale rule stacks on top of these
+    # (scale is not gated by the replaced flag).
       - name: word_final_aspirated_p
         phonemes: [p]
         position: word-final
         notBeforeFlags: [vowel]
-        action: replace
-        replaceTo: p
-        replaceRemovesAspiration: true
-        replaceAspirationScale: 0.4
+        action: insert-after
+        insertPhoneme: h
+        insertDurationMs: 12.0
+        insertFadeMs: 3.0
 
       - name: word_final_aspirated_t
         phonemes: [t]
         position: word-final
         notBeforeFlags: [vowel]
-        action: replace
-        replaceTo: t
-        replaceRemovesAspiration: true
-        replaceAspirationScale: 0.4
+        action: insert-after
+        insertPhoneme: h
+        insertDurationMs: 12.0
+        insertFadeMs: 3.0
 
       - name: word_final_aspirated_k
         phonemes: [k]
         position: word-final
         notBeforeFlags: [vowel]
-        action: replace
-        replaceTo: k
-        replaceRemovesAspiration: true
-        replaceAspirationScale: 0.4
+        action: insert-after
+        insertPhoneme: h
+        insertDurationMs: 12.0
+        insertFadeMs: 3.0
 
     # ── Unreleased word-final stops (gentler — stop still audible) ─
       - name: unreleased_word_final

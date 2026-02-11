@@ -64,35 +64,35 @@ settings:
             targetHz: 900.0
             blend: 0.2
 
-    # ── Word-final voiceless stop aspiration + breathiness ───────
-    # RP tends to have lighter aspiration on word-final stops than US
-    # (often unreleased or glottalized), so lower scale than en-us.
+    # ── Word-final voiceless stop aspiration ─────────────────────
+    # Insert a short /h/ burst after word-final voiceless stops.
+    # RP clips finals more tightly, so shorter burst than en-us.
       - name: word_final_aspirated_p
         phonemes: [p]
         position: word-final
         notBeforeFlags: [vowel]
-        action: replace
-        replaceTo: p
-        replaceRemovesAspiration: true
-        replaceAspirationScale: 0.3
+        action: insert-after
+        insertPhoneme: h
+        insertDurationMs: 10.0
+        insertFadeMs: 3.0
 
       - name: word_final_aspirated_t
         phonemes: [t]
         position: word-final
         notBeforeFlags: [vowel]
-        action: replace
-        replaceTo: t
-        replaceRemovesAspiration: true
-        replaceAspirationScale: 0.3
+        action: insert-after
+        insertPhoneme: h
+        insertDurationMs: 10.0
+        insertFadeMs: 3.0
 
       - name: word_final_aspirated_k
         phonemes: [k]
         position: word-final
         notBeforeFlags: [vowel]
-        action: replace
-        replaceTo: k
-        replaceRemovesAspiration: true
-        replaceAspirationScale: 0.3
+        action: insert-after
+        insertPhoneme: h
+        insertDurationMs: 10.0
+        insertFadeMs: 3.0
 
     # ── Unreleased word-final stops ──────────────────────────────
     # RP is more clipped on word-final stops than US.
