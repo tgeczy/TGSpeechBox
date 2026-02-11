@@ -55,9 +55,6 @@ private:
     // Flag: true when filter is disabled (passthrough)
     bool disabled;
 
-    // Sweep-rate adaptive BW widening state
-    double prevFreq;           // previous frequency for sweep rate detection
-
 public:
     Resonator(int sampleRate, bool anti=false)
         : sampleRate(sampleRate), frequency(0.0), bandwidth(0.0),
@@ -65,20 +62,10 @@ public:
           y1(0.0), y2(0.0),
           dfB0(0.0), dfFb1(0.0), dfFb2(0.0),
           firA(1.0), firB(0.0), firC(0.0), z1(0.0), z2(0.0),
-          disabled(true), prevFreq(0.0) {}
+          disabled(true) {}
 
     void setParams(double frequency, double bandwidth) {
         if(!setOnce||(frequency!=this->frequency)||(bandwidth!=this->bandwidth)) {
-            // Sweep-rate BW widening (non-anti resonators only).
-            // Widen bandwidth proportional to how fast frequency is changing,
-            // so the resonator stays well-damped during transitions.
-            double effectiveBw = bandwidth;
-            if (!anti && setOnce) {
-                double sweepRate = fabs(frequency - prevFreq);
-                effectiveBw += sweepRate * kSweepBwScale;
-            }
-            prevFreq = frequency;
-
             this->frequency=frequency;
             this->bandwidth=bandwidth;
 
@@ -134,7 +121,7 @@ public:
                 // At low frequencies (g<<1) this reduces to ~bw/f.  Near
                 // Nyquist it naturally increases damping -- no arbitrary ramp
                 // needed.
-                double R = exp(-2.0 * M_PI * effectiveBw / (double)sampleRate);
+                double R = exp(-2.0 * M_PI * bandwidth / (double)sampleRate);
                 double k = (1.0 - R) * (1.0 + g2) / (g * (1.0 + R));
 
                 // Convert to all-pole DF1 coefficients.
@@ -178,7 +165,6 @@ public:
         z1=0.0;
         z2=0.0;
         setOnce=false;
-        prevFreq=0.0;
     }
 
     // Drain residual energy during silence (e.g. preFormantGain ≈ 0).
@@ -217,9 +203,6 @@ private:
     double smoothFreq, smoothBw;
     double smoothAlpha;
 
-    // Sweep-rate adaptive BW widening state
-    double prevFreq;
-
     void computeCoeffs(double freq, double bw) {
         const double nyquist = 0.5 * (double)sampleRate;
         if (!std::isfinite(freq) || !std::isfinite(bw) ||
@@ -251,8 +234,7 @@ public:
         dfB0(0.0), dfFb1(0.0), dfFb2(0.0),
         disabled(true), frequency(0.0), bandwidth(0.0), setOnce(false),
         deltaFreq(0.0), deltaBw(0.0), lastTargetFreq(0.0), lastTargetBw(0.0),
-        smoothFreq(0.0), smoothBw(0.0), smoothAlpha(0.0),
-        prevFreq(0.0) {
+        smoothFreq(0.0), smoothBw(0.0), smoothAlpha(0.0) {
         // Smooth over ~2ms to prevent clicks at glottal transitions
         double smoothMs = 2.0;
         smoothAlpha = 1.0 - exp(-1.0 / (sampleRate * smoothMs * 0.001));
@@ -264,7 +246,6 @@ public:
         setOnce = false;
         smoothFreq = 0.0;
         smoothBw = 0.0;
-        prevFreq = 0.0;
     }
 
     void decay(double factor) {
@@ -303,19 +284,11 @@ public:
             targetBw = bw;
         }
 
-        // Sweep-rate BW widening
-        double effectiveBw = targetBw;
-        if (setOnce) {
-            double sweepRate = fabs(targetFreq - prevFreq);
-            effectiveBw += sweepRate * kSweepBwScale;
-        }
-        prevFreq = targetFreq;
-
         // Only recompute coefficients when params actually change
-        if (!setOnce || targetFreq != lastTargetFreq || effectiveBw != lastTargetBw) {
+        if (!setOnce || targetFreq != lastTargetFreq || targetBw != lastTargetBw) {
             lastTargetFreq = targetFreq;
-            lastTargetBw = effectiveBw;
-            computeCoeffs(targetFreq, effectiveBw);
+            lastTargetBw = targetBw;
+            computeCoeffs(targetFreq, targetBw);
             setOnce = true;
         }
 

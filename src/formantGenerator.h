@@ -130,16 +130,8 @@ void setCascadeBwScale(double scale) {
         output = r4.resonate(output, frame->cf4, cb4);
         double fade4 = cascadeFade(frame->cf4);
         output = preR4 + fade4 * (output - preR4);
-        // Enforce minimum F3-F2 separation to prevent cascade resonance pileup.
-        // When two cascade resonators converge to the same frequency, their gains
-        // multiply, creating a metallic spectral spike (worst during /ɹ/→vowel).
-        double cf2 = frame->cf2;
-        double cf3 = frame->cf3;
-        if (cf3 > 0.0 && cf2 > 0.0 && (cf3 - cf2) < kMinF3F2Sep) {
-            cf3 = cf2 + kMinF3F2Sep;
-        }
-        output = r3.resonate(output, cf3, cb3);
-        output = r2.resonate(output, cf2, cb2);
+        output = r3.resonate(output, frame->cf3, cb3);
+        output = r2.resonate(output, frame->cf2, cb2);
         // F1 uses pitch-synchronous resonator without Fujisaki compensation (dropped as we don't have F1 spikes it worked with.)
         output = r1.resonate(output, frame->cf1, cb1, glottisOpen);
         return output;
