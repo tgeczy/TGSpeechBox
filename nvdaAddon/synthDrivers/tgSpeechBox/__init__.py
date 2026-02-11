@@ -97,6 +97,9 @@ class SynthDriver(SynthDriver):
         NumericDriverSetting("frameExJitter", "Jitter (pitch variation)", defaultVal=0),
         NumericDriverSetting("frameExShimmer", "Shimmer (amplitude variation)", defaultVal=0),
         NumericDriverSetting("frameExSharpness", "Glottal sharpness", defaultVal=50),
+        NumericDriverSetting("legacyPitchInflectionScale",
+            "Legacy pitch inflection scale (only active when pitch mode is classic)",
+            defaultVal=29),
         DriverSetting("pauseMode", "Pause mode"),
         DriverSetting("sampleRate", "Sample rate"),
         DriverSetting("language", "Language"),
@@ -149,6 +152,7 @@ class SynthDriver(SynthDriver):
         self._curFrameExJitter = 0
         self._curFrameExShimmer = 0
         self._curFrameExSharpness = 50  # 50 = neutral (1.0x multiplier)
+        self._curLegacyPitchInflectionScale = 29  # 29 = 0.58 (pack.h default)
         self._perVoiceTilt = {}  # Per-voice tilt storage: {voiceName: tiltValue}
         self._perVoiceNoiseGlottalMod = {}
         self._perVoicePitchSyncF1 = {}
@@ -1801,6 +1805,29 @@ class SynthDriver(SynthDriver):
         try:
             self._curFrameExSharpness = int(val)
             self._pushFrameExDefaultsToFrontend()
+        except Exception:
+            pass
+
+    def _get_legacyPitchInflectionScale(self):
+        try:
+            raw = self._getLangPackStr("legacyPitchInflectionScale", default="")
+            if raw:
+                fval = float(raw)
+                # Map 0.0–2.0 → 0–100
+                return int(max(0, min(100, fval / 2.0 * 100.0)))
+            return 29  # default 0.58
+        except Exception:
+            return 29
+
+    def _set_legacyPitchInflectionScale(self, val):
+        try:
+            sliderVal = int(val)
+            if sliderVal == getattr(self, "_curLegacyPitchInflectionScale", 29):
+                return
+            self._curLegacyPitchInflectionScale = sliderVal
+            # Map 0–100 → 0.0–2.0
+            yamlVal = round(sliderVal / 100.0 * 2.0, 3)
+            self._setLangPackSetting("legacyPitchInflectionScale", yamlVal)
         except Exception:
             pass
 
