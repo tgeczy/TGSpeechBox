@@ -170,7 +170,7 @@ return clampDouble(a, 0.0, 0.9999);
         // breathy voices have incomplete glottal closure — less of the
         // sharp closure event that creates the derivative.
 
-        const double kBaseRadiationMix = 0.10;
+        const double kBaseRadiationMix = 0.15;
 
         if (tl < 0.0) {
             // Brighten: ramp from baseline to 1.0 over 10 dB
@@ -316,7 +316,7 @@ public:
         // Aspiration gain smoothing (attack/release in ms).
         // This helps avoid random clicks when aspirationAmplitude changes quickly.
         const double kAspAmpAttackMs = 1.0;
-        const double kAspAmpReleaseMs = 3.0;
+        const double kAspAmpReleaseMs = 12.0;
         aspAttackCoeff = 1.0 - exp(-1.0 / (0.001 * kAspAmpAttackMs * sampleRate));
         aspReleaseCoeff = 1.0 - exp(-1.0 / (0.001 * kAspAmpReleaseMs * sampleRate));
 

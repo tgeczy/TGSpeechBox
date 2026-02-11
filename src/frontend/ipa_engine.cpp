@@ -2023,9 +2023,10 @@ bool convertIpaToTokens(
       const bool isLiquid = tokenIsLiquid(lt);
       const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) || isLiquid || tokenIsTap(lt) || tokenIsTrill(lt) || tokenIsNasal(lt);
 
-      if (voiced && tailSensitive) {
-        const double sp = (speed > 0.0) ? speed : 1.0;
+      const double sp = (speed > 0.0) ? speed : 1.0;
 
+      // Hold: voiced tail-sensitive only (vowels, liquids, nasals, etc.)
+      if (voiced && tailSensitive) {
         if (pack.lang.singleWordFinalHoldMs > 0.0) {
           double holdMs = pack.lang.singleWordFinalHoldMs;
           // Reduce hold for liquids (like R, L) which can sound unnatural when held.
@@ -2034,17 +2035,19 @@ bool convertIpaToTokens(
           }
           outTokens[static_cast<size_t>(lastReal)].durationMs += (holdMs / sp);
         }
+      }
 
-        if (pack.lang.singleWordFinalFadeMs > 0.0) {
-          Token s;
-          s.def = nullptr;
-          s.silence = true;
-          s.durationMs = 0.0;
-          s.fadeMs = pack.lang.singleWordFinalFadeMs / sp;
-          // Avoid a zero-sample fade at extreme speeds.
-          if (s.fadeMs < 0.1) s.fadeMs = 0.1;
-          outTokens.push_back(s);
-        }
+      // Fade: ANY final phoneme — stops need the crossfade so the DSP
+      // runs through voiceGenerator during the fade (aspiration release).
+      if (pack.lang.singleWordFinalFadeMs > 0.0) {
+        Token s;
+        s.def = nullptr;
+        s.silence = true;
+        s.durationMs = 0.0;
+        s.fadeMs = pack.lang.singleWordFinalFadeMs / sp;
+        // Avoid a zero-sample fade at extreme speeds.
+        if (s.fadeMs < 0.1) s.fadeMs = 0.1;
+        outTokens.push_back(s);
       }
     }
   }

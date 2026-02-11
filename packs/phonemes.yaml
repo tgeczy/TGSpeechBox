@@ -1069,7 +1069,7 @@ phonemes:
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0
+    aspirationAmplitude: 0.45
     caNP: 0
     cb1: 275
     cb2: 120
@@ -1389,7 +1389,7 @@ phonemes:
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0
+    aspirationAmplitude: 0.40
     caNP: 0
     cb1: 300
     cb2: 150
@@ -1528,7 +1528,7 @@ phonemes:
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0
+    aspirationAmplitude: 0.50
     caNP: 0
     cb1: 300
     cb2: 95

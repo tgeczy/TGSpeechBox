@@ -20,6 +20,11 @@ settings:
   stopClosureWordBoundaryClusterGapMs: 24
   stopClosureWordBoundaryClusterFadeMs: 4
 
+  # Append a short silence token at end of utterance so the DSP can
+  # crossfade aspiration/frication through voiceGenerator instead of
+  # hitting the crude 4ms stopFade path.
+  singleWordFinalFadeMs: 25
+
   # US: smoother overall, less breath noise on stop releases.
   postStopAspirationEnabled: true
 

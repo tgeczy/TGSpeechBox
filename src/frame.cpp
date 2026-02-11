@@ -228,11 +228,21 @@ class FrameManagerImpl: public FrameManager {
 				newFrameRequest=frameRequestQueue.front();
 				frameRequestQueue.pop();
 				if(newFrameRequest->NULLFrame) {
+					double oldAsp = oldFrameRequest->frame.aspirationAmplitude;
 					memcpy(&(newFrameRequest->frame),&(oldFrameRequest->frame),sizeof(speechPlayer_frame_t));
-					newFrameRequest->frame.preFormantGain=0;
-					// Zero source amplitudes so they fade out WITH preFormantGain.
+					// If old frame had aspiration (stops, /h/), keep a residual
+					// preFormantGain so the aspiration tail survives through cascade.
+					// For all other phonemes (vowels, fricatives), oldAsp ≈ 0 so
+					// this has no effect — they get the same preFormantGain=0 as before.
+					if (oldAsp > 0.01) {
+						newFrameRequest->frame.preFormantGain = 0.3;
+						// Keep aspirationAmplitude at old value — aspiration persists
+						// while frication dies. This creates temporal separation.
+					} else {
+						newFrameRequest->frame.preFormantGain = 0;
+						newFrameRequest->frame.aspirationAmplitude = 0;
+					}
 					newFrameRequest->frame.voiceAmplitude=0;
-					newFrameRequest->frame.aspirationAmplitude=0;
 					newFrameRequest->frame.fricationAmplitude=0;
 					newFrameRequest->frame.voiceTurbulenceAmplitude=0;
 					newFrameRequest->frame.voicePitch=curFrame.voicePitch;
