@@ -2,8 +2,7 @@
 
 This provides the UX described in readme.md:
   - Choose a language tag
-  - Adjust a few common settings via dedicated edit fields
-  - For everything else: choose a setting key (combo) and edit its value
+  - Choose a setting key from an alphabetized combo box and edit its value
   - Apply the pending edits when the user presses OK in NVDA's Settings dialog
 
 The panel intentionally avoids a full YAML UI; it only edits ``settings:`` keys.
@@ -61,7 +60,7 @@ def _getPacksDir() -> str:
 from . import langPackYaml
 
 GitHub_URL = "https://github.com/tgeczy/TGSpeechBox"
-ADDON_UPDATE_URL = "https://eurpod.com/synths/nvSpeechPlayer-2026.nvda-addon"
+ADDON_UPDATE_URL = "https://eurpod.com/synths/tgSpeechBox-2026.nvda-addon"
 ADDON_VERSION_URL = "https://eurpod.com/tgSpeechBox-version.txt"
 
 
@@ -163,9 +162,6 @@ def _getPanelClass():
             self._pending: Dict[str, Dict[str, str]] = {}
             self._currentKey: Optional[str] = None
 
-            # Quick edit fields (key -> wx.TextCtrl)
-            self._quickCtrls: Dict[str, object] = {}
-
             # Guard to prevent EVT_TEXT handlers from recording pending edits when
             # we are programmatically populating controls.
             self._isPopulating = False
@@ -249,441 +245,40 @@ def _getPanelClass():
             )
             self.saveVoiceProfileButton.Bind(wx.EVT_BUTTON, self._onSaveVoiceProfileClick)
 
-            # --- Common quick settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Common settings (applied on OK):")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Primary stress divisor (primaryStressDiv):"),
-                key="primaryStressDiv",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Secondary stress divisor (secondaryStressDiv):"),
-                key="secondaryStressDiv",
-            )
-
-            sHelper.addItem(wx.StaticText(self, label=_("Stop-closure timing (ms):")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Vowel gap (stopClosureVowelGapMs):"),
-                key="stopClosureVowelGapMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Vowel fade (stopClosureVowelFadeMs):"),
-                key="stopClosureVowelFadeMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Cluster gap (stopClosureClusterGapMs):"),
-                key="stopClosureClusterGapMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Cluster fade (stopClosureClusterFadeMs):"),
-                key="stopClosureClusterFadeMs",
-            )
-
-            # Newer language-pack setting: stressed vowel hiatus timing.
-            # These are intentionally kept out of the voice panel (to avoid clutter)
-            # and edited here instead.
-            sHelper.addItem(wx.StaticText(self, label=_("Stressed vowel hiatus timing (ms):")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Gap (stressedVowelHiatusGapMs):"),
-                key="stressedVowelHiatusGapMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Fade (stressedVowelHiatusFadeMs):"),
-                key="stressedVowelHiatusFadeMs",
-            )
-
-            # Newer language-pack setting: semivowel offglide scaling.
-            sHelper.addItem(wx.StaticText(self, label=_("Semivowel / offglide:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Offglide scale (semivowelOffglideScale):"),
-                key="semivowelOffglideScale",
-            )
-
-            # Newer language-pack setting: trill modulation timing.
-            sHelper.addItem(wx.StaticText(self, label=_("Trill modulation (ms):")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Modulation (trillModulationMs):"),
-                key="trillModulationMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Fade (trillModulationFadeMs):"),
-                key="trillModulationFadeMs",
-            )
-
-            # --- Coarticulation settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Coarticulation:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Strength (coarticulationStrength):"),
-                key="coarticulationStrength",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Transition extent (coarticulationTransitionExtent):"),
-                key="coarticulationTransitionExtent",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Word-initial fade scale (coarticulationWordInitialFadeScale):"),
-                key="coarticulationWordInitialFadeScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Adjacency max consonants (coarticulationAdjacencyMaxConsonants):"),
-                key="coarticulationAdjacencyMaxConsonants",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Mitalk-K locus weight (coarticulationMitalkK):"),
-                key="coarticulationMitalkK",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("F1 scale (coarticulationF1Scale):"),
-                key="coarticulationF1Scale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("F2 scale (coarticulationF2Scale):"),
-                key="coarticulationF2Scale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("F3 scale (coarticulationF3Scale):"),
-                key="coarticulationF3Scale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Labial F2 locus (coarticulationLabialF2Locus):"),
-                key="coarticulationLabialF2Locus",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Alveolar F2 locus (coarticulationAlveolarF2Locus):"),
-                key="coarticulationAlveolarF2Locus",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Velar F2 locus (coarticulationVelarF2Locus):"),
-                key="coarticulationVelarF2Locus",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Back vowel F2 threshold (coarticulationBackVowelF2Threshold):"),
-                key="coarticulationBackVowelF2Threshold",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Alveolar back vowel boost (coarticulationAlveolarBackVowelStrengthBoost):"),
-                key="coarticulationAlveolarBackVowelStrengthBoost",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Labialized fric F2 pull (coarticulationLabializedFricativeF2Pull):"),
-                key="coarticulationLabializedFricativeF2Pull",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Velar pinch threshold (coarticulationVelarPinchThreshold):"),
-                key="coarticulationVelarPinchThreshold",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Velar pinch F2 scale (coarticulationVelarPinchF2Scale):"),
-                key="coarticulationVelarPinchF2Scale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Velar pinch F3 (coarticulationVelarPinchF3):"),
-                key="coarticulationVelarPinchF3",
-            )
-
-            # --- Phrase-final lengthening settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Phrase-final lengthening:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Final syllable scale (phraseFinalLengtheningFinalSyllableScale):"),
-                key="phraseFinalLengtheningFinalSyllableScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Penultimate syllable scale (phraseFinalLengtheningPenultimateSyllableScale):"),
-                key="phraseFinalLengtheningPenultimateSyllableScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Statement scale (phraseFinalLengtheningStatementScale):"),
-                key="phraseFinalLengtheningStatementScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Question scale (phraseFinalLengtheningQuestionScale):"),
-                key="phraseFinalLengtheningQuestionScale",
-            )
-
-            # --- Microprosody settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Microprosody:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Voiceless F0 raise Hz (microprosodyVoicelessF0RaiseHz):"),
-                key="microprosodyVoicelessF0RaiseHz",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Voiceless F0 raise end Hz (microprosodyVoicelessF0RaiseEndHz):"),
-                key="microprosodyVoicelessF0RaiseEndHz",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Voiced F0 lower Hz (microprosodyVoicedF0LowerHz):"),
-                key="microprosodyVoicedF0LowerHz",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Minimum vowel ms (microprosodyMinVowelMs):"),
-                key="microprosodyMinVowelMs",
-            )
-
-            # --- Rate reduction settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Rate reduction:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Schwa reduction threshold (rateReductionSchwaReductionThreshold):"),
-                key="rateReductionSchwaReductionThreshold",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Schwa min duration ms (rateReductionSchwaMinDurationMs):"),
-                key="rateReductionSchwaMinDurationMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Schwa scale (rateReductionSchwaScale):"),
-                key="rateReductionSchwaScale",
-            )
-
-            # --- Word-final schwa reduction settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Word-final schwa reduction:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Scale (wordFinalSchwaScale):"),
-                key="wordFinalSchwaScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Min duration ms (wordFinalSchwaMinDurationMs):"),
-                key="wordFinalSchwaMinDurationMs",
-            )
-
-            # --- Single-word final settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Single-word final (isolated words):")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Hold ms (singleWordFinalHoldMs):"),
-                key="singleWordFinalHoldMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Liquid hold scale (singleWordFinalLiquidHoldScale):"),
-                key="singleWordFinalLiquidHoldScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Fade ms (singleWordFinalFadeMs):"),
-                key="singleWordFinalFadeMs",
-            )
-
-            # --- Nasalization settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Nasalization:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Anticipatory amplitude (nasalizationAnticipatoryAmplitude):"),
-                key="nasalizationAnticipatoryAmplitude",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Anticipatory blend (nasalizationAnticipatoryBlend):"),
-                key="nasalizationAnticipatoryBlend",
-            )
-
-            # --- Liquid dynamics settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Liquid dynamics:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Lateral onglide F1 delta (liquidDynamics.lateralOnglide.f1Delta):"),
-                key="liquidDynamics.lateralOnglide.f1Delta",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Lateral onglide F2 delta (liquidDynamics.lateralOnglide.f2Delta):"),
-                key="liquidDynamics.lateralOnglide.f2Delta",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Lateral onglide duration pct (liquidDynamics.lateralOnglide.durationPct):"),
-                key="liquidDynamics.lateralOnglide.durationPct",
-            )
-
-            # --- Length contrast settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Length contrast:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Short vowel ceiling ms (lengthContrast.shortVowelCeilingMs):"),
-                key="lengthContrast.shortVowelCeilingMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Long vowel floor ms (lengthContrast.longVowelFloorMs):"),
-                key="lengthContrast.longVowelFloorMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Geminate closure scale (lengthContrast.geminateClosureScale):"),
-                key="lengthContrast.geminateClosureScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Geminate release scale (lengthContrast.geminateReleaseScale):"),
-                key="lengthContrast.geminateReleaseScale",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Pre-geminate vowel scale (lengthContrast.preGeminateVowelScale):"),
-                key="lengthContrast.preGeminateVowelScale",
-            )
-
-            # --- Positional allophones settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Positional allophones - Stop aspiration:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Word-initial stressed (positionalAllophones.stopAspiration.wordInitialStressed):"),
-                key="positionalAllophones.stopAspiration.wordInitialStressed",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Word-initial (positionalAllophones.stopAspiration.wordInitial):"),
-                key="positionalAllophones.stopAspiration.wordInitial",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Intervocalic (positionalAllophones.stopAspiration.intervocalic):"),
-                key="positionalAllophones.stopAspiration.intervocalic",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Word-final (positionalAllophones.stopAspiration.wordFinal):"),
-                key="positionalAllophones.stopAspiration.wordFinal",
-            )
-
-            sHelper.addItem(wx.StaticText(self, label=_("Positional allophones - Lateral darkness:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Pre-vocalic (positionalAllophones.lateralDarkness.preVocalic):"),
-                key="positionalAllophones.lateralDarkness.preVocalic",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Post-vocalic (positionalAllophones.lateralDarkness.postVocalic):"),
-                key="positionalAllophones.lateralDarkness.postVocalic",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Syllabic (positionalAllophones.lateralDarkness.syllabic):"),
-                key="positionalAllophones.lateralDarkness.syllabic",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Dark F2 target (positionalAllophones.lateralDarkness.darkF2Target):"),
-                key="positionalAllophones.lateralDarkness.darkF2Target",
-            )
-
-            sHelper.addItem(wx.StaticText(self, label=_("Positional allophones - Glottal reinforcement:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_('Contexts (format: ["#_#", "V_#"]) (positionalAllophones.glottalReinforcement.contexts):'),
-                key="positionalAllophones.glottalReinforcement.contexts",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Duration ms (positionalAllophones.glottalReinforcement.durationMs):"),
-                key="positionalAllophones.glottalReinforcement.durationMs",
-            )
-
-            # --- Boundary smoothing settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Boundary smoothing:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_("Vowel to stop fade ms (boundarySmoothing.vowelToStopFadeMs):"),
-                key="boundarySmoothing.vowelToStopFadeMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Stop to vowel fade ms (boundarySmoothing.stopToVowelFadeMs):"),
-                key="boundarySmoothing.stopToVowelFadeMs",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Vowel to fricative fade ms (boundarySmoothing.vowelToFricFadeMs):"),
-                key="boundarySmoothing.vowelToFricFadeMs",
-            )
-
-            # --- Trajectory limit settings ---
-            sHelper.addItem(wx.StaticText(self, label=_("Trajectory limit:")))
-            self._addQuickTextField(
-                sHelper,
-                label=_('Apply to formants (format: [cf2, cf3]) (trajectoryLimit.applyTo):'),
-                key="trajectoryLimit.applyTo",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Max Hz per ms for CF2 (trajectoryLimit.maxHzPerMs.cf2):"),
-                key="trajectoryLimit.maxHzPerMs.cf2",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Max Hz per ms for CF3 (trajectoryLimit.maxHzPerMs.cf3):"),
-                key="trajectoryLimit.maxHzPerMs.cf3",
-            )
-            self._addQuickTextField(
-                sHelper,
-                label=_("Window ms (trajectoryLimit.windowMs):"),
-                key="trajectoryLimit.windowMs",
-            )
-
-            # --- Generic key/value editor ---
-            sHelper.addItem(wx.StaticText(self, label=_("Other settings:")))
+            # --- Setting key/value editor ---
+            sHelper.addItem(wx.StaticText(self, label=_("Edit setting:")))
 
             self._knownKeys = langPackYaml.listKnownSettingKeys(self._packsDir) or []
-
-            # Ensure quick-field keys (and a few important newer keys) are always
-            # available in the combo box, even if default.yaml hasn't been updated.
+            # Ensure important keys are always available in the combo box,
+            # even if default.yaml hasn't been updated yet.
             _extraKeys = [
+                "allophoneRulesEnabled",
+                "clauseFinalFadeMs",
+                "englishLongUKey",
+                "englishLongUShortenEnabled",
+                "englishLongUWordFinalScale",
+                "lengthenedVowelFinalCodaScale",
+                "postStopAspirationEnabled",
                 "primaryStressDiv",
                 "secondaryStressDiv",
-                "stopClosureMode",
-                "stopClosureVowelGapMs",
-                "stopClosureVowelFadeMs",
-                "stopClosureClusterGapMs",
+                "semivowelOffglideScale",
+                "segmentBoundarySkipVowelToLiquid",
+                "segmentBoundarySkipVowelToVowel",
+                "singleWordClauseTypeOverride",
+                "singleWordClauseTypeOverrideCommaOnly",
+                "singleWordTuningEnabled",
+                "spellingDiphthongMode",
+                "stopClosureAfterNasalsEnabled",
                 "stopClosureClusterFadeMs",
-                "postStopAspirationEnabled",
+                "stopClosureClusterGapMs",
+                "stopClosureMode",
+                "stopClosureVowelFadeMs",
+                "stopClosureVowelGapMs",
                 "stressedVowelHiatusGapMs",
                 "stressedVowelHiatusFadeMs",
-                "semivowelOffglideScale",
-                "trillModulationMs",
+                "stripAllophoneDigits",
                 "trillModulationFadeMs",
-                "spellingDiphthongMode",
-                "segmentBoundarySkipVowelToVowel",
-                "segmentBoundarySkipVowelToLiquid",
+                "trillModulationMs",
                 # --- Coarticulation settings ---
                 "coarticulationEnabled",
                 "coarticulationStrength",
@@ -781,6 +376,21 @@ def _getPanelClass():
                 "positionalAllophones.glottalReinforcement.durationMs",
                 # --- Boundary smoothing settings ---
                 "boundarySmoothing.enabled",
+                "boundarySmoothingFricToStopMs",
+                "boundarySmoothingFricToVowelMs",
+                "boundarySmoothingLiquidToStopMs",
+                "boundarySmoothingLiquidToVowelMs",
+                "boundarySmoothingNasalF1Instant",
+                "boundarySmoothingNasalF2F3SpansPhone",
+                "boundarySmoothingNasalToStopMs",
+                "boundarySmoothingNasalToVowelMs",
+                "boundarySmoothingStopToFricMs",
+                "boundarySmoothingStopToVowelMs",
+                "boundarySmoothingVowelToFricMs",
+                "boundarySmoothingVowelToLiquidMs",
+                "boundarySmoothingVowelToNasalMs",
+                "boundarySmoothingVowelToStopMs",
+                "boundarySmoothingVowelToVowelMs",
                 "boundarySmoothing.vowelToStopFadeMs",
                 "boundarySmoothing.stopToVowelFadeMs",
                 "boundarySmoothing.vowelToFricFadeMs",
@@ -795,36 +405,37 @@ def _getPanelClass():
             for k in _extraKeys:
                 if k not in self._knownKeys:
                     self._knownKeys.append(k)
+            self._knownKeys.sort(key=str.lower)
             if not self._knownKeys:
                 # Last-resort fallback for broken/missing default.yaml.
-                self._knownKeys = [
-                    "primaryStressDiv",
-                    "secondaryStressDiv",
-                    "stopClosureMode",
-                    "stopClosureVowelGapMs",
-                    "stopClosureVowelFadeMs",
-                    "postStopAspirationEnabled",
-                    "semivowelOffglideScale",
-                    "legacyPitchMode",
-                    "legacyPitchInflectionScale",
-                    "fujisakiPhraseAmp",
-                    "fujisakiPrimaryAccentAmp",
-                    "fujisakiDeclinationScale",
-                    "fujisakiDeclinationMax",
-                    "stripAllophoneDigits",
+                self._knownKeys = sorted([
+                    "boundarySmoothing.enabled",
                     "coarticulationEnabled",
                     "coarticulationStrength",
-                    "phraseFinalLengtheningEnabled",
-                    "microprosodyEnabled",
-                    "rateReductionEnabled",
-                    "nasalizationAnticipatoryEnabled",
-                    "liquidDynamics.enabled",
+                    "fujisakiDeclinationMax",
+                    "fujisakiDeclinationScale",
+                    "fujisakiPhraseAmp",
+                    "fujisakiPrimaryAccentAmp",
+                    "legacyPitchInflectionScale",
+                    "legacyPitchMode",
                     "lengthContrast.enabled",
+                    "liquidDynamics.enabled",
+                    "microprosodyEnabled",
+                    "nasalizationAnticipatoryEnabled",
+                    "phraseFinalLengtheningEnabled",
                     "positionalAllophones.enabled",
                     "positionalAllophones.glottalReinforcement.enabled",
-                    "boundarySmoothing.enabled",
+                    "postStopAspirationEnabled",
+                    "primaryStressDiv",
+                    "rateReductionEnabled",
+                    "secondaryStressDiv",
+                    "semivowelOffglideScale",
+                    "stopClosureMode",
+                    "stopClosureVowelFadeMs",
+                    "stopClosureVowelGapMs",
+                    "stripAllophoneDigits",
                     "trajectoryLimit.enabled",
-                ]
+                ], key=str.lower)
 
             self.settingKeyCtrl = self._addLabeledControlCompat(
                 sHelper,
@@ -1448,18 +1059,6 @@ def _getPanelClass():
 
             evt.Skip()
 
-        def _addQuickTextField(self, sHelper, *, label: str, key: str):
-            """Add a labeled wx.TextCtrl bound to a settings key."""
-            try:
-                import wx
-            except Exception:
-                return
-
-            ctrl = self._addLabeledControlCompat(sHelper, label, wx.TextCtrl)
-            self._quickCtrls[key] = ctrl
-            ctrl.Bind(wx.EVT_TEXT, lambda evt, k=key: self._onQuickValueChanged(evt, k))
-            return ctrl
-
         def _getLanguageChoices(self):
             # List files in packs/lang as suggestions.
             langDir = langPackYaml.getLangDir(self._packsDir)
@@ -1492,23 +1091,6 @@ def _getPanelClass():
             self._setCurrentKey(key)
             evt.Skip()
 
-        def _onQuickValueChanged(self, evt, key: str):
-            if self._isPopulating:
-                evt.Skip()
-                return
-            try:
-                ctrl = evt.GetEventObject()
-                langTag = langPackYaml.normalizeLangTag(self.langTagCtrl.GetValue())
-                self._pending.setdefault(langTag, {})[key] = ctrl.GetValue()
-
-                # If the generic editor is currently showing this key, refresh its
-                # display so the "(pending edit)" source label is accurate.
-                if self._currentKey == key:
-                    self._updateGenericDisplay()
-            except Exception:
-                pass
-            evt.Skip()
-
         def _onGenericValueChanged(self, evt):
             if self._isPopulating:
                 evt.Skip()
@@ -1532,30 +1114,7 @@ def _getPanelClass():
             self._updateGenericDisplay()
 
         def _refreshAllDisplays(self):
-            self._updateQuickDisplays()
             self._updateGenericDisplay()
-
-        def _updateQuickDisplays(self):
-            # Populate quick fields based on current language tag.
-            langTag = langPackYaml.normalizeLangTag(self.langTagCtrl.GetValue())
-            pendingForLang = self._pending.get(langTag, {})
-
-            self._isPopulating = True
-            try:
-                for key, ctrl in self._quickCtrls.items():
-                    if key in pendingForLang:
-                        value = pendingForLang[key]
-                    else:
-                        value = langPackYaml.getEffectiveSettingValue(self._packsDir, langTag, key)
-                        if value is None:
-                            value = ""
-
-                    try:
-                        ctrl.ChangeValue(str(value))
-                    except Exception:
-                        ctrl.SetValue(str(value))
-            finally:
-                self._isPopulating = False
 
         def _updateGenericDisplay(self):
             if not self._currentKey:
