@@ -185,41 +185,11 @@ settings:
     #  insertFadeMs: 3.0
     #  insertContexts: ["V_#"]
 
-    # ── Word-final voiceless stop aspiration ─────────────────────
-    # Insert a short /h/ burst after word-final voiceless stops to
-    # soften the abrupt Klatt cutoff.  Skipped when the next word
-    # starts with a vowel (notBeforeFlags) because the normal
-    # postStopAspiration system already handles stop→vowel transitions.
-    # The unreleased_word_final scale rule stacks on top of these
-    # (scale is not gated by the replaced flag).
-      - name: word_final_aspirated_p
-        phonemes: [p]
-        position: word-final
-        notBeforeFlags: [vowel]
-        action: insert-after
-        insertPhoneme: h
-        insertDurationMs: 12.0
-        insertFadeMs: 3.0
-
-      - name: word_final_aspirated_t
-        phonemes: [t]
-        position: word-final
-        notBeforeFlags: [vowel]
-        action: insert-after
-        insertPhoneme: h
-        insertDurationMs: 12.0
-        insertFadeMs: 3.0
-
-      - name: word_final_aspirated_k
-        phonemes: [k]
-        position: word-final
-        notBeforeFlags: [vowel]
-        action: insert-after
-        insertPhoneme: h
-        insertDurationMs: 12.0
-        insertFadeMs: 3.0
-
-    # ── Unreleased word-final stops (gentler — stop still audible) ─
+    # ── Unreleased word-final stops (softer, airier release) ─────
+    # Spectral shaping: cut low-freq thump (pa1, pa2), boost high-freq
+    # air (pa4, pa5) to make the burst sound released-but-soft rather
+    # than hard and clicky. Works within the existing time budget —
+    # no extra tokens, no added gaps.
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
@@ -228,7 +198,11 @@ settings:
         durationScale: 0.85
         fieldScales:
           fricationAmplitude: 0.84
-          aspirationAmplitude: 0.3
+          aspirationAmplitude: 0.55
+          pa1: 0.3
+          pa2: 0.5
+          pa4: 1.3
+          pa5: 1.4
   boundarySmoothing:
     enabled: false
     f1Scale: 0.6

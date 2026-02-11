@@ -64,38 +64,9 @@ settings:
             targetHz: 900.0
             blend: 0.2
 
-    # ── Word-final voiceless stop aspiration ─────────────────────
-    # Insert a short /h/ burst after word-final voiceless stops.
-    # RP clips finals more tightly, so shorter burst than en-us.
-      - name: word_final_aspirated_p
-        phonemes: [p]
-        position: word-final
-        notBeforeFlags: [vowel]
-        action: insert-after
-        insertPhoneme: h
-        insertDurationMs: 10.0
-        insertFadeMs: 3.0
-
-      - name: word_final_aspirated_t
-        phonemes: [t]
-        position: word-final
-        notBeforeFlags: [vowel]
-        action: insert-after
-        insertPhoneme: h
-        insertDurationMs: 10.0
-        insertFadeMs: 3.0
-
-      - name: word_final_aspirated_k
-        phonemes: [k]
-        position: word-final
-        notBeforeFlags: [vowel]
-        action: insert-after
-        insertPhoneme: h
-        insertDurationMs: 10.0
-        insertFadeMs: 3.0
-
     # ── Unreleased word-final stops ──────────────────────────────
-    # RP is more clipped on word-final stops than US.
+    # RP clips more aggressively than US. Same spectral shaping but
+    # more attenuated overall.
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
@@ -104,7 +75,11 @@ settings:
         durationScale: 0.80
         fieldScales:
           fricationAmplitude: 0.80
-          aspirationAmplitude: 0.25
+          aspirationAmplitude: 0.45
+          pa1: 0.25
+          pa2: 0.45
+          pa4: 1.25
+          pa5: 1.35
   boundarySmoothing:
     enabled: true
   trajectoryLimit:
