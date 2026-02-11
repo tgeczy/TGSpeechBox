@@ -91,19 +91,8 @@ normalization:
       when:
         atWordEnd: true
 
-    # NEAR vowel (fear, hear, dear): in classic eSpeak en-gb this is often /iə/.
-    # In a Klatt-ish formant synth, iə can sound like two full vowel beats.
-    # Collapse it to a single vowel with a very short schwa-like tail.
-    - from: "iə"
-      to:   "iᵊ"
-      when:
-        atWordEnd: true
-    - from: "i͡ə"
-      to:   "iᵊ"
-      when:
-        atWordEnd: true
-
-
+    # NEAR vowel collapse (iə → iᵊ) moved to per-accent packs (en-gb.yaml).
+    # en-us is rhotic and handles NEAR differently.
 
     # Word-final /ɛɹ/ (square, fair, dare, where, there...):
     # In a formant synth, the vowel can get pulled into /r/ too quickly,

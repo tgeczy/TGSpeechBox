@@ -3,10 +3,22 @@
 # Inherits from: default.yaml -> en.yaml
 
 settings:
+  # Match original Python stress timing (primaryStressDiv=1.5, secondaryStressDiv=1.2).
+  # en.yaml has 1.4/1.1 which makes stressed syllables ~7% faster than original.
+  primaryStressDiv: 1.5
+  secondaryStressDiv: 1.2
+
   # Keep word-final long /uː/ (do/two/you) from sounding too clipped.
   englishLongUWordFinalScale: 1.00
 
-  stopClosureAfterNasalsEnabled: false
+  # Single-word tuning: original Python had no special single-word handling.
+  # Reduce hold from en.yaml's 45ms to keep letters short and flat.
+  singleWordFinalHoldMs: 0
+
+  # Enable clause-final fade for stop aspiration at end of sentences.
+  clauseFinalFadeMs: 25
+
+  stopClosureAfterNasalsEnabled: true
   segmentBoundarySkipVowelToLiquid: false
   coarticulationEnabled: false
   coarticulationVelarPinchEnabled: false
@@ -24,7 +36,7 @@ settings:
   lengthContrast:
     enabled: false
   allophoneRules:
-    enabled: true
+    enabled: false
     rules:
     # ── /l/ darkness by position ─────────────────────────────────
     # RP has strong dark-l in coda. Slightly stronger than US values.
@@ -81,7 +93,7 @@ settings:
           pa4: 1.25
           pa5: 1.35
   boundarySmoothing:
-    enabled: true
+    enabled: false
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: false
@@ -98,7 +110,7 @@ settings:
   #     following vowel, brightening the onset.
   # ------------------------------------------------------------------
   specialCoarticulation:
-    enabled: true
+    enabled: false
     maxDeltaHz: 350
     rules:
       # 1. Labial rounding — /w/, /b/, /p/, /m/ pull F2 down.
@@ -142,7 +154,7 @@ settings:
   # English, so the scaling is more conservative (closer to 1.0).
   # ------------------------------------------------------------------
   clusterTiming:
-    enabled: true
+    enabled: false
     fricBeforeStopScale: 0.75      # /st/ in "stop", "fast"
     stopBeforeFricScale: 0.80      # /ks/ in "box", "tax"
     fricBeforeFricScale: 0.80      # /sf/ rare
@@ -154,6 +166,34 @@ settings:
   legacyPitchMode: legacy
 normalization:
   preReplacements:
+    # Undo en.yaml's ʊ→ʊ̞ for UK English.
+    # Original data.py used plain ʊ (cf1=405, cf2=900).
+    # ʊ̞ (cf1=430, cf2=1020) is too front for RP GOAT diphthong.
+    - from: "ʊ̞"
+      to:   "ʊ"
+
+    # Non-rhotic: drop post-vocalic /ɹ/ FIRST, before vowel sequence
+    # collapse rules run (e.g. iə → iᵊ needs ɹ gone to see word-end).
+    - from: "ɹ"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        atWordEnd: true
+    - from: "ɹ"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        beforeClass: CONSONANTS
+    - from: "r"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        atWordEnd: true
+    - from: "r"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        beforeClass: CONSONANTS
   classes:
     BATH_FOLLOW: ["s", "f", "θ"]
 
@@ -316,9 +356,8 @@ normalization:
     - from: "æ"
       to:   "a"
 
-    # UK THOUGHT rounding: use the internal UK-ish variant.
-    - from: "ɔː"
-      to: "ᴏː"
+    # UK THOUGHT: keep native ɔ (cf1=450, cf2=870) — matches original.
+    # The ᴏ variant (cf1=610, cf2=1000) was too open and flat.
 
     # Non-rhotic NURSE: if any rhotic NURSE slips in, de-rhoticize.
     - from: "ɝː"
@@ -326,24 +365,9 @@ normalization:
     - from: "ɝ"
       to: "ɜ"
 
-    # NEAR vowel quality in en-gb:
-    # eSpeak's en-gb sometimes emits a very close /iə/ for NEAR (e.g. "weirdly" -> wˈiədli).
-    # In a formant synth this can drift towards a Scottish-ish "wee" start.
-    # The older Python normalizer (IPA.py) mapped this family closer to /ɪə/.
-    #
-    # Apply this only when the iə syllable is stressed, so we don't accidentally change
-    # unstressed sequences like the final "-ia" in "cavia" (kˈaviə).
-    - from: "ˈiə"
-      to:   "ˈɪə"
-    - from: "ˌiə"
-      to:   "ˌɪə"
-    - from: "ˈi͡ə"
-      to:   "ˈɪ͡ə"
-    - from: "ˌi͡ə"
-      to:   "ˌɪ͡ə"
-
-    # NEAR vowel (fear, hear, dear): collapse word-final iə/ɪə to a single vowel with a short tail
-    # so it doesn't sound over-held.
+    # NEAR vowel (fear, hear, dear): collapse word-final iə to a single
+    # vowel with a short schwa tail. Original Python played i+ə directly;
+    # the ˈiə→ˈɪə lowering rule was removed (made NEAR sound like two beats).
     - from: "iə"
       to:   "iᵊ"
       when:
@@ -352,37 +376,9 @@ normalization:
       to:   "iᵊ"
       when:
         atWordEnd: true
-    - from: "ɪə"
-      to:   "ɪᵊ"
-      when:
-        atWordEnd: true
-    - from: "ɪ͡ə"
-      to:   "ɪᵊ"
-      when:
-        atWordEnd: true
 
     # Make /d͡ʒ/ a little less 'soft' by keeping the stop+fricative components explicit.
     - from: "d͡ʒ"
       to:   "dʒ"
 
-    # Non-rhotic: drop post-vocalic /r/ in codas (word-final or before a consonant).
-    - from: "ɹ"
-      to:   ""
-      when:
-        afterClass: VOWELISH
-        atWordEnd: true
-    - from: "ɹ"
-      to:   ""
-      when:
-        afterClass: VOWELISH
-        beforeClass: CONSONANTS
-    - from: "r"
-      to:   ""
-      when:
-        afterClass: VOWELISH
-        atWordEnd: true
-    - from: "r"
-      to:   ""
-      when:
-        afterClass: VOWELISH
-        beforeClass: CONSONANTS
+    # Non-rhotic ɹ-drop moved to preReplacements (must run before NEAR collapse).
