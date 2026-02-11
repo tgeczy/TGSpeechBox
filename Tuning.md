@@ -355,29 +355,73 @@ settings:
 | Field | Type | Description |
 |-------|------|-------------|
 | `phonemes` | list | IPA keys that match (e.g. `[t, d]`). Empty = match any. |
-| `flags` | list | Required phoneme flags: `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `fricative`, `affricate`, `tap`, `trill` |
-| `notFlags` | list | Excluded phoneme flags (rule won't match if any of these are set) |
+| `flags` | list | Required phoneme flags (ALL must match): `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `affricate`, `tap`, `trill` |
+| `notFlags` | list | Excluded phoneme flags (rule won't match if ANY of these are set) |
 | `tokenType` | string | Token type filter: `"phoneme"` (default), `"aspiration"`, `"closure"` |
-| `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"` |
-| `stress` | string | Stress filter: `"stressed"`, `"unstressed"`, `"next-unstressed"` |
+| `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"`, `"syllabic"` |
+| `stress` | string | Stress filter: `"stressed"`, `"unstressed"`, `"next-unstressed"`, `"prev-stressed"` |
 | `after` | list | Previous phoneme must be one of these IPA keys |
 | `before` | list | Next phoneme must be one of these IPA keys |
+| `afterFlags` | list | Previous phoneme must have ALL listed flags |
+| `notAfterFlags` | list | Exclude if previous phoneme has ANY listed flag |
+| `beforeFlags` | list | Next phoneme must have ALL listed flags |
+| `notBeforeFlags` | list | Exclude if next phoneme has ANY listed flag |
 
 #### Action types
 
 | Action | Description |
 |--------|-------------|
-| `replace` | Swap phoneme def, optionally remove adjacent closure/aspiration tokens. Fields: `replaceTo`, `replaceDurationMs`, `replaceRemovesClosure`, `replaceRemovesAspiration` |
-| `scale` | Multiply duration and/or specific fields. Fields: `durationScale`, `fieldScales` (map of field name to multiplier) |
+| `replace` | Swap phoneme def, optionally remove or scale adjacent closure/aspiration tokens. Fields: `replaceTo`, `replaceDurationMs`, `replaceRemovesClosure`, `replaceRemovesAspiration`, `replaceClosureScale`, `replaceAspirationScale` |
+| `scale` | Multiply duration, fade, and/or specific fields. Fields: `durationScale`, `fadeScale`, `fieldScales` (map of field name to multiplier) |
 | `shift` | Apply Hz deltas or blend-toward-target. Fields: `fieldShifts` (list of `{field, deltaHz, targetHz, blend}`) |
-| `insert-before` | Insert a new token before this one. Fields: `insertPhoneme`, `insertDurationMs` |
-| `insert-after` | Insert a new token after this one. Fields: `insertPhoneme`, `insertDurationMs` |
+| `insert-before` | Insert a new token before this one. Fields: `insertPhoneme`, `insertDurationMs`, `insertFadeMs`, `insertContexts` |
+| `insert-after` | Insert a new token after this one. Fields: `insertPhoneme`, `insertDurationMs`, `insertFadeMs`, `insertContexts` |
+
+#### Detailed action parameters
+
+**replace** additional fields:
+- `replaceClosureScale` (number, default `0.0`): If > 0, scale the adjacent closure token's duration instead of removing it. Useful when you want to keep a shortened closure (e.g. `0.5` halves the closure).
+- `replaceAspirationScale` (number, default `0.0`): If > 0, scale the adjacent aspiration token's duration and inject breathiness into the main token instead of removing aspiration entirely.
+
+**scale** additional fields:
+- `fadeScale` (number, default `1.0`): Multiplier for the token's crossfade time. Values < 1.0 make transitions crisper; > 1.0 makes them smoother.
+
+**insert-before / insert-after** additional fields:
+- `insertFadeMs` (number, default `3.0`): Crossfade duration for the inserted token (ms at speed=1.0).
+- `insertContexts` (list of strings): If non-empty, the insertion only happens when at least one context matches. Valid contexts:
+  - `"V_#"` — previous phoneme is a vowel AND current token is word-final
+  - `"#_#"` — current token is word-final
+
+#### Position and stress details
+
+- **`syllabic`**: Matches when the phoneme has no adjacent vowel on either side (i.e. it IS the syllable nucleus). Useful for syllabic consonants like dark /l/ in "bottle".
+- **`prev-stressed`**: Matches when the preceding phoneme carries stress (stress > 0).
+
+#### Class-based neighbor matching
+
+The `afterFlags`/`beforeFlags`/`notAfterFlags`/`notBeforeFlags` fields let you match based on the *class* of adjacent phonemes rather than specific IPA keys. This is more maintainable than listing every possible phoneme.
+
+```yaml
+# Example: only darken /l/ when preceded by a back vowel
+- name: dark_l_after_back_vowel
+  phonemes: [l]
+  afterFlags: [vowel]        # prev must be a vowel
+  position: post-vocalic
+  action: shift
+  fieldShifts:
+    - field: cf2
+      targetHz: 900
+      blend: 0.8
+```
+
+The flag names used in these fields are the same as `flags`/`notFlags`: `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `affricate`, `tap`, `trill`.
 
 #### Important notes
 
 - **Neighbor matching** uses `prevPhoneme`/`nextPhoneme` which skip closure, aspiration, and gap tokens — so intervocalic checks work correctly even when stops have inserted closure/aspiration tokens between them.
 - **`isWordFinalPhoneme`** looks past trailing aspiration/closure tokens, so a stop followed by its aspiration token is still considered word-final.
 - **eSpeak stress marks** land on syllable-initial consonants, not vowels. The `next-unstressed` check verifies both that the current token has `stress <= 0` AND that the next vowel is unstressed, preventing false matches on stressed consonants.
+- **`intervocalic` excludes word-initial**: A stop at the start of a word is never treated as intervocalic, even if the previous word ended with a vowel. This prevents flapping from incorrectly applying to word-initial stops like the /d/ in "do".
 - **Backward compatibility**: the old `positionalAllophones: enabled: true` syntax is still parsed and sets `allophoneRulesEnabled = true` (no rules are loaded from the old format).
 
 ### Length mark handling (ː)
@@ -438,6 +482,25 @@ These are "compat switches" for behavior that existed in the legacy Python pipel
 - `defaultVibratoSpeed` (number, default `0.0`)
 - `defaultVoiceTurbulenceAmplitude` (number, default `0.0`)
 - `defaultGlottalOpenQuotient` (number, default `0.0`)
+
+### Phoneme timing defaults (reference)
+These values control the base duration of each phoneme type (ms at speed=1.0). They are currently hardcoded in the engine and not configurable via YAML, but are listed here for reference:
+
+| Phoneme type | Default (ms) | Notes |
+|--------------|-------------|-------|
+| Vowel | 60 | `defaultVowelDurationMs` |
+| Voiceless fricative | 45 | `voicelessFricativeDurationMs` — /s/, /f/, /ʃ/, /x/ |
+| Trill | 40 | `trillFallbackDurationMs` (if `trillModulationMs` unset) |
+| Vowel before nasal | 40 | `vowelBeforeNasalDurationMs` — unstressed V before N |
+| Tied vowel (diphthong start) | 40 | `tiedVowelDurationMs` |
+| Voiced consonant | 30 | `voicedConsonantDurationMs` — default for all voiced non-vowels |
+| Vowel before liquid | 30 | `vowelBeforeLiquidDurationMs` — unstressed V before L/R |
+| Affricate | 24 | `affricateDurationMs` — /t͡ʃ/, /d͡ʒ/ |
+| Post-stop aspiration | 20 | `postStopAspirationDurationMs` |
+| Tied-from vowel | 20 | `tiedFromVowelDurationMs` (diphthong end) |
+| Tap | 14 | `tapDurationMs` — /ɾ/ |
+| Default crossfade | 10 | `defaultFadeMs` |
+| Stop burst | 6 | `stopDurationMs` — /p/, /t/, /k/, /b/, /d/, /g/ |
 
 ### Normalization cleanup
 - `stripAllophoneDigits` (bool, default `true`): Removes eSpeak allophone digits from IPA streams (disable for tonal digit languages if needed).
@@ -859,7 +922,7 @@ settings:
     vowelToVowelFadeMs: 18.0
 ```
 
-Flat-key equivalents are also supported:
+Flat-key equivalents (for the boolean/scale settings only):
 
 - `boundarySmoothingEnabled`
 - `boundarySmoothingF1Scale`
@@ -868,19 +931,8 @@ Flat-key equivalents are also supported:
 - `boundarySmoothingPlosiveSpansPhone`
 - `boundarySmoothingNasalF1Instant`
 - `boundarySmoothingNasalF2F3SpansPhone`
-- `boundarySmoothingVowelToStopFadeMs`
-- `boundarySmoothingStopToVowelFadeMs`
-- `boundarySmoothingVowelToFricFadeMs`
-- `boundarySmoothingFricToVowelFadeMs`
-- `boundarySmoothingVowelToNasalFadeMs`
-- `boundarySmoothingNasalToVowelFadeMs`
-- `boundarySmoothingVowelToLiquidFadeMs`
-- `boundarySmoothingLiquidToVowelFadeMs`
-- `boundarySmoothingNasalToStopFadeMs`
-- `boundarySmoothingLiquidToStopFadeMs`
-- `boundarySmoothingFricToStopFadeMs`
-- `boundarySmoothingStopToFricFadeMs`
-- `boundarySmoothingVowelToVowelFadeMs`
+
+**Note:** The per-boundary fade time values (`vowelToStopFadeMs`, `stopToVowelFadeMs`, etc.) are only available via the nested `boundarySmoothing:` block — there are no flat-key equivalents for individual fade times.
 
 #### Transition coverage
 
@@ -1099,6 +1151,9 @@ settings:
           fricationAmplitude: 0.4
           aspirationAmplitude: 0.3
 ```
+
+### Clause-final fade
+- `clauseFinalFadeMs` (number, default `0.0`): Appends a short fade-to-silence at the end of every utterance (all clause types, not just single words). This softens the hard cut at the end of sentences, particularly useful for languages/voices where stop aspiration at sentence boundaries sounds abrupt. Set to `25` for a subtle tail, or `0` (default) for the original crisp cutoff.
 
 ### Single-word tuning
 
