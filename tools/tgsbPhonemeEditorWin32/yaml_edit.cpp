@@ -436,7 +436,14 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"liquidDynamicsLabialGlideStartF2", "liquidDynamics", "labialGlideTransition"},
   {"liquidDynamicsLabialGlideTransitionPct", "liquidDynamics", "labialGlideTransition"},
   
-  // boundarySmoothing fade time settings
+  // boundarySmoothing settings
+  {"boundarySmoothingEnabled", "boundarySmoothing", nullptr},
+  {"boundarySmoothingF1Scale", "boundarySmoothing", nullptr},
+  {"boundarySmoothingF2Scale", "boundarySmoothing", nullptr},
+  {"boundarySmoothingF3Scale", "boundarySmoothing", nullptr},
+  {"boundarySmoothingPlosiveSpansPhone", "boundarySmoothing", nullptr},
+  {"boundarySmoothingNasalF1Instant", "boundarySmoothing", nullptr},
+  {"boundarySmoothingNasalF2F3SpansPhone", "boundarySmoothing", nullptr},
   {"boundarySmoothingFricToStopFadeMs", "boundarySmoothing", nullptr},
   {"boundarySmoothingFricToVowelFadeMs", "boundarySmoothing", nullptr},
   {"boundarySmoothingLiquidToStopFadeMs", "boundarySmoothing", nullptr},
@@ -450,6 +457,28 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"boundarySmoothingVowelToNasalFadeMs", "boundarySmoothing", nullptr},
   {"boundarySmoothingVowelToStopFadeMs", "boundarySmoothing", nullptr},
   {"boundarySmoothingVowelToVowelFadeMs", "boundarySmoothing", nullptr},
+
+  // clusterTiming settings
+  {"clusterTimingEnabled", "clusterTiming", nullptr},
+  {"clusterTimingFricBeforeStopScale", "clusterTiming", nullptr},
+  {"clusterTimingStopBeforeFricScale", "clusterTiming", nullptr},
+  {"clusterTimingFricBeforeFricScale", "clusterTiming", nullptr},
+  {"clusterTimingStopBeforeStopScale", "clusterTiming", nullptr},
+  {"clusterTimingTripleClusterMiddleScale", "clusterTiming", nullptr},
+  {"clusterTimingAffricateInClusterScale", "clusterTiming", nullptr},
+  {"clusterTimingWordMedialConsonantScale", "clusterTiming", nullptr},
+  {"clusterTimingWordFinalObstruentScale", "clusterTiming", nullptr},
+
+  // lengthContrast settings
+  // Note: nested keys are "shortVowelCeiling" / "longVowelFloor" (no Ms suffix),
+  // while flat keys in pack.cpp use "lengthContrastShortVowelCeilingMs". The
+  // flat key here omits "Ms" so extractLeafKey produces the correct nested key.
+  {"lengthContrastEnabled", "lengthContrast", nullptr},
+  {"lengthContrastShortVowelCeiling", "lengthContrast", nullptr},
+  {"lengthContrastLongVowelFloor", "lengthContrast", nullptr},
+  {"lengthContrastGeminateClosureScale", "lengthContrast", nullptr},
+  {"lengthContrastGeminateReleaseScale", "lengthContrast", nullptr},
+  {"lengthContrastPreGeminateVowelScale", "lengthContrast", nullptr},
 
   // allophoneRules settings (scalar fields only — rules array handled separately)
   {"allophoneRulesEnabled", "allophoneRules", nullptr},
