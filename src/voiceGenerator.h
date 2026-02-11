@@ -155,20 +155,34 @@ return clampDouble(a, 0.0, 0.9999);
     void updateTiltTargets(double tlDbNow) {
         double tl = clampDouble(tlDbNow, -24.0, 24.0);
         tiltPoleTarget = calcPoleForTiltDb(tiltRefHz, tl);
-        
-        // INTELLIGENT RADIATION MIX:
-        // - Negative Tilt (Brightening): We fade towards Derivative (Mix 1.0). 
-        //   Flow (Integral) is naturally devoid of highs, so boosting it does little.
-        //   Derivative has the highs we need to boost.
-        // - Zero/Positive Tilt (Warm/Dark): We stick to Flow (Mix 0.0).
-        //   This provides the "Warmth" and "Body" you requested at 0.
-        
+
+        // RADIATION MIX — models lip radiation (+6 dB/oct differentiator).
+        //
+        // Baseline at tilt=0: ~0.10 derivative blended with flow.
+        // Pure flow is -12 dB/oct; adding 10% derivative restores some of
+        // the natural lip radiation characteristic, giving ~-6 dB/oct net.
+        //
+        // Negative tilt (brightening): ramp from baseline toward full
+        // derivative (mix=1.0).  Flow has no highs to boost, so we need
+        // the derivative's spectral content.
+        //
+        // Positive tilt (darkening): fade baseline toward zero.  Dark/
+        // breathy voices have incomplete glottal closure — less of the
+        // sharp closure event that creates the derivative.
+
+        const double kBaseRadiationMix = 0.10;
+
         if (tl < 0.0) {
-            // Fade to derivative as we get brighter
-            radiationMix = clampDouble(-tl / 10.0, 0.0, 1.0); 
+            // Brighten: ramp from baseline to 1.0 over 10 dB
+            double bright = -tl / 10.0;  // 0..1 over -10..-20 dB range
+            radiationMix = clampDouble(
+                kBaseRadiationMix + bright * (1.0 - kBaseRadiationMix),
+                kBaseRadiationMix, 1.0);
         } else {
-            // Keep pure flow for neutral and dark tones
-            radiationMix = 0.0;
+            // Darken: fade baseline to 0 over 12 dB
+            radiationMix = clampDouble(
+                kBaseRadiationMix * (1.0 - tl / 12.0),
+                0.0, kBaseRadiationMix);
         }
     }
 
