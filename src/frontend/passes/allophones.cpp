@@ -455,24 +455,49 @@ bool runAllophones(
       if (rule.action != "replace") continue;
       if (!ruleMatches(rule, tokens, i, t)) continue;
 
-      // Mark preceding closure for removal
+      // Mark preceding closure for removal or scaling
       if (rule.replaceRemovesClosure) {
         for (int j = i - 1; j >= 0; --j) {
-          if (tokens[static_cast<size_t>(j)].preStopGap || tokens[static_cast<size_t>(j)].clusterGap) {
-            skip[static_cast<size_t>(j)] = true;
+          Token& cj = tokens[static_cast<size_t>(j)];
+          if (cj.preStopGap || cj.clusterGap) {
+            if (rule.replaceClosureScale > 0.0) {
+              // Shorten closure instead of removing — allows resonator drain
+              cj.durationMs *= rule.replaceClosureScale;
+              cj.fadeMs *= rule.replaceClosureScale;
+              clampFadeToDuration(cj);
+            } else {
+              skip[static_cast<size_t>(j)] = true;
+            }
             break;
           }
-          if (!tokens[static_cast<size_t>(j)].silence) break;
+          if (!cj.silence) break;
         }
       }
-      // Mark following aspiration for removal
+      // Mark following aspiration for removal or scaling
       if (rule.replaceRemovesAspiration) {
+        // Always inject breathiness on the main phoneme when scale > 0,
+        // regardless of whether an aspiration token exists after it.
+        // Word-final stops often have no aspiration token (end of utterance).
+        if (rule.replaceAspirationScale > 0.0) {
+          Token& mainTok = tokens[static_cast<size_t>(i)];
+          mainTok.hasTokenBreathiness = true;
+          mainTok.tokenBreathiness = clamp01(rule.replaceAspirationScale);
+        }
+        // Now search for and handle the aspiration token if present
         for (int j = i + 1; j < static_cast<int>(tokens.size()); ++j) {
-          if (tokens[static_cast<size_t>(j)].postStopAspiration) {
-            skip[static_cast<size_t>(j)] = true;
+          Token& aj = tokens[static_cast<size_t>(j)];
+          if (aj.postStopAspiration) {
+            if (rule.replaceAspirationScale > 0.0) {
+              // Scale aspiration duration instead of removing
+              aj.durationMs *= rule.replaceAspirationScale;
+              aj.fadeMs *= rule.replaceAspirationScale;
+              clampFadeToDuration(aj);
+            } else {
+              skip[static_cast<size_t>(j)] = true;
+            }
             break;
           }
-          if (!tokens[static_cast<size_t>(j)].silence && !tokens[static_cast<size_t>(j)].postStopAspiration) break;
+          if (!aj.silence && !aj.postStopAspiration) break;
         }
       }
       break; // first replace match wins

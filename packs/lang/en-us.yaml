@@ -53,7 +53,7 @@ settings:
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
   coarticulationEnabled: false
   trajectoryLimitEnabled: false
-  microprosodyEnabled: tfalse
+  microprosodyEnabled: false
   rateReductionEnabled: true
   segmentBoundarySkipVowelToLiquid: false
   coarticulationVelarPinchEnabled: false
@@ -68,7 +68,7 @@ settings:
     enabled: true
     # American-style rhotic quality - creates movement in the R
     rhoticF3Dip:
-      enabled: true
+      enabled: false
       # Raised from 1450 to reduce "Australian" tongue-press sound
       f3Minimum: 1550
       # Reduced from 0.45 to make R feel less "drawn out"
@@ -132,7 +132,8 @@ settings:
         replaceTo: ɾ
         replaceDurationMs: 22.0
         replaceRemovesClosure: true
-        replaceRemovesAspiration: true
+        replaceClosureScale: 0.3
+        replaceRemovesAspiration: false
 
     # ── /l/ darkness by position ─────────────────────────────────
       - name: dark_l_post_vocalic
@@ -184,6 +185,35 @@ settings:
     #  insertFadeMs: 3.0
     #  insertContexts: ["V_#"]
 
+    # ── Word-final voiceless stop aspiration + breathiness ───────
+    # Replace-self trick: replacing /p/→/p/ is a no-op on frame data,
+    # but triggers replaceAspirationScale which scales the aspiration
+    # token duration AND injects breathiness into the stop via FrameEx.
+    # The unreleased_word_final scale rule below stacks on top of these.
+      - name: word_final_aspirated_p
+        phonemes: [p]
+        position: word-final
+        action: replace
+        replaceTo: p
+        replaceRemovesAspiration: true
+        replaceAspirationScale: 0.4
+
+      - name: word_final_aspirated_t
+        phonemes: [t]
+        position: word-final
+        action: replace
+        replaceTo: t
+        replaceRemovesAspiration: true
+        replaceAspirationScale: 0.4
+
+      - name: word_final_aspirated_k
+        phonemes: [k]
+        position: word-final
+        action: replace
+        replaceTo: k
+        replaceRemovesAspiration: true
+        replaceAspirationScale: 0.4
+
     # ── Unreleased word-final stops (gentler — stop still audible) ─
       - name: unreleased_word_final
         flags: [stop]
@@ -209,7 +239,7 @@ settings:
   # so these deltas stack on top of the DECTalk-style formant ramps.
   # ------------------------------------------------------------------
   specialCoarticulation:
-    enabled: true
+    enabled: false
     maxDeltaHz: 400
     rules:
       # 1. Rhotic vowel coloring  (the signature American feature).
@@ -267,7 +297,7 @@ settings:
     wordMedialConsonantScale: 0.85 # intervocalic C's
     wordFinalObstruentScale: 0.90  # final /t/, /d/, /s/ etc.
   legacyPitchMode: espeak_style
-  fujisakiDeclinationRate: 0.001 
+  legacyPitchInflectionScale : 1.4 
   singleWordClauseTypeOverrideCommaOnly: false
 normalization:
   preReplacements:

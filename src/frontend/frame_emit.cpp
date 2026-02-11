@@ -380,7 +380,8 @@ void emitFramesEx(
     if (phonemeSharpness < 1.0) phonemeSharpness = 1.0;
     
     frameEx.creakiness = clamp01(phonemeCreakiness + frameExDefaults.creakiness);
-    frameEx.breathiness = clamp01(phonemeBreathiness + frameExDefaults.breathiness);
+    double tokenBreathiness = t.hasTokenBreathiness ? t.tokenBreathiness : 0.0;
+    frameEx.breathiness = clamp01(phonemeBreathiness + tokenBreathiness + frameExDefaults.breathiness);
     frameEx.jitter = clamp01(phonemeJitter + frameExDefaults.jitter);
     frameEx.shimmer = clamp01(phonemeShimmer + frameExDefaults.shimmer);
 

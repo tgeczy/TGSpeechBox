@@ -92,6 +92,11 @@ struct Token {
   double transF3Scale = 0.0;
   double transNasalScale = 0.0;
 
+  // Token-level breathiness override (set by allophone rules).
+  // Added to phoneme-level and user-level breathiness in frame_emit.
+  bool hasTokenBreathiness = false;
+  double tokenBreathiness = 0.0;
+
   // Fujisaki pitch model markers (set by applyPitchFujisaki)
   // These are passed through to frameEx for DSP-level pitch contour generation.
   bool fujisakiEnabled = false;

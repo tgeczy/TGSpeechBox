@@ -24,9 +24,86 @@ settings:
   lengthContrast:
     enabled: false
   allophoneRules:
-    enabled: false
+    enabled: true
+    rules:
+    # ── /l/ darkness by position ─────────────────────────────────
+    # RP has strong dark-l in coda. Slightly stronger than US values.
+      - name: dark_l_post_vocalic
+        phonemes: [l, ɫ]
+        position: post-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.85
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.85
+
+      - name: dark_l_syllabic
+        phonemes: [l, ɫ]
+        position: syllabic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.9
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.9
+
+      - name: light_l_pre_vocalic
+        phonemes: [l, ɫ]
+        position: pre-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.2
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.2
+
+    # ── Word-final voiceless stop aspiration + breathiness ───────
+    # RP tends to have lighter aspiration on word-final stops than US
+    # (often unreleased or glottalized), so lower scale than en-us.
+      - name: word_final_aspirated_p
+        phonemes: [p]
+        position: word-final
+        action: replace
+        replaceTo: p
+        replaceRemovesAspiration: true
+        replaceAspirationScale: 0.3
+
+      - name: word_final_aspirated_t
+        phonemes: [t]
+        position: word-final
+        action: replace
+        replaceTo: t
+        replaceRemovesAspiration: true
+        replaceAspirationScale: 0.3
+
+      - name: word_final_aspirated_k
+        phonemes: [k]
+        position: word-final
+        action: replace
+        replaceTo: k
+        replaceRemovesAspiration: true
+        replaceAspirationScale: 0.3
+
+    # ── Unreleased word-final stops ──────────────────────────────
+    # RP is more clipped on word-final stops than US.
+      - name: unreleased_word_final
+        flags: [stop]
+        notFlags: [voiced]
+        position: word-final
+        action: scale
+        durationScale: 0.80
+        fieldScales:
+          fricationAmplitude: 0.80
+          aspirationAmplitude: 0.25
   boundarySmoothing:
-    enabled: false
+    enabled: true
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: false
@@ -96,7 +173,7 @@ settings:
     affricateInClusterScale: 0.80  # /tʃ/ in "lunchbox"
     wordMedialConsonantScale: 0.90 # intervocalic C's
     wordFinalObstruentScale: 0.95  # RP enunciates final obstruents more
-  legacyPitchMode: espeak_style
+  legacyPitchMode: legacy
 normalization:
   preReplacements:
   classes:

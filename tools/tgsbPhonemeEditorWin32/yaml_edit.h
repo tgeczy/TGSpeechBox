@@ -51,6 +51,8 @@ struct AllophoneRuleEntry {
   double replaceDurationMs = 0.0;
   bool replaceRemovesClosure = false;
   bool replaceRemovesAspiration = false;
+  double replaceClosureScale = 0.0;
+  double replaceAspirationScale = 0.0;
   // Scale params
   double durationScale = 1.0;
   double fadeScale = 1.0;

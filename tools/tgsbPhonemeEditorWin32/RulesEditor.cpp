@@ -209,7 +209,7 @@ static void showActionSection(HWND hDlg, const std::string& action) {
   bool isInsert  = (action == "insert-before" || action == "insert-after");
 
   if (grpReplace) ShowWindow(grpReplace, isReplace ? SW_SHOW : SW_HIDE);
-  showControlRange(hDlg, IDC_AR_REPLACE_TO, IDC_AR_REPLACE_RMASP, isReplace);
+  showControlRange(hDlg, IDC_AR_REPLACE_TO, IDC_AR_REPLACE_ASPSCALE, isReplace);
 
   if (grpScale) ShowWindow(grpScale, isScale ? SW_SHOW : SW_HIDE);
   showControlRange(hDlg, IDC_AR_SCALE_DUR, IDC_AR_SCALE_FIELDS, isScale);
@@ -263,6 +263,14 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
     }
     CheckDlgButton(hDlg, IDC_AR_REPLACE_RMCLOSURE, r.replaceRemovesClosure ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(hDlg, IDC_AR_REPLACE_RMASP, r.replaceRemovesAspiration ? BST_CHECKED : BST_UNCHECKED);
+    if (r.replaceClosureScale != 0.0) {
+      std::ostringstream os; os << r.replaceClosureScale;
+      setDlgItemUtf8(hDlg, IDC_AR_REPLACE_CLOSCALE, os.str());
+    }
+    if (r.replaceAspirationScale != 0.0) {
+      std::ostringstream os; os << r.replaceAspirationScale;
+      setDlgItemUtf8(hDlg, IDC_AR_REPLACE_ASPSCALE, os.str());
+    }
 
     // Scale params
     { std::ostringstream os; os << r.durationScale; setDlgItemUtf8(hDlg, IDC_AR_SCALE_DUR, os.str()); }
@@ -310,6 +318,10 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
         r.replaceDurationMs = s.empty() ? 0.0 : std::atof(s.c_str()); }
       r.replaceRemovesClosure = (IsDlgButtonChecked(hDlg, IDC_AR_REPLACE_RMCLOSURE) == BST_CHECKED);
       r.replaceRemovesAspiration = (IsDlgButtonChecked(hDlg, IDC_AR_REPLACE_RMASP) == BST_CHECKED);
+      { std::string s = getDlgItemUtf8(hDlg, IDC_AR_REPLACE_CLOSCALE);
+        r.replaceClosureScale = s.empty() ? 0.0 : std::atof(s.c_str()); }
+      { std::string s = getDlgItemUtf8(hDlg, IDC_AR_REPLACE_ASPSCALE);
+        r.replaceAspirationScale = s.empty() ? 0.0 : std::atof(s.c_str()); }
 
       // Scale
       { std::string s = getDlgItemUtf8(hDlg, IDC_AR_SCALE_DUR);

@@ -223,6 +223,8 @@ struct AllophoneRule {
     double replaceDurationMs = 0.0;
     bool replaceRemovesClosure = false;
     bool replaceRemovesAspiration = false;
+    double replaceClosureScale = 0.0;      // >0: scale closure duration instead of removing
+    double replaceAspirationScale = 0.0;   // >0: scale aspiration duration + inject breathiness
 
     // For "scale":
     std::vector<std::pair<std::string, double>> fieldScales;

@@ -794,6 +794,8 @@ if (const yaml_min::Node* ar = settings.get("allophoneRules"); ar && ar->isMap()
         getNumFrom(item, "replaceDurationMs", rule.replaceDurationMs);
         getBoolFrom(item, "replaceRemovesClosure", rule.replaceRemovesClosure);
         getBoolFrom(item, "replaceRemovesAspiration", rule.replaceRemovesAspiration);
+        getNumFrom(item, "replaceClosureScale", rule.replaceClosureScale);
+        getNumFrom(item, "replaceAspirationScale", rule.replaceAspirationScale);
       }
 
       // Parse scale params

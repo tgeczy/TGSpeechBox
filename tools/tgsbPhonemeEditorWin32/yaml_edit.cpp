@@ -768,6 +768,8 @@ std::vector<AllophoneRuleEntry> LanguageYaml::allophoneRules() const {
     r.replaceDurationMs = readDouble(item.get("replaceDurationMs"));
     r.replaceRemovesClosure = readBoolNode(item.get("replaceRemovesClosure"));
     r.replaceRemovesAspiration = readBoolNode(item.get("replaceRemovesAspiration"));
+    r.replaceClosureScale = readDouble(item.get("replaceClosureScale"));
+    r.replaceAspirationScale = readDouble(item.get("replaceAspirationScale"));
     // Scale params
     r.durationScale = readDouble(item.get("durationScale"), 1.0);
     r.fadeScale = readDouble(item.get("fadeScale"), 1.0);
@@ -835,6 +837,8 @@ void LanguageYaml::setAllophoneRules(const std::vector<AllophoneRuleEntry>& rule
     if (r.replaceDurationMs != 0.0) item.map["replaceDurationMs"] = makeScalarD(r.replaceDurationMs);
     if (r.replaceRemovesClosure) item.map["replaceRemovesClosure"] = makeScalar("true");
     if (r.replaceRemovesAspiration) item.map["replaceRemovesAspiration"] = makeScalar("true");
+    if (r.replaceClosureScale != 0.0) item.map["replaceClosureScale"] = makeScalarD(r.replaceClosureScale);
+    if (r.replaceAspirationScale != 0.0) item.map["replaceAspirationScale"] = makeScalarD(r.replaceAspirationScale);
     // Scale
     if (r.durationScale != 1.0) item.map["durationScale"] = makeScalarD(r.durationScale);
     if (r.fadeScale != 1.0) item.map["fadeScale"] = makeScalarD(r.fadeScale);

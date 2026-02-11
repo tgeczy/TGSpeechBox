@@ -249,6 +249,8 @@
 #define IDC_AR_REPLACE_DURMS      3421
 #define IDC_AR_REPLACE_RMCLOSURE  3422
 #define IDC_AR_REPLACE_RMASP      3423
+#define IDC_AR_REPLACE_CLOSCALE   3424
+#define IDC_AR_REPLACE_ASPSCALE   3425
 // Scale action controls
 #define IDC_AR_SCALE_DUR          3430
 #define IDC_AR_SCALE_FADE         3431
