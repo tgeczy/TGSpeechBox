@@ -1955,11 +1955,11 @@ class SynthDriver(SynthDriver):
             # Above 50: wider formants (softer, more blended)
             bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
             if bwSlider <= 50.0:
-                # 0 -> 2.0 (wide/muffled), 50 -> 0.8 (neutral)
-                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.2
+                # 0 -> 2.0 (wide/muffled), 50 -> 0.9 (neutral)
+                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.1
             else:
-                # 50 -> 0.8 (neutral), 100 -> 0.3 (sharp/ringy)
-                tone.cascadeBwScale = 0.8 - ((bwSlider - 50.0) / 50.0) * 0.5
+                # 50 -> 0.9 (neutral), 100 -> 0.3 (sharp/ringy)
+                tone.cascadeBwScale = 0.9 - ((bwSlider - 50.0) / 50.0) * 0.6
             # Safety clamp
                 tone.cascadeBwScale = max(0.2, min(2.0, tone.cascadeBwScale))
 

@@ -399,11 +399,11 @@ static VoicingToneV3 buildVoicingTone(const Options& opt) {
   tone.pitchSyncB1DeltaHz = -50.0 + slider(opt.pitchSyncB1DeltaHz) * 100.0; // -50 to +50
   tone.speedQuotient = 0.5 + slider(opt.speedQuotient) * 3.5;               // 0.5-4.0
   tone.aspirationTiltDbPerOct = -12.0 + slider(opt.aspirationTiltDbPerOct) * 24.0; // -12 to +12
-  // cascadeBwScale: piecewise so that 50 => 1.0
+  // cascadeBwScale: piecewise so that 50 => 0.9
   {
     const int s = clampInt(opt.cascadeBwScale, 0, 100);
-    if (s <= 50) tone.cascadeBwScale = 0.4 + (static_cast<double>(s) / 50.0) * 0.6;
-    else tone.cascadeBwScale = 1.0 + (static_cast<double>(s - 50) / 50.0) * 0.4;
+    if (s <= 50) tone.cascadeBwScale = 2.0 - (static_cast<double>(s) / 50.0) * 1.1;
+    else tone.cascadeBwScale = 0.9 - (static_cast<double>(s - 50) / 50.0) * 0.6;
   }
   // tremorDepth: 0-100 maps to 0.0-0.4
   tone.tremorDepth = slider(opt.tremor) * 0.4;
