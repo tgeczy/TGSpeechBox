@@ -427,6 +427,13 @@ struct LanguagePack {
   // to avoid abrupt cutoffs at the end of single-word utterances.
   double singleWordFinalFadeMs = 0.0;
 
+  // If >0, append a final silence frame with this fade time at the end of ALL
+  // utterances (multi-word included).  This lets clause-final voiceless stops
+  // decay their aspiration through the cascade instead of hitting the crude
+  // stopFade path.  For single-word utterances, singleWordFinalFadeMs takes
+  // precedence if set.
+  double clauseFinalFadeMs = 0.0;
+
   // Optional: override the clause type used for intonation when the utterance
   // is a single word. This is useful when callers pass clauseType=',' to keep
   // phrases sounding "ongoing"; for isolated words this can sound like an

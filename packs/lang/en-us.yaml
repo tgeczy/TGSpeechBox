@@ -24,6 +24,7 @@ settings:
   # crossfade aspiration/frication through voiceGenerator instead of
   # hitting the crude 4ms stopFade path.
   singleWordFinalFadeMs: 25
+  clauseFinalFadeMs: 25
 
   # US: smoother overall, less breath noise on stop releases.
   postStopAspirationEnabled: true

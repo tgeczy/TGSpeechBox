@@ -464,6 +464,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("singleWordFinalHoldMs", lp.singleWordFinalHoldMs);
   getNum("singleWordFinalLiquidHoldScale", lp.singleWordFinalLiquidHoldScale);
   getNum("singleWordFinalFadeMs", lp.singleWordFinalFadeMs);
+  getNum("clauseFinalFadeMs", lp.clauseFinalFadeMs);
   getBool("singleWordClauseTypeOverrideCommaOnly", lp.singleWordClauseTypeOverrideCommaOnly);
   {
     std::string ct;

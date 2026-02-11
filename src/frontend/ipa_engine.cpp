@@ -2052,6 +2052,29 @@ bool convertIpaToTokens(
     }
   }
 
+  // Clause-final fade: append a silence fade token at the end of ALL
+  // utterances (multi-word included) so clause-final stops get a proper
+  // crossfade through voiceGenerator instead of the crude stopFade path.
+  if (pack.lang.clauseFinalFadeMs > 0.0) {
+    bool alreadyHasFade = false;
+    if (!outTokens.empty()) {
+      const Token& last = outTokens.back();
+      if (last.silence && !last.def && last.durationMs == 0.0) {
+        alreadyHasFade = true;  // singleWord block already appended one
+      }
+    }
+    if (!alreadyHasFade) {
+      const double sp = (speed > 0.0) ? speed : 1.0;
+      Token s;
+      s.def = nullptr;
+      s.silence = true;
+      s.durationMs = 0.0;
+      s.fadeMs = pack.lang.clauseFinalFadeMs / sp;
+      if (s.fadeMs < 0.1) s.fadeMs = 0.1;
+      outTokens.push_back(s);
+    }
+  }
+
   return true;
 }
 
