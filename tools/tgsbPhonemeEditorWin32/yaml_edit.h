@@ -44,6 +44,10 @@ struct AllophoneRuleEntry {
   std::string stress = "any";          // "any"/"stressed"/"unstressed"/"next-unstressed"/"prev-stressed"
   std::vector<std::string> after;      // neighbor IPA filter
   std::vector<std::string> before;
+  std::vector<std::string> afterFlags;    // neighbor flag filters
+  std::vector<std::string> notAfterFlags;
+  std::vector<std::string> beforeFlags;
+  std::vector<std::string> notBeforeFlags;
   // Action
   std::string action;                  // "replace"/"scale"/"shift"/"insert-before"/"insert-after"
   // Replace params

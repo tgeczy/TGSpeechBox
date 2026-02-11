@@ -244,6 +244,11 @@
 #define IDC_AR_AFTER         3417
 #define IDC_AR_BEFORE        3418
 #define IDC_AR_ACTION        3419
+// Neighbor flag filter controls
+#define IDC_AR_AFTERFLAGS        3470
+#define IDC_AR_NOTAFTERFLAGS     3471
+#define IDC_AR_BEFOREFLAGS       3472
+#define IDC_AR_NOTBEFOREFLAGS    3473
 // Replace action controls
 #define IDC_AR_REPLACE_TO         3420
 #define IDC_AR_REPLACE_DURMS      3421

@@ -212,6 +212,13 @@ struct AllophoneRule {
     std::vector<std::u32string> after;      // prev phoneme key filter
     std::vector<std::u32string> before;     // next phoneme key filter
 
+    // Neighbor flag filters (check flags on prev/next phoneme).
+    // These complement the key-based after/before filters above.
+    std::vector<std::string> afterFlags;    // prev phoneme must have ALL listed flags
+    std::vector<std::string> notAfterFlags; // exclude if prev phoneme has ANY listed flag
+    std::vector<std::string> beforeFlags;   // next phoneme must have ALL listed flags
+    std::vector<std::string> notBeforeFlags;// exclude if next phoneme has ANY listed flag
+
     // ── Action ────────────────────────────────────────────────────────
     // "replace", "scale", "shift", "insert-before", "insert-after"
     std::string action;

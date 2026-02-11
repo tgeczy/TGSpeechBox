@@ -193,6 +193,7 @@ settings:
       - name: word_final_aspirated_p
         phonemes: [p]
         position: word-final
+        notBeforeFlags: [vowel]
         action: replace
         replaceTo: p
         replaceRemovesAspiration: true
@@ -201,6 +202,7 @@ settings:
       - name: word_final_aspirated_t
         phonemes: [t]
         position: word-final
+        notBeforeFlags: [vowel]
         action: replace
         replaceTo: t
         replaceRemovesAspiration: true
@@ -209,6 +211,7 @@ settings:
       - name: word_final_aspirated_k
         phonemes: [k]
         position: word-final
+        notBeforeFlags: [vowel]
         action: replace
         replaceTo: k
         replaceRemovesAspiration: true

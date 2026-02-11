@@ -762,6 +762,10 @@ std::vector<AllophoneRuleEntry> LanguageYaml::allophoneRules() const {
     if (const Node* n = item.get("stress")) if (n->isScalar()) r.stress = n->scalar;
     r.after = readStringSeq(item.get("after"));
     r.before = readStringSeq(item.get("before"));
+    r.afterFlags = readStringSeq(item.get("afterFlags"));
+    r.notAfterFlags = readStringSeq(item.get("notAfterFlags"));
+    r.beforeFlags = readStringSeq(item.get("beforeFlags"));
+    r.notBeforeFlags = readStringSeq(item.get("notBeforeFlags"));
     if (const Node* n = item.get("action")) if (n->isScalar()) r.action = n->scalar;
     // Replace params
     if (const Node* n = item.get("replaceTo")) if (n->isScalar()) r.replaceTo = n->scalar;
@@ -831,6 +835,10 @@ void LanguageYaml::setAllophoneRules(const std::vector<AllophoneRuleEntry>& rule
     if (r.stress != "any") item.map["stress"] = makeScalar(r.stress);
     if (!r.after.empty()) item.map["after"] = makeStringSeqNode(r.after);
     if (!r.before.empty()) item.map["before"] = makeStringSeqNode(r.before);
+    if (!r.afterFlags.empty()) item.map["afterFlags"] = makeStringSeqNode(r.afterFlags);
+    if (!r.notAfterFlags.empty()) item.map["notAfterFlags"] = makeStringSeqNode(r.notAfterFlags);
+    if (!r.beforeFlags.empty()) item.map["beforeFlags"] = makeStringSeqNode(r.beforeFlags);
+    if (!r.notBeforeFlags.empty()) item.map["notBeforeFlags"] = makeStringSeqNode(r.notBeforeFlags);
     if (!r.action.empty()) item.map["action"] = makeScalar(r.action);
     // Replace
     if (!r.replaceTo.empty()) item.map["replaceTo"] = makeScalar(r.replaceTo);

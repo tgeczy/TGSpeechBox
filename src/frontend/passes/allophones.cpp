@@ -316,6 +316,38 @@ static bool ruleMatches(
     if (!found) return false;
   }
 
+  // 8) Neighbor flag filters
+  if (!rule.afterFlags.empty()) {
+    if (!prev || !prev->def) return false;
+    for (const auto& f : rule.afterFlags) {
+      uint32_t bit = flagFromString(f);
+      if (bit != 0 && !(prev->def->flags & bit)) return false;
+    }
+  }
+  if (!rule.notAfterFlags.empty()) {
+    if (prev && prev->def) {
+      for (const auto& f : rule.notAfterFlags) {
+        uint32_t bit = flagFromString(f);
+        if (bit != 0 && (prev->def->flags & bit)) return false;
+      }
+    }
+  }
+  if (!rule.beforeFlags.empty()) {
+    if (!next || !next->def) return false;
+    for (const auto& f : rule.beforeFlags) {
+      uint32_t bit = flagFromString(f);
+      if (bit != 0 && !(next->def->flags & bit)) return false;
+    }
+  }
+  if (!rule.notBeforeFlags.empty()) {
+    if (next && next->def) {
+      for (const auto& f : rule.notBeforeFlags) {
+        uint32_t bit = flagFromString(f);
+        if (bit != 0 && (next->def->flags & bit)) return false;
+      }
+    }
+  }
+
   return true;
 }
 

@@ -785,6 +785,27 @@ if (const yaml_min::Node* ar = settings.get("allophoneRules"); ar && ar->isMap()
           if (el.isScalar()) rule.before.push_back(utf8ToU32(el.scalar));
         }
       }
+      // Parse neighbor flag filters
+      if (const yaml_min::Node* af2 = item.get("afterFlags"); af2 && af2->isSeq()) {
+        for (const auto& el : af2->seq) {
+          if (el.isScalar()) rule.afterFlags.push_back(el.scalar);
+        }
+      }
+      if (const yaml_min::Node* naf = item.get("notAfterFlags"); naf && naf->isSeq()) {
+        for (const auto& el : naf->seq) {
+          if (el.isScalar()) rule.notAfterFlags.push_back(el.scalar);
+        }
+      }
+      if (const yaml_min::Node* bf2 = item.get("beforeFlags"); bf2 && bf2->isSeq()) {
+        for (const auto& el : bf2->seq) {
+          if (el.isScalar()) rule.beforeFlags.push_back(el.scalar);
+        }
+      }
+      if (const yaml_min::Node* nbf = item.get("notBeforeFlags"); nbf && nbf->isSeq()) {
+        for (const auto& el : nbf->seq) {
+          if (el.isScalar()) rule.notBeforeFlags.push_back(el.scalar);
+        }
+      }
 
       // Parse replace params
       {

@@ -242,6 +242,10 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
     setDlgItemUtf8(hDlg, IDC_AR_NOTFLAGS, joinStrVec(r.notFlags));
     setDlgItemUtf8(hDlg, IDC_AR_AFTER, joinStrVec(r.after));
     setDlgItemUtf8(hDlg, IDC_AR_BEFORE, joinStrVec(r.before));
+    setDlgItemUtf8(hDlg, IDC_AR_AFTERFLAGS, joinStrVec(r.afterFlags));
+    setDlgItemUtf8(hDlg, IDC_AR_NOTAFTERFLAGS, joinStrVec(r.notAfterFlags));
+    setDlgItemUtf8(hDlg, IDC_AR_BEFOREFLAGS, joinStrVec(r.beforeFlags));
+    setDlgItemUtf8(hDlg, IDC_AR_NOTBEFOREFLAGS, joinStrVec(r.notBeforeFlags));
 
     addComboStrings(hDlg, IDC_AR_TOKENTYPE, kTokenTypes, 3);
     selectComboByText(hDlg, IDC_AR_TOKENTYPE, r.tokenType);
@@ -310,6 +314,10 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
       r.stress = getComboSelText(hDlg, IDC_AR_STRESS);
       r.after = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_AFTER));
       r.before = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_BEFORE));
+      r.afterFlags = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_AFTERFLAGS));
+      r.notAfterFlags = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_NOTAFTERFLAGS));
+      r.beforeFlags = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_BEFOREFLAGS));
+      r.notBeforeFlags = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_NOTBEFOREFLAGS));
       r.action = getComboSelText(hDlg, IDC_AR_ACTION);
 
       // Replace
