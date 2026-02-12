@@ -202,6 +202,20 @@ settings:
             targetHz: 900.0
             blend: 0.2
 
+    # ── Post-sibilant aspiration suppression ─────────────────────
+    # English voiceless stops are unaspirated after /s/ and /ʃ/:
+    # "style" vs "tile", "spin" vs "pin", "skin" vs "kin".
+    # The 'after' filter on aspiration tokens looks past the parent
+    # stop to check the preceding phoneme.
+      - name: post_sibilant_aspiration_suppress
+        tokenType: aspiration
+        after: ["s", "ʃ"]
+        action: scale
+        durationScale: 0.05
+        fieldScales:
+          aspirationAmplitude: 0.05
+          fricationAmplitude: 0.05
+
     # ── Glottal reinforcement (word-final voiceless stops) ───────
     # Disabled: the unreleased rule already softens word-final stops,
     # and the inserted [ʔ] was adding too much to the cluster.

@@ -132,6 +132,17 @@ static const Token* nextPhoneme(const std::vector<Token>& tokens, int i) {
   return nullptr;
 }
 
+// Like prevPhoneme but returns the index instead of a pointer.
+static int prevPhonemeIndex(const std::vector<Token>& tokens, int i) {
+  for (int j = i - 1; j >= 0; --j) {
+    const Token& t = tokens[static_cast<size_t>(j)];
+    if (tokIsSilence(t)) continue;
+    if (t.preStopGap || t.postStopAspiration || t.clusterGap || t.voicedClosure) continue;
+    return j;
+  }
+  return -1;
+}
+
 // Like isWordFinalIndex but skips closure/aspiration tokens.
 static bool isWordFinalPhoneme(const std::vector<Token>& tokens, int i) {
   const Token* next = nextPhoneme(tokens, i);
@@ -300,10 +311,22 @@ static bool ruleMatches(
 
   // 7) Neighbor key filters
   if (!rule.after.empty()) {
-    if (!prev || !prev->def) return false;
+    const Token* checkPrev = prev;
+    // For aspiration tokens, "after" means the phoneme before the
+    // PARENT STOP, not before the aspiration itself.  prevPhoneme()
+    // returns the parent stop; we need one more hop backward.
+    if (rule.tokenType == "aspiration" && prev) {
+      int parentIdx = prevPhonemeIndex(tokens, i);
+      if (parentIdx >= 0) {
+        checkPrev = prevPhoneme(tokens, parentIdx);
+      } else {
+        checkPrev = nullptr;
+      }
+    }
+    if (!checkPrev || !checkPrev->def) return false;
     bool found = false;
     for (const auto& ph : rule.after) {
-      if (prev->def->key == ph) { found = true; break; }
+      if (checkPrev->def->key == ph) { found = true; break; }
     }
     if (!found) return false;
   }
@@ -317,18 +340,28 @@ static bool ruleMatches(
   }
 
   // 8) Neighbor flag filters
+  //    For aspiration tokens, use the same "look past parent stop" logic.
+  const Token* afterFlagsPrev = prev;
+  if (rule.tokenType == "aspiration" && prev) {
+    int parentIdx = prevPhonemeIndex(tokens, i);
+    if (parentIdx >= 0) {
+      afterFlagsPrev = prevPhoneme(tokens, parentIdx);
+    } else {
+      afterFlagsPrev = nullptr;
+    }
+  }
   if (!rule.afterFlags.empty()) {
-    if (!prev || !prev->def) return false;
+    if (!afterFlagsPrev || !afterFlagsPrev->def) return false;
     for (const auto& f : rule.afterFlags) {
       uint32_t bit = flagFromString(f);
-      if (bit != 0 && !(prev->def->flags & bit)) return false;
+      if (bit != 0 && !(afterFlagsPrev->def->flags & bit)) return false;
     }
   }
   if (!rule.notAfterFlags.empty()) {
-    if (prev && prev->def) {
+    if (afterFlagsPrev && afterFlagsPrev->def) {
       for (const auto& f : rule.notAfterFlags) {
         uint32_t bit = flagFromString(f);
-        if (bit != 0 && (prev->def->flags & bit)) return false;
+        if (bit != 0 && (afterFlagsPrev->def->flags & bit)) return false;
       }
     }
   }
