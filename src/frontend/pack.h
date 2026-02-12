@@ -706,6 +706,28 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double phraseFinalLengtheningQuestionScale = 0.9;
   bool phraseFinalLengtheningNucleusOnlyMode = true;
 
+  // ── Prominence pass ──
+  bool prominenceEnabled = false;
+
+  // Sources
+  double prominencePrimaryStressWeight = 1.0;
+  double prominenceSecondaryStressWeight = 0.6;
+  double prominenceLongVowelWeight = 0.5;
+  std::string prominenceLongVowelMode = "unstressed-only"; // "unstressed-only", "always", "never"
+  double prominenceWordInitialBoost = 0.0;
+  double prominenceWordFinalReduction = 0.0;
+
+  // Realization: duration
+  double prominenceDurationProminentFloorMs = 0.0;
+  double prominenceDurationReducedCeiling = 1.0;
+
+  // Realization: amplitude
+  double prominenceAmplitudeBoostDb = 0.0;
+  double prominenceAmplitudeReductionDb = 0.0;
+
+  // Realization: pitch (controls whether pitch_fujisaki reads prominence)
+  bool prominencePitchFromProminence = false;
+
   // Microprosody.
   bool microprosodyEnabled = false;
   bool microprosodyVoicelessF0RaiseEnabled = true;

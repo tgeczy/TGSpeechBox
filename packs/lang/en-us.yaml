@@ -70,6 +70,30 @@ settings:
   microprosodyVoicelessF0RaiseEnabled: false
   microprosodyVoicedF0LowerEnabled: true
   nasalizationAnticipatoryEnabled: false
+  prominence:
+    enabled: true
+
+    # English: stress marks are the primary source. Vowel length is
+    # phonemic but eSpeak already marks stress, so longVowelWeight
+    # is low. Word-initial boost gives a subtle naturalness nudge.
+    primaryStressWeight: 1.0
+    secondaryStressWeight: 0.6
+    longVowelWeight: 0.0          # English stress is lexical, not length-based
+    longVowelMode: "never"
+
+    wordInitialBoost: 0.1
+    wordFinalReduction: 0.1
+
+    # Duration: prominent syllables hold steady, unstressed ones can shrink
+    durationProminentFloorMs: 45
+    durationReducedCeiling: 0.85
+
+    # Amplitude: subtle contour shaping
+    amplitudeBoostDb: 1.5
+    amplitudeReductionDb: 2.0
+
+    # Let prominence drive Fujisaki accents
+    pitchFromProminence: true
   liquidDynamics:
     enabled: true
     # American-style rhotic quality - creates movement in the R

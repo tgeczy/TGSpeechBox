@@ -614,6 +614,35 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("phraseFinalLengtheningQuestionScale", lp.phraseFinalLengtheningQuestionScale);
   getBool("phraseFinalLengtheningNucleusOnlyMode", lp.phraseFinalLengtheningNucleusOnlyMode);
 
+  // ── Prominence pass (nested block + flat-key fallbacks) ──
+  if (const yaml_min::Node* pr = settings.get("prominence"); pr && pr->isMap()) {
+    getBoolFrom(*pr, "enabled", lp.prominenceEnabled);
+    getNumFrom(*pr, "primaryStressWeight", lp.prominencePrimaryStressWeight);
+    getNumFrom(*pr, "secondaryStressWeight", lp.prominenceSecondaryStressWeight);
+    getNumFrom(*pr, "longVowelWeight", lp.prominenceLongVowelWeight);
+    getStrFrom(*pr, "longVowelMode", lp.prominenceLongVowelMode);
+    getNumFrom(*pr, "wordInitialBoost", lp.prominenceWordInitialBoost);
+    getNumFrom(*pr, "wordFinalReduction", lp.prominenceWordFinalReduction);
+    getNumFrom(*pr, "durationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
+    getNumFrom(*pr, "durationReducedCeiling", lp.prominenceDurationReducedCeiling);
+    getNumFrom(*pr, "amplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
+    getNumFrom(*pr, "amplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
+    getBoolFrom(*pr, "pitchFromProminence", lp.prominencePitchFromProminence);
+  }
+  // Flat-key fallbacks
+  getBool("prominenceEnabled", lp.prominenceEnabled);
+  getNum("prominencePrimaryStressWeight", lp.prominencePrimaryStressWeight);
+  getNum("prominenceSecondaryStressWeight", lp.prominenceSecondaryStressWeight);
+  getNum("prominenceLongVowelWeight", lp.prominenceLongVowelWeight);
+  getStr("prominenceLongVowelMode", lp.prominenceLongVowelMode);
+  getNum("prominenceWordInitialBoost", lp.prominenceWordInitialBoost);
+  getNum("prominenceWordFinalReduction", lp.prominenceWordFinalReduction);
+  getNum("prominenceDurationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
+  getNum("prominenceDurationReducedCeiling", lp.prominenceDurationReducedCeiling);
+  getNum("prominenceAmplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
+  getNum("prominenceAmplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
+  getBool("prominencePitchFromProminence", lp.prominencePitchFromProminence);
+
   getBool("microprosodyEnabled", lp.microprosodyEnabled);
   getBool("microprosodyVoicelessF0RaiseEnabled", lp.microprosodyVoicelessF0RaiseEnabled);
   getNum("microprosodyVoicelessF0RaiseHz", lp.microprosodyVoicelessF0RaiseHz);

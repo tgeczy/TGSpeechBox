@@ -12,6 +12,7 @@
 #include "trajectory_limit.h"
 #include "cluster_timing.h"
 #include "special_coartic.h"
+#include "prominence.h"
 
 namespace nvsp_frontend {
 
@@ -24,6 +25,7 @@ const PassDesc kPasses[] = {
     {"coarticulation", PassStage::PostTiming, &passes::runCoarticulation},
     {"special_coartic", PassStage::PostTiming, &passes::runSpecialCoarticulation},
     {"cluster_timing", PassStage::PostTiming, &passes::runClusterTiming},
+    {"prominence", PassStage::PostTiming, &passes::runProminence},
     {"prosody", PassStage::PostTiming, &passes::runProsody},
     {"reduction", PassStage::PostTiming, &passes::runReduction},
     {"liquid_dynamics", PassStage::PostTiming, &passes::runLiquidDynamics},

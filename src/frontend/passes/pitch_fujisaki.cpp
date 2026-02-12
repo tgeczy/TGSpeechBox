@@ -174,33 +174,50 @@ void applyPitchFujisaki(
     }
 
     // ...but place the accent command on the vowel nucleus.
-    if (accentsEnabled && pendingStress != 0 && tokenIsVowel(t)) {
+    if (accentsEnabled && tokenIsVowel(t)) {
       bool shouldAccent = false;
       double accentAmp = 0.0;
 
-      if (pendingStress == 1) {
-        // Primary stress
-        if (firstOnly) {
-          if (!hadFirstAccent) {
+      // When prominence is available and pitchFromProminence is enabled,
+      // use the prominence score to drive accent amplitude.
+      if (lang.prominencePitchFromProminence && t.prominence >= 0.0) {
+        // Any vowel with prominence > small threshold gets an accent.
+        if (t.prominence > 0.05) {
+          if (firstOnly) {
+            if (!hadFirstAccent) {
+              shouldAccent = true;
+              hadFirstAccent = true;
+            }
+          } else {
             shouldAccent = true;
-            hadFirstAccent = true;
           }
-        } else {
-          shouldAccent = true;
+          // Scale accent amplitude by prominence score.
+          // prominence 1.0 → primaryAccentAmp, 0.5 → half that, etc.
+          accentAmp = primaryAccentAmp * accentBoost * t.prominence;
         }
-        accentAmp = primaryAccentAmp * accentBoost;
-      } else if (pendingStress == 2 && !firstOnly) {
-        // Secondary stress - only in "all" mode
-        shouldAccent = true;
-        accentAmp = secondaryAccentAmp * accentBoost;
+        pendingStress = 0;
+      } else if (pendingStress != 0) {
+        // Original stress-mark-based accent logic (unchanged).
+        if (pendingStress == 1) {
+          if (firstOnly) {
+            if (!hadFirstAccent) {
+              shouldAccent = true;
+              hadFirstAccent = true;
+            }
+          } else {
+            shouldAccent = true;
+          }
+          accentAmp = primaryAccentAmp * accentBoost;
+        } else if (pendingStress == 2 && !firstOnly) {
+          shouldAccent = true;
+          accentAmp = secondaryAccentAmp * accentBoost;
+        }
+        pendingStress = 0;
       }
 
       if (shouldAccent) {
         t.fujisakiAccentAmp = accentAmp;
       }
-
-      // One accent per syllable.
-      pendingStress = 0;
     }
 
     // Final vowel: direct pitch shaping for clause-type identity.
