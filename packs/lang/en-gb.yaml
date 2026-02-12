@@ -16,7 +16,7 @@ settings:
   singleWordFinalHoldMs: 0
 
   # Enable clause-final fade for stop aspiration at end of sentences.
-  clauseFinalFadeMs: 25
+  clauseFinalFadeMs: 0
 
   stopClosureAfterNasalsEnabled: true
   segmentBoundarySkipVowelToLiquid: false
@@ -36,7 +36,7 @@ settings:
   lengthContrast:
     enabled: false
   allophoneRules:
-    enabled: false
+    enabled: true
     rules:
     # ── /l/ darkness by position ─────────────────────────────────
     # RP has strong dark-l in coda. Slightly stronger than US values.
@@ -76,22 +76,6 @@ settings:
             targetHz: 900.0
             blend: 0.2
 
-    # ── Unreleased word-final stops ──────────────────────────────
-    # RP clips more aggressively than US. Same spectral shaping but
-    # more attenuated overall.
-      - name: unreleased_word_final
-        flags: [stop]
-        notFlags: [voiced]
-        position: word-final
-        action: scale
-        durationScale: 0.80
-        fieldScales:
-          fricationAmplitude: 0.80
-          aspirationAmplitude: 0.45
-          pa1: 0.25
-          pa2: 0.45
-          pa4: 1.25
-          pa5: 1.35
   boundarySmoothing:
     enabled: false
   trajectoryLimit:
@@ -163,7 +147,8 @@ settings:
     affricateInClusterScale: 0.80  # /tʃ/ in "lunchbox"
     wordMedialConsonantScale: 0.90 # intervocalic C's
     wordFinalObstruentScale: 0.95  # RP enunciates final obstruents more
-  legacyPitchMode: legacy
+  legacyPitchMode: espeak_style
+  legacyPitchInflectionScale: 0.56
 normalization:
   preReplacements:
     # Undo en.yaml's ʊ→ʊ̞ for UK English.

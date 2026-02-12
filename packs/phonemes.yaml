@@ -1069,7 +1069,7 @@ phonemes:
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0.45
+    aspirationAmplitude: 0.25
     caNP: 0
     cb1: 275
     cb2: 120
@@ -1389,7 +1389,7 @@ phonemes:
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0.40
+    aspirationAmplitude: 0.30
     caNP: 0
     cb1: 300
     cb2: 150
@@ -1528,7 +1528,7 @@ phonemes:
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0.50
+    aspirationAmplitude: 0.40
     caNP: 0
     cb1: 300
     cb2: 95
@@ -2774,7 +2774,7 @@ phonemes:
     cb6: 1300
     cbN0: 100
     cbNP: 170
-    cf1: 480
+    cf1: 410
     cf2: 1800
     cf3: 2400
     cf4: 3300
@@ -4021,7 +4021,7 @@ phonemes:
     _isStop: false
     _isVoiced: true
     _isVowel: false
-    aspirationAmplitude: 0.5
+    aspirationAmplitude: 0.4
     fricationAmplitude: 0
     voiceAmplitude: 0.35
     frameEx:

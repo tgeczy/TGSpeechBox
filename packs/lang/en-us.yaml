@@ -15,8 +15,8 @@ settings:
   # Allow gaps after nasals too, so phrases like "column two" don't swallow the /t/.
   stopClosureVowelGapMs: 18
   stopClosureVowelFadeMs: 4
-  stopClosureClusterGapMs: 16
-  stopClosureClusterFadeMs: 4
+  stopClosureClusterGapMs: 20
+  stopClosureClusterFadeMs: 16
   stopClosureWordBoundaryClusterGapMs: 24
   stopClosureWordBoundaryClusterFadeMs: 4
 
@@ -57,7 +57,7 @@ settings:
   semivowelOffglideScale: 0.65
 
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
-  coarticulationEnabled: false
+  coarticulationEnabled: true
   trajectoryLimitEnabled: false
   microprosodyEnabled: false
   rateReductionEnabled: true
@@ -224,7 +224,7 @@ settings:
   # so these deltas stack on top of the DECTalk-style formant ramps.
   # ------------------------------------------------------------------
   specialCoarticulation:
-    enabled: false
+    enabled: true
     maxDeltaHz: 400
     rules:
       # 1. Rhotic vowel coloring  (the signature American feature).
@@ -282,7 +282,7 @@ settings:
     wordMedialConsonantScale: 0.85 # intervocalic C's
     wordFinalObstruentScale: 0.90  # final /t/, /d/, /s/ etc.
   legacyPitchMode: espeak_style
-  legacyPitchInflectionScale : 1.4 
+  legacyPitchInflectionScale: 2.0
   singleWordClauseTypeOverrideCommaOnly: false
 normalization:
   preReplacements:
@@ -481,6 +481,10 @@ normalization:
       to:   "ʌɹ"
       when:
         atWordEnd: true
+    # American LOT: eSpeak gives /ɑ/ (F2=1330, too fronted/Australian).
+    # Back it to ᵅ (F2=1200) for proper General American LOT quality.
+    - from: "ɑː"
+      to: "ᵅː"
     # Word-final Rt (start, cart, fart):
     - from: "ɑːɹt"
       to:   "ʌɹt"
