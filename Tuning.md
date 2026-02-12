@@ -878,6 +878,103 @@ Tuning notes:
 - If isolated word-final stops/fricatives sound too long, lower `wordFinalObstruentScale`.
 - The affricate multiplier stacks with the cluster type scale — so an affricate in a stop+stop cluster gets `stopBeforeStopScale × affricateInClusterScale`.
 
+### Prominence (v2.90)
+
+The prominence pass computes a 0.0–1.0 prominence score per vowel from multiple sources (stress marks, vowel length, word position), then realizes that score acoustically through duration, amplitude, and pitch adjustments. This gives words rhythmic shape beyond the basic `primaryStressDiv` slowdown.
+
+```yaml
+settings:
+  prominence:
+    enabled: true
+
+    # ── SOURCES (what contributes prominence) ──
+
+    # eSpeak stress marks (already on Token.stress)
+    primaryStressWeight: 1.0        # ˈ → prominence 1.0
+    secondaryStressWeight: 0.6      # ˌ → prominence 0.6
+
+    # Vowel length mark (Token.lengthened > 0)
+    longVowelWeight: 0.5            # ː on unstressed vowel → 0.5
+    longVowelMode: "unstressed-only" # "unstressed-only", "always", "never"
+
+    # Word position
+    wordInitialBoost: 0.0           # added to first syllable's prominence
+    wordFinalReduction: 0.0         # subtracted from last syllable's prominence
+
+    # ── REALIZATION (what prominence DOES) ──
+
+    # Duration: prominent vowels resist compression, reduced vowels shrink
+    durationProminentFloorMs: 0     # 0 = disabled. If > 0, prominent vowels
+                                    # (score >= 0.5) never shrink below this.
+    durationReducedCeiling: 1.0     # non-prominent vowels scaled by this
+                                    # (1.0 = no reduction, 0.7 = shrink to 70%)
+
+    # Amplitude: prominence → voiceAmplitude adjustment (dB)
+    amplitudeBoostDb: 0.0           # max boost for prominence=1.0
+    amplitudeReductionDb: 0.0       # max reduction for prominence=0.0
+                                    # (positive number = amount of reduction in dB)
+
+    # Pitch: prominence → Fujisaki accent amplitude scaling
+    pitchFromProminence: false       # false = pitch_fujisaki uses stress as before
+                                     # true  = pitch_fujisaki scales accents by prominence
+```
+
+Flat-key equivalents are also supported:
+
+- `prominenceEnabled`
+- `prominencePrimaryStressWeight`
+- `prominenceSecondaryStressWeight`
+- `prominenceLongVowelWeight`
+- `prominenceLongVowelMode`
+- `prominenceWordInitialBoost`
+- `prominenceWordFinalReduction`
+- `prominenceDurationProminentFloorMs`
+- `prominenceDurationReducedCeiling`
+- `prominenceAmplitudeBoostDb`
+- `prominenceAmplitudeReductionDb`
+- `prominencePitchFromProminence`
+
+#### Design principles
+
+1. **Everything defaults to off/neutral.** An empty `prominence: enabled: true` block changes nothing — all weights and realizations default to zero/neutral. Language pack authors opt into each effect.
+
+2. **Prominence is max-combined, not additive.** If a vowel has primary stress (1.0) AND is long (0.5), prominence = max(1.0, 0.5) = 1.0, not 1.5. Word-position adjustments are additive on top of the max (then clamped to 0.0–1.0).
+
+3. **Backward compatible.** When `prominence.enabled` is false (default), everything works exactly as before. `primaryStressDiv`/`secondaryStressDiv` continue to run unconditionally — prominence adds flavor on top, it does not replace them.
+
+4. **Diphthong-safe.** Offglide tokens (`tiedFrom`) inherit their nucleus's prominence score for amplitude treatment, but the duration floor is skipped — their short duration IS the glide.
+
+#### How prominence interacts with stress divisors
+
+`primaryStressDiv` and `secondaryStressDiv` slow down entire syllables (consonants + vowels). Prominence only adjusts vowels. Both run independently — the stress divisors handle whole-syllable timing, prominence adds vowel-specific duration floors/ceilings, amplitude shaping, and pitch scaling on top.
+
+#### Stress inheritance from eSpeak
+
+eSpeak puts stress marks on syllable-initial consonants, not vowels. The prominence pass walks backward from each vowel to the syllable start to check for inherited stress, without crossing word boundaries or other vowels.
+
+#### Amplitude realization details
+
+- Prominent vowels (score >= 0.5): boost scales linearly from 0dB at 0.5 to full `amplitudeBoostDb` at 1.0.
+- Non-prominent vowels (score < 0.3): reduction scales linearly from 0dB at 0.3 to full `amplitudeReductionDb` at 0.0.
+- Vowels between 0.3 and 0.5 are untouched (dead zone to avoid flutter).
+
+#### Pitch realization details
+
+When `pitchFromProminence` is true, the Fujisaki accent commands use prominence scores instead of raw stress marks. Any vowel with prominence > 0.05 gets an accent command with amplitude = `primaryAccentAmp * accentBoost * prominence`. This lets long vowels and word-initial vowels receive pitch peaks even without explicit stress marks.
+
+The original stress-based accent path is preserved exactly when `pitchFromProminence` is false.
+
+#### Pipeline position
+
+Prominence runs PostTiming, after `cluster_timing` but before `prosody`. This means cluster-adjusted consonant durations are already set before prominence looks at vowels, and phrase-final lengthening (in the prosody pass) stacks on top of prominence duration adjustments.
+
+Tuning notes:
+- Start with `amplitudeBoostDb: 1.5` and `amplitudeReductionDb: 2.0` for subtle contour shaping.
+- `durationProminentFloorMs: 45` prevents stressed vowels from collapsing at high rates.
+- `durationReducedCeiling: 0.85` gives unstressed vowels a gentle 15% shrink.
+- For Hungarian, try `longVowelWeight: 0.5`, `longVowelMode: "unstressed-only"` — vowel length carries prosodic weight independently of stress.
+- For English, `longVowelMode: "never"` is appropriate since stress is lexical, not length-based.
+
 ### Boundary smoothing
 
 Boundary smoothing increases the crossfade (fade) time at "harsh" segment boundaries (vowel→stop, stop→vowel, vowel→fricative, etc.) to reduce micro-clicks and make syllables flow together. At the same time, it sets per-formant transition scales (`transF1Scale`, `transF2Scale`, `transF3Scale`) to values **below 1.0** so that formant frequencies arrive at their target early — in the first 30-50% of the fade — then hold steady while the amplitude crossfade finishes naturally. This "formants lead, amplitude follows" approach prevents the "wrong formants at full amplitude" discontinuity that can occur with longer fades.
