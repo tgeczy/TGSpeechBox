@@ -305,6 +305,34 @@ settings:
     affricateInClusterScale: 0.75  # /tʃ/ in "lunchbox"
     wordMedialConsonantScale: 0.85 # intervocalic C's
     wordFinalObstruentScale: 0.90  # final /t/, /d/, /s/ etc.
+  # ------------------------------------------------------------------
+  # Cluster blend — C→C articulatory anticipation.
+  # Sets endCf targets on C1 so its formants ramp toward C2's place
+  # before the crossfade boundary.  Works alongside clusterTiming:
+  #   clusterTiming  → adjusts HOW LONG each consonant is
+  #   clusterBlend   → adjusts WHAT THE FORMANTS DO during the overlap
+  # ------------------------------------------------------------------
+  clusterBlend:
+    enabled: true
+    strength: 0.35              # Master blend fraction (0.0–1.0)
+
+    # Per-manner-pair scale factors (multiplied by strength).
+    nasalToStopScale:   1.30    # /ŋk/, /mp/, /nt/, /nd/
+    fricToStopScale:    0.85    # /st/, /sk/, /sp/
+    stopToFricScale:    0.70    # /ts/, /ks/
+    nasalToFricScale:   1.00    # /nf/, /ns/, /mf/
+    liquidToStopScale:  0.85    # /lt/, /rk/, /lp/
+    liquidToFricScale:  0.75    # /ls/, /rf/
+    fricToFricScale:    0.60    # /sʃ/ (rare, morpheme boundaries)
+    stopToStopScale:    0.55    # /kt/, /pt/, /gd/
+    defaultPairScale:   0.50    # Anything not listed above
+
+    # Context modifiers
+    homorganicScale:    0.30    # Same place → less shift needed
+    wordBoundaryScale:  0.50    # C2 starts a new word → weaker
+
+    # Per-formant scaling
+    f1Scale: 0.50               # F1 blend is gentler (jaw, not place)
   legacyPitchMode: espeak_style
   legacyPitchInflectionScale: 2.0
   singleWordClauseTypeOverrideCommaOnly: false
