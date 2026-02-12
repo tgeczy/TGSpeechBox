@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 
 namespace fs = std::filesystem;
@@ -1414,6 +1415,39 @@ static std::vector<std::string> buildLangFileChain(const std::string& langTag) {
   return unique;
 }
 
+// Load a stress dictionary TSV file (word<TAB>digits).
+// Silent on failure — empty dict just means no stress corrections.
+static void loadStressDict(
+    const std::string& path,
+    std::unordered_map<std::string, std::vector<int>>& dict)
+{
+  std::ifstream f(path);
+  if (!f.is_open()) return;
+
+  std::string line;
+  while (std::getline(f, line)) {
+    if (line.empty()) continue;
+    // Remove trailing \r (Windows line endings)
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+
+    const auto tab = line.find('\t');
+    if (tab == std::string::npos) continue;
+
+    std::string word = line.substr(0, tab);
+    if (word.empty()) continue;
+
+    std::vector<int> digits;
+    std::istringstream ss(line.substr(tab + 1));
+    int d;
+    while (ss >> d) {
+      digits.push_back(d);
+    }
+    if (digits.empty()) continue;
+
+    dict.emplace(std::move(word), std::move(digits));
+  }
+}
+
 bool loadPackSet(
   const std::string& packDir,
   const std::string& langTag,
@@ -1444,6 +1478,12 @@ bool loadPackSet(
         return false;
       }
     }
+  }
+
+  // Load stress dictionary (if one exists for this language).
+  {
+    const fs::path dictPath = packsRoot / "dict" / (out.lang.langTag + "-stress.tsv");
+    loadStressDict(dictPath.string(), out.stressDict);
   }
 
   // Ensure headSteps exists for each clause.

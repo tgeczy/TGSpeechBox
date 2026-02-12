@@ -846,6 +846,11 @@ struct PackSet {
   // parse errors). Empty if no warnings. Useful for debugging "why does
   // my profile do nothing?" issues.
   std::string loadWarnings;
+
+  // Stress dictionary: word → stress digits (0=unstressed, 1=primary, 2=secondary).
+  // Loaded from packs/dict/{langTag}-stress.tsv at pack load time.
+  // Empty if no dict file exists for this language (= no-op).
+  std::unordered_map<std::string, std::vector<int>> stressDict;
 };
 
 // Load phonemes.yaml + merged language packs.

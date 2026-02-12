@@ -31,7 +31,7 @@ extern "C" {
   #define NVSP_FRONTEND_API
 #endif
 
-#define NVSP_FRONTEND_ABI_VERSION 3
+#define NVSP_FRONTEND_ABI_VERSION 4
 
 typedef void* nvspFrontend_handle_t;
 
@@ -367,6 +367,32 @@ NVSP_FRONTEND_API int nvspFrontend_getFrameExDefaults(
 */
 NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
   nvspFrontend_handle_t handle,
+  const char* ipaUtf8,
+  double speed,
+  double basePitch,
+  double inflection,
+  const char* clauseTypeUtf8,
+  int userIndexBase,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+);
+
+/*
+  Convert IPA text into frames with text-level corrections (ABI v4+).
+
+  Same as nvspFrontend_queueIPA_Ex, but also accepts the original text.
+  If textUtf8 is provided (non-NULL, non-empty), the frontend runs a text
+  parser before the IPA engine.  Currently this corrects stress placement
+  using a dictionary lookup (e.g., CMU Dict for en-us).
+
+  If textUtf8 is NULL or "", the function behaves identically to
+  nvspFrontend_queueIPA_Ex (no text parsing).
+
+  Returns 1 on success, 0 on failure.
+*/
+NVSP_FRONTEND_API int nvspFrontend_queueIPA_ExWithText(
+  nvspFrontend_handle_t handle,
+  const char* textUtf8,
   const char* ipaUtf8,
   double speed,
   double basePitch,

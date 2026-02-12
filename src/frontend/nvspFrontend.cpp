@@ -11,6 +11,7 @@
 
 #include "ipa_engine.h"
 #include "pack.h"
+#include "text_parser.h"
 
 namespace nvsp_frontend {
 
@@ -319,8 +320,11 @@ NVSP_FRONTEND_API int nvspFrontend_getFrameExDefaults(
   return 1;
 }
 
-NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
-  nvspFrontend_handle_t handle,
+// Shared implementation for queueIPA_Ex and queueIPA_ExWithText.
+// textUtf8 may be NULL or "" to skip text parsing.
+static int queueIPA_ExImpl(
+  nvsp_frontend::Handle* h,
+  const char* textUtf8,
   const char* ipaUtf8,
   double speed,
   double basePitch,
@@ -331,14 +335,10 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
   void* userData
 ) {
   using namespace nvsp_frontend;
-  Handle* h = asHandle(handle);
-  if (!h) return 0;
 
-  std::lock_guard<std::mutex> lock(h->mu);
   h->lastError.clear();
 
   if (!h->packLoaded) {
-    // Default to "default" language if the caller didn't call setLanguage.
     PackSet pack;
     std::string err;
     if (!loadPackSet(h->packDir, "default", pack, err)) {
@@ -352,6 +352,14 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
 
   if (!ipaUtf8) ipaUtf8 = "";
 
+  // Run text parser if text is available and a stress dict is loaded.
+  std::string parsedIpa;
+  const char* finalIpa = ipaUtf8;
+  if (textUtf8 && textUtf8[0] && !h->pack.stressDict.empty()) {
+    parsedIpa = runTextParser(textUtf8, ipaUtf8, h->pack.stressDict);
+    finalIpa = parsedIpa.c_str();
+  }
+
   char clauseType = '.';
   if (clauseTypeUtf8 && clauseTypeUtf8[0]) {
     clauseType = clauseTypeUtf8[0];
@@ -359,7 +367,7 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
 
   std::vector<Token> tokens;
   std::string err;
-  if (!convertIpaToTokens(h->pack, ipaUtf8, speed, basePitch, inflection, clauseType, tokens, err)) {
+  if (!convertIpaToTokens(h->pack, finalIpa, speed, basePitch, inflection, clauseType, tokens, err)) {
     setError(h, err.empty() ? "IPA conversion failed" : err);
     return 0;
   }
@@ -418,7 +426,6 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
   frameExDefaults.jitter = h->frameExJitter;
   frameExDefaults.shimmer = h->frameExShimmer;
   frameExDefaults.sharpness = h->frameExSharpness;
-  // Formant end targets: NAN means "no ramping" - per-phoneme only, no user defaults
   frameExDefaults.endCf1 = NAN;
   frameExDefaults.endCf2 = NAN;
   frameExDefaults.endCf3 = NAN;
@@ -427,12 +434,51 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
   frameExDefaults.endPf3 = NAN;
 
   emitFramesEx(h->pack, tokens, userIndexBase, frameExDefaults, &h->trajectoryState, cb, userData);
-  
+
   if (hasRealPhoneme) {
     h->streamHasSpeech = true;
     h->lastEndsVowelLike = endsVowelLike;
   }
   return 1;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_queueIPA_Ex(
+  nvspFrontend_handle_t handle,
+  const char* ipaUtf8,
+  double speed,
+  double basePitch,
+  double inflection,
+  const char* clauseTypeUtf8,
+  int userIndexBase,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return 0;
+  std::lock_guard<std::mutex> lock(h->mu);
+  return queueIPA_ExImpl(h, "", ipaUtf8, speed, basePitch, inflection,
+                         clauseTypeUtf8, userIndexBase, cb, userData);
+}
+
+NVSP_FRONTEND_API int nvspFrontend_queueIPA_ExWithText(
+  nvspFrontend_handle_t handle,
+  const char* textUtf8,
+  const char* ipaUtf8,
+  double speed,
+  double basePitch,
+  double inflection,
+  const char* clauseTypeUtf8,
+  int userIndexBase,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return 0;
+  std::lock_guard<std::mutex> lock(h->mu);
+  return queueIPA_ExImpl(h, textUtf8, ipaUtf8, speed, basePitch, inflection,
+                         clauseTypeUtf8, userIndexBase, cb, userData);
 }
 
 NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(

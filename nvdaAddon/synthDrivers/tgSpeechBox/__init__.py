@@ -1336,10 +1336,11 @@ class SynthDriver(SynthDriver):
 
                     ok = False
                     try:
-                        # Use queueIPA_Ex for extended callback with FrameEx support (ABI v2+)
-                        # Falls back to queueIPA internally if frontend doesn't support it
-                        ok = self._frontend.queueIPA_Ex(
+                        # Use queueIPA_ExWithText for stress correction (ABI v4+).
+                        # Falls back to queueIPA_Ex internally if not available.
+                        ok = self._frontend.queueIPA_ExWithText(
                             ipaText,
+                            originalText=chunk,
                             speed=self._curRate,
                             basePitch=basePitch,
                             inflection=self._curInflection,
@@ -1348,7 +1349,7 @@ class SynthDriver(SynthDriver):
                             onFrame=_onFrame,
                         )
                     except Exception:
-                        log.error("TGSpeechBox: frontend queueIPA_Ex failed", exc_info=True)
+                        log.error("TGSpeechBox: frontend queueIPA_ExWithText failed", exc_info=True)
                         ok = False
 
                     if not ok:

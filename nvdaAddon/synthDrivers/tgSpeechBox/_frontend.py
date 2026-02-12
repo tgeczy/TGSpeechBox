@@ -282,6 +282,28 @@ class NvspFrontend(object):
 
                 self._hasFrameExApi = True
                 log.debug("TGSpeechBox: frontend ABI v%d, FrameEx API available", self._abiVersion)
+
+            # Text parser API (ABI v4+) — accepts original text for stress correction.
+            self._hasTextParserApi = False
+            if self._abiVersion >= 4:
+                try:
+                    self._dll.nvspFrontend_queueIPA_ExWithText.argtypes = [
+                        ctypes.c_void_p,  # handle
+                        ctypes.c_char_p,  # textUtf8
+                        ctypes.c_char_p,  # ipaUtf8
+                        ctypes.c_double,  # speed
+                        ctypes.c_double,  # basePitch
+                        ctypes.c_double,  # inflection
+                        ctypes.c_char_p,  # clauseTypeUtf8
+                        ctypes.c_int,  # userIndexBase
+                        self._CBTYPE_EX,  # cb
+                        ctypes.c_void_p,  # userData
+                    ]
+                    self._dll.nvspFrontend_queueIPA_ExWithText.restype = ctypes.c_int
+                    self._hasTextParserApi = True
+                    log.debug("TGSpeechBox: text parser API available (ABI v4+)")
+                except AttributeError:
+                    log.debug("TGSpeechBox: text parser API not available")
         except AttributeError:
             log.debug("TGSpeechBox: frontend FrameEx API not available (older DLL)")
 
@@ -582,6 +604,73 @@ class NvspFrontend(object):
         ok = int(
             self._dll.nvspFrontend_queueIPA_Ex(
                 self._h,
+                ipaUtf8,
+                float(speed),
+                float(basePitch),
+                float(inflection),
+                clauseUtf8,
+                int(-1),
+                _cb,
+                None,
+            )
+        )
+        return bool(ok)
+
+    def queueIPA_ExWithText(
+        self,
+        ipaText: str,
+        *,
+        originalText: str,
+        speed: float,
+        basePitch: float,
+        inflection: float,
+        clauseType: Optional[str],
+        userIndex: Optional[int],
+        onFrame,
+    ) -> bool:
+        """Like queueIPA_Ex but also passes original text for stress correction.
+
+        If the DLL doesn't support the text parser API (ABI < 4), falls back
+        to queueIPA_Ex (text is silently ignored).
+        """
+        if not self._hasTextParserApi:
+            return self.queueIPA_Ex(
+                ipaText,
+                speed=speed,
+                basePitch=basePitch,
+                inflection=inflection,
+                clauseType=clauseType,
+                userIndex=userIndex,
+                onFrame=onFrame,
+            )
+
+        if not self._dll or not self._h:
+            return False
+
+        textUtf8 = (originalText or "").encode("utf-8")
+        ipaUtf8 = (ipaText or "").encode("utf-8")
+        clauseUtf8 = None
+        if clauseType:
+            clauseUtf8 = str(clauseType)[0].encode("ascii", errors="ignore") or b"."
+
+        first = True
+
+        @self._CBTYPE_EX
+        def _cb(userData, framePtr, frameExPtr, durationMs, fadeMs, userIndexBase):
+            nonlocal first
+
+            idx = None
+            if framePtr:
+                if first and userIndex is not None:
+                    idx = userIndex
+                first = False
+
+            onFrame(framePtr, frameExPtr, float(durationMs), float(fadeMs), idx)
+
+        ok = int(
+            self._dll.nvspFrontend_queueIPA_ExWithText(
+                self._h,
+                textUtf8,
                 ipaUtf8,
                 float(speed),
                 float(basePitch),

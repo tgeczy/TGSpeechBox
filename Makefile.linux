@@ -41,8 +41,10 @@ FRONTEND_SRCS = \
 	$(FRONTENDDIR)/utf8.cpp \
 	$(FRONTENDDIR)/voice_profile.cpp \
 	$(FRONTENDDIR)/yaml_min.cpp \
+	$(FRONTENDDIR)/text_parser.cpp \
 	$(PASSESDIR)/allophones.cpp \
 	$(PASSESDIR)/boundary_smoothing.cpp \
+	$(PASSESDIR)/cluster_blend.cpp \
 	$(PASSESDIR)/cluster_timing.cpp \
 	$(PASSESDIR)/coarticulation.cpp \
 	$(PASSESDIR)/length_contrast.cpp \
@@ -50,10 +52,11 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/microprosody.cpp \
 	$(PASSESDIR)/nasalization.cpp \
 	$(PASSESDIR)/pass_pipeline.cpp \
+	$(PASSESDIR)/pitch_fujisaki.cpp \
+	$(PASSESDIR)/prominence.cpp \
 	$(PASSESDIR)/prosody.cpp \
 	$(PASSESDIR)/reduction.cpp \
 	$(PASSESDIR)/special_coartic.cpp \
-	$(PASSESDIR)/pitch_fujisaki.cpp \
 	$(PASSESDIR)/trajectory_limit.cpp
 
 # tgsbRender sources
@@ -151,11 +154,17 @@ $(BUILDDIR)/yaml_min.o: $(FRONTENDDIR)/yaml_min.cpp
 $(BUILDDIR)/voice_profile.o: $(FRONTENDDIR)/voice_profile.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
+$(BUILDDIR)/text_parser.o: $(FRONTENDDIR)/text_parser.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
 # Passes sources
 $(BUILDDIR)/allophones.o: $(PASSESDIR)/allophones.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/boundary_smoothing.o: $(PASSESDIR)/boundary_smoothing.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/cluster_blend.o: $(PASSESDIR)/cluster_blend.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/cluster_timing.o: $(PASSESDIR)/cluster_timing.cpp
@@ -194,4 +203,7 @@ $(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp
 clean:
 	rm -rf $(BUILDDIR)
 $(BUILDDIR)/pitch_fujisaki.o: $(PASSESDIR)/pitch_fujisaki.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/prominence.o: $(PASSESDIR)/prominence.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
