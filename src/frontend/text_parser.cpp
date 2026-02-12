@@ -62,6 +62,10 @@ static bool isLengthMark(char32_t c) {
   return c == U'\u02D0';  // ː
 }
 
+static bool isTieBar(char32_t c) {
+  return c == U'\u0361';  // ◌͡
+}
+
 static bool isStressMark(char32_t c) {
   return c == U'\u02C8' || c == U'\u02CC';  // ˈ or ˌ
 }
@@ -123,10 +127,17 @@ struct NucleusInfo {
 };
 
 // Find all vowel nuclei in a u32 IPA chunk.  Consecutive vowels + ː = 1.
+// A tie bar (U+0361) after a vowel binds the next character into the same
+// nucleus (e.g. e͡ɪ = one diphthong nucleus, not two).
 static std::vector<NucleusInfo> findNuclei(const std::u32string& u32) {
   std::vector<NucleusInfo> nuclei;
   bool inVowel = false;
   for (size_t i = 0; i < u32.size(); ++i) {
+    if (isTieBar(u32[i]) && inVowel) {
+      // Tie bar extends the nucleus — skip it and the next character.
+      if (i + 1 < u32.size()) ++i;
+      continue;
+    }
     if (isIpaVowel(u32[i])) {
       if (!inVowel) {
         nuclei.push_back({i});
@@ -154,16 +165,13 @@ static std::u32string stripStress(const std::u32string& s) {
 }
 
 // Insert stress marks into an IPA chunk according to a digit pattern.
-// For each nucleus, walks backward from the nucleus start to find the
-// syllable onset (first consonant before any vowel), then inserts the
-// stress mark there.  This matches eSpeak's convention.
+// Places ˈ/ˌ immediately before each vowel nucleus — matches eSpeak's
+// convention and avoids the onset-legality problem entirely.
 static std::u32string applyStressPattern(
     const std::u32string& stripped,
     const std::vector<NucleusInfo>& nuclei,
     const std::vector<int>& pattern)
 {
-  // Build a list of (insert_position, stress_char) pairs.
-  // We process from the end to avoid invalidating positions.
   struct Insertion {
     size_t pos;
     char32_t mark;
@@ -176,18 +184,10 @@ static std::u32string applyStressPattern(
 
     char32_t mark = (digit == 1) ? U'\u02C8' : U'\u02CC';  // ˈ or ˌ
 
-    // Walk backward from nucleus start to find syllable onset.
-    // The onset is the run of non-vowel, non-stress-mark, non-space
-    // codepoints immediately before the vowel.
+    // Insert directly before the vowel nucleus — no onset walk-back.
+    // Guard: never insert after a tie bar (would split a ligature).
     size_t pos = nuclei[n].start;
-    while (pos > 0) {
-      char32_t prev = stripped[pos - 1];
-      if (isIpaVowel(prev) || isLengthMark(prev) || isStressMark(prev) || prev == U' ') {
-        break;
-      }
-      --pos;
-    }
-
+    if (pos > 0 && isTieBar(stripped[pos - 1])) continue;
     insertions.push_back({pos, mark});
   }
 
