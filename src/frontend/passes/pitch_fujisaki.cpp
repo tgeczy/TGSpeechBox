@@ -105,9 +105,23 @@ void applyPitchFujisaki(
   double declinRate = lang.fujisakiDeclinationRate;
   if (declinRate <= 0.0) declinRate = 0.0003;  // sane default
 
-  // Final rate incorporating inflection, scale, clause type, and speed.
-  // speed > 1 = faster speech = compress the declination into less time.
-  const double effectiveRate = declinRate * inflection * inflScale * declinationMul * speed;
+  // Length-aware adjustment: slow down declination for longer phrases so
+  // the final word still has pitch headroom.  For a reference-length phrase
+  // (~1500ms of phonetic content) the configured rate is used as-is.
+  // Longer phrases scale the rate down proportionally.
+  const double referenceDurationMs = 1500.0;
+  double totalPhraseDurationMs = 0.0;
+  for (const auto& tok : tokens) {
+    if (!tok.silence && tok.def) totalPhraseDurationMs += tok.durationMs;
+  }
+  const double lengthFactor = referenceDurationMs /
+      std::max(referenceDurationMs, totalPhraseDurationMs);
+
+  // Final rate incorporating inflection, scale, clause type, speed, and
+  // phrase length.  speed > 1 = faster speech = compress the declination
+  // into less time.
+  const double effectiveRate = declinRate * inflection * inflScale
+      * declinationMul * speed * lengthFactor;
 
   const int vp = static_cast<int>(FieldId::voicePitch);
   const int evp = static_cast<int>(FieldId::endVoicePitch);

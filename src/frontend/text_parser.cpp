@@ -51,7 +51,26 @@ static bool isIpaVowel(char32_t c) {
     case U'\u0289':  // ʉ  close central rounded
     case U'\u026F':  // ɯ  close back unrounded
     case U'\u025D':  // ɝ  r-colored schwa
+    case U'\u025A':  // ɚ  r-colored schwa (mid central)
     case U'\u00F8':  // ø  close-mid front rounded
+    case U'\u1D7B':  // ᵻ  near-close central unrounded (eSpeak reduced vowel)
+    case U'\u1D7F':  // ᵿ  near-close central rounded (eSpeak reduced vowel)
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Reduced vowels that cannot meaningfully carry primary stress.
+// Putting ˈ on these is counterproductive — the vowel quality is already
+// committed to "reduced," so stress won't sound stressed.
+static bool isReducedVowel(char32_t c) {
+  switch (c) {
+    case U'\u0259':  // ə  schwa
+    case U'\u0250':  // ɐ  near-open central
+    case U'\u1D7B':  // ᵻ  near-close central unrounded (eSpeak)
+    case U'\u1D7F':  // ᵿ  near-close central rounded (eSpeak)
+    case U'\u025A':  // ɚ  r-colored schwa
       return true;
     default:
       return false;
@@ -64,6 +83,10 @@ static bool isLengthMark(char32_t c) {
 
 static bool isTieBar(char32_t c) {
   return c == U'\u0361';  // ◌͡
+}
+
+static bool isSyllabicMark(char32_t c) {
+  return c == U'\u0329';  // ◌̩  combining vertical line below
 }
 
 static bool isStressMark(char32_t c) {
@@ -129,6 +152,7 @@ struct NucleusInfo {
 // Find all vowel nuclei in a u32 IPA chunk.  Consecutive vowels + ː = 1.
 // A tie bar (U+0361) after a vowel binds the next character into the same
 // nucleus (e.g. e͡ɪ = one diphthong nucleus, not two).
+// A syllabic mark (U+0329) after a consonant makes it a nucleus (n̩, l̩, m̩).
 static std::vector<NucleusInfo> findNuclei(const std::u32string& u32) {
   std::vector<NucleusInfo> nuclei;
   bool inVowel = false;
@@ -136,6 +160,15 @@ static std::vector<NucleusInfo> findNuclei(const std::u32string& u32) {
     if (isTieBar(u32[i]) && inVowel) {
       // Tie bar extends the nucleus — skip it and the next character.
       if (i + 1 < u32.size()) ++i;
+      continue;
+    }
+    // Syllabic consonant: consonant + U+0329 = nucleus.
+    // Check if the NEXT character is a syllabic mark.
+    if (!isIpaVowel(u32[i]) && !inVowel &&
+        i + 1 < u32.size() && isSyllabicMark(u32[i + 1])) {
+      nuclei.push_back({i});
+      ++i;  // skip the syllabic mark
+      inVowel = false;
       continue;
     }
     if (isIpaVowel(u32[i])) {
@@ -201,6 +234,30 @@ static std::u32string applyStressPattern(
   return result;
 }
 
+// Convert a u32 string back to UTF-8.
+static std::string u32ToUtf8(const std::u32string& s) {
+  std::string result;
+  result.reserve(s.size() * 3);
+  for (char32_t c : s) {
+    if (c < 0x80) {
+      result.push_back(static_cast<char>(c));
+    } else if (c < 0x800) {
+      result.push_back(static_cast<char>(0xC0 | (c >> 6)));
+      result.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+    } else if (c < 0x10000) {
+      result.push_back(static_cast<char>(0xE0 | (c >> 12)));
+      result.push_back(static_cast<char>(0x80 | ((c >> 6) & 0x3F)));
+      result.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+    } else {
+      result.push_back(static_cast<char>(0xF0 | (c >> 18)));
+      result.push_back(static_cast<char>(0x80 | ((c >> 12) & 0x3F)));
+      result.push_back(static_cast<char>(0x80 | ((c >> 6) & 0x3F)));
+      result.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+    }
+  }
+  return result;
+}
+
 // Apply stress correction to a single IPA word chunk.
 // Returns the original chunk unchanged if no correction applies.
 static std::string correctStress(
@@ -236,30 +293,19 @@ static std::string correctStress(
     return ipaChunk;
   }
 
-  // Apply the new stress pattern.
-  std::u32string corrected = applyStressPattern(stripped, nuclei, pattern);
-
-  // Convert back to UTF-8.
-  std::string result;
-  result.reserve(corrected.size() * 3);
-  for (char32_t c : corrected) {
-    if (c < 0x80) {
-      result.push_back(static_cast<char>(c));
-    } else if (c < 0x800) {
-      result.push_back(static_cast<char>(0xC0 | (c >> 6)));
-      result.push_back(static_cast<char>(0x80 | (c & 0x3F)));
-    } else if (c < 0x10000) {
-      result.push_back(static_cast<char>(0xE0 | (c >> 12)));
-      result.push_back(static_cast<char>(0x80 | ((c >> 6) & 0x3F)));
-      result.push_back(static_cast<char>(0x80 | (c & 0x3F)));
-    } else {
-      result.push_back(static_cast<char>(0xF0 | (c >> 18)));
-      result.push_back(static_cast<char>(0x80 | ((c >> 12) & 0x3F)));
-      result.push_back(static_cast<char>(0x80 | ((c >> 6) & 0x3F)));
-      result.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+  // Safety: never place primary stress (ˈ) on a reduced vowel nucleus.
+  // eSpeak chose ə/ᵻ/ɐ/ɚ because it already decided that syllable is
+  // reduced — forcing stress onto it can't fix the vowel quality and
+  // sounds wrong.  Skip the entire word if any primary lands on reduced.
+  for (size_t n = 0; n < nuclei.size() && n < pattern.size(); ++n) {
+    if (pattern[n] == 1 && isReducedVowel(stripped[nuclei[n].start])) {
+      return ipaChunk;
     }
   }
-  return result;
+
+  // Apply the new stress pattern.
+  std::u32string corrected = applyStressPattern(stripped, nuclei, pattern);
+  return u32ToUtf8(corrected);
 }
 
 }  // namespace
@@ -280,12 +326,15 @@ std::string runTextParser(
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
 
-  // Simple 1:1 zip when counts match.
-  // When counts differ, walk both lists and match what we can.
-  const size_t n = std::min(textWords.size(), ipaChunks.size());
+  // When word counts don't match, skip the entire utterance.  Numbers,
+  // abbreviations, and contractions cause eSpeak to expand or merge words,
+  // making positional alignment unreliable.  A wrong match that passes
+  // the nucleus guard (e.g. "driver" vs "DP") is worse than no correction.
+  if (textWords.size() != ipaChunks.size()) return ipa;
+
   bool anyChange = false;
 
-  for (size_t i = 0; i < n; ++i) {
+  for (size_t i = 0; i < textWords.size(); ++i) {
     std::string corrected = correctStress(textWords[i], ipaChunks[i], stressDict);
     if (corrected != ipaChunks[i]) {
       ipaChunks[i] = std::move(corrected);
