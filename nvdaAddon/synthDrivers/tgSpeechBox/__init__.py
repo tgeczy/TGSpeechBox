@@ -1418,6 +1418,13 @@ class SynthDriver(SynthDriver):
                 pass
 
             self._player.queueFrame(None, 3.0, 3.0, purgeQueue=True)
+            # Flush DSP resonator state so stale energy from the
+            # interrupted utterance doesn't pop on the next one.
+            for _ in range(4):
+                try:
+                    self._player.synthesize(4096)
+                except Exception:
+                    break
             self._audio.isSpeaking = False
             self._audio.kick()
             if self._audio._wavePlayer:
