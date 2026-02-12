@@ -622,6 +622,32 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double clusterTimingWordFinalObstruentScale = 0.90;
   double clusterTimingAffricateInClusterScale = 0.75;
 
+  // Cluster blend — C→C articulatory anticipation (formant ramping).
+  //
+  // Sets endCf targets on the first consonant of a CC pair so its formants
+  // begin moving toward the second consonant's place of articulation.
+  // Complements cluster_timing (duration) and boundary_smoothing (fade speed).
+  bool   clusterBlendEnabled = false;
+  double clusterBlendStrength = 0.35;           // Master blend fraction (0–1)
+
+  // Per-manner-pair scale factors (multiplied by strength).
+  double clusterBlendNasalToStopScale   = 1.30; // /ŋk/, /mp/, /nt/ — strongest
+  double clusterBlendFricToStopScale    = 0.85; // /st/, /sk/, /sp/
+  double clusterBlendStopToFricScale    = 0.70; // /ts/, /ks/
+  double clusterBlendNasalToFricScale   = 1.00; // /nf/, /ns/
+  double clusterBlendLiquidToStopScale  = 0.85; // /lt/, /rk/
+  double clusterBlendLiquidToFricScale  = 0.75; // /ls/, /rf/
+  double clusterBlendFricToFricScale    = 0.60; // /sʃ/ (rare)
+  double clusterBlendStopToStopScale    = 0.55; // /kt/, /pt/
+  double clusterBlendDefaultPairScale   = 0.50; // Everything else
+
+  // Context modifiers.
+  double clusterBlendHomorganicScale    = 0.30; // Same place → less spectral shift needed
+  double clusterBlendWordBoundaryScale  = 0.50; // C2 starts a new word → weaker blend
+
+  // Per-formant scaling (relative to main strength).
+  double clusterBlendF1Scale = 0.50;            // F1 blend is gentler (jaw, not place)
+
   // Boundary crossfade / smoothing (optional).
   //
   // This is a simple way to soften harsh segment joins by increasing the fade

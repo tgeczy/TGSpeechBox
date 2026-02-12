@@ -11,6 +11,7 @@
 #include "boundary_smoothing.h"
 #include "trajectory_limit.h"
 #include "cluster_timing.h"
+#include "cluster_blend.h"
 #include "special_coartic.h"
 #include "prominence.h"
 
@@ -25,6 +26,7 @@ const PassDesc kPasses[] = {
     {"coarticulation", PassStage::PostTiming, &passes::runCoarticulation},
     {"special_coartic", PassStage::PostTiming, &passes::runSpecialCoarticulation},
     {"cluster_timing", PassStage::PostTiming, &passes::runClusterTiming},
+    {"cluster_blend", PassStage::PostTiming, &passes::runClusterBlend},
     {"prominence", PassStage::PostTiming, &passes::runProminence},
     {"prosody", PassStage::PostTiming, &passes::runProsody},
     {"reduction", PassStage::PostTiming, &passes::runReduction},

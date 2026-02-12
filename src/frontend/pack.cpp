@@ -537,6 +537,22 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("clusterTimingWordFinalObstruentScale", lp.clusterTimingWordFinalObstruentScale);
   getNum("clusterTimingAffricateInClusterScale", lp.clusterTimingAffricateInClusterScale);
 
+  // Cluster blend — C→C articulatory anticipation.
+  getBool("clusterBlendEnabled", lp.clusterBlendEnabled);
+  getNum("clusterBlendStrength", lp.clusterBlendStrength);
+  getNum("clusterBlendNasalToStopScale", lp.clusterBlendNasalToStopScale);
+  getNum("clusterBlendFricToStopScale", lp.clusterBlendFricToStopScale);
+  getNum("clusterBlendStopToFricScale", lp.clusterBlendStopToFricScale);
+  getNum("clusterBlendNasalToFricScale", lp.clusterBlendNasalToFricScale);
+  getNum("clusterBlendLiquidToStopScale", lp.clusterBlendLiquidToStopScale);
+  getNum("clusterBlendLiquidToFricScale", lp.clusterBlendLiquidToFricScale);
+  getNum("clusterBlendFricToFricScale", lp.clusterBlendFricToFricScale);
+  getNum("clusterBlendStopToStopScale", lp.clusterBlendStopToStopScale);
+  getNum("clusterBlendDefaultPairScale", lp.clusterBlendDefaultPairScale);
+  getNum("clusterBlendHomorganicScale", lp.clusterBlendHomorganicScale);
+  getNum("clusterBlendWordBoundaryScale", lp.clusterBlendWordBoundaryScale);
+  getNum("clusterBlendF1Scale", lp.clusterBlendF1Scale);
+
   // Boundary smoothing / crossfade (optional)
   getBool("boundarySmoothingEnabled", lp.boundarySmoothingEnabled);
   getNum("boundarySmoothingF1Scale", lp.boundarySmoothingF1Scale);
@@ -943,6 +959,23 @@ if (const yaml_min::Node* ct = settings.get("clusterTiming"); ct && ct->isMap())
   getNumFrom(*ct, "affricateInClusterScale", lp.clusterTimingAffricateInClusterScale);
   getNumFrom(*ct, "wordMedialConsonantScale", lp.clusterTimingWordMedialConsonantScale);
   getNumFrom(*ct, "wordFinalObstruentScale", lp.clusterTimingWordFinalObstruentScale);
+}
+
+if (const yaml_min::Node* cb = settings.get("clusterBlend"); cb && cb->isMap()) {
+  getBoolFrom(*cb, "enabled", lp.clusterBlendEnabled);
+  getNumFrom(*cb, "strength", lp.clusterBlendStrength);
+  getNumFrom(*cb, "nasalToStopScale", lp.clusterBlendNasalToStopScale);
+  getNumFrom(*cb, "fricToStopScale", lp.clusterBlendFricToStopScale);
+  getNumFrom(*cb, "stopToFricScale", lp.clusterBlendStopToFricScale);
+  getNumFrom(*cb, "nasalToFricScale", lp.clusterBlendNasalToFricScale);
+  getNumFrom(*cb, "liquidToStopScale", lp.clusterBlendLiquidToStopScale);
+  getNumFrom(*cb, "liquidToFricScale", lp.clusterBlendLiquidToFricScale);
+  getNumFrom(*cb, "fricToFricScale", lp.clusterBlendFricToFricScale);
+  getNumFrom(*cb, "stopToStopScale", lp.clusterBlendStopToStopScale);
+  getNumFrom(*cb, "defaultPairScale", lp.clusterBlendDefaultPairScale);
+  getNumFrom(*cb, "homorganicScale", lp.clusterBlendHomorganicScale);
+  getNumFrom(*cb, "wordBoundaryScale", lp.clusterBlendWordBoundaryScale);
+  getNumFrom(*cb, "f1Scale", lp.clusterBlendF1Scale);
 }
 
   getBool("huShortAVowelEnabled", lp.huShortAVowelEnabled);
