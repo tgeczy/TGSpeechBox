@@ -186,8 +186,8 @@ normalization:
 Below is a reference for language pack `settings` values used by the frontend.
 
 ### Stress and timing
-- `primaryStressDiv` (number, default `1.4`): Slows down the syllable carrying primary stress. Higher = more slowdown.
-- `secondaryStressDiv` (number, default `1.1`): Slows down secondary stress syllables.
+- `primaryStressDiv` (number, default `1.4`): Slows down the entire syllable carrying primary stress. Higher = more slowdown. **Bypassed when `prominence.enabled` is true** — the prominence pass handles stress realization on vowels instead.
+- `secondaryStressDiv` (number, default `1.1`): Slows down secondary stress syllables. **Bypassed when `prominence.enabled` is true.**
 
 ### Stop closure insertion
 These settings control the short "silence gap" inserted before stops/affricates (helps clarity, especially for consonant clusters).
@@ -771,6 +771,23 @@ Tuning notes:
 - If word onsets lose bite, lower `coarticulationWordInitialFadeScale`.
 - For language-specific coarticulation effects (e.g. rhotic F3 lowering, labial F2 pulling), use the **special coarticulation** pass instead of modifying the core locus pass.
 
+#### Aspiration coarticulation
+
+Post-stop aspiration tokens (the /h/-like burst after voiceless stops like /p/, /t/, /k/) inherit formants from the generic /h/ phoneme via `_copyAdjacent`. But at the boundary between the stop burst and the following vowel, the aspiration's formants should transition smoothly along the stop→vowel locus trajectory rather than jumping to generic /h/ values.
+
+The aspiration coarticulation settings control where the aspiration's formants sit on the stop→vowel trajectory:
+
+```yaml
+settings:
+  # 0.0 = stop's locus target, 1.0 = vowel's formant target.
+  # The DSP ramps from blendStart to blendEnd across the aspiration token.
+  coarticulationAspirationBlendStart: 0.3   # start 30% toward the vowel
+  coarticulationAspirationBlendEnd: 0.7     # end 70% toward the vowel
+```
+
+This creates a smooth spectral glide through the aspiration: formants start near the stop's place of articulation and arrive close to the vowel target by the time voicing begins. Without this, aspiration can sound disconnected — a generic "huh" between stop and vowel rather than a natural release.
+
+The aspiration blend is scaled by the main `coarticulationStrength` so it tracks with the overall coarticulation intensity. It only applies to tokens marked as `postStopAspiration` (inserted by the post-stop aspiration pass), not to phonemic /h/.
 
 ### Special coarticulation
 
@@ -878,36 +895,107 @@ Tuning notes:
 - If isolated word-final stops/fricatives sound too long, lower `wordFinalObstruentScale`.
 - The affricate multiplier stacks with the cluster type scale — so an affricate in a stop+stop cluster gets `stopBeforeStopScale × affricateInClusterScale`.
 
-### Prominence (v2.90)
+### Cluster blend
 
-The prominence pass computes a 0.0–1.0 prominence score per vowel from multiple sources (stress marks, vowel length, word position), then realizes that score acoustically through duration, amplitude, and pitch adjustments. This gives words rhythmic shape beyond the basic `primaryStressDiv` slowdown.
+The cluster blend pass adds **formant coarticulation between adjacent consonants** in clusters. Where cluster *timing* shortens consonants to prevent stacking, cluster *blend* modifies C2's start formants to anticipate C1's place of articulation — creating a smooth spectral transition instead of an abrupt frequency jump at the C1→C2 boundary.
+
+The pass reads each consonant's formant values from `phonemes.yaml` (consonants DO have formant targets — /s/: cf2=1390, /t/: cf2=1700, /k/: cf2=1800, /n/: cf2=1550) and blends C2's onset toward C1's values.
+
+```yaml
+settings:
+  clusterBlend:
+    enabled: true
+    strength: 0.35              # Master blend fraction (0.0–1.0)
+
+    # Per-manner-pair scale factors (multiplied by strength).
+    # Higher = more spectral blending between these consonant types.
+    nasalToStopScale:   1.30    # /ŋk/, /mp/, /nt/, /nd/
+    fricToStopScale:    0.85    # /st/, /sk/, /sp/
+    stopToFricScale:    0.70    # /ts/, /ks/
+    nasalToFricScale:   1.00    # /nf/, /ns/, /mf/
+    liquidToStopScale:  0.85    # /lt/, /rk/, /lp/
+    liquidToFricScale:  0.75    # /ls/, /rf/
+    fricToFricScale:    0.60    # /sʃ/ (rare, morpheme boundaries)
+    stopToStopScale:    0.55    # /kt/, /pt/, /gd/
+    defaultPairScale:   0.50    # Anything not listed above
+
+    # Context modifiers
+    homorganicScale:    0.30    # Same place of articulation → less shift needed
+    wordBoundaryScale:  0.50    # C2 starts a new word → weaker blend
+
+    # Per-formant scaling
+    f1Scale: 0.50               # F1 blend is gentler (jaw height, not place)
+```
+
+Flat-key equivalents are also supported:
+
+- `clusterBlendEnabled`
+- `clusterBlendStrength`
+- `clusterBlendNasalToStopScale`
+- `clusterBlendFricToStopScale`
+- `clusterBlendStopToFricScale`
+- `clusterBlendNasalToFricScale`
+- `clusterBlendLiquidToStopScale`
+- `clusterBlendLiquidToFricScale`
+- `clusterBlendFricToFricScale`
+- `clusterBlendStopToStopScale`
+- `clusterBlendDefaultPairScale`
+- `clusterBlendHomorganicScale`
+- `clusterBlendWordBoundaryScale`
+- `clusterBlendF1Scale`
+
+How it behaves:
+
+- For each C1→C2 consonant pair (skipping micro-gaps and post-stop aspiration tokens between them), the pass classifies both by manner (stop, fricative, nasal, liquid) and place (labial, alveolar, palatal, velar).
+- The effective blend strength = `strength × pairScale × contextModifiers`, clamped to [0, 1].
+- C2's start formants (F1, F2, F3) are interpolated toward C1's values: `startF2 = c2f2 + strength × (c1f2 − c2f2)`. The original C2 values are stored as `endCf2`/`endCf3` so the DSP ramps back to the canonical target during the phoneme.
+- F1 uses a reduced blend (`strength × f1Scale`) since F1 is mainly jaw height, not place.
+- A minimum delta threshold of 15 Hz prevents unnecessary micro-adjustments.
+- Homorganic pairs (same place) get reduced blending — they already share similar formant targets.
+- Word boundaries reduce blend strength since C2 belongs to a new articulatory plan.
+
+Tuning notes:
+- This pass complements cluster timing (duration) and boundary smoothing (crossfade). All three work together: timing shortens, smoothing crossfades, blend shapes the spectral trajectory.
+- If clusters sound "blurred" or consonants lose identity, lower `strength` or the per-pair scales.
+- Nasal→stop pairs (e.g. /ŋk/, /nt/) benefit from higher blend because the nasal's formant structure naturally anticipates the stop's place.
+- Stop→stop pairs use lower scales because each stop has its own burst character that shouldn't be smeared.
+
+### Prominence
+
+The prominence pass has two stages: **scoring** (phonological classification) and **realization** (acoustic output). Scoring assigns each vowel a 0.0–1.0 prominence value from stress marks, vowel length, and word position. Realization uses that score to apply duration multipliers, amplitude shaping, and pitch scaling.
+
+When prominence is enabled, it **replaces** the old `primaryStressDiv`/`secondaryStressDiv` system for stress realization. The old stressDiv path is bypassed in `calculateTimes()`, and the prominence pass applies direct duration multipliers to vowels instead. This avoids double-lengthening and gives finer control (vowel-only, not whole-syllable).
 
 ```yaml
 settings:
   prominence:
     enabled: true
 
-    # ── SOURCES (what contributes prominence) ──
+    # ── SCORING (phonological classification, 0.0–1.0) ──
+    # Primary stress always scores 1.0. These settings control other sources.
 
-    # eSpeak stress marks (already on Token.stress)
-    primaryStressWeight: 1.0        # ˈ → prominence 1.0
-    secondaryStressWeight: 0.6      # ˌ → prominence 0.6
+    secondaryStressLevel: 0.6       # ˌ → prominence 0.6 (score, not a multiplier)
 
     # Vowel length mark (Token.lengthened > 0)
     longVowelWeight: 0.5            # ː on unstressed vowel → 0.5
     longVowelMode: "unstressed-only" # "unstressed-only", "always", "never"
 
-    # Word position
+    # Word position (additive adjustments on the score, then clamped to [0,1])
     wordInitialBoost: 0.0           # added to first syllable's prominence
     wordFinalReduction: 0.0         # subtracted from last syllable's prominence
 
     # ── REALIZATION (what prominence DOES) ──
 
-    # Duration: prominent vowels resist compression, reduced vowels shrink
+    # Duration: direct multipliers (like stressDiv but vowel-only).
+    # These replace the old primaryStressDiv/secondaryStressDiv system.
+    primaryStressWeight: 1.4        # prominence >= 0.9: durationMs *= 1.4
+    secondaryStressWeight: 1.1      # prominence >= 0.4: durationMs *= 1.1
+
+    # Duration safety nets
     durationProminentFloorMs: 0     # 0 = disabled. If > 0, prominent vowels
-                                    # (score >= 0.5) never shrink below this.
-    durationReducedCeiling: 1.0     # non-prominent vowels scaled by this
-                                    # (1.0 = no reduction, 0.7 = shrink to 70%)
+                                    # (score >= 0.4) never shrink below this.
+    durationReducedCeiling: 1.0     # non-prominent vowels (score < 0.3) scaled
+                                    # toward this (1.0 = no reduction, 0.7 = 70%)
 
     # Amplitude: prominence → voiceAmplitude adjustment (dB)
     amplitudeBoostDb: 0.0           # max boost for prominence=1.0
@@ -922,6 +1010,7 @@ settings:
 Flat-key equivalents are also supported:
 
 - `prominenceEnabled`
+- `prominenceSecondaryStressLevel`
 - `prominencePrimaryStressWeight`
 - `prominenceSecondaryStressWeight`
 - `prominenceLongVowelWeight`
@@ -936,26 +1025,43 @@ Flat-key equivalents are also supported:
 
 #### Design principles
 
-1. **Everything defaults to off/neutral.** An empty `prominence: enabled: true` block changes nothing — all weights and realizations default to zero/neutral. Language pack authors opt into each effect.
+1. **Score and realization are separate.** Scoring is phonological classification (primary=1.0, secondary=`secondaryStressLevel`, unstressed=0.0). Realization settings (`primaryStressWeight`, `secondaryStressWeight`) are direct duration multipliers applied in a later pass. This means the weight knob always does something audible — `1.4` = 40% longer, `0.8` = 20% shorter.
 
 2. **Prominence is max-combined, not additive.** If a vowel has primary stress (1.0) AND is long (0.5), prominence = max(1.0, 0.5) = 1.0, not 1.5. Word-position adjustments are additive on top of the max (then clamped to 0.0–1.0).
 
-3. **Backward compatible.** When `prominence.enabled` is false (default), everything works exactly as before. `primaryStressDiv`/`secondaryStressDiv` continue to run unconditionally — prominence adds flavor on top, it does not replace them.
+3. **Replaces stressDiv when enabled.** When `prominence.enabled` is true, the old `primaryStressDiv`/`secondaryStressDiv` system is bypassed in `calculateTimes()`. All stress-based duration shaping is handled by the prominence pass (vowel-only, not whole-syllable). When `prominence.enabled` is false (default), the old stressDiv system runs exactly as before — zero change.
 
-4. **Diphthong-safe.** Offglide tokens (`tiedFrom`) inherit their nucleus's prominence score for amplitude treatment, but the duration floor is skipped — their short duration IS the glide.
+4. **Auto-migration.** If a pack enables prominence but doesn't set custom weight values, the engine auto-migrates from `primaryStressDiv`/`secondaryStressDiv` into the equivalent prominence weights. This prevents silent regressions when switching an existing pack to prominence mode.
+
+5. **Diphthong-safe.** Offglide tokens (`tiedFrom`) inherit their nucleus's prominence score for amplitude treatment, but the duration floor is skipped — their short duration IS the glide.
 
 #### How prominence interacts with stress divisors
 
-`primaryStressDiv` and `secondaryStressDiv` slow down entire syllables (consonants + vowels). Prominence only adjusts vowels. Both run independently — the stress divisors handle whole-syllable timing, prominence adds vowel-specific duration floors/ceilings, amplitude shaping, and pitch scaling on top.
+When `prominence.enabled` is **false**: `primaryStressDiv` and `secondaryStressDiv` run as before, slowing entire syllables. Prominence has no effect.
+
+When `prominence.enabled` is **true**: the stressDiv path is bypassed (`curSpeed = baseSpeed` for all syllables regardless of stress). Instead, the prominence pass applies `primaryStressWeight` / `secondaryStressWeight` as direct duration multipliers on vowels only. This is more precise — consonants keep their natural cluster-timing durations, and the weight knob has a direct, predictable effect (`1.4` = 40% longer stressed vowels).
 
 #### Stress inheritance from eSpeak
 
 eSpeak puts stress marks on syllable-initial consonants, not vowels. The prominence pass walks backward from each vowel to the syllable start to check for inherited stress, without crossing word boundaries or other vowels.
 
+#### Duration realization details
+
+Duration multipliers are applied based on prominence thresholds:
+
+| Prominence | Category | Duration effect |
+|------------|----------|-----------------|
+| >= 0.9 | Primary stress | `durationMs *= primaryStressWeight` |
+| >= 0.4 | Secondary stress | `durationMs *= secondaryStressWeight` |
+| < 0.3 | Unstressed | blended toward `durationReducedCeiling` |
+| 0.3–0.9 gap | — | no double-application (clean threshold bands) |
+
+The thresholds are designed so that: primary stress always scores 1.0 (even with -0.1 word-final reduction = 0.9), secondary scores ~0.6 (>= 0.4), and unstressed scores ~0.0 (< 0.3).
+
 #### Amplitude realization details
 
-- Prominent vowels (score >= 0.5): boost scales linearly from 0dB at 0.5 to full `amplitudeBoostDb` at 1.0.
-- Non-prominent vowels (score < 0.3): reduction scales linearly from 0dB at 0.3 to full `amplitudeReductionDb` at 0.0.
+- Prominent vowels (score >= 0.5): boost scales linearly from 0dB at 0.5 to `amplitudeBoostDb * primaryStressWeight * factor` at 1.0. The weight scaling means turning up the weight knob also makes stressed vowels louder.
+- Non-prominent vowels (score < 0.3): reduction scales linearly from 0dB at 0.3 to full `amplitudeReductionDb` at 0.0. Reduction is NOT scaled by the weight — unstressed vowels get reduced regardless.
 - Vowels between 0.3 and 0.5 are untouched (dead zone to avoid flutter).
 
 #### Pitch realization details
@@ -969,11 +1075,12 @@ The original stress-based accent path is preserved exactly when `pitchFromPromin
 Prominence runs PostTiming, after `cluster_timing` but before `prosody`. This means cluster-adjusted consonant durations are already set before prominence looks at vowels, and phrase-final lengthening (in the prosody pass) stacks on top of prominence duration adjustments.
 
 Tuning notes:
-- Start with `amplitudeBoostDb: 1.5` and `amplitudeReductionDb: 2.0` for subtle contour shaping.
+- **English defaults**: `primaryStressWeight: 1.4`, `secondaryStressWeight: 1.1`, `amplitudeBoostDb: 1.5`, `amplitudeReductionDb: 2.0`, `durationReducedCeiling: 0.85`. This gives stressed vowels 40% more duration + 1.5dB boost, unstressed vowels 15% shorter + 2dB quieter.
 - `durationProminentFloorMs: 45` prevents stressed vowels from collapsing at high rates.
-- `durationReducedCeiling: 0.85` gives unstressed vowels a gentle 15% shrink.
-- For Hungarian, try `longVowelWeight: 0.5`, `longVowelMode: "unstressed-only"` — vowel length carries prosodic weight independently of stress.
+- **Hungarian**: `primaryStressWeight: 1.05` (barely any duration stress), `amplitudeBoostDb: 1.8` (stress realized through amplitude), `durationReducedCeiling: 1.0` (no unstressed reduction — syllable-timed).
+- For Hungarian, `longVowelWeight: 0.5`, `longVowelMode: "unstressed-only"` — vowel length carries prosodic weight independently of stress.
 - For English, `longVowelMode: "never"` is appropriate since stress is lexical, not length-based.
+- The weight knob has a direct, predictable effect: `2.0` = stressed vowels twice as long, `0.5` = half as long, `1.0` = no duration stress (amplitude/pitch only).
 
 ### Boundary smoothing
 
