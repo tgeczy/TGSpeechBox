@@ -601,6 +601,23 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double coarticulationF2Scale = 1.0;
   double coarticulationF3Scale = 0.5;
 
+  // Per-place-of-articulation strength multiplier.  Multiplies the effective
+  // coarticulation strength for consonants at that place.  Labials default
+  // lower because lip rounding is relatively independent of tongue body —
+  // full-strength labial coarticulation drags F2 so low it sounds like /w/.
+  double coarticulationLabialScale = 0.5;
+  double coarticulationAlveolarScale = 1.0;
+  double coarticulationPalatalScale = 1.0;
+  double coarticulationVelarScale = 1.0;
+
+  // Aspiration coarticulation: shape post-stop aspiration formants along
+  // the stop→vowel locus trajectory instead of leaving generic /h/ values.
+  // BlendStart controls the aspiration's initial formants (0 = stop locus,
+  // 1 = vowel target).  BlendEnd controls the aspiration's end formants.
+  // The DSP ramps from start to end, creating a smooth transition.
+  double coarticulationAspirationBlendStart = 0.3;
+  double coarticulationAspirationBlendEnd = 0.7;
+
   bool coarticulationVelarPinchEnabled = true;
   double coarticulationVelarPinchThreshold = 1800.0;
   double coarticulationVelarPinchF2Scale = 0.9;

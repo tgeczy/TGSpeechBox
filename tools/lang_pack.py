@@ -269,6 +269,12 @@ class LanguagePack:
     coarticulation_f1_scale: float = 0.6
     coarticulation_f2_scale: float = 1.0
     coarticulation_f3_scale: float = 0.5
+    coarticulation_labial_scale: float = 0.5
+    coarticulation_alveolar_scale: float = 1.0
+    coarticulation_palatal_scale: float = 1.0
+    coarticulation_velar_scale: float = 1.0
+    coarticulation_aspiration_blend_start: float = 0.3
+    coarticulation_aspiration_blend_end: float = 0.7
     coarticulation_alveolar_back_vowel_enabled: bool = True
     coarticulation_back_vowel_f2_threshold: float = 1400.0
     coarticulation_alveolar_back_vowel_strength_boost: float = 1.25
@@ -642,6 +648,12 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.coarticulation_f1_scale = gn("coarticulationF1Scale", lp.coarticulation_f1_scale)
     lp.coarticulation_f2_scale = gn("coarticulationF2Scale", lp.coarticulation_f2_scale)
     lp.coarticulation_f3_scale = gn("coarticulationF3Scale", lp.coarticulation_f3_scale)
+    lp.coarticulation_labial_scale = gn("coarticulationLabialScale", lp.coarticulation_labial_scale)
+    lp.coarticulation_alveolar_scale = gn("coarticulationAlveolarScale", lp.coarticulation_alveolar_scale)
+    lp.coarticulation_palatal_scale = gn("coarticulationPalatalScale", lp.coarticulation_palatal_scale)
+    lp.coarticulation_velar_scale = gn("coarticulationVelarScale", lp.coarticulation_velar_scale)
+    lp.coarticulation_aspiration_blend_start = gn("coarticulationAspirationBlendStart", lp.coarticulation_aspiration_blend_start)
+    lp.coarticulation_aspiration_blend_end = gn("coarticulationAspirationBlendEnd", lp.coarticulation_aspiration_blend_end)
     lp.coarticulation_alveolar_back_vowel_enabled = gb("coarticulationAlveolarBackVowelEnabled", lp.coarticulation_alveolar_back_vowel_enabled)
     lp.coarticulation_back_vowel_f2_threshold = gn("coarticulationBackVowelF2Threshold", lp.coarticulation_back_vowel_f2_threshold)
     lp.coarticulation_alveolar_back_vowel_strength_boost = gn("coarticulationAlveolarBackVowelStrengthBoost", lp.coarticulation_alveolar_back_vowel_strength_boost)

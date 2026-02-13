@@ -150,6 +150,12 @@ static double getFormant(const Token& t, FieldId cf, FieldId pf) {
   return getField(t, pf);
 }
 
+static void setField(Token& t, FieldId id, double v) {
+  const int idx = static_cast<int>(id);
+  t.field[idx] = v;
+  t.setMask |= (1ULL << idx);
+}
+
 // ── Neighbor search (skip micro-gaps, not real silence) ─────────────────
 
 static int findNextConsonant(const std::vector<Token>& tokens, int from) {
@@ -225,6 +231,7 @@ bool runClusterBlend(
   (void)outError;
 
   const auto& lang = ctx.pack.lang;
+
   if (!lang.clusterBlendEnabled) return true;
   if (lang.clusterBlendStrength <= 0.0) return true;
 
@@ -251,13 +258,10 @@ bool runClusterBlend(
 
     double strength = getPairStrength(m1, m2, lang);
 
-    // Homorganic pairs (same place) share a gesture — less spectral
-    // anticipation needed, but we still want some for voicing/manner cues.
     if (homorganic) {
       strength *= lang.clusterBlendHomorganicScale;
     }
 
-    // Word boundary: weaken blend when C2 starts a new word (micro-pause).
     if (c2.wordStart) {
       strength *= lang.clusterBlendWordBoundaryScale;
     }
@@ -278,53 +282,49 @@ bool runClusterBlend(
     // Need at least F2 on both sides to do anything useful.
     if (c1f2 <= 0.0 || c2f2 <= 0.0) continue;
 
-    // ── Compute end targets for C1 ────────────────────────────────────
-
-    // Blend C1's formants partway toward C2's values.
-    // endCf = c1 + strength * (c2 - c1)
+    // ── Blend C1's formants into C2's entry (start) values ────────────
     //
-    // Only set endCf if the movement is perceptually meaningful (>15 Hz).
-    // This avoids DSP overhead for trivially small ramps.
+    // Instead of ramping C1's exit formants (which relies on DSP endCf
+    // ramping during low-energy consonant segments), we shift C2's
+    // START formants partway toward C1.  The burst onset is where the
+    // acoustic energy is and where the ear picks up place cues.
+    //
+    //   startF = c2 + strength * (c1 - c2)
+    //
+    // So C2 begins with a spectral tint from C1 and the DSP's normal
+    // interpolation moves it toward C2's canonical values.
+    //
+    // Only modify if the delta is perceptually meaningful (>15 Hz).
     constexpr double kMinDeltaHz = 15.0;
+    Token& c2mut = tokens[static_cast<size_t>(nextIdx)];
 
     if (c1f2 > 0.0 && c2f2 > 0.0) {
-      const double endF2 = c1f2 + strength * (c2f2 - c1f2);
-      if (std::abs(endF2 - c1f2) > kMinDeltaHz) {
-        c1.hasEndCf2 = true;
-        c1.endCf2 = endF2;
+      const double startF2 = c2f2 + strength * (c1f2 - c2f2);
+      if (std::abs(startF2 - c2f2) > kMinDeltaHz) {
+        setField(c2mut, FieldId::cf2, startF2);
+        c2mut.hasEndCf2 = true;
+        c2mut.endCf2 = c2f2;
       }
     }
 
     if (c1f1 > 0.0 && c2f1 > 0.0) {
-      // F1 blend is gentler — F1 changes are less about place, more about
-      // jaw opening.  Use half the strength.
       const double f1Strength = strength * lang.clusterBlendF1Scale;
-      const double endF1 = c1f1 + f1Strength * (c2f1 - c1f1);
-      if (std::abs(endF1 - c1f1) > kMinDeltaHz) {
-        c1.hasEndCf1 = true;
-        c1.endCf1 = endF1;
+      const double startF1 = c2f1 + f1Strength * (c1f1 - c2f1);
+      if (std::abs(startF1 - c2f1) > kMinDeltaHz) {
+        setField(c2mut, FieldId::cf1, startF1);
+        c2mut.hasEndCf1 = true;
+        c2mut.endCf1 = c2f1;
       }
     }
 
     if (c1f3 > 0.0 && c2f3 > 0.0) {
-      const double endF3 = c1f3 + strength * (c2f3 - c1f3);
-      if (std::abs(endF3 - c1f3) > kMinDeltaHz) {
-        c1.hasEndCf3 = true;
-        c1.endCf3 = endF3;
+      const double startF3 = c2f3 + strength * (c1f3 - c2f3);
+      if (std::abs(startF3 - c2f3) > kMinDeltaHz) {
+        setField(c2mut, FieldId::cf3, startF3);
+        c2mut.hasEndCf3 = true;
+        c2mut.endCf3 = c2f3;
       }
     }
-
-    // ── Optional: nasal amplitude fade for nasal→stop ──────────────────
-    //
-    // When a nasal precedes a stop (homorganic or not), the velum closes
-    // before the oral release.  We can signal this by slightly reducing
-    // C1's nasal amplitude at end-of-frame.  The DSP's existing fade
-    // handles most of this, but a nudge in the formant direction helps
-    // the nasal "reach toward" the stop closure.
-    //
-    // This is handled by the formant blend above — as formants move toward
-    // the stop's values, the perceived nasality naturally decreases.  No
-    // extra amplitude manipulation needed at this stage.
   }
 
   return true;

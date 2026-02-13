@@ -201,6 +201,17 @@ static double getConsonantSrcFormant(const Token& c, FieldId cf, FieldId pf, dou
   return v;
 }
 
+// Per-place-of-articulation strength multiplier.
+static double getPlaceScale(Place place, const LanguagePack& lang) {
+  switch (place) {
+    case Place::Labial:   return lang.coarticulationLabialScale;
+    case Place::Alveolar: return lang.coarticulationAlveolarScale;
+    case Place::Palatal:  return lang.coarticulationPalatalScale;
+    case Place::Velar:    return lang.coarticulationVelarScale;
+    default:              return 1.0;
+  }
+}
+
 // MITalk-style locus target.
 static double mitalkLocus(double src, double trg, double k) {
   if (src <= 0.0 || trg <= 0.0) return 0.0;
@@ -329,6 +340,10 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
       effectiveStrength *= df;
     }
 
+    // Per-place scaling: labials default weaker because lip rounding is
+    // relatively independent of tongue body position.
+    effectiveStrength *= getPlaceScale(leftPlace, lang);
+
     effectiveStrength = std::clamp(effectiveStrength, 0.0, 1.0);
     if (effectiveStrength <= 0.0) continue;
 
@@ -384,6 +399,80 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
     if (vF3 > 0.0 && std::abs(vF3 - startF3) > 12.0) {
       t.hasEndCf3 = true;
       t.endCf3 = vF3;
+    }
+
+    // ----- Aspiration coarticulation -----
+    // Post-stop aspiration sits between the stop burst and the vowel.
+    // Without shaping, it has generic /h/ formants — a spectral hole in the
+    // C→V transition.  In natural speech, aspiration formants ramp from
+    // near the stop's place of articulation toward the vowel target.
+    //
+    // We compute locus-based targets (where aspiration SHOULD be at full
+    // strength) and blend from the aspiration's ORIGINAL /h/ formants toward
+    // those targets.  This way at low coarticulation strength, aspiration
+    // stays near its canonical values instead of getting dragged to the
+    // stop's locus (which for labials = F2≈800 = sounds like /w/).
+    const double aspBlendStart = std::clamp(lang.coarticulationAspirationBlendStart, 0.0, 1.0);
+    const double aspBlendEnd   = std::clamp(lang.coarticulationAspirationBlendEnd,   0.0, 1.0);
+
+    if (effectiveStrength > 0.0) {
+      for (size_t j = i; j > 0; --j) {
+        Token& prev = tokens[j - 1];
+        if (prev.silence) break;
+        if (isVowelLike(prev)) break;
+        if (!prev.postStopAspiration) continue;
+
+        // Read aspiration's original formants BEFORE overwriting.
+        const double origF1 = getCanonicalFormant(prev, FieldId::cf1, FieldId::pf1);
+        const double origF2 = getCanonicalFormant(prev, FieldId::cf2, FieldId::pf2);
+        const double origF3 = getCanonicalFormant(prev, FieldId::cf3, FieldId::pf3);
+
+        // Locus-based targets at full strength (where aspiration should be).
+        // Start = closer to stop, end = closer to vowel.
+        const double targetStartF2 = srcF2 + aspBlendStart * (vF2 - srcF2);
+        const double targetEndF2   = srcF2 + aspBlendEnd   * (vF2 - srcF2);
+
+        // Blend from original toward targets by effectiveStrength.
+        // At strength=0: keep original /h/.  At strength=1: full locus trajectory.
+        if (origF2 > 0.0) {
+          const double aStartF2 = origF2 + effectiveStrength * (targetStartF2 - origF2);
+          const double aEndF2   = origF2 + effectiveStrength * (targetEndF2   - origF2);
+          setField(prev, FieldId::cf2, aStartF2);
+          setField(prev, FieldId::pf2, aStartF2);
+          if (std::abs(aEndF2 - aStartF2) > 10.0) {
+            prev.hasEndCf2 = true;
+            prev.endCf2 = aEndF2;
+          }
+        }
+
+        if (srcF1 > 0.0 && vF1 > 0.0 && origF1 > 0.0) {
+          const double targetStartF1 = srcF1 + aspBlendStart * (vF1 - srcF1);
+          const double targetEndF1   = srcF1 + aspBlendEnd   * (vF1 - srcF1);
+          const double aStartF1 = origF1 + effectiveStrength * (targetStartF1 - origF1);
+          const double aEndF1   = origF1 + effectiveStrength * (targetEndF1   - origF1);
+          setField(prev, FieldId::cf1, aStartF1);
+          setField(prev, FieldId::pf1, aStartF1);
+          if (std::abs(aEndF1 - aStartF1) > 8.0) {
+            prev.hasEndCf1 = true;
+            prev.endCf1 = aEndF1;
+          }
+        }
+
+        if (srcF3 > 0.0 && vF3 > 0.0 && origF3 > 0.0) {
+          const double targetStartF3 = srcF3 + aspBlendStart * (vF3 - srcF3);
+          const double targetEndF3   = srcF3 + aspBlendEnd   * (vF3 - srcF3);
+          const double aStartF3 = origF3 + effectiveStrength * (targetStartF3 - origF3);
+          const double aEndF3   = origF3 + effectiveStrength * (targetEndF3   - origF3);
+          setField(prev, FieldId::cf3, aStartF3);
+          setField(prev, FieldId::pf3, aStartF3);
+          if (std::abs(aEndF3 - aStartF3) > 12.0) {
+            prev.hasEndCf3 = true;
+            prev.endCf3 = aEndF3;
+          }
+        }
+
+        break;  // Only shape the nearest aspiration token.
+      }
     }
   }
 
