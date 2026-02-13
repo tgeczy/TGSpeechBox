@@ -95,7 +95,62 @@ if(WIN32)
   add_subdirectory(tools/tgsbPhonemeEditorWin32)
 endif()
 
-# If nvspFrontend needs WinMM too (it usually doesn't), uncomment:
-# if(WIN32)
-#   target_link_libraries(nvspFrontend PRIVATE winmm)
-# endif()
+# -------------------------
+# TGSpeechSapi.dll (SAPI5 TTS engine)
+# -------------------------
+if(WIN32)
+  add_library(TGSpeechSapi SHARED
+    src/sapi/TGSpeechSapi.def
+    src/sapi/sapi_main.cpp
+    src/sapi/com.cpp
+    src/sapi/registry.cpp
+    src/sapi/ISpDataKeyImpl.cpp
+    src/sapi/voice_token.cpp
+    src/sapi/tgsb_settings.cpp
+    src/sapi/IEnumSpObjectTokensImpl.cpp
+    src/sapi/ISpTTSEngineImpl.cpp
+    src/sapi/tgsb_runtime.cpp
+  )
+
+  target_include_directories(TGSpeechSapi PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sapi"
+  )
+
+  target_compile_definitions(TGSpeechSapi PRIVATE
+    UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
+  )
+
+  target_compile_features(TGSpeechSapi PRIVATE cxx_std_17)
+
+  target_link_libraries(TGSpeechSapi PRIVATE
+    ole32 oleaut32 advapi32 shlwapi uuid
+  )
+
+  if(MSVC)
+    target_compile_options(TGSpeechSapi PRIVATE /W4 /permissive-)
+  endif()
+
+  set_target_properties(TGSpeechSapi PROPERTIES OUTPUT_NAME "TGSpeechSapi")
+endif()
+
+# -------------------------
+# TGSpeechSapiSettings.exe
+# -------------------------
+if(WIN32)
+  add_executable(TGSpeechSapiSettings WIN32
+    tools/tgsbSapiSettings/settings_app.cpp
+    tools/tgsbSapiSettings/settings_app.rc
+  )
+
+  target_compile_features(TGSpeechSapiSettings PRIVATE cxx_std_17)
+
+  target_compile_definitions(TGSpeechSapiSettings PRIVATE
+    UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
+  )
+
+  target_link_libraries(TGSpeechSapiSettings PRIVATE comctl32)
+
+  if(MSVC)
+    target_compile_options(TGSpeechSapiSettings PRIVATE /W4 /permissive-)
+  endif()
+endif()
