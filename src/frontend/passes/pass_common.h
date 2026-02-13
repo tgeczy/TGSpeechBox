@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Shared types and helpers for frontend passes.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #ifndef TGSB_FRONTEND_PASSES_PASS_COMMON_H
 #define TGSB_FRONTEND_PASSES_PASS_COMMON_H
 

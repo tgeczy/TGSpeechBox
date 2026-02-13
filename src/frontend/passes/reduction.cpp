@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Rate-dependent reduction pass.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "reduction.h"
 
 #include <algorithm>

@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — DLL runtime loader for phoneme editor.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "tgsb_runtime.h"
 #include "VoiceProfileEditor.h"
 

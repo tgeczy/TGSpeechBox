@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Phonemic length contrast and gemination pass.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "length_contrast.h"
 
 #include <algorithm>

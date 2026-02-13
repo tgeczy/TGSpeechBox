@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Minimal YAML parser interface.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #ifndef TGSB_FRONTEND_YAML_MIN_H
 #define TGSB_FRONTEND_YAML_MIN_H
 

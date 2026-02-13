@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — IPA-to-frame conversion engine.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "ipa_engine.h"
 
 #include "passes/pass_pipeline.h"

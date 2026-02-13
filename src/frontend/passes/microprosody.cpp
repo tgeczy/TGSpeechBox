@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Microprosody pass (voiceless F0 raise, voiced F0 lower).
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "microprosody.h"
 
 #include <algorithm>

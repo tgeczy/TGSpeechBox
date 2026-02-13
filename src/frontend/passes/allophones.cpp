@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — YAML-driven allophone rule engine.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "allophones.h"
 
 #include <algorithm>

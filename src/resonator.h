@@ -1,31 +1,7 @@
 /*
-TGSpeechBox — All-pole resonator with SVF parameterization.
-
-Uses the bilinear-transform parameterization from Andrew Simper (Cytomic)
-for its key advantage: frequency (g) and damping (k) are independent,
-so formant sweeps during coarticulation produce smooth coefficient
-trajectories with no discontinuities.
-
-However, the actual sample processing uses a Direct Form 1 all-pole
-difference equation rather than the SVF's trapezoidal integrators.
-Reason: the SVF lowpass output has two zeros at Nyquist from the
-trapezoidal (1+z^-1)^2 factor, causing cumulative high-frequency
-loss across the 6-resonator cascade.  At sr=16000 this steals ~11 dB
-at 3200 Hz; at sr=22050 it dulls sharpness and glottal edge.
-The all-pole form has NO numerator zeros, matching the spectral
-behavior of classic formant synthesis literature.
-
-Coefficient derivation (from Cytomic SVF-to-DF1 conversion):
-  g = tan(pi * f / sr)          -- warped frequency
-  k = (1-R)(1+g^2)/(g(1+R))    -- Klatt-matched damping
-      where R = exp(-2*pi*bw/sr)
-  D = 1 + k*g + g^2             -- common denominator
-  b0 = 4*g^2 / D                -- feedforward (unity DC gain)
-  fb1 = 2*(1 - g^2) / D         -- feedback tap 1 (y[n-1])
-  fb2 = -(1 - k*g + g^2) / D    -- feedback tap 2 (y[n-2])
-
-Anti-resonator: FIR (all-zero) filter with zeros at r*e^(±jθ),
-depth controlled by bandwidth.
+TGSpeechBox — All-pole resonator and pitch-synchronous F1 resonator.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSPEECHBOX_RESONATOR_H

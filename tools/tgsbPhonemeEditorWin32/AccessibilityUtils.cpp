@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Win32 accessibility and screen reader utilities.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #define UNICODE
 #define _UNICODE
 

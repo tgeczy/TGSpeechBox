@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Trajectory limiting pass (formant rate capping).
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "trajectory_limit.h"
 
 #include <algorithm>

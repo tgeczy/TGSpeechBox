@@ -1,18 +1,7 @@
 /*
-TGSpeechBox — Voice profile system for frontend
-
-This module provides optional "voice profiles" that can transform phoneme
-parameters to produce different voice qualities (e.g., female voice) without
-maintaining separate phoneme tables.
-
-Design principles:
-- Zero breaking changes: packs without voice profiles work exactly as before.
-- No reshaping: existing phonemes are the base; profiles are overlays.
-- Class-based transforms using existing phoneme flags (_isVowel, _isVoiced, etc.)
-- Per-phoneme overrides for fine-tuning.
-
-Copyright 2014-2026 Tamas Geczy
-Licensed under GNU General Public License version 2.0.
+TGSpeechBox — Voice profile definitions.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSB_FRONTEND_VOICE_PROFILE_H

@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Fujisaki pitch model pass.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 // =============================================================================
 // Fujisaki Pitch Pass — pitch contour generation
 // =============================================================================

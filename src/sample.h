@@ -1,9 +1,8 @@
 /*
-TGSpeechBox — Sample type definitions.
-
-Originally part of the NV Speech Player project by NV Access Limited (2014).
-Extended 2025-2026 by Tamas Geczy.
-Licensed under GNU General Public License version 2.0.
+TGSpeechBox — Audio sample type definitions.
+Copyright 2014 NV Access Limited.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSPEECHBOX_SAMPLE_H

@@ -1,12 +1,7 @@
 /*
-TGSpeechBox — Cascade and parallel formant generators.
-
-CascadeFormantGenerator: 6-resonator cascade (F6->F1) with nasal
-anti-resonator/pole pair and pitch-synchronous F1, plus Nyquist
-proximity fading for low sample rates.
-
-ParallelFormantGenerator: 6 parallel resonators with independent
-amplitude controls and bypass mixing.
+TGSpeechBox — Cascade and parallel formant filter topologies.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSPEECHBOX_FORMANTGENERATOR_H

@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Win32 utility function declarations.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #pragma once
 
 #define UNICODE

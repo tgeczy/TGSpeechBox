@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Cluster timing pass (consonant cluster duration scaling).
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 // =============================================================================
 // Cluster Timing Pass - context-sensitive consonant duration adjustment
 // =============================================================================

@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — MITalk-style locus coarticulation pass.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 // =============================================================================
 // Coarticulation Pass - locus-based START/END formant transitions
 // =============================================================================

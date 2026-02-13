@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — YAML round-trip editor for phoneme data.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "yaml_edit.h"
 
 #include <algorithm>

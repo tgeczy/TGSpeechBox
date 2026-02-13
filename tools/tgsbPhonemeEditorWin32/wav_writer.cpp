@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — WAV file writer.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "wav_writer.h"
 
 #include <cstdint>

@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — eSpeak phonemizer CLI wrapper.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "phonemizer_cli.h"
 
 #include "chunking.h"

@@ -1,14 +1,7 @@
 /*
-TGSpeechBox — Fujisaki-Bartman pitch contour model (DECTalk-style).
-
-Ported from the provided by Rommix. The filter idea is all his here.
-Time units are in *samples*.
-
-The model outputs a multiplicative contour multiplier:
-  F0 = basePitchHz * exp(phraseState + accentState)
-
-Phrase command: impulse (one-sample) of amplitude A.
-Accent command: rectangular pulse of amplitude A for D samples.
+TGSpeechBox — Fujisaki-Bartman pitch contour model for the DSP.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSPEECHBOX_PITCHMODEL_H

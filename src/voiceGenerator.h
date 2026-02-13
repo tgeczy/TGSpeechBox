@@ -1,9 +1,7 @@
 /*
-TGSpeechBox — Glottal voice source generator.
-
-LF-inspired glottal flow model with spectral tilt, speed quotient,
-breathiness, creakiness, jitter, shimmer, tremor, and Fujisaki pitch
-contour support.
+TGSpeechBox — LF glottal source with tilt, breathiness, and tremor.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSPEECHBOX_VOICEGENERATOR_H

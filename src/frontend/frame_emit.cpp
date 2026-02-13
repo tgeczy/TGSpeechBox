@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Token-to-FrameEx conversion and emission.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 // frame_emit.cpp - TGSpeechBox — Frame emission for frontend
 //
 // Extracted from ipa_engine.cpp to reduce file size.

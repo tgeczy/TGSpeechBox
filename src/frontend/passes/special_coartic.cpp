@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Special coarticulation pass (language-specific formant deltas).
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 // =============================================================================
 // Special Coarticulation Pass - language-specific Hz deltas
 // =============================================================================

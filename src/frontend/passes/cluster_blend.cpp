@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Cluster blend pass (C-to-C formant coarticulation).
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 // =============================================================================
 // Cluster Blend Pass — C→C articulatory anticipation
 // =============================================================================

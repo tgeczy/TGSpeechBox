@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Liquid dynamics pass (lateral onglide, rhotic F3 dip).
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 \
 #include "liquid_dynamics.h"
 

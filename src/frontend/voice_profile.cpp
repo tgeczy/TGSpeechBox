@@ -1,10 +1,7 @@
 /*
-TGSpeechBox — Voice profile system for frontend
-
-Implementation of voice profile loading and application.
-
-Copyright 2014-2026 Tamas Geczy
-Licensed under GNU General Public License version 2.0.
+TGSpeechBox — Voice profile application (class scales and overrides).
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #include "voice_profile.h"

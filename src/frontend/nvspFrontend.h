@@ -1,15 +1,7 @@
 /*
-TGSpeechBox — Frontend (IPA -> Frames)
-
-Design goals:
-- Keep speechPlayer.dll DSP-only.
-- Make language behaviour data-driven via human-editable YAML packs.
-- Provide a stable C ABI so NVDA / other callers can use this from any language.
-
-This frontend does NOT call into speechPlayer.dll.
-Instead it emits frames via a callback.
-
-Frame layout matches the existing speechPlayer Frame struct order (see speechPlayer.py).
+TGSpeechBox — Frontend public C API and FrameEx struct.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSB_FRONTEND_H

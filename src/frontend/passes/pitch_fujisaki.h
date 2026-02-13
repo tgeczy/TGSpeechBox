@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Fujisaki pitch model pass interface.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #ifndef TGSB_PASS_PITCH_FUJISAKI_H
 #define TGSB_PASS_PITCH_FUJISAKI_H
 

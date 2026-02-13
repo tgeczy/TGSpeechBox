@@ -1,19 +1,8 @@
 /*
 TGSpeechBox — Main speech wave generator (orchestrator).
-
-SpeechWaveGeneratorImpl ties together the voice source, resonator
-filter bank, and formant generators.  It handles frame management,
-adaptive frication/aspiration filtering, high-shelf EQ, and
-fade-in/fade-out for click-free start/stop.
-
-The DSP modules are split into separate headers for readability:
-  dspCommon.h         — tuning constants, utility classes (PRNG, lowpass, etc.)
-  pitchModel.h        — Fujisaki-Bartman pitch contour model
-  voiceGenerator.h    — LF glottal source with tilt, breathiness, tremor
-  resonator.h         — All-pole resonator + pitch-sync F1 resonator
-  formantGenerator.h  — Cascade and parallel formant topologies
-
-All headers are implementation-private (not installed as public API).
+Copyright 2014 NV Access Limited.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #include <cassert>

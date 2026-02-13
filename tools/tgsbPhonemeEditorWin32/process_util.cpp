@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Process management utilities.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "process_util.h"
 
 #include <filesystem>

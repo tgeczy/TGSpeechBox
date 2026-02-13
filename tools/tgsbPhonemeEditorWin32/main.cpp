@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Phoneme editor Win32 entry point.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #define UNICODE
 #define _UNICODE
 

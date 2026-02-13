@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Text parser with CMU Dict stress correction.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 // =============================================================================
 // Text Parser — pre-IPA-engine text-level corrections
 // =============================================================================

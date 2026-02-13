@@ -1,4 +1,10 @@
 /*
+TGSpeechBox — Command-line IPA-to-PCM renderer for Speech Dispatcher.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
+/*
   TGSBRender (formerly nvspRender)
   -----------------------------------
   Small command-line helper that turns an IPA stream into audio using:

@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Allophone rules editor UI.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "RulesEditor.h"
 #include "resource.h"
 #include "WinUtils.h"

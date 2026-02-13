@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — Pass pipeline registration and execution.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #include "pass_pipeline.h"
 
 #include "allophones.h"

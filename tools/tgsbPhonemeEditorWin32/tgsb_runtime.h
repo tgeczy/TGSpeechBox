@@ -1,3 +1,9 @@
+/*
+TGSpeechBox — DLL runtime loader interface.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
+*/
+
 #pragma once
 
 #include <string>

@@ -1,9 +1,7 @@
 /*
-TGSpeechBox — DSP common utilities and tuning constants.
-
-Small helper classes and numeric constants shared across the DSP engine.
-All classes are header-only (methods defined inline) so no separate
-compilation unit is needed.
+TGSpeechBox — DSP tuning constants, PRNG, lowpass, and utility classes.
+Copyright 2025-2026 Tamas Geczy.
+Licensed under the MIT License. See LICENSE for details.
 */
 
 #ifndef TGSPEECHBOX_DSPCOMMON_H
