@@ -22,10 +22,11 @@ private:
     double pitchSyncF1Delta;
     double pitchSyncB1Delta;
     double bwScale;  // Global cascade bandwidth multiplier from voicingTone
+    double f1BwOffset;  // Source-tract coupling: extra F1 bandwidth (Hz)
 
 public:
     CascadeFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), rN0(sr,true), rNP(sr),
-        pitchSyncF1Delta(0.0), pitchSyncB1Delta(0.0), bwScale(1.0) {}
+        pitchSyncF1Delta(0.0), pitchSyncB1Delta(0.0), bwScale(1.0), f1BwOffset(0.0) {}
 
     void reset() {
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset(); rN0.reset(); rNP.reset();
@@ -49,6 +50,11 @@ void setCascadeBwScale(double scale) {
         if (scale > 2.0) scale = 2.0;
         bwScale = scale;
     }
+
+    void setF1BwOffset(double offset) {
+        f1BwOffset = offset;
+    }
+
     double getNext(const speechPlayer_frame_t* frame, const speechPlayer_frameEx_t* frameEx, bool glottisOpen, double input) {
         input/=2.0;
         // Klatt cascade: N0 (antiresonator) -> NP (resonator), then cascade formants.
@@ -75,6 +81,9 @@ void setCascadeBwScale(double scale) {
             if (std::isfinite(frameEx->endCf2)) cb2 = bandwidthForSweep(frame->cf2, cb2, kSweepQMaxF2, kSweepBwMinF2, kSweepBwMax);
             if (std::isfinite(frameEx->endCf3)) cb3 = bandwidthForSweep(frame->cf3, cb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
         }
+
+        // Source-tract coupling: widen F1 bandwidth when F1 is low.
+        cb1 += f1BwOffset;
 
         // --- Global cascade bandwidth scaling ---
         // Multiplier < 1.0 = narrower bandwidths = sharper/ringy-er formant peaks (Eloquence-like)

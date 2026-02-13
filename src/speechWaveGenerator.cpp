@@ -23,6 +23,48 @@ Licensed under the MIT License. See LICENSE for details.
 
 using namespace std;
 
+// ============================================================================
+// Source-tract coupling strength
+// ============================================================================
+// Modulates glottal source spectral tilt as a function of F1 frequency.
+// Low F1 (high vowels /i/, /u/) = heavier acoustic loading = steeper tilt.
+// High F1 (open vowels /a/)     = lighter loading          = flatter spectrum.
+// Also widens F1 bandwidth slightly at low F1 (subglottal coupling loss).
+//
+// 0.0 = off (current behavior, no coupling)
+// 1.0 = full effect
+const double kSourceTractCoupling = 0.55;
+
+// ============================================================================
+// Glottal-cycle F1 bandwidth modulation (Hz)
+// ============================================================================
+// Widens F1 bandwidth by this amount during the glottal open phase,
+// snaps back during closed phase (with 2ms smoothing to avoid clicks).
+// Models increased acoustic losses through the open glottis.
+// Stacks with voicingTone.pitchSyncB1DeltaHz if that is also non-zero.
+//
+// 0.0  = off
+// 30-50 = audible but natural range
+const double kGlottalCycleBwDelta = 40.0;
+
+// ============================================================================
+// Subglottal coupling (Sg1 pole-zero pair)
+// ============================================================================
+// Models the first subglottal (tracheal) resonance coupling through the
+// glottis into the vocal tract.  Creates a pole-zero pair near 600 Hz that
+// adds "chest resonance" character — most audible on open vowels where F1
+// is near Sg1.  Gated by glottal phase: strong coupling when open, weak
+// when closed (glottis never perfectly seals).
+//
+// References: Lulich et al. 2012, Hanna et al. 2018, Klatt & Klatt 1990.
+// Signal chain: Source → STC tilt → **Sg1 pole-zero** → Cascade (N0/NP → F6…F1)
+const double kSubglottalCoupling    = 0.6;    // 0=off, 1=full
+const double kSg1Freq               = 630.0;  // Hz, pole (resonance)
+const double kSg1Bw                 = 70.0;   // Hz, pole bandwidth
+const double kSgZ1Freq              = 590.0;  // Hz, zero (anti-resonance), 40 Hz below pole
+const double kSgZ1Bw                = 90.0;   // Hz, zero bandwidth (wider = gentler dip)
+const double kSgClosedPhaseLeak     = 0.20;   // coupling fraction during closed phase
+
 class SpeechWaveGeneratorImpl: public SpeechWaveGenerator {
 private:
     int sampleRate;
@@ -97,6 +139,18 @@ private:
     double limiterReleaseAlpha;// per-sample release coefficient
     double limiterThreshold;   // signal level above which limiting kicks in
 
+    // Source-tract coupling: one-pole tilt filter modulated by F1.
+    double stcTiltState;       // IIR state for the coupling lowpass
+    double stcSmoothPole;      // smoothed pole coefficient (avoids clicks on F1 jumps)
+    double stcSmoothBwOff;     // smoothed F1 bandwidth offset (Hz)
+    double stcAlpha;           // per-sample smoothing coefficient for pole/bw
+
+    // Subglottal coupling: Sg1 pole-zero pair gated by glottal phase.
+    Resonator sgPole;          // tracheal resonance (~630 Hz)
+    Resonator sgZero;          // tracheal anti-resonance (~590 Hz)
+    double sgCouplingSmooth;   // smoothed coupling strength (glottal-gated)
+    double sgCouplingAlpha;    // per-sample smoothing coefficient
+
     void initHighShelf(double fc, double gainDb, double Q) {
         // Clamp inputs to prevent NaNs and weird filter behavior from bad UI values
         double nyq = 0.5 * (double)sampleRate;
@@ -134,7 +188,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0), smoothCascadeDuck(1.0), cascadeDuckAlpha(0.0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0), smoothCascadeDuck(1.0), cascadeDuckAlpha(0.0), stcTiltState(0.0), stcSmoothPole(0.0), stcSmoothBwOff(0.0), stcAlpha(0.0), sgPole(sr), sgZero(sr, true), sgCouplingSmooth(0.0), sgCouplingAlpha(0.0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -170,11 +224,26 @@ public:
         const double cascadeDuckMs = 3.0;
         cascadeDuckAlpha = 1.0 - exp(-1.0 / (sampleRate * (cascadeDuckMs * 0.001)));
 
+        // Source-tract coupling smoother: ~5ms time constant.
+        // Prevents clicks when F1 changes abruptly between frames.
+        const double stcSmoothMs = 5.0;
+        stcAlpha = 1.0 - exp(-1.0 / (sampleRate * (stcSmoothMs * 0.001)));
+
+        // Subglottal coupling smoother: ~1.5ms time constant.
+        // Fast enough to track glottal cycles at typical F0 (~100-300 Hz,
+        // period 3-10 ms), smooth enough to avoid clicks at phase edges.
+        const double sgSmoothMs = 1.5;
+        sgCouplingAlpha = 1.0 - exp(-1.0 / (sampleRate * (sgSmoothMs * 0.001)));
+
         // Initialize with default voicing tone
         currentTone = speechPlayer_getDefaultVoicingTone();
 
         // High shelf: use defaults from voicing tone
         initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
+
+        // Pitch-sync F1 modulation: include glottal-cycle BW delta
+        cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz,
+                                   currentTone.pitchSyncB1DeltaHz + kGlottalCycleBwDelta);
 
         // ------------------------------------------------------------
         // Adaptive frication lowpass: select cutoffs based on sample rate
@@ -277,6 +346,12 @@ public:
                     shelfMix = 1.0;
                     smoothCascadeDuck = 1.0;  // Reset duck (no ducking)
                     limiterGain = 1.0;  // Reset limiter (no gain reduction)
+                    stcTiltState = 0.0;  // Reset source-tract coupling filter
+                    stcSmoothPole = 0.0;
+                    stcSmoothBwOff = 0.0;
+                    sgPole.reset();     // Reset subglottal resonators
+                    sgZero.reset();
+                    sgCouplingSmooth = 0.0;
                     // Reset stop fade-out state
                     stopFadeTotal = 0;
                     stopFadeRemaining = 0;
@@ -322,6 +397,35 @@ public:
                 // ------------------------------------------------------------
                 double asp = voiceGenerator.getLastAspOut();
                 double voicedOnly = voice - asp;
+
+                // ------------------------------------------------------------
+                // Source-tract coupling: modulate voiced source tilt by F1
+                // ------------------------------------------------------------
+                if (kSourceTractCoupling > 0.0) {
+                    double f1Hz = frame->cf1;
+                    if (f1Hz < 150.0) f1Hz = 150.0;
+                    if (f1Hz > 1000.0) f1Hz = 1000.0;
+
+                    // Normalize: 0 = low F1 (max coupling), 1 = high F1 (none)
+                    double f1Norm = (f1Hz - 150.0) / 850.0;
+
+                    double couplingAmt = (1.0 - f1Norm) * kSourceTractCoupling;
+
+                    // Tilt: one-pole LP, max pole ~0.35 at lowest F1 + full coupling.
+                    // This adds a gentle spectral rolloff to the source for high vowels.
+                    double targetPole = couplingAmt * 0.35;
+                    stcSmoothPole += (targetPole - stcSmoothPole) * stcAlpha;
+                    double p = stcSmoothPole;
+                    double stcOut = (1.0 - p) * voicedOnly + p * stcTiltState;
+                    stcTiltState = stcOut;
+                    voicedOnly = stcOut;
+
+                    // F1 bandwidth widening: up to +25 Hz at lowest F1.
+                    // Models increased damping from subglottal coupling.
+                    double targetBwOff = couplingAmt * 25.0;
+                    stcSmoothBwOff += (targetBwOff - stcSmoothBwOff) * stcAlpha;
+                    cascade.setF1BwOffset(stcSmoothBwOff);
+                }
 
                 // Smooth frication amplitude
                 double targetFricAmp = frame->fricationAmplitude;
@@ -412,6 +516,25 @@ public:
                 // Crossfade: during bursts, use filtered aspiration; otherwise use original
                 asp = asp + burstiness * (aspFilt - asp);
                 double voiceForCascade = voicedOnly + asp;
+
+                // ------------------------------------------------------------
+                // Subglottal coupling: Sg1 pole-zero pair, gated by glottal phase
+                // ------------------------------------------------------------
+                // The tracheal resonance couples through the open glottis.
+                // Always run the resonators (keeps state continuous), then
+                // crossfade between dry and coupled signal.
+                if (kSubglottalCoupling > 0.0) {
+                    double sgTarget = voiceGenerator.glottisOpen
+                        ? kSubglottalCoupling
+                        : kSubglottalCoupling * kSgClosedPhaseLeak;
+                    sgCouplingSmooth += (sgTarget - sgCouplingSmooth) * sgCouplingAlpha;
+
+                    // Anti-resonance (zero) then resonance (pole) — Klatt ordering
+                    double sgFiltered = sgZero.resonate(voiceForCascade, kSgZ1Freq, kSgZ1Bw);
+                    sgFiltered = sgPole.resonate(sgFiltered, kSg1Freq, kSg1Bw);
+
+                    voiceForCascade += sgCouplingSmooth * (sgFiltered - voiceForCascade);
+                }
 
                 double cascadeOut = cascade.getNext(frame, frameEx, voiceGenerator.glottisOpen, voiceForCascade * smoothPreGain);
 
@@ -626,8 +749,9 @@ public:
         // Update high-shelf coefficients (do not reset state)
         initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
         
-        // Update pitch-sync F1 modulation params
-        cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz, currentTone.pitchSyncB1DeltaHz);
+        // Update pitch-sync F1 modulation params (include glottal-cycle BW delta)
+        cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz,
+                                   currentTone.pitchSyncB1DeltaHz + kGlottalCycleBwDelta);
         cascade.setCascadeBwScale(currentTone.cascadeBwScale);
         
         // Update tremor depth for elderly/shaky voice
