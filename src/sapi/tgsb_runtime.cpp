@@ -952,8 +952,23 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
 
     int ok = 0;
 
-    // Prefer extended API (ABI v2+) for FrameEx support.
-    if (nvspFrontend_queueIPA_Ex_) {
+    // Prefer ExWithText (ABI v4+) for CMU Dict stress correction.
+    if (nvspFrontend_queueIPA_ExWithText_) {
+        const std::string text_utf8 = utils::wstring_to_string(text);
+        ok = nvspFrontend_queueIPA_ExWithText_(
+            frontend_,
+            text_utf8.c_str(),
+            ipa_buf_.c_str(),
+            params.speed,
+            params.base_pitch,
+            params.inflection,
+            clause,
+            params.user_index_base,
+            &runtime::frontend_frame_ex_cb,
+            &ctx
+        );
+    } else if (nvspFrontend_queueIPA_Ex_) {
+        // ABI v2+: FrameEx support but no text parser.
         ok = nvspFrontend_queueIPA_Ex_(
             frontend_,
             ipa_buf_.c_str(),
@@ -1096,6 +1111,9 @@ HRESULT runtime::load_modules()
     nvspFrontend_getVoicingTone_ = reinterpret_cast<nvspFrontend_getVoicingTone_t>(GetProcAddress(frontend_mod_, "nvspFrontend_getVoicingTone"));
     nvspFrontend_setFrameExDefaults_ = reinterpret_cast<nvspFrontend_setFrameExDefaults_t>(GetProcAddress(frontend_mod_, "nvspFrontend_setFrameExDefaults"));
     nvspFrontend_getABIVersion_ = reinterpret_cast<nvspFrontend_getABIVersion_t>(GetProcAddress(frontend_mod_, "nvspFrontend_getABIVersion"));
+
+    // Text parser API (ABI v4+). Optional — enables CMU Dict stress correction.
+    nvspFrontend_queueIPA_ExWithText_ = reinterpret_cast<nvspFrontend_queueIPA_ExWithText_t>(GetProcAddress(frontend_mod_, "nvspFrontend_queueIPA_ExWithText"));
 
     if (nvspFrontend_getABIVersion_) {
         DEBUG_LOG("nvspFrontend ABI version: %d", nvspFrontend_getABIVersion_());

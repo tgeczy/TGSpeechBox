@@ -41,11 +41,34 @@ std::vector<std::wstring> get_voice_profile_names();
 // ------------ FrameEx parameters (DSP v5+ / Frontend ABI v2+) ------------
 
 struct FrameEx {
+    // Voice quality (DSP v5)
     double creakiness;      // laryngealization / creaky voice (0.0-1.0)
     double breathiness;     // breath noise mixed into voicing (0.0-1.0)
     double jitter;          // pitch period variation (0.0-1.0)
     double shimmer;         // amplitude variation (0.0-1.0)
     double sharpness;       // glottal closure sharpness multiplier (1.0 = neutral)
+    // Formant end targets (DECTalk-style within-frame ramping, NAN = no ramp)
+    double endCf1;          // Cascade F1 end target (Hz)
+    double endCf2;          // Cascade F2 end target (Hz)
+    double endCf3;          // Cascade F3 end target (Hz)
+    double endPf1;          // Parallel F1 end target (Hz)
+    double endPf2;          // Parallel F2 end target (Hz)
+    double endPf3;          // Parallel F3 end target (Hz)
+    // Fujisaki pitch model (DSP v6+, time units in samples)
+    double fujisakiEnabled;     // 0.0 = off, >0.5 = on
+    double fujisakiReset;       // rising edge resets model state
+    double fujisakiPhraseAmp;   // phrase command amplitude (e.g. 1.3)
+    double fujisakiPhraseLen;   // phrase filter L (samples). 0 = use default
+    double fujisakiAccentAmp;   // accent command amplitude (e.g. 0.4)
+    double fujisakiAccentDur;   // accent duration D (samples). 0 = use default
+    double fujisakiAccentLen;   // accent filter L (samples). 0 = use default
+    // Per-parameter transition speed scales (< 1.0 = reach target early, then hold)
+    double transF1Scale;        // cf1, pf1, cb1, pb1
+    double transF2Scale;        // cf2, pf2, cb2, pb2
+    double transF3Scale;        // cf3, pf3, cb3, pb3
+    double transNasalScale;     // cfN0, cfNP, cbN0, cbNP, caNP
+    // Amplitude crossfade mode: 0.0 = linear, 1.0 = equal-power
+    double transAmplitudeMode;
 };
 
 // ------------ VoicingTone parameters (DSP v5+ / Frontend ABI v2+) ------------
@@ -63,6 +86,8 @@ struct VoicingTone {
     double pitchSyncB1DeltaHz;    // Pitch-synchronous B1 delta
     double speedQuotient;         // Glottal speed quotient (2.0 = neutral)
     double aspirationTiltDbPerOct; // Aspiration spectral tilt
+    double cascadeBwScale;        // Global cascade bandwidth multiplier (1.0 = neutral)
+    double tremorDepth;           // Tremor depth for elderly/shaky voice (0-0.5)
 };
 
 // ------------ Runtime (DLL loader + synthesis pipeline) ------------
@@ -211,6 +236,9 @@ private:
     using nvspFrontend_setFrameExDefaults_t = void (__cdecl*)(void* handle, double creakiness, double breathiness, double jitter, double shimmer, double sharpness);
     using nvspFrontend_getABIVersion_t = int (__cdecl*)(void);
 
+    // Text parser API (ABI v4+) — enables CMU Dict stress correction.
+    using nvspFrontend_queueIPA_ExWithText_t = int (__cdecl*)(void* handle, const char* textUtf8, const char* ipaUtf8, double speed, double basePitch, double inflection, const char* clauseTypeUtf8, int userIndexBase, nvspFrontend_frame_ex_cb_t cb, void* userData);
+
     nvspFrontend_create_t nvspFrontend_create_ = nullptr;
     nvspFrontend_destroy_t nvspFrontend_destroy_ = nullptr;
     nvspFrontend_setLanguage_t nvspFrontend_setLanguage_ = nullptr;
@@ -225,6 +253,7 @@ private:
     nvspFrontend_getVoicingTone_t nvspFrontend_getVoicingTone_ = nullptr;
     nvspFrontend_setFrameExDefaults_t nvspFrontend_setFrameExDefaults_ = nullptr;
     nvspFrontend_getABIVersion_t nvspFrontend_getABIVersion_ = nullptr;
+    nvspFrontend_queueIPA_ExWithText_t nvspFrontend_queueIPA_ExWithText_ = nullptr;
 
     // --- function pointers (libespeak-ng.dll) ---
     using espeak_Initialize_t = int (__cdecl*)(int output, int buflength, const char* path, int options);
