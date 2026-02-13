@@ -181,6 +181,19 @@ using fe_queueIPA_Ex_fn = int(*)(
   void*
 );
 
+using fe_queueIPA_ExWithText_fn = int(*)(
+  nvspFrontend_handle_t,
+  const char*,  // textUtf8
+  const char*,  // ipaUtf8
+  double,
+  double,
+  double,
+  const char*,
+  int,
+  nvspFrontend_FrameExCallback,
+  void*
+);
+
 class TgsbRuntime {
 public:
   TgsbRuntime();
@@ -219,11 +232,13 @@ public:
   );
 
   // Synthesize an IPA string via nvspFrontend.dll to PCM samples.
+  // If textUtf8 is non-empty, uses queueIPA_ExWithText for stress correction.
   bool synthIpa(
     const std::string& ipaUtf8,
     int sampleRate,
     std::vector<sample>& outSamples,
-    std::string& outError
+    std::string& outError,
+    const std::string& textUtf8 = ""
   );
 
   // Last frontend error (if available).
@@ -288,6 +303,7 @@ private:
   fe_getPackWarnings_fn m_feGetPackWarnings = nullptr;
   fe_setFrameExDefaults_fn m_feSetFrameExDefaults = nullptr;
   fe_queueIPA_Ex_fn m_feQueueIPA_Ex = nullptr;
+  fe_queueIPA_ExWithText_fn m_feQueueIPA_ExWithText = nullptr;
 
   // Runtime state
   nvspFrontend_handle_t m_feHandle = nullptr;

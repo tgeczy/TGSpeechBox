@@ -672,7 +672,11 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
 
     if (t.syllableStart) {
       syllableStress = t.stress;
-      if (syllableStress == 1) {
+      if (lang.prominenceEnabled) {
+        // When the prominence pass handles stress realization,
+        // skip the old stressDiv logic to avoid double-lengthening.
+        curSpeed = baseSpeed;
+      } else if (syllableStress == 1) {
         curSpeed = baseSpeed / lang.primaryStressDiv;
       } else if (syllableStress == 2) {
         curSpeed = baseSpeed / lang.secondaryStressDiv;

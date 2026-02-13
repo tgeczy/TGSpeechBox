@@ -73,18 +73,17 @@ settings:
   prominence:
     enabled: true
 
-    # English: stress marks are the primary source. Vowel length is
-    # phonemic but eSpeak already marks stress, so longVowelWeight
-    # is low. Word-initial boost gives a subtle naturalness nudge.
-    primaryStressWeight: 1.0
-    secondaryStressWeight: 0.6
+    # Score: phonological stress classification.
+    secondaryStressLevel: 0.6     # prominence SCORE for secondary stress (0-1)
     longVowelWeight: 0.0          # English stress is lexical, not length-based
     longVowelMode: "never"
 
     wordInitialBoost: 0.1
     wordFinalReduction: 0.1
 
-    # Duration: prominent syllables hold steady, unstressed ones can shrink
+    # Duration: direct vowel multipliers (replace old stressDiv for vowels only)
+    primaryStressWeight: 1.4      # primary-stressed vowels x 1.4
+    secondaryStressWeight: 1.1    # secondary-stressed vowels x 1.1
     durationProminentFloorMs: 45
     durationReducedCeiling: 0.85
 

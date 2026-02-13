@@ -131,6 +131,7 @@ struct Options {
   std::string packDir = ".";      // Directory containing "packs/" or the packs folder itself.
   std::string language = "en";    // e.g. "en", "en-us", "fr".
   std::string voiceProfile = "";  // Voice profile name (empty = default)
+  std::string text = "";          // Original text for stress correction (optional)
 
   // Speech Dispatcher (SSIP) conventions are typically -100..+100 for rate.
   // We accept that and map it to a speed multiplier.
@@ -193,6 +194,7 @@ static void printHelp(const char* argv0) {
     << "  --lang <tag>          Language tag for pack selection (default: en)\n"
     << "  --voice <name>        Voice profile name (loads voicingTone from YAML)\n"
     << "  --list-voices         List available voice profiles and exit\n"
+    << "  --text <string>       Original text for stress correction (optional)\n"
     << "  --rate <int>          SSIP-style rate -100..100 (default: 0)\n"
     << "  --pitch <int>         Pitch 0..100 (default: 50)\n"
     << "  --volume <float>      Output gain multiplier (default: 1.0)\n"
@@ -309,6 +311,10 @@ static Options parseArgs(int argc, char** argv) {
     }
     if (a == "--voice") {
       if (const char* v = requireValue("--voice")) opt.voiceProfile = v;
+      continue;
+    }
+    if (a == "--text") {
+      if (const char* v = requireValue("--text")) opt.text = v;
       continue;
     }
     if (a == "--rate") { parseIntArg("--rate", opt.rate); continue; }
@@ -722,19 +728,38 @@ int main(int argc, char** argv) {
 
   const char* clauseTypeUtf8 = nullptr;
 
-  // Use the extended API to get per-phoneme FrameEx (e.g. Danish stød creakiness)
-  if (!nvspFrontend_queueIPA_Ex(
-    fe,
-    ipa.c_str(),
-    speed,
-    basePitchHz,
-    inflection,
-    clauseTypeUtf8,
-    /*userIndexBase=*/0,
-    &onFrontendFrameEx,
-    &cbCtx
-  )) {
-    std::cerr << "nvspFrontend_queueIPA_Ex failed\n";
+  // Use queueIPA_ExWithText when original text is available (stress correction),
+  // otherwise fall back to queueIPA_Ex.
+  int queueOk;
+  if (!opt.text.empty()) {
+    queueOk = nvspFrontend_queueIPA_ExWithText(
+      fe,
+      opt.text.c_str(),
+      ipa.c_str(),
+      speed,
+      basePitchHz,
+      inflection,
+      clauseTypeUtf8,
+      /*userIndexBase=*/0,
+      &onFrontendFrameEx,
+      &cbCtx
+    );
+  } else {
+    queueOk = nvspFrontend_queueIPA_Ex(
+      fe,
+      ipa.c_str(),
+      speed,
+      basePitchHz,
+      inflection,
+      clauseTypeUtf8,
+      /*userIndexBase=*/0,
+      &onFrontendFrameEx,
+      &cbCtx
+    );
+  }
+
+  if (!queueOk) {
+    std::cerr << "nvspFrontend_queueIPA failed\n";
     const char* err = nvspFrontend_getLastError(fe);
     if (err && *err) std::cerr << "  " << err << "\n";
     nvspFrontend_destroy(fe);

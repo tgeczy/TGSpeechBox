@@ -1191,9 +1191,12 @@ static bool synthIpaFromUi(AppController& app, std::vector<sample>& outSamples, 
   }
 
   std::string ipa;
+  std::string originalText;
   if (inputIsIpa) {
     ipa = wideToUtf8(text);
+    // No original text for stress correction when input is already IPA
   } else {
+    originalText = wideToUtf8(text);
     std::string err;
     if (!convertTextToIpaViaPhonemizer(app, text, ipa, err)) {
       outError = err;
@@ -1202,7 +1205,7 @@ static bool synthIpaFromUi(AppController& app, std::vector<sample>& outSamples, 
     setText(app.editIpaOut, utf8ToWide(ipa));
   }
 
-  return app.runtime.synthIpa(ipa, kSampleRate, outSamples, outError);
+  return app.runtime.synthIpa(ipa, kSampleRate, outSamples, outError, originalText);
 }
 
 static void onSpeak(AppController& app) {

@@ -752,15 +752,20 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   // ── Prominence pass ──
   bool prominenceEnabled = false;
 
-  // Sources
-  double prominencePrimaryStressWeight = 1.0;
-  double prominenceSecondaryStressWeight = 0.6;
+  // Score: phonological stress classification.
+  // secondaryStressLevel is the prominence SCORE for secondary stress (0-1).
+  double prominenceSecondaryStressLevel = 0.6;
   double prominenceLongVowelWeight = 0.5;
   std::string prominenceLongVowelMode = "unstressed-only"; // "unstressed-only", "always", "never"
   double prominenceWordInitialBoost = 0.0;
   double prominenceWordFinalReduction = 0.0;
 
-  // Realization: duration
+  // Realization: direct duration multipliers (like old stressDiv but vowel-only).
+  // 1.4 = 40% longer, 1.0 = no change, 0.5 = halved.
+  double prominencePrimaryStressWeight = 1.4;
+  double prominenceSecondaryStressWeight = 1.1;
+
+  // Realization: duration safety nets
   double prominenceDurationProminentFloorMs = 0.0;
   double prominenceDurationReducedCeiling = 1.0;
 

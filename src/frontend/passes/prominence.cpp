@@ -24,14 +24,24 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
   if (!lang.prominenceEnabled) return true;
   if (tokens.empty()) return true;
 
+  // Realization parameters (used by passes 2 and 3).
   const double primaryW   = lang.prominencePrimaryStressWeight;
   const double secondaryW = lang.prominenceSecondaryStressWeight;
-  const double longVowelW = lang.prominenceLongVowelWeight;
+
+  // Score settings (phonological classification).
+  const double secondaryLevel = lang.prominenceSecondaryStressLevel;
+  const double longVowelLevel = lang.prominenceLongVowelWeight;
   const std::string& longVowelMode = lang.prominenceLongVowelMode;
   const double wordInitBoost  = lang.prominenceWordInitialBoost;
   const double wordFinalReduc = lang.prominenceWordFinalReduction;
 
   // ── Pass 1: Compute raw prominence score for each vowel token ──
+  //
+  // Score reflects phonological stress category:
+  //   primary stress   → 1.0
+  //   secondary stress → secondaryLevel (default 0.6)
+  //   unstressed       → 0.0
+  // Plus additive word-position tweaks.  Clamped to [0, 1].
 
   // Build word-boundary info for word-position adjustments.
   struct WordInfo {
@@ -96,11 +106,11 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
 
     double score = 0.0;
 
-    // Source 1: Stress marks
+    // Source 1: Stress marks → categorical level
     if (t.stress == 1) {
-      score = std::max(score, primaryW);
+      score = 1.0;
     } else if (t.stress == 2) {
-      score = std::max(score, secondaryW);
+      score = secondaryLevel;
     } else {
       // Vowel might inherit stress from syllable start (eSpeak puts
       // stress on syllable-initial consonant, not vowel). Walk backward
@@ -108,8 +118,8 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
       for (size_t j = i; j > 0; --j) {
         const Token& prev = tokens[j - 1];
         if (prev.syllableStart) {
-          if (prev.stress == 1) score = std::max(score, primaryW);
-          else if (prev.stress == 2) score = std::max(score, secondaryW);
+          if (prev.stress == 1) score = 1.0;
+          else if (prev.stress == 2) score = secondaryLevel;
           break;
         }
         if (prev.wordStart) break;  // don't cross word boundaries
@@ -129,7 +139,7 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
         apply = (score < 0.01);  // effectively unstressed
       }
       if (apply) {
-        score = std::max(score, longVowelW);
+        score = std::max(score, longVowelLevel);
       }
     }
 
@@ -165,18 +175,33 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
   }
 
   // ── Pass 2: Duration realization ──
+  //
+  // Threshold-based vowel duration scaling:
+  //   prominence >= 0.9 → primary stress   → multiply by primaryStressWeight
+  //   prominence >= 0.4 → secondary stress → multiply by secondaryStressWeight
+  //   prominence <  0.3 → unstressed       → apply reducedCeiling
+  //   prominence >= 0.4 → apply floor (safety net)
 
-  const double floorMs = lang.prominenceDurationProminentFloorMs;
+  const double floorMs     = lang.prominenceDurationProminentFloorMs;
   const double reducedCeil = lang.prominenceDurationReducedCeiling;
-  const double speed = ctx.speed;
+  const double speed       = ctx.speed;
 
   for (Token& t : tokens) {
     if (isSilenceOrMissing(t) || !isVowel(t)) continue;
     if (t.prominence < 0.0) continue;  // not set
 
-    // Prominent vowels: enforce duration floor.
     // Skip tiedFrom tokens (diphthong offglides) — their short duration IS the glide.
-    if (floorMs > 0.0 && t.prominence >= 0.5 && !t.tiedFrom) {
+    if (t.tiedFrom) continue;
+
+    // Stress-based duration scaling (replaces old primaryStressDiv).
+    if (t.prominence >= 0.9) {
+      t.durationMs *= primaryW;
+    } else if (t.prominence >= 0.4) {
+      t.durationMs *= secondaryW;
+    }
+
+    // Safety floor for prominent vowels
+    if (t.prominence >= 0.4 && floorMs > 0.0) {
       double effectiveFloor = floorMs / speed;
       t.durationMs = std::max(t.durationMs, effectiveFloor);
     }
@@ -191,6 +216,10 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
   }
 
   // ── Pass 3: Amplitude realization ──
+  //
+  // Boost is scaled by primaryStressWeight so the weight knob controls
+  // how much stressed vowels stand out.  Reduction is NOT scaled by
+  // the weight — unstressed vowels get reduced regardless.
 
   const double boostDb = lang.prominenceAmplitudeBoostDb;
   const double reducDb = lang.prominenceAmplitudeReductionDb;
@@ -211,9 +240,9 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
 
       double dbChange = 0.0;
       if (t.prominence >= 0.5 && boostDb > 0.0) {
-        // Scale boost by how prominent: 0.5 → half boost, 1.0 → full boost
+        // Scale boost by prominence level AND stress weight
         double factor = (t.prominence - 0.5) / 0.5;
-        dbChange = boostDb * factor;
+        dbChange = boostDb * primaryW * factor;
       } else if (t.prominence < 0.3 && reducDb > 0.0) {
         // Scale reduction by how non-prominent: 0.3 → no reduction, 0.0 → full
         double factor = 1.0 - (t.prominence / 0.3);

@@ -25,6 +25,15 @@ settings:
   primaryStressDiv: 1.05
   secondaryStressDiv: 1.00
 
+  prominence:
+    enabled: true
+    secondaryStressLevel: 0.15    # Hungarian has no real secondary stress
+    primaryStressWeight: 1.05     # match old primaryStressDiv — minimal lengthening
+    secondaryStressWeight: 1.00   # match old secondaryStressDiv — no lengthening
+    durationReducedCeiling: 1.0   # no unstressed reduction (syllable-timed)
+    amplitudeBoostDb: 1.8         # stress lives in amplitude, not duration
+    amplitudeReductionDb: 0.0
+
   # === LENGTH CONTRAST ===
   # Hungarian has phonemic vowel length (a/á, e/é, i/í, etc.) — this MUST be
   # perceptually clear. The short/long distinction is the #1 prosodic feature.

@@ -642,6 +642,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getBoolFrom(*pr, "enabled", lp.prominenceEnabled);
     getNumFrom(*pr, "primaryStressWeight", lp.prominencePrimaryStressWeight);
     getNumFrom(*pr, "secondaryStressWeight", lp.prominenceSecondaryStressWeight);
+    getNumFrom(*pr, "secondaryStressLevel", lp.prominenceSecondaryStressLevel);
     getNumFrom(*pr, "longVowelWeight", lp.prominenceLongVowelWeight);
     getStrFrom(*pr, "longVowelMode", lp.prominenceLongVowelMode);
     getNumFrom(*pr, "wordInitialBoost", lp.prominenceWordInitialBoost);
@@ -656,6 +657,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getBool("prominenceEnabled", lp.prominenceEnabled);
   getNum("prominencePrimaryStressWeight", lp.prominencePrimaryStressWeight);
   getNum("prominenceSecondaryStressWeight", lp.prominenceSecondaryStressWeight);
+  getNum("prominenceSecondaryStressLevel", lp.prominenceSecondaryStressLevel);
   getNum("prominenceLongVowelWeight", lp.prominenceLongVowelWeight);
   getStr("prominenceLongVowelMode", lp.prominenceLongVowelMode);
   getNum("prominenceWordInitialBoost", lp.prominenceWordInitialBoost);
@@ -1483,6 +1485,19 @@ bool loadPackSet(
       if (!mergeLanguageFile(file, out, outError)) {
         return false;
       }
+    }
+  }
+
+  // Auto-migrate old stressDiv values into prominence weights when prominence
+  // is enabled but the user hasn't customized the weights.
+  if (out.lang.prominenceEnabled) {
+    if (out.lang.prominencePrimaryStressWeight == 1.4 &&
+        out.lang.primaryStressDiv != 1.4) {
+      out.lang.prominencePrimaryStressWeight = out.lang.primaryStressDiv;
+    }
+    if (out.lang.prominenceSecondaryStressWeight == 1.1 &&
+        out.lang.secondaryStressDiv != 1.1) {
+      out.lang.prominenceSecondaryStressWeight = out.lang.secondaryStressDiv;
     }
   }
 

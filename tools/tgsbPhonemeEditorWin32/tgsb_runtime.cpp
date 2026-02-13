@@ -572,6 +572,7 @@ void TgsbRuntime::unload() {
   m_feGetPackWarnings = nullptr;
   m_feSetFrameExDefaults = nullptr;
   m_feQueueIPA_Ex = nullptr;
+  m_feQueueIPA_ExWithText = nullptr;
 
   if (m_frontend) {
     FreeLibrary(m_frontend);
@@ -659,6 +660,9 @@ bool TgsbRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
   // FrameEx API (optional - enables per-phoneme voice quality mixing)
   m_feSetFrameExDefaults = reinterpret_cast<fe_setFrameExDefaults_fn>(GetProcAddress(m_frontend, "nvspFrontend_setFrameExDefaults"));
   m_feQueueIPA_Ex = reinterpret_cast<fe_queueIPA_Ex_fn>(GetProcAddress(m_frontend, "nvspFrontend_queueIPA_Ex"));
+
+  // Text parser API (optional - ABI v4+, enables CMU Dict stress correction)
+  m_feQueueIPA_ExWithText = reinterpret_cast<fe_queueIPA_ExWithText_fn>(GetProcAddress(m_frontend, "nvspFrontend_queueIPA_ExWithText"));
 
   if (!m_feCreate || !m_feDestroy || !m_feSetLanguage || !m_feQueueIPA || !m_feGetLastError) {
     outError = "nvspFrontend.dll is missing expected exports";
@@ -1162,7 +1166,8 @@ bool TgsbRuntime::synthIpa(
   const std::string& ipaUtf8,
   int sampleRate,
   std::vector<sample>& outSamples,
-  std::string& outError
+  std::string& outError,
+  const std::string& textUtf8
 ) {
   outSamples.clear();
   outError.clear();
@@ -1288,8 +1293,22 @@ for (size_t i = 0; i < clauses.size(); ++i) {
   char clauseBuf[2] = { punct, 0 };
 
   int qok;
-  // Use queueIPA_Ex if available - this gets per-phoneme FrameEx mixing from frontend
-  if (m_feQueueIPA_Ex) {
+  // Prefer queueIPA_ExWithText when text is available (stress correction)
+  if (m_feQueueIPA_ExWithText && !textUtf8.empty()) {
+    qok = m_feQueueIPA_ExWithText(
+      m_feHandle,
+      textUtf8.c_str(),
+      c.ipa.c_str(),
+      speed,
+      basePitch,
+      inflection,
+      clauseBuf,
+      -1,
+      frameExCallback,
+      &ctx
+    );
+  } else if (m_feQueueIPA_Ex) {
+    // Use queueIPA_Ex - per-phoneme FrameEx mixing from frontend
     qok = m_feQueueIPA_Ex(
       m_feHandle,
       c.ipa.c_str(),
