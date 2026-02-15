@@ -21,12 +21,13 @@ from synthDriverHandler import synthDoneSpeaking, synthIndexReached
 
 class BgThread(threading.Thread):
     """Runs text->IPA->frames generation so speak() doesn't block NVDA."""
-    
-    def __init__(self, q: "queue.Queue", stopEvent: threading.Event):
+
+    def __init__(self, q: "queue.Queue", stopEvent: threading.Event, onError=None):
         super().__init__(name=f"{self.__class__.__module__}.{self.__class__.__qualname__}")
         self.daemon = True
         self._q = q
         self._stop = stopEvent
+        self._onError = onError
 
     def run(self):
         while not self._stop.is_set():
@@ -41,6 +42,14 @@ class BgThread(threading.Thread):
                 func(*args, **kwargs)
             except Exception:
                 log.error("nvSpeechPlayer: error in background thread", exc_info=True)
+                # Safety: ensure AudioThread doesn't hang waiting for frames
+                # that will never come (e.g. if _speakBg crashed after setting
+                # allFramesQueued=False).
+                if self._onError:
+                    try:
+                        self._onError()
+                    except Exception:
+                        pass
             finally:
                 try:
                     self._q.task_done()
@@ -73,9 +82,11 @@ class AudioThread(threading.Thread):
 
         self._keepAlive = True
         self.isSpeaking = False
+        self.allFramesQueued = True  # True = no more frames coming
 
         self._wake = threading.Event()
         self._init = threading.Event()
+        self._framesReady = threading.Event()  # BgThread signals when new frames are queued
 
         self._wavePlayer = None
         self._outputDevice = None
@@ -197,38 +208,54 @@ class AudioThread(threading.Thread):
         """Wake up the audio thread to start processing."""
         self._wake.set()
 
+    def stopPlayback(self):
+        """Stop the WavePlayer immediately. Thread-safe (called from main thread)."""
+        wp = self._wavePlayer  # single read — atomic for CPython
+        if wp:
+            try:
+                wp.stop()
+            except Exception:
+                pass
+
+    def _createWavePlayer(self, device):
+        """Create a WavePlayer with fallbacks for different NVDA versions.
+
+        Tries: purpose=SPEECH → buffered=True → bare constructor.
+        Returns the WavePlayer or raises on total failure.
+        """
+        try:
+            return nvwave.WavePlayer(
+                channels=1,
+                samplesPerSec=self._sampleRate,
+                bitsPerSample=16,
+                outputDevice=device,
+                purpose=nvwave.AudioPurpose.SPEECH,
+            )
+        except (TypeError, AttributeError):
+            pass
+        try:
+            return nvwave.WavePlayer(
+                channels=1,
+                samplesPerSec=self._sampleRate,
+                bitsPerSample=16,
+                outputDevice=device,
+                buffered=True,
+            )
+        except TypeError:
+            pass
+        return nvwave.WavePlayer(
+            channels=1,
+            samplesPerSec=self._sampleRate,
+            bitsPerSample=16,
+            outputDevice=device,
+        )
+
     def run(self):
         """Main audio thread loop."""
         # Initialize WavePlayer
         try:
             self._outputDevice = self._getOutputDevice()
-            # Try to create WavePlayer with AudioPurpose.SPEECH for NVDA's built-in
-            # audio keepalive and trimming features
-            try:
-                self._wavePlayer = nvwave.WavePlayer(
-                    channels=1,
-                    samplesPerSec=self._sampleRate,
-                    bitsPerSample=16,
-                    outputDevice=self._outputDevice,
-                    purpose=nvwave.AudioPurpose.SPEECH,
-                )
-            except (TypeError, AttributeError):
-                # Older NVDA versions don't have purpose parameter or AudioPurpose
-                try:
-                    self._wavePlayer = nvwave.WavePlayer(
-                        channels=1,
-                        samplesPerSec=self._sampleRate,
-                        bitsPerSample=16,
-                        outputDevice=self._outputDevice,
-                        buffered=True,
-                    )
-                except TypeError:
-                    self._wavePlayer = nvwave.WavePlayer(
-                        channels=1,
-                        samplesPerSec=self._sampleRate,
-                        bitsPerSample=16,
-                        outputDevice=self._outputDevice,
-                    )
+            self._wavePlayer = self._createWavePlayer(self._outputDevice)
         except Exception:
             log.error("nvSpeechPlayer: failed to initialize audio output", exc_info=True)
             self._wavePlayer = None
@@ -240,10 +267,36 @@ class AudioThread(threading.Thread):
         wavePlayer = self._wavePlayer
         wake = self._wake
         synthRef = self._synthRef
-        
+
         while self._keepAlive:
             wake.wait()
             wake.clear()
+
+            # Check if output device changed since we last created the player.
+            # NVDA's WASAPI layer handles hot-plugging (default device changes)
+            # automatically, but not explicit device switches in NVDA settings.
+            try:
+                newDevice = self._getOutputDevice()
+                if newDevice != self._outputDevice:
+                    self._outputDevice = newDevice
+                    old = self._wavePlayer
+                    try:
+                        self._wavePlayer = self._createWavePlayer(newDevice)
+                        wavePlayer = self._wavePlayer
+                    except Exception:
+                        log.error("nvSpeechPlayer: failed to recreate WavePlayer for new device",
+                                  exc_info=True)
+                        # Keep using old player as fallback
+                        self._wavePlayer = old
+                        wavePlayer = old
+                    else:
+                        if old:
+                            try:
+                                old.stop()
+                            except Exception:
+                                pass
+            except Exception:
+                pass
 
             lastIndex = None
             isFirstChunk = True
@@ -306,6 +359,15 @@ class AudioThread(threading.Thread):
                                 synthIndexReached.notify(synth=synth, index=index)
                         self._feed(b"", onDone=cb)
                     lastIndex = idx
+                    continue
+
+                # If BgThread is still generating frames, wait for a
+                # signal and retry instead of breaking.  This lets audio
+                # start playing while generation is still in progress
+                # (streaming mode) — critical for snappy cancel/speak.
+                if not self.allFramesQueued:
+                    self._framesReady.wait(timeout=0.005)
+                    self._framesReady.clear()
                     continue
 
                 break

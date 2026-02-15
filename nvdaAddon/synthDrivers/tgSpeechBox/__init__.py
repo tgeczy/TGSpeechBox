@@ -268,7 +268,7 @@ class SynthDriver(SynthDriver):
         self._bgQueue: "queue.Queue" = queue.Queue()
         self._bgStop = threading.Event()
         self._speakGen = 0  # Generation counter: cancel/speak race guard
-        self._bgThread = BgThread(self._bgQueue, self._bgStop)
+        self._bgThread = BgThread(self._bgQueue, self._bgStop, onError=self._onBgThreadError)
         self._bgThread.start()
 
         # 8. Initialize eSpeak
@@ -1039,12 +1039,26 @@ class SynthDriver(SynthDriver):
     def _get_availableLegacypitchmodes(self):
         return self._LEGACY_PITCH_MODES
 
+    def _onBgThreadError(self):
+        """Called by BgThread when an unhandled exception occurs.
+
+        Ensures AudioThread doesn't hang waiting for frames that will never
+        come (e.g. if _speakBg crashed after setting allFramesQueued=False).
+        """
+        if hasattr(self, "_audio") and self._audio:
+            self._audio.allFramesQueued = True
+            self._audio._framesReady.set()
+
     def _enqueue(self, func, *args, **kwargs):
         if self._bgStop.is_set():
             return
         self._bgQueue.put((func, args, kwargs))
 
-    def _notifyIndexesAndDone(self, indexes):
+    def _notifyIndexesAndDone(self, indexes, generation):
+        # cancel() may have invalidated this generation while it was
+        # queued in BgThread — don't fire a spurious synthDoneSpeaking.
+        if generation != self._speakGen:
+            return
         for i in indexes:
             synthIndexReached.notify(synth=self, index=i)
         synthDoneSpeaking.notify(synth=self)
@@ -1182,7 +1196,7 @@ class SynthDriver(SynthDriver):
                 anyText = True
 
         if (not anyText):
-            self._enqueue(self._notifyIndexesAndDone, indexes)
+            self._enqueue(self._notifyIndexesAndDone, indexes, self._speakGen)
             return
 
         # Stamp this speak with the current generation so cancel() can invalidate it.
@@ -1196,6 +1210,7 @@ class SynthDriver(SynthDriver):
         if generation != self._speakGen:
             return
         hadRealSpeech = False
+        hadKickedAudio = False  # streaming: kick AudioThread after first chunk
         hasIndex = bool(IndexCommand) and any(isinstance(i, IndexCommand) for i in speakList)
         blocks = self._buildBlocks(speakList, coalesceSayAll=hasIndex)
 
@@ -1401,6 +1416,19 @@ class SynthDriver(SynthDriver):
                     if (not ok) or queuedCount <= 0:
                         continue
 
+                    # Streaming: kick the AudioThread as soon as we have
+                    # frames so audio starts while we generate the rest.
+                    if not hadKickedAudio:
+                        if generation != self._speakGen:
+                            return
+                        self._audio.allFramesQueued = False
+                        self._audio.isSpeaking = True
+                        if generation != self._speakGen:
+                            self._audio.isSpeaking = False
+                            return
+                        self._audio.kick()
+                        hadKickedAudio = True
+
                     # Optional punctuation pause (micro-silence) after the clause.
                     # Insert only when we actually queued a voiced frame; otherwise we'd
                     # be adding silence after silence.
@@ -1412,6 +1440,11 @@ class SynthDriver(SynthDriver):
                             lastStreamWasVoiced = False
                         except Exception:
                             log.debug("TGSpeechBox: failed inserting punctuation pause", exc_info=True)
+
+                    # Signal AudioThread that new frames are available (streaming mode).
+                    # This replaces the 1ms polling sleep with an event-driven wakeup.
+                    if hadKickedAudio:
+                        self._audio._framesReady.set()
 
             # Emit IndexCommands after this block
             if indexesAfter:
@@ -1433,21 +1466,24 @@ class SynthDriver(SynthDriver):
         if hadRealSpeech:
             self._player.queueFrame(None, 1.0, 1.0)
 
+        # Signal that all frames have been queued so the AudioThread
+        # knows it can exit when synthesize() returns empty.
+        self._audio.allFramesQueued = True
+        self._audio._framesReady.set()  # wake AudioThread if waiting
+
         # Final generation check — if cancel() was called while we were
         # generating IPA/frames above, don't start the audio thread.
         if generation != self._speakGen:
             return
 
-        self._audio.isSpeaking = True
-
-        # Double-check: cancel() may have run between the check above
-        # and the flag set.  If so, undo immediately so the AudioThread
-        # doesn't play stale frames (fixes MultiLang overlap bug).
-        if generation != self._speakGen:
-            self._audio.isSpeaking = False
-            return
-
-        self._audio.kick()
+        if not hadKickedAudio:
+            # No streaming kick happened (e.g. very short utterance).
+            # Start the AudioThread now.
+            self._audio.isSpeaking = True
+            if generation != self._speakGen:
+                self._audio.isSpeaking = False
+                return
+            self._audio.kick()
 
     def cancel(self):
         """Cancel current speech immediately."""
@@ -1463,9 +1499,10 @@ class SynthDriver(SynthDriver):
             # AudioThread's inner loop exits at the next iteration and
             # the post-synthesize isSpeaking re-check prevents it from
             # feeding any more audio to the WavePlayer.
+            self._audio.allFramesQueued = True  # stop AudioThread polling
+            self._audio._framesReady.set()      # wake if waiting on Event
             self._audio.isSpeaking = False
-            if self._audio._wavePlayer:
-                self._audio._wavePlayer.stop()
+            self._audio.stopPlayback()
             self._audio._applyFadeIn = True
 
             # === PHASE 2: Invalidate in-flight work ===
