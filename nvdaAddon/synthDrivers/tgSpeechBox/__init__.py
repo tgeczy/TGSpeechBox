@@ -55,7 +55,8 @@ from .constants import (
     VOICE_PROFILE_PREFIX, COALESCE_MAX_CHARS, COALESCE_MAX_INDEXES
 )
 from .text_utils import (
-    re_textPause, normalizeTextForEspeak, looksLikeSentenceEnd
+    re_textPause, normalizeTextForEspeak, looksLikeSentenceEnd,
+    splitByScript,
 )
 from .profile_utils import (
     discoverVoiceProfiles, buildVoiceOps, applyVoiceToFrame
@@ -1109,6 +1110,55 @@ class SynthDriver(SynthDriver):
         except Exception:
             return ""
 
+    def _espeakTextToIPA_scriptAware(self, text: str) -> str:
+        """Convert text to IPA, switching eSpeak language for foreign-script runs.
+
+        When the active language uses a non-Latin script (Russian, Bulgarian,
+        Greek, etc.) and the text contains Latin-script words, eSpeak would
+        produce garbage IPA for those words.  This method detects script
+        boundaries, temporarily switches eSpeak to the Latin fallback language,
+        and reassembles the IPA.
+        """
+        if not text:
+            return ""
+
+        latinFallback = getattr(self, "_latinFallbackLang", "en-gb")
+
+        segments = splitByScript(text, self._espeakLang, latinFallback)
+
+        # Fast path: no script switching needed (single segment, base lang).
+        if len(segments) == 1 and segments[0][1] is None:
+            return self._espeakTextToIPA(text)
+
+        ipaChunks = []
+        currentLang = self._espeakLang
+
+        for segText, langOverride in segments:
+            if not segText or not segText.strip():
+                continue
+
+            # Switch eSpeak language if needed.
+            targetLang = langOverride or self._espeakLang
+            if targetLang != currentLang:
+                try:
+                    _espeak.setVoiceByLanguage(targetLang)
+                    currentLang = targetLang
+                except Exception:
+                    pass  # Fall through with current language.
+
+            ipa = self._espeakTextToIPA(segText)
+            if ipa:
+                ipaChunks.append(ipa)
+
+        # Restore base language if we switched away.
+        if currentLang != self._espeakLang:
+            try:
+                _espeak.setVoiceByLanguage(self._espeakLang)
+            except Exception:
+                pass
+
+        return " ".join(ipaChunks)
+
     def _buildBlocks(self, speechSequence, coalesceSayAll: bool = False):
         """Convert an NVDA speechSequence into blocks: (text, [indexesAfterText], pitchOffset).
 
@@ -1275,7 +1325,7 @@ class SynthDriver(SynthDriver):
 
                     punctPauseMs = _punctuationPauseMs(punctToken)
 
-                    ipaText = self._espeakTextToIPA(chunk)
+                    ipaText = self._espeakTextToIPA_scriptAware(chunk)
                     if not ipaText:
                         # Nothing speakable, but don't drop indexes (they are queued after the block).
                         continue
