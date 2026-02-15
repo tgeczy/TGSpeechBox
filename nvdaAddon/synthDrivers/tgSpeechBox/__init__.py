@@ -63,6 +63,13 @@ from .profile_utils import (
 from .audio import BgThread, AudioThread
 from .migrate_config import run as _migrate_config
 
+
+try:
+    import addonHandler
+    addonHandler.initTranslation()
+except Exception:
+    def _(s): return s
+
 # Pre-calculate per-voice operations for fast application
 _frameFieldNames = {x[0] for x in speechPlayer.Frame._fields_}
 _voiceOps = buildVoiceOps(voices, _frameFieldNames)
@@ -83,34 +90,34 @@ class SynthDriver(SynthDriver):
         SynthDriver.PitchSetting(),
         SynthDriver.InflectionSetting(),
         SynthDriver.VolumeSetting(),
-        NumericDriverSetting("voiceTilt", "Voice tilt (brightness)", defaultVal=50),
-        NumericDriverSetting("noiseGlottalMod", "Noise glottal modulation", defaultVal=0),
-        NumericDriverSetting("pitchSyncF1", "Pitch-sync F1 delta", defaultVal=50),
-        NumericDriverSetting("pitchSyncB1", "Pitch-sync B1 delta", defaultVal=50),
-        NumericDriverSetting("speedQuotient", "Speed quotient (voice tension)", defaultVal=50),
-        NumericDriverSetting("aspirationTilt", "Aspiration tilt (breath color)", defaultVal=50),
-        NumericDriverSetting("cascadeBwScale", "Formant sharpness (cascade bandwidth)", defaultVal=50),
-        NumericDriverSetting("voiceTremor", "Voice tremor (shakiness)", defaultVal=0),
+        NumericDriverSetting("voiceTilt", _("Voice tilt (brightness)"), defaultVal=50),
+        NumericDriverSetting("noiseGlottalMod", _("Noise glottal modulation"), defaultVal=0),
+        NumericDriverSetting("pitchSyncF1", _("Pitch-sync F1 delta"), defaultVal=50),
+        NumericDriverSetting("pitchSyncB1", _("Pitch-sync B1 delta"), defaultVal=50),
+        NumericDriverSetting("speedQuotient", _("Speed quotient (voice tension)"), defaultVal=50),
+        NumericDriverSetting("aspirationTilt", _("Aspiration tilt (breath color)"), defaultVal=50),
+        NumericDriverSetting("cascadeBwScale", _("Formant sharpness (cascade bandwidth)"), defaultVal=50),
+        NumericDriverSetting("voiceTremor", _("Voice tremor (shakiness)"), defaultVal=0),
         # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
-        NumericDriverSetting("frameExCreakiness", "Creakiness (laryngealization)", defaultVal=0),
-        NumericDriverSetting("frameExBreathiness", "Breathiness", defaultVal=0),
-        NumericDriverSetting("frameExJitter", "Jitter (pitch variation)", defaultVal=0),
-        NumericDriverSetting("frameExShimmer", "Shimmer (amplitude variation)", defaultVal=0),
-        NumericDriverSetting("frameExSharpness", "Glottal sharpness", defaultVal=50),
+        NumericDriverSetting("frameExCreakiness", _("Creakiness (laryngealization)"), defaultVal=0),
+        NumericDriverSetting("frameExBreathiness", _("Breathiness"), defaultVal=0),
+        NumericDriverSetting("frameExJitter", _("Jitter (pitch variation)"), defaultVal=0),
+        NumericDriverSetting("frameExShimmer", _("Shimmer (amplitude variation)"), defaultVal=0),
+        NumericDriverSetting("frameExSharpness", _("Glottal sharpness"), defaultVal=50),
         NumericDriverSetting("legacyPitchInflectionScale",
-            "Legacy pitch inflection scale (only active when pitch mode is classic)",
+            _("Legacy pitch inflection scale (only active when pitch mode is classic)"),
             defaultVal=29),
-        DriverSetting("pauseMode", "Pause mode"),
-        DriverSetting("sampleRate", "Sample rate"),
-        DriverSetting("language", "Language"),
+        DriverSetting("pauseMode", _("Pause mode")),
+        DriverSetting("sampleRate", _("Sample rate")),
+        DriverSetting("language", _("Language")),
         # Runtime language adjustments (other settings are YAML-only now)
-        DriverSetting("stopClosureMode", "Stop closure mode"),
-        DriverSetting("spellingDiphthongMode", "Spelling diphthong mode"),
+        DriverSetting("stopClosureMode", _("Stop closure mode")),
+        DriverSetting("spellingDiphthongMode", _("Spelling diphthong mode")),
     ]
 
     # Only expose legacyPitchMode combo - all other booleans are YAML-only.
     _supportedSettings.append(
-        DriverSetting("legacyPitchMode", "Pitch mode"),
+        DriverSetting("legacyPitchMode", _("Pitch mode")),
     )
 
     supportedSettings = tuple(_supportedSettings)
@@ -819,40 +826,40 @@ class SynthDriver(SynthDriver):
 
     _STOP_CLOSURE_MODES = OrderedDict(
         (
-            ("always", VoiceInfo("always", "Always")),
-            ("after-vowel", VoiceInfo("after-vowel", "After vowel")),
-            ("vowel-and-cluster", VoiceInfo("vowel-and-cluster", "Vowel and cluster")),
-            ("none", VoiceInfo("none", "None")),
+            ("always", VoiceInfo("always", _("Always"))),
+            ("after-vowel", VoiceInfo("after-vowel", _("After vowel"))),
+            ("vowel-and-cluster", VoiceInfo("vowel-and-cluster", _("Vowel and cluster"))),
+            ("none", VoiceInfo("none", _("None"))),
         )
     )
 
     _SPELLING_DIPHTHONG_MODES = OrderedDict(
         (
-            ("none", VoiceInfo("none", "None")),
-            ("monophthong", VoiceInfo("monophthong", "Monophthong")),
+            ("none", VoiceInfo("none", _("None"))),
+            ("monophthong", VoiceInfo("monophthong", _("Monophthong"))),
         )
     )
 
     _TONE_CONTOURS_MODES = OrderedDict(
         (
-            ("absolute", VoiceInfo("absolute", "Absolute")),
-            ("relative", VoiceInfo("relative", "Relative")),
+            ("absolute", VoiceInfo("absolute", _("Absolute"))),
+            ("relative", VoiceInfo("relative", _("Relative"))),
         )
     )
 
     _COARTICULATION_ADJACENCY_MODES = OrderedDict(
         (
-            ("0", VoiceInfo("0", "Immediate neighbors only")),
-            ("1", VoiceInfo("1", "Allow C_V (one consonant)")),
-            ("2", VoiceInfo("2", "Allow CC_V (two consonants)")),
+            ("0", VoiceInfo("0", _("Immediate neighbors only"))),
+            ("1", VoiceInfo("1", _("Allow C_V (one consonant)"))),
+            ("2", VoiceInfo("2", _("Allow CC_V (two consonants)"))),
         )
     )
 
     _LEGACY_PITCH_MODES = OrderedDict(
         (
-            ("espeak_style", VoiceInfo("espeak_style", "eSpeak style")),
-            ("fujisaki_style", VoiceInfo("fujisaki_style", "Fujisaki")),
-            ("legacy", VoiceInfo("legacy", "Classic")),
+            ("espeak_style", VoiceInfo("espeak_style", _("eSpeak style"))),
+            ("fujisaki_style", VoiceInfo("fujisaki_style", _("Fujisaki"))),
+            ("legacy", VoiceInfo("legacy", _("Classic"))),
         )
     )
 

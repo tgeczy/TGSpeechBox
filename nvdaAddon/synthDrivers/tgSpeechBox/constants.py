@@ -13,6 +13,13 @@ from collections import OrderedDict
 from synthDriverHandler import VoiceInfo
 
 
+try:
+    import addonHandler
+    addonHandler.initTranslation()
+except Exception:
+    def _(s): return s
+
+
 # Language choices exposed in NVDA settings.
 languages = OrderedDict([
     ("en-us", VoiceInfo("en-us", "English (US)")),
@@ -44,19 +51,19 @@ languages = OrderedDict([
 # Punctuation pause modes exposed in NVDA settings.
 pauseModes = OrderedDict(
     (
-        ("off", VoiceInfo("off", "Off")),
-        ("short", VoiceInfo("short", "Short")),
-        ("long", VoiceInfo("long", "Long")),
+        ("off", VoiceInfo("off", _("Off"))),
+        ("short", VoiceInfo("short", _("Short"))),
+        ("long", VoiceInfo("long", _("Long"))),
     )
 )
 
 # Sample rates exposed in NVDA settings
 sampleRates = OrderedDict(
     (
-        ("11025", VoiceInfo("11025", "11025 Hz")),
-        ("16000", VoiceInfo("16000", "16000 Hz (default)")),
-        ("22050", VoiceInfo("22050", "22050 Hz")),
-        ("44100", VoiceInfo("44100", "44100 Hz")),
+        ("11025", VoiceInfo("11025", _("11025 Hz"))),
+        ("16000", VoiceInfo("16000", _("16000 Hz (default)"))),
+        ("22050", VoiceInfo("22050", _("22050 Hz"))),
+        ("44100", VoiceInfo("44100", _("44100 Hz"))),
     )
 )
 

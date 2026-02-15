@@ -21,35 +21,73 @@ import os
 from typing import Dict, Optional
 
 
-def _lazyInitTranslation():
-    """Return a callable translation function ``_``.
+try:
+    import addonHandler  # type: ignore
+    addonHandler.initTranslation()
+except Exception:
+    def _(s): return s
 
-    NVDA add-ons usually do:
-        import addonHandler
-        addonHandler.initTranslation()
-    which installs the translation function into ``builtins._``.
 
-    Some NVDA versions also expose a *module* named ``gettext`` under addonHandler,
-    so we must not return ``addonHandler.gettext`` directly (it may be a module,
-    which would trigger: TypeError: 'module' object is not callable).
+import re as _re
+
+
+def _splitCamelCase(s: str) -> str:
+    """Split camelCase into space-separated words: 'vowelToStopFadeMs' -> 'vowel To Stop Fade Ms'."""
+    s = _re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", s)
+    s = _re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", s)
+    return s
+
+
+def _prettifyField(s: str) -> str:
+    """Capitalize first letter, uppercase formant refs, convert trailing units."""
+    if not s:
+        return s
+    s = s[0].upper() + s[1:]
+    # Uppercase formant/bandwidth refs: f1→F1, b1→B1, cf2→CF2, pf3→PF3
+    s = _re.sub(r"\b([cfpb])(\d)", lambda m: m.group(1).upper() + m.group(2), s)
+    # Only convert units at the very END of the string to avoid mid-string mangling
+    s = _re.sub(r"\s+Ms$", " (ms)", s)
+    s = _re.sub(r"\s+Hz$", " (Hz)", s)
+    s = _re.sub(r"\s+Db$", " (dB)", s)
+    s = _re.sub(r"\s+Pct$", " (%)", s)
+    return s
+
+
+def _autoDisplayName(key: str) -> str:
+    """Generate a human-readable display name from an internal YAML key.
+
+    Nested keys   → 'Category: Field'
+    Sub-nested    → 'Category: Sub-Block Field'
+    Flat camelCase → 'Title Cased Words'
     """
-    try:
-        import addonHandler  # type: ignore
-
-        addonHandler.initTranslation()
-        import builtins
-
-        t = getattr(builtins, "_", None)
-        if callable(t):
-            return t
-    except Exception:
-        pass
-
-    # Fallback: no translation available.
-    return lambda s: s
+    if "." in key:
+        parts = key.split(".")
+        category = _splitCamelCase(parts[0]).title()
+        fieldParts = [_splitCamelCase(p) for p in parts[1:]]
+        field = " ".join(fieldParts)
+        field = _prettifyField(field)
+        return f"{category}: {field}"
+    name = _splitCamelCase(key)
+    return _prettifyField(name)
 
 
-_ = _lazyInitTranslation()
+def _displayNameForKey(key: str) -> str:
+    """Return the localized display name for a YAML setting key."""
+    return _(_autoDisplayName(key))
+
+
+# Reverse-lookup cache: populated lazily per call
+_reverseCache: Dict[str, str] = {}
+_reverseCacheKeys: Optional[list] = None
+
+
+def _keyForDisplayName(displayName: str, knownKeys: list) -> str:
+    """Reverse-lookup: localized display name -> raw YAML key."""
+    global _reverseCache, _reverseCacheKeys
+    if _reverseCacheKeys is not knownKeys:
+        _reverseCache = {_displayNameForKey(k): k for k in knownKeys}
+        _reverseCacheKeys = knownKeys
+    return _reverseCache.get(displayName, displayName)
 
 
 def _getPacksDir() -> str:
@@ -498,6 +536,141 @@ def _getPanelClass():
                 "wordFinalSchwaMinDurationMs",
                 "wordFinalSchwaReductionEnabled",
                 "wordFinalSchwaScale",
+                # --- Keys below were added in bulk to sync with pack.cpp ---
+                # Timing defaults (flat)
+                "affricateDurationMs",
+                "fadeAfterLiquidMs",
+                "liquidFadeMs",
+                "stopDurationMs",
+                "tapDurationMs",
+                "tiedFromVowelDurationMs",
+                "tiedFromVowelFadeMs",
+                "tiedVowelDurationMs",
+                "trillFallbackDurationMs",
+                # Boundary smoothing — place-of-articulation scales (nested)
+                "boundarySmoothing.alveolarF1Scale",
+                "boundarySmoothing.alveolarF2Scale",
+                "boundarySmoothing.alveolarF3Scale",
+                "boundarySmoothing.labialF1Scale",
+                "boundarySmoothing.labialF2Scale",
+                "boundarySmoothing.labialF3Scale",
+                "boundarySmoothing.palatalF1Scale",
+                "boundarySmoothing.palatalF2Scale",
+                "boundarySmoothing.palatalF3Scale",
+                "boundarySmoothing.velarF1Scale",
+                "boundarySmoothing.velarF2Scale",
+                "boundarySmoothing.velarF3Scale",
+                "boundarySmoothing.withinSyllableFadeScale",
+                "boundarySmoothing.withinSyllableScale",
+                # Boundary smoothing — nested fade times
+                "boundarySmoothing.fricToStopFadeMs",
+                "boundarySmoothing.fricToVowelFadeMs",
+                "boundarySmoothing.liquidToStopFadeMs",
+                "boundarySmoothing.liquidToVowelFadeMs",
+                "boundarySmoothing.nasalF1Instant",
+                "boundarySmoothing.nasalF2F3SpansPhone",
+                "boundarySmoothing.nasalToStopFadeMs",
+                "boundarySmoothing.nasalToVowelFadeMs",
+                "boundarySmoothing.plosiveSpansPhone",
+                "boundarySmoothing.stopToFricFadeMs",
+                "boundarySmoothing.stopToVowelFadeMs",
+                "boundarySmoothing.vowelToFricFadeMs",
+                "boundarySmoothing.vowelToLiquidFadeMs",
+                "boundarySmoothing.vowelToNasalFadeMs",
+                "boundarySmoothing.vowelToStopFadeMs",
+                "boundarySmoothing.vowelToVowelFadeMs",
+                # Boundary smoothing — flat keys missing previously
+                "boundarySmoothingEnabled",
+                "boundarySmoothingF1Scale",
+                "boundarySmoothingF2Scale",
+                "boundarySmoothingF3Scale",
+                # Cluster blend — forward drift
+                "clusterBlend.forwardDriftStrength",
+                "clusterBlendForwardDriftStrength",
+                # Cluster timing — flat keys
+                "clusterTimingAffricateInClusterScale",
+                "clusterTimingEnabled",
+                "clusterTimingFricBeforeFricScale",
+                "clusterTimingFricBeforeStopScale",
+                "clusterTimingStopBeforeFricScale",
+                "clusterTimingStopBeforeStopScale",
+                "clusterTimingTripleClusterMiddleScale",
+                "clusterTimingWordFinalObstruentScale",
+                "clusterTimingWordMedialConsonantScale",
+                # Coarticulation — missing flat key
+                "coarticulationCrossSyllableScale",
+                # Defaults (voice/output)
+                "defaultGlottalOpenQuotient",
+                "defaultOutputGain",
+                "defaultPreFormantGain",
+                "defaultVibratoPitchOffset",
+                "defaultVibratoSpeed",
+                "defaultVoiceTurbulenceAmplitude",
+                # Diphthong auto-tie
+                "autoDiphthongOffglideToSemivowel",
+                "autoTieDiphthongs",
+                # Fujisaki — missing
+                "fujisakiDeclinationPostFloor",
+                # Hungarian / language-specific
+                "applyLengthenedScaleToVowelsOnly",
+                "huShortAVowelEnabled",
+                "huShortAVowelKey",
+                "huShortAVowelScale",
+                "lengthenedScaleHu",
+                # Length contrast — flat keys
+                "lengthContrastEnabled",
+                "lengthContrastGeminateClosureScale",
+                "lengthContrastGeminateReleaseScale",
+                "lengthContrastLongVowelFloorMs",
+                "lengthContrastPreGeminateVowelScale",
+                "lengthContrastShortVowelCeilingMs",
+                # Liquid dynamics — flat keys
+                "liquidDynamicsEnabled",
+                "liquidDynamicsLabialGlideStartF1",
+                "liquidDynamicsLabialGlideStartF2",
+                "liquidDynamicsLabialGlideTransitionEnabled",
+                "liquidDynamicsLabialGlideTransitionPct",
+                "liquidDynamicsLateralOnglideDurationPct",
+                "liquidDynamicsLateralOnglideF1Delta",
+                "liquidDynamicsLateralOnglideF2Delta",
+                "liquidDynamicsRhoticF3DipDurationPct",
+                "liquidDynamicsRhoticF3DipEnabled",
+                "liquidDynamicsRhoticF3Minimum",
+                # Positional allophones
+                "positionalAllophones.enabled",
+                # Special coarticulation — flat keys
+                "specialCoarticMaxDeltaHz",
+                "specialCoarticulationEnabled",
+                # Stop closure — word boundary
+                "stopClosureClusterGapsEnabled",
+                "stopClosureWordBoundaryClusterFadeMs",
+                "stopClosureWordBoundaryClusterGapMs",
+                # Syllable duration (nested + flat)
+                "syllableDuration.codaScale",
+                "syllableDuration.enabled",
+                "syllableDuration.onsetScale",
+                "syllableDuration.unstressedOpenNucleusScale",
+                "syllableDurationCodaScale",
+                "syllableDurationEnabled",
+                "syllableDurationOnsetScale",
+                "syllableDurationUnstressedOpenNucleusScale",
+                # Tonal / text processing
+                "stripHyphen",
+                "tonal",
+                "toneContoursAbsolute",
+                "toneContoursMode",
+                "toneDigitsEnabled",
+                # Trajectory limit — flat keys
+                "trajectoryLimitApplyAcrossWordBoundary",
+                "trajectoryLimitApplyTo",
+                "trajectoryLimitEnabled",
+                "trajectoryLimitMaxHzPerMsCf2",
+                "trajectoryLimitMaxHzPerMsCf3",
+                "trajectoryLimitMaxHzPerMsPf2",
+                "trajectoryLimitMaxHzPerMsPf3",
+                "trajectoryLimitWindowMs",
+                # Voice profile
+                "voiceProfileName",
             ]
             for k in _extraKeys:
                 if k not in self._knownKeys:
@@ -534,11 +707,14 @@ def _getPanelClass():
                     "trajectoryLimit.enabled",
                 ], key=str.lower)
 
+            # Build display names for the combo box (localized, human-readable).
+            # Raw YAML keys are preserved in self._knownKeys for all YAML operations.
+            self._knownKeyDisplayNames = [_displayNameForKey(k) for k in self._knownKeys]
             self.settingKeyCtrl = self._addLabeledControlCompat(
                 sHelper,
                 _("Setting:"),
                 wx.ComboBox,
-                choices=self._knownKeys,
+                choices=self._knownKeyDisplayNames,
                 style=wx.CB_DROPDOWN | wx.CB_READONLY,
             )
             self.settingKeyCtrl.Bind(wx.EVT_COMBOBOX, self._onSettingKeyChanged)
@@ -1184,7 +1360,8 @@ def _getPanelClass():
             evt.Skip()
 
         def _onSettingKeyChanged(self, evt):
-            key = self.settingKeyCtrl.GetValue()
+            displayName = self.settingKeyCtrl.GetValue()
+            key = _keyForDisplayName(displayName, self._knownKeys)
             self._setCurrentKey(key)
             evt.Skip()
 
@@ -1205,7 +1382,7 @@ def _getPanelClass():
                 return
             self._currentKey = key
             try:
-                self.settingKeyCtrl.SetValue(key)
+                self.settingKeyCtrl.SetValue(_displayNameForKey(key))
             except Exception:
                 pass
             self._updateGenericDisplay()
@@ -1228,7 +1405,7 @@ def _getPanelClass():
             else:
                 value = langPackYaml.getEffectiveSettingValue(self._packsDir, langTag, key)
                 sourceTag = langPackYaml.getSettingSource(self._packsDir, langTag, key)
-                source = _(f"(from {sourceTag}.yaml)") if sourceTag else ""
+                source = _("(from {}.yaml)").format(sourceTag) if sourceTag else ""
                 if value is None:
                     value = ""
 
