@@ -297,6 +297,7 @@ class SynthDriver(SynthDriver):
         self._pauseMode = "short"
         self._language = "auto"
         self._resolvedLang = "en-us"
+        self._espeakLang = "en-us"
         self._langPackSettingsCache: dict[str, object] = {}
         self._sampleRate = 16000
         
