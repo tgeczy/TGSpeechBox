@@ -685,6 +685,36 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double boundarySmoothingF2Scale = 0.5;   // F2 arrives in 50% of fade
   double boundarySmoothingF3Scale = 0.5;   // F3 arrives in 50% of fade
 
+  // Per-place-of-articulation transition speed overrides.
+  // These replace the global F1/F2/F3 scales when a consonant's
+  // place is known.  0.0 = use global default.
+  //
+  // Physics: heavier articulators = slower transitions.
+  //   Lips: light, fast -> F2/F3 can be slower (lips independent of tongue)
+  //   Tongue tip: light, precise -> F2/F3 fast
+  //   Tongue blade (palatal): medium -> F3 slow (F3 IS the place cue)
+  //   Tongue body (velar): heavy -> F2 slow (F2 IS the place cue)
+
+  // Labial (/b/, /p/, /m/, /f/, /v/)
+  double boundarySmoothingLabialF1Scale  = 0.25;
+  double boundarySmoothingLabialF2Scale  = 0.60;
+  double boundarySmoothingLabialF3Scale  = 0.55;
+
+  // Alveolar (/t/, /d/, /n/, /s/, /z/, /l/)
+  double boundarySmoothingAlveolarF1Scale = 0.30;
+  double boundarySmoothingAlveolarF2Scale = 0.40;
+  double boundarySmoothingAlveolarF3Scale = 0.35;
+
+  // Palatal / Postalveolar (/ʃ/, /ʒ/, /tʃ/, /dʒ/, /j/)
+  double boundarySmoothingPalatalF1Scale = 0.30;
+  double boundarySmoothingPalatalF2Scale = 0.55;
+  double boundarySmoothingPalatalF3Scale = 0.70;
+
+  // Velar (/k/, /ɡ/, /ŋ/)
+  double boundarySmoothingVelarF1Scale   = 0.30;
+  double boundarySmoothingVelarF2Scale   = 0.65;
+  double boundarySmoothingVelarF3Scale   = 0.60;
+
   // Per-boundary-type fade times (ms, before speed division).
   double boundarySmoothingVowelToStopMs = 22.0;
   double boundarySmoothingStopToVowelMs = 20.0;

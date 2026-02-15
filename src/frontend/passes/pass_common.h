@@ -56,6 +56,50 @@ struct PassDesc {
   PassFn fn = nullptr;
 };
 
+// Place of articulation (shared across coarticulation and boundary smoothing).
+enum class Place {
+  Unknown,
+  Labial,
+  Alveolar,
+  Palatal,
+  Velar,
+};
+
+inline Place getPlace(const std::u32string& key) {
+  // Labials
+  if (key == U"p" || key == U"b" || key == U"m" ||
+      key == U"f" || key == U"v" || key == U"w" ||
+      key == U"ʍ" || key == U"ɸ" || key == U"β") {
+    return Place::Labial;
+  }
+
+  // Alveolars
+  if (key == U"t" || key == U"d" || key == U"n" ||
+      key == U"s" || key == U"z" || key == U"l" ||
+      key == U"r" || key == U"ɹ" || key == U"ɾ" ||
+      key == U"θ" || key == U"ð" || key == U"ɬ" ||
+      key == U"ɮ" || key == U"ɻ" || key == U"ɖ" ||
+      key == U"ʈ" || key == U"ɳ" || key == U"ɽ") {
+    return Place::Alveolar;
+  }
+
+  // Palatals / Postalveolars
+  if (key == U"ʃ" || key == U"ʒ" || key == U"tʃ" ||
+      key == U"dʒ" || key == U"j" || key == U"ɲ" ||
+      key == U"ç" || key == U"ʝ" || key == U"c" ||
+      key == U"ɟ" || key == U"ʎ") {
+    return Place::Palatal;
+  }
+
+  // Velars
+  if (key == U"k" || key == U"g" || key == U"ŋ" ||
+      key == U"x" || key == U"ɣ" || key == U"ɰ") {
+    return Place::Velar;
+  }
+
+  return Place::Unknown;
+}
+
 }  // namespace nvsp_frontend
 
 #endif  // TGSB_FRONTEND_PASSES_PASS_COMMON_H

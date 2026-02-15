@@ -261,19 +261,112 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       }
     }
 
+    // ── Place-aware formant transition speeds ──
+    //
     // Formants lead, amplitude follows.  transF*Scale < 1.0 makes
-    // formant frequencies reach their target in the first 30-50% of
+    // formant frequencies reach their target in the first 30-70% of
     // the fade, then hold steady while amplitude finishes naturally.
-    // This prevents the "wrong formants at full amplitude" artifact.
-    if (lang.boundarySmoothingF1Scale > 0.0) {
-      cur.transF1Scale = lang.boundarySmoothingF1Scale;
+    //
+    // Different articulators move at different speeds:
+    //   Lips (labial): light, fast — F2/F3 drift (independent of tongue)
+    //   Tongue tip (alveolar): light, precise — F2/F3 fast
+    //   Tongue blade (palatal): medium — F3 slow (F3 IS the place cue)
+    //   Tongue body (velar): heavy — F2 slow (F2 IS the place cue)
+
+    // Check if the next real token (past micro-gaps) is silence or end.
+    bool nextIsSilence = true;
+    for (size_t j = static_cast<size_t>(i) + 1; j < tokens.size(); ++j) {
+      const Token& nxt = tokens[j];
+      if (!tokIsSilenceOrMissing(nxt)) {
+        nextIsSilence = false;
+        break;
+      }
+      if (nxt.silence && !nxt.preStopGap && !nxt.clusterGap &&
+          !nxt.vowelHiatusGap) {
+        break;  // real silence boundary
+      }
     }
-    if (lang.boundarySmoothingF2Scale > 0.0) {
-      cur.transF2Scale = lang.boundarySmoothingF2Scale;
+
+    // Pre-silence protection: if a vowel is the last sound before silence,
+    // do NOT apply transScales.  The vowel should hold steady and just fade
+    // in amplitude.  Formant bending into silence sounds metallic.
+    if (curVowelLike && nextIsSilence) {
+      // Leave transF*Scale at 0.0 (= no override, use full fade duration).
+      // The amplitude fade handles the offset into silence.
+      continue;
     }
-    if (lang.boundarySmoothingF3Scale > 0.0) {
-      cur.transF3Scale = lang.boundarySmoothingF3Scale;
+
+    // V→V (hiatus, not tied diphthongs): both sides are targets, no rushing.
+    if (prevVowelLike && curVowelLike) {
+      continue;
     }
+
+    // Identify the consonant in this transition for place lookup.
+    const Token* consToken = nullptr;
+    if (curVowelLike && !prevVowelLike && !tokIsSilenceOrMissing(prev)) {
+      consToken = &prev;       // C → V transition
+    } else if (prevVowelLike && !curVowelLike) {
+      consToken = &cur;        // V → C transition
+    } else if (!prevVowelLike && !curVowelLike &&
+               !tokIsSilenceOrMissing(prev)) {
+      consToken = &cur;        // C → C: use incoming consonant
+    }
+
+    Place place = Place::Unknown;
+    if (consToken && consToken->def) {
+      place = getPlace(consToken->def->key);
+    }
+
+    double f1s, f2s, f3s;
+    switch (place) {
+      case Place::Labial:
+        f1s = lang.boundarySmoothingLabialF1Scale;
+        f2s = lang.boundarySmoothingLabialF2Scale;
+        f3s = lang.boundarySmoothingLabialF3Scale;
+        break;
+      case Place::Alveolar:
+        f1s = lang.boundarySmoothingAlveolarF1Scale;
+        f2s = lang.boundarySmoothingAlveolarF2Scale;
+        f3s = lang.boundarySmoothingAlveolarF3Scale;
+        break;
+      case Place::Palatal:
+        f1s = lang.boundarySmoothingPalatalF1Scale;
+        f2s = lang.boundarySmoothingPalatalF2Scale;
+        f3s = lang.boundarySmoothingPalatalF3Scale;
+        break;
+      case Place::Velar:
+        f1s = lang.boundarySmoothingVelarF1Scale;
+        f2s = lang.boundarySmoothingVelarF2Scale;
+        f3s = lang.boundarySmoothingVelarF3Scale;
+        break;
+      default:
+        // Unknown place: fall back to global defaults.
+        f1s = lang.boundarySmoothingF1Scale;
+        f2s = lang.boundarySmoothingF2Scale;
+        f3s = lang.boundarySmoothingF3Scale;
+        break;
+    }
+
+    // V→C direction adjustment: slow the departure so the vowel holds
+    // its identity longer before the consonant's influence takes over.
+    if (prevVowelLike && !curVowelLike) {
+      constexpr double departSlowdown = 1.4;  // 40% slower departure
+      f1s = std::min(f1s * departSlowdown, 1.0);
+      f2s = std::min(f2s * departSlowdown, 1.0);
+      f3s = std::min(f3s * departSlowdown, 1.0);
+    }
+
+    // Utterance-final consonant: use gentler scales — there's no
+    // following target to rush toward.
+    if (!curVowelLike && nextIsSilence) {
+      f1s = std::min(f1s * 1.5, 1.0);
+      f2s = std::min(f2s * 1.5, 1.0);
+      f3s = std::min(f3s * 1.5, 1.0);
+    }
+
+    if (f1s > 0.0) cur.transF1Scale = f1s;
+    if (f2s > 0.0) cur.transF2Scale = f2s;
+    if (f3s > 0.0) cur.transF3Scale = f3s;
 
     // Nasal F1 should jump nearly instantly (overrides the above).
     if (lang.boundarySmoothingNasalF1Instant && (curNasal || prevNasal)) {

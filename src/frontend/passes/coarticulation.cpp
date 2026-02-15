@@ -79,52 +79,10 @@ static inline bool triggersCoarticulation(const Token& t) {
   return isFricative(t) || isStop(t) || isAfricate(t);
 }
 
-// -----------------------------------------------------------------------------
-// Place of articulation
-// -----------------------------------------------------------------------------
-
-enum class Place {
-  Unknown,
-  Labial,
-  Alveolar,
-  Palatal,
-  Velar,
-};
-
-static Place getPlace(const std::u32string& key) {
-  // Labials
-  if (key == U"p" || key == U"b" || key == U"m" ||
-      key == U"f" || key == U"v" || key == U"w" ||
-      key == U"ʍ" || key == U"ɸ" || key == U"β") {
-    return Place::Labial;
-  }
-  
-  // Alveolars
-  if (key == U"t" || key == U"d" || key == U"n" ||
-      key == U"s" || key == U"z" || key == U"l" ||
-      key == U"r" || key == U"ɹ" || key == U"ɾ" ||
-      key == U"θ" || key == U"ð" || key == U"ɬ" ||
-      key == U"ɮ" || key == U"ɻ" || key == U"ɖ" ||
-      key == U"ʈ" || key == U"ɳ" || key == U"ɽ") {
-    return Place::Alveolar;
-  }
-  
-  // Palatals / Postalveolars
-  if (key == U"ʃ" || key == U"ʒ" || key == U"tʃ" ||
-      key == U"dʒ" || key == U"j" || key == U"ɲ" ||
-      key == U"ç" || key == U"ʝ" || key == U"c" ||
-      key == U"ɟ" || key == U"ʎ") {
-    return Place::Palatal;
-  }
-  
-  // Velars
-  if (key == U"k" || key == U"g" || key == U"ŋ" ||
-      key == U"x" || key == U"ɣ" || key == U"ɰ") {
-    return Place::Velar;
-  }
-  
-  return Place::Unknown;
-}
+// Place of articulation — shared enum/function now in pass_common.h.
+// Local using-declaration for convenience.
+using nvsp_frontend::Place;
+using nvsp_frontend::getPlace;
 
 // -----------------------------------------------------------------------------
 // Locus values by place - now uses lang pack settings with fallback defaults

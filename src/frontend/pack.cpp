@@ -727,6 +727,20 @@ if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMa
   getNumFrom(*bs, "fricToStopFadeMs", lp.boundarySmoothingFricToStopMs);
   getNumFrom(*bs, "stopToFricFadeMs", lp.boundarySmoothingStopToFricMs);
   getNumFrom(*bs, "vowelToVowelFadeMs", lp.boundarySmoothingVowelToVowelMs);
+
+  // Per-place-of-articulation transition speed overrides.
+  getNumFrom(*bs, "labialF1Scale", lp.boundarySmoothingLabialF1Scale);
+  getNumFrom(*bs, "labialF2Scale", lp.boundarySmoothingLabialF2Scale);
+  getNumFrom(*bs, "labialF3Scale", lp.boundarySmoothingLabialF3Scale);
+  getNumFrom(*bs, "alveolarF1Scale", lp.boundarySmoothingAlveolarF1Scale);
+  getNumFrom(*bs, "alveolarF2Scale", lp.boundarySmoothingAlveolarF2Scale);
+  getNumFrom(*bs, "alveolarF3Scale", lp.boundarySmoothingAlveolarF3Scale);
+  getNumFrom(*bs, "palatalF1Scale", lp.boundarySmoothingPalatalF1Scale);
+  getNumFrom(*bs, "palatalF2Scale", lp.boundarySmoothingPalatalF2Scale);
+  getNumFrom(*bs, "palatalF3Scale", lp.boundarySmoothingPalatalF3Scale);
+  getNumFrom(*bs, "velarF1Scale", lp.boundarySmoothingVelarF1Scale);
+  getNumFrom(*bs, "velarF2Scale", lp.boundarySmoothingVelarF2Scale);
+  getNumFrom(*bs, "velarF3Scale", lp.boundarySmoothingVelarF3Scale);
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {
