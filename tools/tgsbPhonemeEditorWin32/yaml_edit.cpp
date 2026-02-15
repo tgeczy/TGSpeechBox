@@ -442,7 +442,23 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"liquidDynamicsLabialGlideStartF2", "liquidDynamics", "labialGlideTransition"},
   {"liquidDynamicsLabialGlideTransitionPct", "liquidDynamics", "labialGlideTransition"},
   
-  // boundarySmoothing settings
+  // boundarySmoothing settings (place-of-articulation scales)
+  {"boundarySmoothingAlveolarF1Scale", "boundarySmoothing", "alveolar"},
+  {"boundarySmoothingAlveolarF2Scale", "boundarySmoothing", "alveolar"},
+  {"boundarySmoothingAlveolarF3Scale", "boundarySmoothing", "alveolar"},
+  {"boundarySmoothingLabialF1Scale", "boundarySmoothing", "labial"},
+  {"boundarySmoothingLabialF2Scale", "boundarySmoothing", "labial"},
+  {"boundarySmoothingLabialF3Scale", "boundarySmoothing", "labial"},
+  {"boundarySmoothingPalatalF1Scale", "boundarySmoothing", "palatal"},
+  {"boundarySmoothingPalatalF2Scale", "boundarySmoothing", "palatal"},
+  {"boundarySmoothingPalatalF3Scale", "boundarySmoothing", "palatal"},
+  {"boundarySmoothingVelarF1Scale", "boundarySmoothing", "velar"},
+  {"boundarySmoothingVelarF2Scale", "boundarySmoothing", "velar"},
+  {"boundarySmoothingVelarF3Scale", "boundarySmoothing", "velar"},
+  {"boundarySmoothingWithinSyllableScale", "boundarySmoothing", nullptr},
+  {"boundarySmoothingWithinSyllableFadeScale", "boundarySmoothing", nullptr},
+
+  // boundarySmoothing settings (general)
   {"boundarySmoothingEnabled", "boundarySmoothing", nullptr},
   {"boundarySmoothingF1Scale", "boundarySmoothing", nullptr},
   {"boundarySmoothingF2Scale", "boundarySmoothing", nullptr},
@@ -485,6 +501,44 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"lengthContrastGeminateClosureScale", "lengthContrast", nullptr},
   {"lengthContrastGeminateReleaseScale", "lengthContrast", nullptr},
   {"lengthContrastPreGeminateVowelScale", "lengthContrast", nullptr},
+
+  // clusterBlend settings
+  {"clusterBlendEnabled", "clusterBlend", nullptr},
+  {"clusterBlendStrength", "clusterBlend", nullptr},
+  {"clusterBlendNasalToStopScale", "clusterBlend", nullptr},
+  {"clusterBlendFricToStopScale", "clusterBlend", nullptr},
+  {"clusterBlendStopToFricScale", "clusterBlend", nullptr},
+  {"clusterBlendNasalToFricScale", "clusterBlend", nullptr},
+  {"clusterBlendLiquidToStopScale", "clusterBlend", nullptr},
+  {"clusterBlendLiquidToFricScale", "clusterBlend", nullptr},
+  {"clusterBlendFricToFricScale", "clusterBlend", nullptr},
+  {"clusterBlendStopToStopScale", "clusterBlend", nullptr},
+  {"clusterBlendDefaultPairScale", "clusterBlend", nullptr},
+  {"clusterBlendHomorganicScale", "clusterBlend", nullptr},
+  {"clusterBlendWordBoundaryScale", "clusterBlend", nullptr},
+  {"clusterBlendF1Scale", "clusterBlend", nullptr},
+  {"clusterBlendForwardDriftStrength", "clusterBlend", nullptr},
+
+  // prominence settings
+  {"prominenceEnabled", "prominence", nullptr},
+  {"prominencePrimaryStressWeight", "prominence", nullptr},
+  {"prominenceSecondaryStressWeight", "prominence", nullptr},
+  {"prominenceSecondaryStressLevel", "prominence", nullptr},
+  {"prominenceLongVowelWeight", "prominence", nullptr},
+  {"prominenceLongVowelMode", "prominence", nullptr},
+  {"prominenceWordInitialBoost", "prominence", nullptr},
+  {"prominenceWordFinalReduction", "prominence", nullptr},
+  {"prominenceDurationProminentFloorMs", "prominence", nullptr},
+  {"prominenceDurationReducedCeiling", "prominence", nullptr},
+  {"prominenceAmplitudeBoostDb", "prominence", nullptr},
+  {"prominenceAmplitudeReductionDb", "prominence", nullptr},
+  {"prominencePitchFromProminence", "prominence", nullptr},
+
+  // syllableDuration settings
+  {"syllableDurationEnabled", "syllableDuration", nullptr},
+  {"syllableDurationOnsetScale", "syllableDuration", nullptr},
+  {"syllableDurationCodaScale", "syllableDuration", nullptr},
+  {"syllableDurationUnstressedOpenNucleusScale", "syllableDuration", nullptr},
 
   // allophoneRules settings (scalar fields only — rules array handled separately)
   {"allophoneRulesEnabled", "allophoneRules", nullptr},

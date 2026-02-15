@@ -164,6 +164,18 @@ static void setField(Token& t, FieldId id, double v) {
 
 // ── Neighbor search (skip micro-gaps, not real silence) ─────────────────
 
+// Find the next real phoneme of any kind (C or V).
+static int findNextRealToken(const std::vector<Token>& tokens, int from) {
+  for (int j = from + 1; j < static_cast<int>(tokens.size()); ++j) {
+    const Token& t = tokens[static_cast<size_t>(j)];
+    if (t.silence && (t.preStopGap || t.clusterGap)) continue;
+    if (t.postStopAspiration || t.voicedClosure) continue;
+    if (isSilence(t)) return -1;
+    return j;
+  }
+  return -1;
+}
+
 static int findNextConsonant(const std::vector<Token>& tokens, int from) {
   for (int j = from + 1; j < static_cast<int>(tokens.size()); ++j) {
     const Token& t = tokens[static_cast<size_t>(j)];
@@ -239,8 +251,10 @@ bool runClusterBlend(
   const auto& lang = ctx.pack.lang;
 
   if (!lang.clusterBlendEnabled) return true;
-  if (lang.clusterBlendStrength <= 0.0) return true;
 
+  // ── C→C cluster blending ────────────────────────────────────────────────
+
+  if (lang.clusterBlendStrength > 0.0) {
   for (int i = 0; i < static_cast<int>(tokens.size()); ++i) {
     Token& c1 = tokens[static_cast<size_t>(i)];
     if (isSilence(c1)) continue;
@@ -329,6 +343,51 @@ bool runClusterBlend(
         setField(c2mut, FieldId::cf3, startF3);
         c2mut.hasEndCf3 = true;
         c2mut.endCf3 = c2f3;
+      }
+    }
+  }
+  }  // clusterBlendStrength > 0
+
+  // ── Forward drift: fill endCf on any token still missing it ───────────
+  //
+  // After C→C blending, some tokens (especially consonants adjacent to
+  // vowels) still have no endCf — their formants sit flat during the hold
+  // phase.  This loop looks at the next real phoneme and drifts partway
+  // toward it, so formants never freeze between transitions.
+
+  const double driftStr = lang.clusterBlendForwardDriftStrength;
+  if (driftStr > 0.0) {
+    constexpr double kDriftMinHz = 15.0;
+
+    for (int i = 0; i < static_cast<int>(tokens.size()); ++i) {
+      Token& t = tokens[static_cast<size_t>(i)];
+      if (isSilence(t)) continue;
+      if (t.hasEndCf1 && t.hasEndCf2 && t.hasEndCf3) continue;
+
+      const int ni = findNextRealToken(tokens, i);
+      if (ni < 0) continue;
+      const Token& next = tokens[static_cast<size_t>(ni)];
+
+      const double f2 = getFormant(t, FieldId::cf2, FieldId::pf2);
+      const double nf2 = getFormant(next, FieldId::cf2, FieldId::pf2);
+      if (!t.hasEndCf2 && f2 > 0.0 && nf2 > 0.0) {
+        const double tgt = f2 + driftStr * (nf2 - f2);
+        if (std::abs(tgt - f2) > kDriftMinHz) { t.hasEndCf2 = true; t.endCf2 = tgt; }
+      }
+
+      const double f1 = getFormant(t, FieldId::cf1, FieldId::pf1);
+      const double nf1 = getFormant(next, FieldId::cf1, FieldId::pf1);
+      if (!t.hasEndCf1 && f1 > 0.0 && nf1 > 0.0) {
+        const double f1Drift = driftStr * lang.clusterBlendF1Scale;
+        const double tgt = f1 + f1Drift * (nf1 - f1);
+        if (std::abs(tgt - f1) > kDriftMinHz) { t.hasEndCf1 = true; t.endCf1 = tgt; }
+      }
+
+      const double f3 = getFormant(t, FieldId::cf3, FieldId::pf3);
+      const double nf3 = getFormant(next, FieldId::cf3, FieldId::pf3);
+      if (!t.hasEndCf3 && f3 > 0.0 && nf3 > 0.0) {
+        const double tgt = f3 + driftStr * (nf3 - f3);
+        if (std::abs(tgt - f3) > kDriftMinHz) { t.hasEndCf3 = true; t.endCf3 = tgt; }
       }
     }
   }

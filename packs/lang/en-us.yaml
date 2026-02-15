@@ -76,8 +76,8 @@ settings:
     # English: stress marks are the primary source. Vowel length is
     # phonemic but eSpeak already marks stress, so longVowelWeight
     # is low. Word-initial boost gives a subtle naturalness nudge.
-    primaryStressWeight: 1.25
-    secondaryStressWeight: 1.10
+    primaryStressWeight: 1.45
+    secondaryStressWeight: 1.20
     longVowelWeight: 0.0          # English stress is lexical, not length-based
     longVowelMode: "never"
 
@@ -85,8 +85,8 @@ settings:
     wordFinalReduction: 0.05
 
     # Duration: prominent syllables hold steady, unstressed ones can shrink
-    durationProminentFloorMs: 5
-    durationReducedCeiling: 0.85
+    durationProminentFloorMs: 40
+    durationReducedCeiling: 0.92
 
     # Amplitude: subtle contour shaping
     amplitudeBoostDb: 0.3
@@ -382,6 +382,10 @@ settings:
     affricateInClusterScale: 0.75  # /tʃ/ in "lunchbox"
     wordMedialConsonantScale: 0.90 # intervocalic C's
     wordFinalObstruentScale: 0.90  # final /t/, /d/, /s/ etc.
+
+  clusterBlend:
+    enabled: true
+    forwardDriftStrength: 0.30
 
   syllableDuration:
     enabled: true

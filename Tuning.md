@@ -931,6 +931,13 @@ settings:
 
     # Per-formant scaling
     f1Scale: 0.50               # F1 blend is gentler (jaw height, not place)
+
+    # Forward drift: fill endCf on ANY token still missing it.
+    # After C→C blending, consonants next to vowels still have flat formants
+    # during their hold phase. Forward drift looks at the next real phoneme
+    # and sets endCf to drift this fraction of the distance toward it.
+    # F1 drift is scaled by f1Scale to prevent a "tight jaw" sound.
+    forwardDriftStrength: 0.30  # 0.0 = disabled, 0.3 = 30% drift toward next phoneme
 ```
 
 Flat-key equivalents are also supported:
@@ -949,6 +956,7 @@ Flat-key equivalents are also supported:
 - `clusterBlendHomorganicScale`
 - `clusterBlendWordBoundaryScale`
 - `clusterBlendF1Scale`
+- `clusterBlendForwardDriftStrength`
 
 How it behaves:
 
@@ -960,11 +968,26 @@ How it behaves:
 - Homorganic pairs (same place) get reduced blending — they already share similar formant targets.
 - Word boundaries reduce blend strength since C2 belongs to a new articulatory plan.
 
+#### Forward drift
+
+The C→C blending above only handles consonant clusters. But consonants adjacent to vowels also sit spectrally frozen during their hold phase — the vowels glide (thanks to coarticulation setting endCf), but consonants between them are dead walls. The ear hears glide-freeze-glide-freeze.
+
+`forwardDriftStrength` fixes this. After the C→C loop, a second loop runs over every token that still has no endCf set. For each, it looks ahead to the next real phoneme (skipping micro-gaps and aspiration) and sets endCf to drift `forwardDriftStrength` of the distance toward the next phoneme's formants. F1 drift is multiplied by `f1Scale` to prevent jaw-height changes from making the voice sound "tight-jawed."
+
+For example, with `forwardDriftStrength: 0.30` and `f1Scale: 0.50`:
+- /b/ (cf2=900) before /ə/ (cf2=1400): endCf2 = 900 + 0.30 × (1400 − 900) = 1050. The /b/ drifts 150 Hz toward the schwa during its hold phase.
+- F1 drift = 0.30 × 0.50 = 0.15 — much gentler, keeping jaw movement subtle.
+- /ə/ before /n/: if coarticulation already set endCf on the vowel, forward drift skips it (only fills gaps).
+
+This is NOT coarticulation (which computes WHERE formants should be using locus math) — it's a simple "don't freeze" mechanism that ensures formants are always moving toward the next target.
+
 Tuning notes:
 - This pass complements cluster timing (duration) and boundary smoothing (crossfade). All three work together: timing shortens, smoothing crossfades, blend shapes the spectral trajectory.
 - If clusters sound "blurred" or consonants lose identity, lower `strength` or the per-pair scales.
 - Nasal→stop pairs (e.g. /ŋk/, /nt/) benefit from higher blend because the nasal's formant structure naturally anticipates the stop's place.
 - Stop→stop pairs use lower scales because each stop has its own burst character that shouldn't be smeared.
+- If forward drift makes the voice sound "tight-jawed," lower `forwardDriftStrength` or reduce `f1Scale`. The tight-jaw effect comes from F1 being pulled toward low consonant values.
+- Forward drift is subtle — it fills the hold phase, not the crossfade. The ear perceives it as "nothing is ever still" rather than a dramatic formant sweep.
 
 ### Prominence
 
@@ -1076,9 +1099,42 @@ When `pitchFromProminence` is true, the Fujisaki accent commands use prominence 
 
 The original stress-based accent path is preserved exactly when `pitchFromProminence` is false.
 
+#### Syllable-position duration shaping (Pass 2b)
+
+After prominence's main duration realization (stressed/unstressed vowel scaling), an optional second stage shapes durations based on syllable position. This creates natural rhythm: onset consonants get slightly more time (they initiate the gesture), coda consonants get less (they trail off), and unstressed open syllables compress their nucleus.
+
+```yaml
+settings:
+  syllableDuration:
+    enabled: true
+    onsetScale: 1.10                     # onset consonants +10%
+    codaScale: 0.85                      # coda consonants -15%
+    unstressedOpenNucleusScale: 0.90     # unstressed open-syllable vowels -10%
+```
+
+Flat-key equivalents:
+
+- `syllableDurationEnabled`
+- `syllableDurationOnsetScale`
+- `syllableDurationCodaScale`
+- `syllableDurationUnstressedOpenNucleusScale`
+
+How it behaves:
+
+- Walks each word using the existing `syllableIndex` assignments. Monosyllabic words are skipped (no positional contrast).
+- **Word-final syllables are skipped** — they're already shaped by phrase-final lengthening and `wordFinalObstruentScale`. Compressing them further makes final syllables disappear.
+- For each non-final syllable, tokens are classified as onset (consonant before the nucleus vowel), nucleus (first vowel), or coda (consonant after the nucleus).
+- Onset consonants get `onsetScale` (default 1.10 = 10% longer).
+- Coda consonants get `codaScale` (default 0.85 = 15% shorter).
+- The nucleus vowel gets `unstressedOpenNucleusScale` only if the syllable is unstressed AND open (no coda consonant) AND the vowel is not a diphthong offglide.
+- Gap tokens (preStopGap, clusterGap, vowelHiatusGap, postStopAspiration, voicedClosure) are skipped.
+- A 2ms floor and `fadeMs = min(fadeMs, durationMs)` clamp prevent artifacts.
+
+**Stacking with prominence reduction:** An unstressed open-syllable vowel gets both `durationReducedCeiling` (from Pass 2) and `unstressedOpenNucleusScale` (from Pass 2b) multiplicatively. With the en-us defaults (0.92 × 0.90 = 0.83), this is intentional — these are the lightest syllables in natural speech (like /bə/ in "banana"). If vowels vanish, raise either value.
+
 #### Pipeline position
 
-Prominence runs PostTiming, after `cluster_timing` but before `prosody`. This means cluster-adjusted consonant durations are already set before prominence looks at vowels, and phrase-final lengthening (in the prosody pass) stacks on top of prominence duration adjustments.
+Prominence (including syllable-position shaping) runs PostTiming, after `cluster_timing` but before `prosody`. This means cluster-adjusted consonant durations are already set before prominence looks at vowels, and phrase-final lengthening (in the prosody pass) stacks on top of prominence duration adjustments.
 
 Tuning notes:
 - **English defaults**: `primaryStressWeight: 1.4`, `secondaryStressWeight: 1.1`, `amplitudeBoostDb: 1.5`, `amplitudeReductionDb: 2.0`, `durationReducedCeiling: 0.85`. This gives stressed vowels 40% more duration + 1.5dB boost, unstressed vowels 15% shorter + 2dB quieter.

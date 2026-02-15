@@ -573,6 +573,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("clusterBlendHomorganicScale", lp.clusterBlendHomorganicScale);
   getNum("clusterBlendWordBoundaryScale", lp.clusterBlendWordBoundaryScale);
   getNum("clusterBlendF1Scale", lp.clusterBlendF1Scale);
+  getNum("clusterBlendForwardDriftStrength", lp.clusterBlendForwardDriftStrength);
 
   // Boundary smoothing / crossfade (optional)
   getBool("boundarySmoothingEnabled", lp.boundarySmoothingEnabled);
@@ -1033,6 +1034,7 @@ if (const yaml_min::Node* cb = settings.get("clusterBlend"); cb && cb->isMap()) 
   getNumFrom(*cb, "homorganicScale", lp.clusterBlendHomorganicScale);
   getNumFrom(*cb, "wordBoundaryScale", lp.clusterBlendWordBoundaryScale);
   getNumFrom(*cb, "f1Scale", lp.clusterBlendF1Scale);
+  getNumFrom(*cb, "forwardDriftStrength", lp.clusterBlendForwardDriftStrength);
 }
 
   getBool("huShortAVowelEnabled", lp.huShortAVowelEnabled);

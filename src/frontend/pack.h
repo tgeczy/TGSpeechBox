@@ -687,6 +687,7 @@ double lengthContrastPreGeminateVowelScale = 0.85;
 
   // Per-formant scaling (relative to main strength).
   double clusterBlendF1Scale = 0.50;            // F1 blend is gentler (jaw, not place)
+  double clusterBlendForwardDriftStrength = 0.0; // Fill endCf on any token still missing it
 
   // Boundary crossfade / smoothing (optional).
   //
