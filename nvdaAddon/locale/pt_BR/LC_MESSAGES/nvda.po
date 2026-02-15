@@ -17,6 +17,11 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 
+#. Language choice label
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Auto (match NVDA language)"
+msgstr "Automático (corresponder ao idioma do NVDA)"
+
 #. Synth driver setting label
 #: synthDrivers/tgspeechbox/__init__.py
 msgid "Voice tilt (brightness)"

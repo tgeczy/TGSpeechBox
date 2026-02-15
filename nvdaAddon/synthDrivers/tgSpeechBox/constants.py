@@ -22,6 +22,7 @@ except Exception:
 
 # Language choices exposed in NVDA settings.
 languages = OrderedDict([
+    ("auto", VoiceInfo("auto", _("Auto (match NVDA language)"))),
     ("en-us", VoiceInfo("en-us", "English (US)")),
     ("en-gb", VoiceInfo("en-gb", "English (UK)")),
     ("zh", VoiceInfo("zh", "Chinese")),

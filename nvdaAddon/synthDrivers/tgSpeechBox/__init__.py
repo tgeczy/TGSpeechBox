@@ -176,7 +176,8 @@ class SynthDriver(SynthDriver):
         self._usingVoiceProfile = False
         self._activeProfileName = ""
         self._pauseMode = "short"
-        self._language = "en-us"
+        self._language = "auto"
+        self._resolvedLang = "en-us"
         self._langPackSettingsCache: dict[str, object] = {}
         self._sampleRate = 16000
         
@@ -467,19 +468,54 @@ class SynthDriver(SynthDriver):
             log.error("TGSpeechBox: failed to reinitialize audio", exc_info=True)
 
     def _get_language(self):
-        return getattr(self, "_language", "en-us")
+        return getattr(self, "_language", "auto")
+
+    @staticmethod
+    def _resolveAutoLang() -> str:
+        """Map NVDA's UI language to the closest available TGSpeechBox language tag."""
+        try:
+            import languageHandler
+            nvdaLang = (languageHandler.getLanguage() or "en").strip().lower().replace("_", "-")
+        except Exception:
+            return "en-us"
+        # Exact match first (e.g. "es-mx", "en-gb", "pt-br")
+        if nvdaLang in languages and nvdaLang != "auto":
+            return nvdaLang
+        # Try base language (e.g. "en" from "en-au")
+        base = nvdaLang.split("-", 1)[0] if "-" in nvdaLang else nvdaLang
+        if base in languages and base != "auto":
+            return base
+        # Try common regional defaults
+        _REGION_DEFAULTS = {
+            "en": "en-us", "es": "es", "pt": "pt-br",
+        }
+        if base in _REGION_DEFAULTS:
+            return _REGION_DEFAULTS[base]
+        # Check if any language tag starts with the base (e.g. "en" -> "en-us")
+        for tag in languages:
+            if tag != "auto" and tag.startswith(base + "-"):
+                return tag
+        return "en-us"
 
     def _set_language(self, langCode):
         # Normalize to pack-style language tag: lowercase with hyphens.
         requested = str(langCode or "").strip().lower().replace("_", "-")
 
-        # Backward compatibility: older builds used "en" for UK.
-        if requested == "en" and "en-gb" in languages:
-            requested = "en-gb"
+        # Resolve "auto" to the NVDA UI language.
+        if requested == "auto":
+            self._language = "auto"
+            resolved = self._resolveAutoLang()
+        else:
+            # Backward compatibility: older builds used "en" for UK.
+            if requested == "en" and "en-gb" in languages:
+                requested = "en-gb"
+            # Validate against the exposed language list.
+            if requested not in languages or requested == "auto":
+                requested = "en-us"
+            self._language = requested
+            resolved = requested
 
-        # Validate against the exposed language list.
-        if requested not in languages:
-            requested = "en-us"
+        self._resolvedLang = resolved
 
         try:
             self.cancel()
@@ -490,17 +526,17 @@ class SynthDriver(SynthDriver):
         espeakApplied = None
 
         # Candidate order:
-        #   1) exact requested tag (e.g. en-gb)
+        #   1) exact resolved tag (e.g. en-gb)
         #   2) underscore variant (en_gb) for older eSpeak builds
         #   3) base language (en) if region tag isn't supported
         #   4) final safety fallback: English
         candidates = []
-        for c in (requested, requested.replace("-", "_")):
+        for c in (resolved, resolved.replace("-", "_")):
             if c and c not in candidates:
                 candidates.append(c)
 
-        if "-" in requested:
-            base = requested.split("-", 1)[0]
+        if "-" in resolved:
+            base = resolved.split("-", 1)[0]
             for c in (base, base.replace("-", "_")):
                 if c and c not in candidates:
                     candidates.append(c)
@@ -517,27 +553,24 @@ class SynthDriver(SynthDriver):
             except Exception:
                 continue
 
-        # Store the requested language tag even if eSpeak fell back.
-        # Packs need the region tag (en-gb) even when eSpeak only supports "en".
-        self._language = requested
         self._espeakLang = (espeakApplied or "").strip().lower().replace("_", "-")
 
         if espeakApplied is None:
             log.error(
                 "TGSpeechBox: could not set eSpeak language for %r (tried %s)",
-                requested,
+                resolved,
                 candidates,
                 exc_info=True,
             )
 
-        # Keep frontend pack selection in sync with the requested language tag.
+        # Keep frontend pack selection in sync with the resolved language tag.
         try:
             if getattr(self, "_frontend", None):
-                self._applyFrontendLangTag(requested)
+                self._applyFrontendLangTag(resolved)
         except Exception:
             log.error("TGSpeechBox: error setting frontend language", exc_info=True)
 
-        log.debug("TGSpeechBox: language requested=%r; eSpeak=%r; packs=%r", requested, self._espeakLang or None, getattr(self, "_frontendLangTag", None))
+        log.debug("TGSpeechBox: language setting=%r resolved=%r; eSpeak=%r; packs=%r", self._language, resolved, self._espeakLang or None, getattr(self, "_frontendLangTag", None))
         # Refresh cached language-pack settings for the (possibly) new language.
         try:
             self._refreshLangPackSettingsCache()
@@ -648,8 +681,8 @@ class SynthDriver(SynthDriver):
     # ---- Language-pack (YAML) helpers ----
 
     def _getCurrentLangTag(self) -> str:
-        """Return the current language tag in the pack file format (lowercase, hyphen)."""
-        return str(getattr(self, "_language", "default") or "default").strip().lower().replace("_", "-")
+        """Return the current resolved language tag in pack file format (lowercase, hyphen)."""
+        return str(getattr(self, "_resolvedLang", "en-us") or "en-us").strip().lower().replace("_", "-")
 
     def _applyFrontendLangTag(self, tag: str) -> bool:
         """Ask the frontend to (re)load packs for *tag*, trying sensible fallbacks.

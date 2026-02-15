@@ -17,6 +17,15 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 # ============================================================================
+# Category 0: Language auto-detect
+# ============================================================================
+
+#. Language choice label
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Auto (match NVDA language)"
+msgstr "Automático (coincidir con el idioma de NVDA)"
+
+# ============================================================================
 # Category 1: Setting labels from __init__.py
 # ============================================================================
 
