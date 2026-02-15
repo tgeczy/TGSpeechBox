@@ -71,6 +71,124 @@ try:
 except Exception:
     def _(s): return s
 
+# ── Direct eSpeak voice selection (bypasses NVDA's async wrapper) ────────
+#
+# NVDA's _espeak.setVoiceByLanguage() uses espeak_SetVoiceByProperties which
+# can pick the wrong voice (e.g. British English for "en-us").  This mirrors
+# the SAPI fix: enumerate voices via espeak_ListVoices, find the one whose
+# packed language list matches, then call espeak_SetVoiceByName with the full
+# identifier (e.g. "gmw/en-US").
+
+def _espeakSetVoiceDirect(langTag: str) -> bool:
+    """Set eSpeak voice directly on the DLL using ListVoices identifier resolution.
+
+    Returns True if the voice was set successfully.
+    """
+    espeakDLL = getattr(_espeak, "espeakDLL", None)
+    if not espeakDLL:
+        return False
+
+    listVoices = getattr(espeakDLL, "espeak_ListVoices", None)
+    setByName = getattr(espeakDLL, "espeak_SetVoiceByName", None)
+    if not listVoices or not setByName:
+        return False
+
+    # espeak_ListVoices returns a NULL-terminated array of espeak_VOICE pointers.
+    # We need to define the struct to parse the packed languages field.
+    class ESPEAK_VOICE(ctypes.Structure):
+        _fields_ = [
+            ("name", ctypes.c_char_p),
+            ("languages", ctypes.c_char_p),
+            ("identifier", ctypes.c_char_p),
+            ("gender", ctypes.c_ubyte),
+            ("age", ctypes.c_ubyte),
+            ("variant", ctypes.c_ubyte),
+            ("xx1", ctypes.c_ubyte),
+            ("spare", ctypes.c_int),
+        ]
+
+    listVoices.restype = ctypes.POINTER(ctypes.POINTER(ESPEAK_VOICE))
+    listVoices.argtypes = [ctypes.POINTER(ESPEAK_VOICE)]
+
+    try:
+        voices = listVoices(None)
+    except Exception:
+        return False
+    if not voices:
+        return False
+
+    tag = langTag.lower().replace("_", "-")
+    base = tag.split("-")[0] if "-" in tag else ""
+
+    exactId = None
+    exactPri = 99
+    baseId = None
+    basePri = 99
+
+    ix = 0
+    while True:
+        try:
+            vp = voices[ix]
+            if not vp:
+                break
+        except (ValueError, IndexError):
+            break
+        ix += 1
+
+        try:
+            rawLangs = vp.contents.languages
+            vid = vp.contents.identifier
+        except (ValueError, AttributeError):
+            continue
+        if not rawLangs or not vid:
+            continue
+
+        # Parse packed languages: [priority_byte][nul-terminated-tag] repeated.
+        data = rawLangs
+        i = 0
+        while i < len(data):
+            pri = data[i]
+            ltag = data[i + 1:]
+            nul = ltag.find(b"\x00")
+            if nul >= 0:
+                ltag = ltag[:nul]
+            ltagStr = ltag.decode("utf-8", errors="ignore").lower()
+
+            if ltagStr == tag:
+                if pri < exactPri:
+                    exactPri = pri
+                    exactId = vid
+            elif base and ltagStr == base:
+                if pri < basePri:
+                    basePri = pri
+                    baseId = vid
+
+            # Advance past priority byte + tag + NUL
+            i += 1 + len(ltag) + 1
+            if nul < 0:
+                break
+
+    chosenId = exactId or baseId
+    if not chosenId:
+        return False
+
+    setByName.restype = ctypes.c_int
+    setByName.argtypes = [ctypes.c_char_p]
+
+    try:
+        rc = setByName(chosenId)
+        if rc == 0:
+            log.debug(
+                "TGSpeechBox: eSpeak voice set directly: %r -> %r",
+                tag, chosenId.decode("utf-8", errors="replace"),
+            )
+            return True
+    except Exception:
+        log.debug("TGSpeechBox: espeak_SetVoiceByName failed", exc_info=True)
+
+    return False
+
+
 # Pre-calculate per-voice operations for fast application
 _frameFieldNames = {x[0] for x in speechPlayer.Frame._fields_}
 _voiceOps = buildVoiceOps(voices, _frameFieldNames)
@@ -277,26 +395,18 @@ class SynthDriver(SynthDriver):
         try:
             _espeak.initialize()
             
-            # Set a default voice in espeak - required before espeak_TextToPhonemes works
-            # Use American English as default since that's the most common; NVDA will set 
-            # the correct language later when it restores settings via _set_language.
-            # Try multiple formats since espeak can be picky about language codes.
-            espeakVoiceSet = False
-            for tryLang in ("en-us", "en-US", "en_us", "en_US"):
+            # Set a default voice — required before espeak_TextToPhonemes works.
+            # Use direct ListVoices+SetVoiceByName (same fix as SAPI) to ensure
+            # the correct voice is selected synchronously.
+            if not _espeakSetVoiceDirect("en-us"):
+                # Fallback to NVDA's async wrapper.
                 try:
-                    result = _espeak.setVoiceByLanguage(tryLang)
-                    if result is None or result:
-                        espeakVoiceSet = True
-                        break
+                    _espeak.setVoiceByLanguage("en-us")
                 except Exception:
-                    continue
-            
-            if not espeakVoiceSet:
-                # Last resort fallback to generic English
-                try:
-                    _espeak.setVoiceByLanguage("en")
-                except Exception:
-                    log.debug("TGSpeechBox: failed to set default espeak voice", exc_info=True)
+                    try:
+                        _espeak.setVoiceByLanguage("en")
+                    except Exception:
+                        log.debug("TGSpeechBox: failed to set default espeak voice", exc_info=True)
             
             # Verify espeak is actually usable by checking if the DLL and function exist
             espeakDLL = getattr(_espeak, "espeakDLL", None)
@@ -523,36 +633,36 @@ class SynthDriver(SynthDriver):
         except Exception:
             log.debug("TGSpeechBox: cancel failed while changing language", exc_info=True)
 
-        # Configure eSpeak for text->phonemes. This can fall back to a base language.
+        # Configure eSpeak for text->phonemes.
+        # Primary: use direct ListVoices+SetVoiceByName (same approach as SAPI)
+        # to ensure the correct voice is selected synchronously.
         espeakApplied = None
 
-        # Candidate order:
-        #   1) exact resolved tag (e.g. en-gb)
-        #   2) underscore variant (en_gb) for older eSpeak builds
-        #   3) base language (en) if region tag isn't supported
-        #   4) final safety fallback: English
-        candidates = []
-        for c in (resolved, resolved.replace("-", "_")):
-            if c and c not in candidates:
-                candidates.append(c)
-
-        if "-" in resolved:
-            base = resolved.split("-", 1)[0]
-            for c in (base, base.replace("-", "_")):
+        if _espeakSetVoiceDirect(resolved):
+            espeakApplied = resolved
+        else:
+            # Fallback: try NVDA's setVoiceByLanguage with candidates.
+            candidates = []
+            for c in (resolved, resolved.replace("-", "_")):
                 if c and c not in candidates:
                     candidates.append(c)
 
-        if "en" not in candidates:
-            candidates.append("en")
+            if "-" in resolved:
+                base = resolved.split("-", 1)[0]
+                for c in (base, base.replace("-", "_")):
+                    if c and c not in candidates:
+                        candidates.append(c)
 
-        for tryCode in candidates:
-            try:
-                ok = _espeak.setVoiceByLanguage(tryCode)
-                if ok is None or ok:
+            if "en" not in candidates:
+                candidates.append("en")
+
+            for tryCode in candidates:
+                try:
+                    _espeak.setVoiceByLanguage(tryCode)
                     espeakApplied = tryCode
                     break
-            except Exception:
-                continue
+                except Exception:
+                    continue
 
         self._espeakLang = (espeakApplied or "").strip().lower().replace("_", "-")
 
@@ -1141,11 +1251,14 @@ class SynthDriver(SynthDriver):
             # Switch eSpeak language if needed.
             targetLang = langOverride or espeakLang
             if targetLang != currentLang:
-                try:
-                    _espeak.setVoiceByLanguage(targetLang)
+                if _espeakSetVoiceDirect(targetLang):
                     currentLang = targetLang
-                except Exception:
-                    pass  # Fall through with current language.
+                else:
+                    try:
+                        _espeak.setVoiceByLanguage(targetLang)
+                        currentLang = targetLang
+                    except Exception:
+                        pass  # Fall through with current language.
 
             ipa = self._espeakTextToIPA(segText)
             if ipa:
@@ -1153,10 +1266,11 @@ class SynthDriver(SynthDriver):
 
         # Restore base language if we switched away.
         if currentLang != espeakLang:
-            try:
-                _espeak.setVoiceByLanguage(espeakLang)
-            except Exception:
-                pass
+            if not _espeakSetVoiceDirect(espeakLang):
+                try:
+                    _espeak.setVoiceByLanguage(espeakLang)
+                except Exception:
+                    pass
 
         return " ".join(ipaChunks)
 
