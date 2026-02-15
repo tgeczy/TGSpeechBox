@@ -24,7 +24,8 @@ namespace nvsp_frontend {
 std::string runTextParser(
     const std::string& text,
     const std::string& ipa,
-    const std::unordered_map<std::string, std::vector<int>>& stressDict);
+    const std::unordered_map<std::string, std::vector<int>>& stressDict,
+    const std::vector<std::u32string>& legalOnsets);
 
 }  // namespace nvsp_frontend
 

@@ -362,7 +362,8 @@ static int queueIPA_ExImpl(
   std::string parsedIpa;
   const char* finalIpa = ipaUtf8;
   if (textUtf8 && textUtf8[0] && !h->pack.stressDict.empty()) {
-    parsedIpa = runTextParser(textUtf8, ipaUtf8, h->pack.stressDict);
+    parsedIpa = runTextParser(textUtf8, ipaUtf8, h->pack.stressDict,
+                               h->pack.lang.legalOnsets);
     finalIpa = parsedIpa.c_str();
   }
 

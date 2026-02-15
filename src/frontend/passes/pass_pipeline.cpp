@@ -7,6 +7,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "pass_pipeline.h"
 
 #include "allophones.h"
+#include "syllable_marking.h"
 #include "coarticulation.h"
 #include "microprosody.h"
 #include "nasalization.h"
@@ -26,6 +27,7 @@ namespace nvsp_frontend {
 namespace {
 
 const PassDesc kPasses[] = {
+    {"syllable_marking", PassStage::PreTiming, &passes::runSyllableMarking},
     {"nasalization", PassStage::PreTiming, &passes::runNasalization},
     {"allophones", PassStage::PreTiming, &passes::runAllophones},
 

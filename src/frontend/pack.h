@@ -629,6 +629,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double coarticulationVelarPinchF2Scale = 0.9;
   double coarticulationVelarPinchF3 = 2400.0;
 
+  // Cross-syllable coarticulation reduction.  Multiplies effective
+  // strength when consonant and vowel are in different syllables.
+  // 1.0 = no reduction, 0.7 = 30% weaker across syllable boundaries.
+  double coarticulationCrossSyllableScale = 0.70;
+
+  // Legal syllable onsets for onset maximization.
+  // Each entry is an IPA string (e.g. "stɹ", "pl", "bɹ").
+  // Used by text_parser to place syllable boundaries correctly.
+  // Empty = onset maximization disabled for this language.
+  std::vector<std::u32string> legalOnsets;
+
   // Special coarticulation rules (language-specific Hz deltas).
   bool specialCoarticulationEnabled = false;
   std::vector<SpecialCoarticRule> specialCoarticRules;
@@ -714,6 +725,14 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double boundarySmoothingVelarF1Scale   = 0.30;
   double boundarySmoothingVelarF2Scale   = 0.65;
   double boundarySmoothingVelarF3Scale   = 0.60;
+
+  // Syllable-aware transition controls.
+  // withinSyllableScale > 1.0 makes within-syllable formant transitions
+  // slower (gentler).  1.0 = no effect.  1.5 = 50% slower.
+  double boundarySmoothingWithinSyllableScale = 1.5;
+  // Within-syllable fade duration multiplier.  Makes crossfade longer
+  // for transitions that are part of one articulatory gesture.
+  double boundarySmoothingWithinSyllableFadeScale = 1.3;
 
   // Per-boundary-type fade times (ms, before speed division).
   double boundarySmoothingVowelToStopMs = 22.0;

@@ -308,6 +308,14 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
     // relatively independent of tongue body position.
     effectiveStrength *= getPlaceScale(leftPlace, lang);
 
+    // Cross-syllable coarticulation: weaker pull when consonant and vowel
+    // are in different syllables — they're separate articulatory gestures.
+    if (lang.coarticulationCrossSyllableScale < 1.0 &&
+        leftCons->syllableIndex >= 0 && t.syllableIndex >= 0 &&
+        leftCons->syllableIndex != t.syllableIndex) {
+      effectiveStrength *= lang.coarticulationCrossSyllableScale;
+    }
+
     effectiveStrength = std::clamp(effectiveStrength, 0.0, 1.0);
     if (effectiveStrength <= 0.0) continue;
 

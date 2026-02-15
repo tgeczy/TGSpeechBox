@@ -167,6 +167,13 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     const bool prevLiquid = tokIsLiquid(prev);
     const bool curLiquid = tokIsLiquid(cur);
 
+    // Within-syllable detection: if both tokens have assigned syllable
+    // indices and they match, this transition is WITHIN a syllable.
+    // Within-syllable transitions are one continuous gesture — smooth them.
+    const bool withinSyllable =
+        (prev.syllableIndex >= 0 && cur.syllableIndex >= 0 &&
+         prev.syllableIndex == cur.syllableIndex);
+
     // === VOWEL TRANSITIONS ===
     if (prevVowelLike && curStop) {
       targetFade = v2sEff;  // Vowel -> Stop
@@ -243,6 +250,12 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
                              !prevVowelLike && !curVowelLike &&
                              !prevStop && !curStop &&
                              !cur.wordStart;
+
+    // Within-syllable transitions get extra fade room — they're part of
+    // one articulatory gesture and shouldn't have abrupt crossfades.
+    if (withinSyllable && targetFade > 0.0) {
+      targetFade *= lang.boundarySmoothingWithinSyllableFadeScale;
+    }
 
     // Stretch the amplitude fade at this boundary.
     if (targetFade > 0.0 && targetFade > cur.fadeMs &&
@@ -345,6 +358,15 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
         f2s = lang.boundarySmoothingF2Scale;
         f3s = lang.boundarySmoothingF3Scale;
         break;
+    }
+
+    // Within-syllable: formants move more gradually (one gesture).
+    // Multiply transScales by a factor > 1.0 to slow them down.
+    if (withinSyllable) {
+      const double ws = lang.boundarySmoothingWithinSyllableScale;
+      f1s = std::min(f1s * ws, 1.0);
+      f2s = std::min(f2s * ws, 1.0);
+      f3s = std::min(f3s * ws, 1.0);
     }
 
     // V→C direction adjustment: slow the departure so the vowel holds
