@@ -704,6 +704,12 @@ settings:
 
   # Optional scaling for word-initial consonants (often useful to keep word onsets crisp).
   coarticulationWordInitialFadeScale: 1.0
+
+  # Cross-syllable reduction: when a consonant and its adjacent vowel are in
+  # different syllables, multiply the effective coarticulation strength by this.
+  # Values < 1.0 make cross-syllable transitions crisper (less vowel pull on the
+  # consonant), preserving syllable identity. Default 1.0 (no reduction).
+  coarticulationCrossSyllableScale: 0.70
 ```
 
 #### Graduated coarticulation
@@ -1082,6 +1088,62 @@ Tuning notes:
 - For English, `longVowelMode: "never"` is appropriate since stress is lexical, not length-based.
 - The weight knob has a direct, predictable effect: `2.0` = stressed vowels twice as long, `0.5` = half as long, `1.0` = no duration stress (amplitude/pitch only).
 
+### Syllable-aware processing
+
+The engine assigns a `syllableIndex` to every token, enabling passes to distinguish within-syllable transitions (one articulatory gesture, should be smooth) from cross-syllable transitions (separate gestures, should be crisper). Two mechanisms work together:
+
+1. **Syllable marking pass** (`syllable_marking`, PreTiming) — walks the token stream and converts `syllableStart` booleans into sequential `syllableIndex` integers per word. Tokens without a phoneme definition or silence tokens get index `-1`.
+
+2. **Onset maximization** (text parser) — for words in the stress dictionary whose nucleus count matches, the text parser inserts IPA `.` syllable boundary markers at linguistically correct positions using a legal onset table loaded from the language pack. The IPA engine parses `.` and sets `syllableStart` on the next token, suppressing the heuristic consonant→vowel boundary detection for that word.
+
+The heuristic (consonant→vowel transition = syllable start) is the fallback for words not in the stress dictionary or languages without an onset table.
+
+#### Syllable structure configuration
+
+The legal onset table is defined in the language pack under `syllableStructure:`:
+
+```yaml
+settings:
+  syllableStructure:
+    legalOnsets:
+      # CC: stop + liquid/glide
+      - pl
+      - pɹ
+      - bl
+      - bɹ
+      - tɹ
+      - kl
+      - kɹ
+      - fl
+      - fɹ
+      - sl
+      - sm
+      - sn
+      - sp
+      - st
+      - sk
+      - sw
+      - ʃɹ
+      # CCC: s + stop + liquid/glide
+      - spl
+      - spɹ
+      - stɹ
+      - skɹ
+      - skw
+```
+
+Each entry is an IPA string representing a consonant cluster that can legally begin a syllable. The onset maximization algorithm finds the longest legal onset suffix in a consonant cluster between two vowel nuclei and places the `.` boundary before it.
+
+**Example:** "abstract" /æbstɹækt/ — the cluster between the two vowels is /bstɹ/. The longest legal onset suffix is /stɹ/ (in the table), so the boundary becomes /æb.stɹækt/. Without onset maximization, the heuristic would produce /æbstɹ.ækt/ (boundary at the consonant→vowel transition).
+
+Languages without a `syllableStructure:` block get an empty onset table, and the text parser skips onset maximization entirely — the heuristic fallback handles everything.
+
+#### How other passes use syllableIndex
+
+- **Boundary smoothing:** Within-syllable transitions get gentler transition scales and longer fades (configurable via `withinSyllableScale` and `withinSyllableFadeScale`).
+- **Coarticulation:** Cross-syllable consonant→vowel pairs get reduced locus pull (configurable via `coarticulationCrossSyllableScale`).
+- **Cluster timing:** Triple-cluster detection respects syllable boundaries — consonants in different syllables are not treated as a single cluster.
+
 ### Boundary smoothing
 
 #### How boundary smoothing differs from coarticulation
@@ -1177,7 +1239,15 @@ settings:
     fricToStopFadeMs: 10.0
     stopToFricFadeMs: 14.0
     vowelToVowelFadeMs: 18.0
+
+    # Syllable-aware gentling.
+    # Within-syllable transitions are one articulatory gesture — they should
+    # be smoother than cross-syllable transitions.
+    withinSyllableScale: 1.5       # transScale multiplier for within-syllable pairs
+    withinSyllableFadeScale: 1.3   # fade multiplier for within-syllable pairs
 ```
+
+**Within-syllable gentling:** When two adjacent tokens share the same `syllableIndex`, their transition is within a single articulatory gesture. `withinSyllableScale` multiplies the per-place transScale values (clamped to 1.0 — transitions get slower, not faster), and `withinSyllableFadeScale` multiplies the fade duration. The defaults (1.5 / 1.3) give within-syllable transitions noticeably gentler smoothing without turning cross-syllable boundaries to mush.
 
 Flat-key equivalents (for the boolean/scale settings only):
 
@@ -1187,7 +1257,7 @@ Flat-key equivalents (for the boolean/scale settings only):
 - `boundarySmoothingNasalF1Instant`
 - `boundarySmoothingNasalF2F3SpansPhone`
 
-**Note:** The per-boundary fade times and per-place transition scales are only available via the nested `boundarySmoothing:` block — there are no flat-key equivalents for these.
+**Note:** The per-boundary fade times, per-place transition scales, and within-syllable scales are only available via the nested `boundarySmoothing:` block — there are no flat-key equivalents for these.
 
 #### Transition coverage
 
