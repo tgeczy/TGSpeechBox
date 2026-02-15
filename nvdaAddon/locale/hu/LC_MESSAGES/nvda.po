@@ -1,0 +1,2250 @@
+# Hungarian translations for TGSpeechBox NVDA add-on.
+# Copyright (C) 2024-2026 TGSpeechBox contributors
+# This file is distributed under the MIT license.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: TGSpeechBox\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-15 00:00+0000\n"
+"PO-Revision-Date: 2026-02-15 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Hungarian\n"
+"Language: hu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Voice tilt (brightness)"
+msgstr "Hangszín döntés (fényesség)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Noise glottal modulation"
+msgstr "Zaj glottális moduláció"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pitch-sync F1 delta"
+msgstr "Hangmagasság-szinkron F1 delta"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pitch-sync B1 delta"
+msgstr "Hangmagasság-szinkron B1 delta"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Speed quotient (voice tension)"
+msgstr "Sebesség hányados (hangfeszültség)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Aspiration tilt (breath color)"
+msgstr "Aspiráció döntés (lehelet színe)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Formant sharpness (cascade bandwidth)"
+msgstr "Formáns élesség (kaszkád sávszélesség)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Voice tremor (shakiness)"
+msgstr "Hangremegés (rezgés)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Creakiness (laryngealization)"
+msgstr "Recsegés (laringealizáció)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Breathiness"
+msgstr "Leheletes hang"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Jitter (pitch variation)"
+msgstr "Jitter (hangmagasság-ingadozás)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Shimmer (amplitude variation)"
+msgstr "Shimmer (amplitúdó-ingadozás)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Glottal sharpness"
+msgstr "Glottális élesség"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Legacy pitch inflection scale (only active when pitch mode is classic)"
+msgstr "Örökölt hanglejtés-skála (csak klasszikus hangmagasság-módban aktív)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pause mode"
+msgstr "Szünet mód"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Sample rate"
+msgstr "Mintavételi frekvencia"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Language"
+msgstr "Nyelv"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Stop closure mode"
+msgstr "Zárhang zárfázis mód"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Spelling diphthong mode"
+msgstr "Betűzés kettőshangzó mód"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pitch mode"
+msgstr "Hangmagasság mód"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Always"
+msgstr "Mindig"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "After vowel"
+msgstr "Magánhangzó után"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Vowel and cluster"
+msgstr "Magánhangzó és mássalhangzó-csoport"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "None"
+msgstr "Nincs"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Monophthong"
+msgstr "Monoftongus"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Absolute"
+msgstr "Abszolút"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Relative"
+msgstr "Relatív"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Immediate neighbors only"
+msgstr "Csak közvetlen szomszédok"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Allow C_V (one consonant)"
+msgstr "C_V engedélyezése (egy mássalhangzó)"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Allow CC_V (two consonants)"
+msgstr "CC_V engedélyezése (két mássalhangzó)"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "eSpeak style"
+msgstr "eSpeak stílus"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Fujisaki"
+msgstr "Fujisaki"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Classic"
+msgstr "Klasszikus"
+
+#. Pause mode choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Off"
+msgstr "Ki"
+
+#. Pause mode choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Short"
+msgstr "Rövid"
+
+#. Pause mode choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Long"
+msgstr "Hosszú"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "11025 Hz"
+msgstr "11025 Hz"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "16000 Hz (default)"
+msgstr "16000 Hz (alapértelmezett)"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "22050 Hz"
+msgstr "22050 Hz"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "44100 Hz"
+msgstr "44100 Hz"
+
+#. Settings panel title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "TGSpeechBox language packs"
+msgstr "TGSpeechBox nyelvi csomagok"
+
+#. Settings panel description
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Edit language-pack settings (packs/lang/*.yaml) without using Notepad. Only the YAML 'settings:' section is edited."
+msgstr "Nyelvi csomag beállítások szerkesztése (packs/lang/*.yaml) Jegyzettömb nélkül. Csak a YAML 'settings:' szakasz kerül szerkesztésre."
+
+#. Language tag label
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Language tag:"
+msgstr "Nyelvi címke:"
+
+#. Reset defaults button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset Language Pack Defaults..."
+msgstr "Nyelvi csomag alapértékek visszaállítása..."
+
+#. Save voice profile button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Save Voice Profile Sliders to YAML..."
+msgstr "Hangprofil csúszkák mentése YAML-ba..."
+
+#. Edit setting button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Edit setting:"
+msgstr "Beállítás szerkesztése:"
+
+#. Setting label
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Setting:"
+msgstr "Beállítás:"
+
+#. Value label
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Value:"
+msgstr "Érték:"
+
+#. GitHub link button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Open TGSpeechBox on GitHub"
+msgstr "TGSpeechBox megnyitása a GitHubon"
+
+#. Update check button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Check for Add-on Updates"
+msgstr "Bővítmény frissítések keresése"
+
+#. Pending edit indicator
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "(pending edit)"
+msgstr "(függőben lévő szerkesztés)"
+
+#. Source file indicator (format string)
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "(from {}.yaml)"
+msgstr "({}.yaml fájlból)"
+
+#. Update check failure dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Could not check for updates:
+{}
+
+Would you like to download the add-on anyway?"
+msgstr ""
+"Nem sikerült frissítéseket keresni:
+{}
+
+Szeretné mégis letölteni a bővítményt?"
+
+#. Update check failure dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Version Check Failed"
+msgstr "Verzióellenőrzés sikertelen"
+
+#. No update available dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"You already have the latest version installed.
+
+Installed version: {}
+Latest version: {}"
+msgstr ""
+"Már a legújabb verzió van telepítve.
+
+Telepített verzió: {}
+Legújabb verzió: {}"
+
+#. No update available dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "No Update Available"
+msgstr "Nincs elérhető frissítés"
+
+#. Update available dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"A new version is available!
+
+Installed version: {}
+Latest version: {}
+
+Download and install the update?"
+msgstr ""
+"Új verzió érhető el!
+
+Telepített verzió: {}
+Legújabb verzió: {}
+
+Letölti és telepíti a frissítést?"
+
+#. Update available dialog message (version unknown)
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Latest version available: {}
+
+Download and install?"
+msgstr ""
+"Legújabb elérhető verzió: {}
+
+Letölti és telepíti?"
+
+#. Update available dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Update Available"
+msgstr "Frissítés elérhető"
+
+#. Download failure dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Failed to download add-on:
+{}"
+msgstr ""
+"Nem sikerült letölteni a bővítményt:
+{}"
+
+#. Download exception dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"An error occurred during download:
+{}"
+msgstr ""
+"Hiba történt a letöltés során:
+{}"
+
+#. Download error dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Download Error"
+msgstr "Letöltési hiba"
+
+#. Download success but install failure dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Download complete, but failed to launch installer:
+{}
+
+File saved to:
+{}
+
+Please install it manually by opening the file."
+msgstr ""
+"Letöltés kész, de a telepítő indítása sikertelen:
+{}
+
+Fájl mentve ide:
+{}
+
+Kérjük, telepítse kézileg a fájl megnyitásával."
+
+#. Warning dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Warning"
+msgstr "Figyelmeztetés"
+
+#. Reset defaults dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset to Factory Defaults"
+msgstr "Gyári alapértékek visszaállítása"
+
+#. Reset defaults dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"This will overwrite language pack YAML files in packs/lang/ with the factory default versions from packs/.defaults/.
+
+Any customizations you have made will be lost."
+msgstr ""
+"Ez felülírja a nyelvi csomag YAML fájlokat a packs/lang/ mappában a packs/.defaults/ gyári alapértékeivel.
+
+Minden egyéni beállítás elvész."
+
+#. Reset single language pack option
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset only the currently selected language pack ({})"
+msgstr "Csak a jelenleg kiválasztott nyelvi csomag visszaállítása ({})"
+
+#. Yes button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Yes"
+msgstr "Igen"
+
+#. No button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "No"
+msgstr "Nem"
+
+#. Factory defaults folder missing message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Factory defaults folder not found:
+{}
+
+Cannot reset language packs."
+msgstr ""
+"A gyári alapértékek mappa nem található:
+{}
+
+Nem lehet visszaállítani a nyelvi csomagokat."
+
+#. Error dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Error"
+msgstr "Hiba"
+
+#. Failed to create directory message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Failed to create language pack directory:
+{}"
+msgstr ""
+"Nem sikerült létrehozni a nyelvi csomag könyvtárat:
+{}"
+
+#. Failed to read defaults directory message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Failed to read defaults directory:
+{}"
+msgstr ""
+"Nem sikerült olvasni az alapértékek könyvtárat:
+{}"
+
+#. No factory default for specific language pack message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"No factory default found for language pack '{}'.
+
+The file '{}.yaml' does not exist in the .defaults folder."
+msgstr ""
+"Nem található gyári alapérték a(z) '{}' nyelvi csomaghoz.
+
+A(z) '{}.yaml' fájl nem létezik a .defaults mappában."
+
+#. Not found dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Not Found"
+msgstr "Nem található"
+
+#. Reset completed with errors message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Reset completed with errors.
+
+Copied {} file(s).
+
+Errors:
+{}"
+msgstr ""
+"Visszaállítás hibákkal befejeződött.
+
+Másolva: {} fájl.
+
+Hibák:
+{}"
+
+#. Single language pack reset success message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Successfully reset '{}' language pack to factory defaults."
+msgstr "A(z) '{}' nyelvi csomag sikeresen visszaállítva gyári alapértékekre."
+
+#. Reset complete dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset Complete"
+msgstr "Visszaállítás kész"
+
+#. Multiple language packs reset success message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Successfully reset {} language pack file(s) to factory defaults."
+msgstr "Sikeresen visszaállítva {} nyelvi csomag fájl a gyári alapértékekre."
+
+#. Cannot save - wrong synthesizer message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "TGSpeechBox must be the active synthesizer to save voice profile settings."
+msgstr "A TGSpeechBox-nak kell az aktív beszédszintetizátornak lennie a hangprofil beállítások mentéséhez."
+
+#. Cannot save dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cannot Save"
+msgstr "Nem menthető"
+
+#. Error accessing synthesizer message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Error accessing synthesizer: {}"
+msgstr "Hiba a szintetizátor elérésekor: {}"
+
+#. Feature not supported message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "This feature requires a newer version of the frontend DLL."
+msgstr "Ez a funkció a frontend DLL újabb verzióját igényli."
+
+#. Not supported dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Not Supported"
+msgstr "Nem támogatott"
+
+#. Save voice profile confirmation dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Save the following slider settings to profile '{}'?
+
+VoicingTone:
+  voicedTiltDbPerOct: {:.2f}
+  noiseGlottalModDepth: {:.2f}
+  pitchSyncF1DeltaHz: {:.1f}
+  pitchSyncB1DeltaHz: {:.1f}
+  speedQuotient: {:.2f}
+  aspirationTiltDbPerOct: {:.2f}
+
+  cascadeBwScale: {:.2f}
+
+FrameEx:
+  creakiness: {:.2f}
+  breathiness: {:.2f}
+  jitter: {:.2f}
+  shimmer: {:.2f}
+  sharpness: {:.2f}
+
+This will update packs/phonemes.yaml."
+msgstr ""
+"Menti a következő csúszka-beállításokat a(z) '{}' profilba?
+
+VoicingTone:
+  voicedTiltDbPerOct: {:.2f}
+  noiseGlottalModDepth: {:.2f}
+  pitchSyncF1DeltaHz: {:.1f}
+  pitchSyncB1DeltaHz: {:.1f}
+  speedQuotient: {:.2f}
+  aspirationTiltDbPerOct: {:.2f}
+
+  cascadeBwScale: {:.2f}
+
+FrameEx:
+  creakiness: {:.2f}
+  breathiness: {:.2f}
+  jitter: {:.2f}
+  shimmer: {:.2f}
+  sharpness: {:.2f}
+
+Ez frissíti a packs/phonemes.yaml fájlt."
+
+#. Save voice profile dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Save Voice Profile Settings"
+msgstr "Hangprofil beállítások mentése"
+
+#. Save success message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Successfully saved slider settings for profile '{}'.
+
+The frontend will reload the settings on next speech."
+msgstr ""
+"Csúszka-beállítások sikeresen mentve a(z) '{}' profilhoz.
+
+A frontend a következő beszédnél újratölti a beállításokat."
+
+#. Save complete dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Save Complete"
+msgstr "Mentés kész"
+
+#. Save failure message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Failed to save settings: {}"
+msgstr "Nem sikerült menteni a beállításokat: {}"
+
+#. YAML save error message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Error saving to phonemes.yaml: {}"
+msgstr "Hiba a phonemes.yaml mentésekor: {}"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Affricate Duration (ms)"
+msgstr "Affrikáta időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Allophone Rules Enabled"
+msgstr "Allofón szabályok engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Allophone Rules: Enabled"
+msgstr "Allofón szabályok: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Apply Lengthened Scale To Vowels Only"
+msgstr "Nyújtási skála alkalmazása csak magánhangzókra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Auto Diphthong Offglide To Semivowel"
+msgstr "Automatikus kettőshangzó félhangzóvá"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Auto Tie Diphthongs"
+msgstr "Kettőshangzók automatikus kötése"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Enabled"
+msgstr "Határsimítás Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing F1 Scale"
+msgstr "Határsimítás F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing F2 Scale"
+msgstr "Határsimítás F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing F3 Scale"
+msgstr "Határsimítás F3 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Fric To Stop (ms)"
+msgstr "Határsimítás Réshang zárhangra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Fric To Vowel (ms)"
+msgstr "Határsimítás Réshang magánhangzóra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Liquid To Stop (ms)"
+msgstr "Határsimítás Likvida zárhangra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Liquid To Vowel (ms)"
+msgstr "Határsimítás Likvida magánhangzóra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal F1 Instant"
+msgstr "Határsimítás Nazális F1 azonnali"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal F2 F3 Spans Phone"
+msgstr "Határsimítás Nazális F2 F3 átfogja a hangot"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal To Stop (ms)"
+msgstr "Határsimítás Nazális zárhangra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal To Vowel (ms)"
+msgstr "Határsimítás Nazális magánhangzóra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Plosive Spans Phone"
+msgstr "Határsimítás Zárhang átfogja a hangot"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Stop To Fric (ms)"
+msgstr "Határsimítás Zárhang réshangra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Stop To Vowel (ms)"
+msgstr "Határsimítás Zárhang magánhangzóra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Fric (ms)"
+msgstr "Határsimítás Magánhangzó réshangra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Liquid (ms)"
+msgstr "Határsimítás Magánhangzó likvidára (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Nasal (ms)"
+msgstr "Határsimítás Magánhangzó nazálisra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Stop (ms)"
+msgstr "Határsimítás Magánhangzó zárhangra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Vowel (ms)"
+msgstr "Határsimítás Magánhangzó magánhangzóra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Alveolar F1 Scale"
+msgstr "Határsimítás: Alveoláris F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Alveolar F2 Scale"
+msgstr "Határsimítás: Alveoláris F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Alveolar F3 Scale"
+msgstr "Határsimítás: Alveoláris F3 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Enabled"
+msgstr "Határsimítás: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: F1 Scale"
+msgstr "Határsimítás: F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: F2 Scale"
+msgstr "Határsimítás: F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: F3 Scale"
+msgstr "Határsimítás: F3 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Fric To Stop Fade (ms)"
+msgstr "Határsimítás: Réshangról zárhangra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Fric To Vowel Fade (ms)"
+msgstr "Határsimítás: Réshangról magánhangzóra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Labial F1 Scale"
+msgstr "Határsimítás: Labiális F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Labial F2 Scale"
+msgstr "Határsimítás: Labiális F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Labial F3 Scale"
+msgstr "Határsimítás: Labiális F3 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Liquid To Stop Fade (ms)"
+msgstr "Határsimítás: Likvidáról zárhangra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Liquid To Vowel Fade (ms)"
+msgstr "Határsimítás: Likvidáról magánhangzóra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal F1 Instant"
+msgstr "Határsimítás: Nazális F1 azonnali"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal F2 F3 Spans Phone"
+msgstr "Határsimítás: Nazális F2 F3 átfogja a hangot"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal To Stop Fade (ms)"
+msgstr "Határsimítás: Nazálisról zárhangra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal To Vowel Fade (ms)"
+msgstr "Határsimítás: Nazálisról magánhangzóra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Palatal F1 Scale"
+msgstr "Határsimítás: Palatális F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Palatal F2 Scale"
+msgstr "Határsimítás: Palatális F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Palatal F3 Scale"
+msgstr "Határsimítás: Palatális F3 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Plosive Spans Phone"
+msgstr "Határsimítás: Zárhang átfogja a hangot"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Stop To Fric Fade (ms)"
+msgstr "Határsimítás: Zárhangról réshangra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Stop To Vowel Fade (ms)"
+msgstr "Határsimítás: Zárhangról magánhangzóra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Velar F1 Scale"
+msgstr "Határsimítás: Veláris F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Velar F2 Scale"
+msgstr "Határsimítás: Veláris F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Velar F3 Scale"
+msgstr "Határsimítás: Veláris F3 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Fric Fade (ms)"
+msgstr "Határsimítás: Magánhangzóról réshangra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Liquid Fade (ms)"
+msgstr "Határsimítás: Magánhangzóról likvidára elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Nasal Fade (ms)"
+msgstr "Határsimítás: Magánhangzóról nazálisra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Stop Fade (ms)"
+msgstr "Határsimítás: Magánhangzóról zárhangra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Vowel Fade (ms)"
+msgstr "Határsimítás: Magánhangzóról magánhangzóra elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Within Syllable Fade Scale"
+msgstr "Határsimítás: Szótagon belüli elhalkulás skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Within Syllable Scale"
+msgstr "Határsimítás: Szótagon belüli skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Clause Final Fade (ms)"
+msgstr "Tagmondat végi elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Default Pair Scale"
+msgstr "Csoport keverés Alapértelmezett pár skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Enabled"
+msgstr "Csoport keverés Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend F1 Scale"
+msgstr "Csoport keverés F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Forward Drift Strength"
+msgstr "Csoport keverés Előre sodródás erőssége"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Fric To Fric Scale"
+msgstr "Csoport keverés Réshang réshangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Fric To Stop Scale"
+msgstr "Csoport keverés Réshang zárhangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Homorganic Scale"
+msgstr "Csoport keverés Homorganikus skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Liquid To Fric Scale"
+msgstr "Csoport keverés Likvida réshangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Liquid To Stop Scale"
+msgstr "Csoport keverés Likvida zárhangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Nasal To Fric Scale"
+msgstr "Csoport keverés Nazális réshangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Nasal To Stop Scale"
+msgstr "Csoport keverés Nazális zárhangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Stop To Fric Scale"
+msgstr "Csoport keverés Zárhang réshangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Stop To Stop Scale"
+msgstr "Csoport keverés Zárhang zárhangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Strength"
+msgstr "Csoport keverés Erősség"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Word Boundary Scale"
+msgstr "Csoport keverés Szóhatár skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Default Pair Scale"
+msgstr "Csoport keverés: Alapértelmezett pár skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Enabled"
+msgstr "Csoport keverés: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: F1 Scale"
+msgstr "Csoport keverés: F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Forward Drift Strength"
+msgstr "Csoport keverés: Előre sodródás erőssége"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Fric To Fric Scale"
+msgstr "Csoport keverés: Réshang réshangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Fric To Stop Scale"
+msgstr "Csoport keverés: Réshang zárhangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Homorganic Scale"
+msgstr "Csoport keverés: Homorganikus skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Liquid To Fric Scale"
+msgstr "Csoport keverés: Likvida réshangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Liquid To Stop Scale"
+msgstr "Csoport keverés: Likvida zárhangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Nasal To Fric Scale"
+msgstr "Csoport keverés: Nazális réshangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Nasal To Stop Scale"
+msgstr "Csoport keverés: Nazális zárhangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Stop To Fric Scale"
+msgstr "Csoport keverés: Zárhang réshangra Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Stop To Stop Scale"
+msgstr "Csoport keverés: Zárhang zárhangra skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Strength"
+msgstr "Csoport keverés: Erősség"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Word Boundary Scale"
+msgstr "Csoport keverés: Szóhatár skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Affricate In Cluster Scale"
+msgstr "Csoport időzítés Affrikáta csoportban skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Enabled"
+msgstr "Csoport időzítés Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Fric Before Fric Scale"
+msgstr "Csoport időzítés Réshang réshang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Fric Before Stop Scale"
+msgstr "Csoport időzítés Réshang zárhang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Stop Before Fric Scale"
+msgstr "Csoport időzítés Zárhang réshang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Stop Before Stop Scale"
+msgstr "Csoport időzítés Zárhang zárhang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Triple Cluster Middle Scale"
+msgstr "Csoport időzítés Hármas csoport középső skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Word Final Obstruent Scale"
+msgstr "Csoport időzítés Szóvégi obstruens skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Word Medial Consonant Scale"
+msgstr "Csoport időzítés Szóbelseji mássalhangzó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Affricate In Cluster Scale"
+msgstr "Csoport időzítés: Affrikáta csoportban skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Enabled"
+msgstr "Csoport időzítés: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Fric Before Fric Scale"
+msgstr "Csoport időzítés: Réshang réshang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Fric Before Stop Scale"
+msgstr "Csoport időzítés: Réshang zárhang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Stop Before Fric Scale"
+msgstr "Csoport időzítés: Zárhang réshang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Stop Before Stop Scale"
+msgstr "Csoport időzítés: Zárhang zárhang előtt skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Triple Cluster Middle Scale"
+msgstr "Csoport időzítés: Hármas csoport középső skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Word Final Obstruent Scale"
+msgstr "Csoport időzítés: Szóvégi obstruens skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Word Medial Consonant Scale"
+msgstr "Csoport időzítés: Szóbelseji mássalhangzó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Adjacency Max Consonants"
+msgstr "Koartikuláció Szomszédság max. mássalhangzók"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Alveolar Back Vowel Strength Boost"
+msgstr "Koartikuláció Alveoláris hátsó magánhangzó erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Alveolar F2 Locus"
+msgstr "Koartikuláció Alveolar F2 lókusz"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Alveolar Scale"
+msgstr "Koartikuláció Alveoláris skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Aspiration Blend End"
+msgstr "Koartikuláció Aspiráció keverés vége"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Aspiration Blend Start"
+msgstr "Koartikuláció Aspiráció keverés kezdete"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Back Vowel F2 Threshold"
+msgstr "Koartikuláció Hátsó magánhangzó F2 küszöb"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Cross Syllable Scale"
+msgstr "Koartikuláció Szótagközi skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Enabled"
+msgstr "Koartikuláció Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation F1 Scale"
+msgstr "Koartikuláció F1 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation F2 Scale"
+msgstr "Koartikuláció F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation F3 Scale"
+msgstr "Koartikuláció F3 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Graduated"
+msgstr "Koartikuláció Fokozatos"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Labial F2 Locus"
+msgstr "Koartikuláció Labial F2 lókusz"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Labial Scale"
+msgstr "Koartikuláció Labiális skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Labialized Fricative F2 Pull"
+msgstr "Koartikuláció Labializált réshang F2 húzás"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Mitalk K"
+msgstr "Koartikuláció Mitalk K"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Palatal Scale"
+msgstr "Koartikuláció Palatális skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Strength"
+msgstr "Koartikuláció Erősség"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Transition Extent"
+msgstr "Koartikuláció Átmenet terjedelme"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus"
+msgstr "Koartikuláció Velar F2 lókusz"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch Enabled"
+msgstr "Koartikuláció Veláris szűkítés engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch F2 Scale"
+msgstr "Koartikuláció Veláris szűkítés F2 skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch F3"
+msgstr "Koartikuláció Veláris szűkítés F3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch Threshold"
+msgstr "Koartikuláció Veláris szűkítés küszöb"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Scale"
+msgstr "Koartikuláció Veláris skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Word Initial Fade Scale"
+msgstr "Koartikuláció Szókezdő elhalkulás skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Fade (ms)"
+msgstr "Alapértelmezett elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Glottal Open Quotient"
+msgstr "Alapértelmezett glottális nyitási hányados"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Output Gain"
+msgstr "Alapértelmezett kimeneti erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Pre Formant Gain"
+msgstr "Alapértelmezett formáns előtti erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Vibrato Pitch Offset"
+msgstr "Alapértelmezett vibrato eltolás"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Vibrato Speed"
+msgstr "Alapértelmezett vibrato sebesség"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Voice Turbulence Amplitude"
+msgstr "Alapértelmezett hangturbulencia amplitúdó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Vowel Duration (ms)"
+msgstr "Alapértelmezett magánhangzó időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "English Long U Key"
+msgstr "Angol hosszú U billentyű"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "English Long U Shorten Enabled"
+msgstr "Angol hosszú U rövidítés engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "English Long U Word Final Scale"
+msgstr "Angol hosszú U szóvégi skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fade After Liquid (ms)"
+msgstr "Elhalkulás likvida után (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Accent Dur"
+msgstr "Fujisaki Hangsúly időtartam"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Accent Len"
+msgstr "Fujisaki Hangsúly hossz"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Accent Mode"
+msgstr "Fujisaki Hangsúly mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Max"
+msgstr "Fujisaki Deklinációs maximum"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Post Floor"
+msgstr "Fujisaki Deklinációs alsó határ után"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Rate"
+msgstr "Fujisaki Deklináció mértéke"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Scale"
+msgstr "Fujisaki Deklináció skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Phrase Amp"
+msgstr "Fujisaki Frázis amplitúdó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Phrase Decay"
+msgstr "Fujisaki Frázis lecsengés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Phrase Len"
+msgstr "Fujisaki Frázis hossz"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Primary Accent Amp"
+msgstr "Fujisaki Elsődleges hangsúly amplitúdó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Secondary Accent Amp"
+msgstr "Fujisaki Másodlagos hangsúly amplitúdó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Hu Short A Vowel Enabled"
+msgstr "Magyar rövid A magánhangzó engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Hu Short A Vowel Key"
+msgstr "Magyar rövid A magánhangzó billentyű"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Hu Short A Vowel Scale"
+msgstr "Magyar rövid A magánhangzó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Legacy Pitch Inflection Scale"
+msgstr "Örökölt hanglejtés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Legacy Pitch Mode"
+msgstr "Örökölt hangmagasság mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Enabled"
+msgstr "Hosszúsági kontraszt Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Geminate Closure Scale"
+msgstr "Hosszúsági kontraszt Gemináta zárfázis skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Geminate Release Scale"
+msgstr "Hosszúsági kontraszt Gemináta feloldás skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Long Vowel Floor (ms)"
+msgstr "Hosszúsági kontraszt Hosszú magánhangzó alsó határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Pre Geminate Vowel Scale"
+msgstr "Hosszúsági kontraszt Gemináta előtti magánhangzó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Short Vowel Ceiling (ms)"
+msgstr "Hosszúsági kontraszt Rövid magánhangzó felső határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Enabled"
+msgstr "Hosszúsági kontraszt: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Geminate Closure Scale"
+msgstr "Hosszúsági kontraszt: Gemináta zárfázis skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Geminate Release Scale"
+msgstr "Hosszúsági kontraszt: Gemináta feloldás skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Long Vowel Floor"
+msgstr "Hosszúsági kontraszt: Hosszú magánhangzó alsó határ"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Pre Geminate Vowel Scale"
+msgstr "Hosszúsági kontraszt: Gemináta előtti magánhangzó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Short Vowel Ceiling"
+msgstr "Hosszúsági kontraszt: Rövid magánhangzó felső határ"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Lengthened Scale"
+msgstr "Nyújtási skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Lengthened Scale Hu"
+msgstr "Nyújtási skála magyar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Lengthened Vowel Final Coda Scale"
+msgstr "Nyújtott magánhangzó végi kóda skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Enabled"
+msgstr "Likvida dinamika Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Start F1"
+msgstr "Likvida dinamika Labiális csúszás kezdő F1"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Start F2"
+msgstr "Likvida dinamika Labiális csúszás kezdő F2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Transition (%)"
+msgstr "Likvida dinamika Labiális csúszás átmenet (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Transition Enabled"
+msgstr "Likvida dinamika Labiális csúszás átmenet engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Lateral Onglide Duration (%)"
+msgstr "Likvida dinamika Laterális rácsúszás időtartam (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Lateral Onglide F1 Delta"
+msgstr "Likvida dinamika Laterális rácsúszás F1 delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Lateral Onglide F2 Delta"
+msgstr "Likvida dinamika Laterális rácsúszás F2 delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Rhotic F3 Dip Duration (%)"
+msgstr "Likvida dinamika Rotikus F3 mélyedés időtartam (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Rhotic F3 Dip Enabled"
+msgstr "Likvida dinamika Rotikus F3 mélyedés engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Rhotic F3 Minimum"
+msgstr "Likvida dinamika Rotikus F3 minimum"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Enabled"
+msgstr "Likvida dinamika: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition enabled"
+msgstr "Likvida dinamika: Labiális csúszás átmenet engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition start F1"
+msgstr "Likvida dinamika: Labiális csúszás átmenet kezdő F1"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition start F2"
+msgstr "Likvida dinamika: Labiális csúszás átmenet kezdő F2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition transition (%)"
+msgstr "Likvida dinamika: Labiális csúszás átmenet átmenet (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Lateral Onglide duration (%)"
+msgstr "Likvida dinamika: laterális rácsúszás időtartam (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Lateral Onglide F1 Delta"
+msgstr "Likvida dinamika: Laterális rácsúszás F1 delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Lateral Onglide F2 Delta"
+msgstr "Likvida dinamika: Laterális rácsúszás F2 delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Rhotic F3 Dip dip Duration (%)"
+msgstr "Likvida dinamika: Rotikus F3 mélyedés időtartam (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Rhotic F3 Dip enabled"
+msgstr "Likvida dinamika: Rotikus F3 mélyedés engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Rhotic F3 Dip F3 Minimum"
+msgstr "Likvida dinamika: Rotikus F3 mélyedés F3 minimum"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Fade (ms)"
+msgstr "Likvida elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Enabled"
+msgstr "Mikroprozódia Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Min Vowel (ms)"
+msgstr "Mikroprozódia Minimális magánhangzó (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiced F0 Lower (Hz)"
+msgstr "Mikroprozódia Zöngés F0 csökkentés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiced F0 Lower Enabled"
+msgstr "Mikroprozódia Zöngés F0 csökkentés engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless F0 Raise (Hz)"
+msgstr "Mikroprozódia Zöngétlen F0 emelés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless F0 Raise Enabled"
+msgstr "Mikroprozódia Zöngétlen F0 emelés engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless F0 Raise End (Hz)"
+msgstr "Mikroprozódia Zöngétlen F0 emelés vége (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Nasalization Anticipatory Amplitude"
+msgstr "Nazalizáció Előlegező amplitúdó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Nasalization Anticipatory Blend"
+msgstr "Nazalizáció Előlegező keverés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Nasalization Anticipatory Enabled"
+msgstr "Nazalizáció Előlegező engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Enabled"
+msgstr "Frázis végi nyújtás Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Final Syllable Scale"
+msgstr "Frázis végi nyújtás Utolsó szótag skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Nucleus Only Mode"
+msgstr "Frázis végi nyújtás Csak mag mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Penultimate Syllable Scale"
+msgstr "Frázis végi nyújtás Utolsó előtti szótag skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Question Scale"
+msgstr "Frázis végi nyújtás Kérdés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Statement Scale"
+msgstr "Frázis végi nyújtás Kijelentés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Positional Allophones: Enabled"
+msgstr "Pozicionális allofónok: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration Duration (ms)"
+msgstr "Zárhang utáni Aspiráció időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration Enabled"
+msgstr "Zárhang utáni Aspiráció engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration Phoneme"
+msgstr "Zárhang utáni Aspiráció fonéma"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Primary Stress Div"
+msgstr "Elsődleges hangsúly osztó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Amplitude Boost (dB)"
+msgstr "Prominencia Amplitúdó erősítés (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Amplitude Reduction (dB)"
+msgstr "Prominencia Amplitúdó csökkentés (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Duration Prominent Floor (ms)"
+msgstr "Prominencia Időtartam kiemelkedő alsó határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Duration Reduced Ceiling"
+msgstr "Prominencia Időtartam redukált felső határ"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Enabled"
+msgstr "Prominencia Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Long Vowel Mode"
+msgstr "Prominencia Hosszú magánhangzó mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Long Vowel Weight"
+msgstr "Prominencia Hosszú magánhangzó súly"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Pitch From Prominence"
+msgstr "Prominencia Hangmagasság prominenciából"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Primary Stress Weight"
+msgstr "Prominencia Elsődleges hangsúly súly"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Secondary Stress Level"
+msgstr "Prominencia Másodlagos hangsúly szint"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Secondary Stress Weight"
+msgstr "Prominencia Másodlagos hangsúly súly"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Word Final Reduction"
+msgstr "Prominencia Szóvégi redukció"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Word Initial Boost"
+msgstr "Prominencia Szókezdő erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Amplitude Boost (dB)"
+msgstr "Prominencia: Amplitúdó erősítés (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Amplitude Reduction (dB)"
+msgstr "Prominencia: Amplitúdó csökkentés (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Duration Prominent Floor (ms)"
+msgstr "Prominencia: Időtartam kiemelkedő alsó határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Duration Reduced Ceiling"
+msgstr "Prominencia: Időtartam redukált felső határ"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Enabled"
+msgstr "Prominencia: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Long Vowel Mode"
+msgstr "Prominencia: Hosszú magánhangzó mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Long Vowel Weight"
+msgstr "Prominencia: Hosszú magánhangzó súly"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Pitch From Prominence"
+msgstr "Prominencia: Hangmagasság prominenciából"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Primary Stress Weight"
+msgstr "Prominencia: Elsődleges hangsúly súly"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Secondary Stress Level"
+msgstr "Prominencia: Másodlagos hangsúly szint"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Secondary Stress Weight"
+msgstr "Prominencia: Másodlagos hangsúly súly"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Word Final Reduction"
+msgstr "Prominencia: Szóvégi redukció"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Word Initial Boost"
+msgstr "Prominencia: Szókezdő erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Enabled"
+msgstr "Sebességcsökkentés Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Schwa Min Duration (ms)"
+msgstr "Sebességcsökkentés Svá minimális időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Schwa Reduction Threshold"
+msgstr "Sebességcsökkentés Svá redukciós küszöb"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Schwa Scale"
+msgstr "Sebességcsökkentés Svá skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Secondary Stress Div"
+msgstr "Másodlagos hangsúly osztó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Fade (ms)"
+msgstr "Szegmenshatár elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Gap (ms)"
+msgstr "Szegmenshatár szünet (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Skip Vowel To Liquid"
+msgstr "Szegmenshatár Skip Magánhangzó likvidára"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Skip Vowel To Vowel"
+msgstr "Szegmenshatár Skip Magánhangzó magánhangzóra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Semivowel Offglide Scale"
+msgstr "Félhangzó lecsúszás skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Clause Type Override"
+msgstr "Egyszavas tagmondat-típus felülírás"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Clause Type Override Comma Only"
+msgstr "Egyszavas tagmondat-típus felülírás csak vesszőnél"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Final Fade (ms)"
+msgstr "Egyszavas szóvégi elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Final Hold (ms)"
+msgstr "Egyszavas szóvégi tartás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Final Liquid Hold Scale"
+msgstr "Egyszavas szóvégi likvidatartás skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Tuning Enabled"
+msgstr "Egyszavas hangolás engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coartic Max Delta (Hz)"
+msgstr "Spec. koartik. Max. delta (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coarticulation Enabled"
+msgstr "Special Koartikuláció Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coarticulation: Enabled"
+msgstr "Speciális koartikuláció: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coarticulation: Max Delta (Hz)"
+msgstr "Speciális koartikuláció: Max. delta (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Spelling Diphthong Mode"
+msgstr "Betűzés kettőshangzó mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure After Nasals Enabled"
+msgstr "Zárhang zárfázis Nazálisok után engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Cluster Fade (ms)"
+msgstr "Zárhang zárfázis Csoport elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Cluster Gap (ms)"
+msgstr "Zárhang zárfázis Csoport szünet (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Cluster Gaps Enabled"
+msgstr "Zárhang zárfázis Csoport szünetek engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Mode"
+msgstr "Zárhang zárfázis Mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Vowel Fade (ms)"
+msgstr "Zárhang zárfázis Magánhangzó elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Vowel Gap (ms)"
+msgstr "Zárhang zárfázis Magánhangzó szünet (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Word Boundary Cluster Fade (ms)"
+msgstr "Zárhang zárfázis Szóhatár csoport elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Word Boundary Cluster Gap (ms)"
+msgstr "Zárhang zárfázis Szóhatár csoport szünet (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Duration (ms)"
+msgstr "Zárhang időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stressed Vowel Hiatus Fade (ms)"
+msgstr "Hangsúlyos magánhangzó hiátus elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stressed Vowel Hiatus Gap (ms)"
+msgstr "Hangsúlyos magánhangzó hiátus szünet (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Strip Allophone Digits"
+msgstr "Allofón számjegyek eltávolítása"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Strip Hyphen"
+msgstr "Kötőjel eltávolítása"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Coda Scale"
+msgstr "Szótagidőtartam Kóda skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Enabled"
+msgstr "Szótagidőtartam Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Onset Scale"
+msgstr "Szótagidőtartam Szótagkezdet skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Unstressed Open Nucleus Scale"
+msgstr "Szótagidőtartam Hangsúlytalan nyílt mag skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Coda Scale"
+msgstr "Szótagidőtartam: Kóda skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Enabled"
+msgstr "Szótagidőtartam: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Onset Scale"
+msgstr "Szótagidőtartam: Szótagkezdet skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Unstressed Open Nucleus Scale"
+msgstr "Szótagidőtartam: Hangsúlytalan nyílt mag skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tap Duration (ms)"
+msgstr "Együtésű pergő időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tied From Vowel Duration (ms)"
+msgstr "Kötött magánhangzóról időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tied From Vowel Fade (ms)"
+msgstr "Tied From Magánhangzó elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tied Vowel Duration (ms)"
+msgstr "Kötött magánhangzó időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tonal"
+msgstr "Tonális"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tone Contours Absolute"
+msgstr "Tonális kontúrok abszolút"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tone Contours Mode"
+msgstr "Tonális kontúrok mód"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tone Digits Enabled"
+msgstr "Tónus számjegyek engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Apply Across Word Boundary"
+msgstr "Pályakorlát Alkalmazás szóhatáron át"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Apply To"
+msgstr "Pályakorlát Alkalmazás"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Enabled"
+msgstr "Pályakorlát Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Cf2"
+msgstr "Pályakorlát Max. Hz/ms Cf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Cf3"
+msgstr "Pályakorlát Max. Hz/ms Cf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Pf2"
+msgstr "Pályakorlát Max. Hz/ms Pf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Pf3"
+msgstr "Pályakorlát Max. Hz/ms Pf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Window (ms)"
+msgstr "Pályakorlát Ablak (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Apply Across Word Boundary"
+msgstr "Pályakorlát: Alkalmazás szóhatáron át"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Apply To"
+msgstr "Pályakorlát: Alkalmazás"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Enabled"
+msgstr "Pályakorlát: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms cf2"
+msgstr "Pályakorlát: Max. Hz/ms cf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms cf3"
+msgstr "Pályakorlát: Max. Hz/ms cf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms pf2"
+msgstr "Pályakorlát: Max. Hz/ms pf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms pf3"
+msgstr "Pályakorlát: Max. Hz/ms pf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Window (ms)"
+msgstr "Pályakorlát: Ablak (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trill Fallback Duration (ms)"
+msgstr "Pergőhang tartalék időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trill Modulation (ms)"
+msgstr "Pergőhang moduláció (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trill Modulation Fade (ms)"
+msgstr "Pergőhang moduláció elhalkulás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Voice Profile Name"
+msgstr "Hangprofil neve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Voiced Consonant Duration (ms)"
+msgstr "Zöngés mássalhangzó időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Voiceless Fricative Duration (ms)"
+msgstr "Zöngétlen réshang időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Vowel Before Liquid Duration (ms)"
+msgstr "Magánhangzó likvida előtt időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Vowel Before Nasal Duration (ms)"
+msgstr "Magánhangzó nazális előtt időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Final Schwa Min Duration (ms)"
+msgstr "Szóvégi svá minimális időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Final Schwa Reduction Enabled"
+msgstr "Szóvégi svá redukció engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Final Schwa Scale"
+msgstr "Szóvégi svá skála"
