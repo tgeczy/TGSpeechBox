@@ -666,6 +666,7 @@ class SynthDriver(SynthDriver):
                     continue
 
         self._espeakLang = (espeakApplied or "").strip().lower().replace("_", "-")
+        self._espeakVoiceConfirmed = False  # force re-apply on next IPA call
 
         if espeakApplied is None:
             log.error(
@@ -1191,7 +1192,15 @@ class SynthDriver(SynthDriver):
         textToPhonemes = getattr(espeakDLL, "espeak_TextToPhonemes", None)
         if not textToPhonemes:
             return ""
-        
+
+        # Re-apply voice on the first IPA call (same approach as SAPI).
+        # NVDA's eSpeak bgThread may have overridden our voice selection
+        # during init, so we force the correct voice at the last moment.
+        if not getattr(self, "_espeakVoiceConfirmed", False):
+            espeakLang = getattr(self, "_espeakLang", "en-us")
+            _espeakSetVoiceDirect(espeakLang)
+            self._espeakVoiceConfirmed = True
+
         textBuf = ctypes.create_unicode_buffer(text)
         textPtr = ctypes.c_void_p(ctypes.addressof(textBuf))
         chunks = []
