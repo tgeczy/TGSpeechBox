@@ -9,7 +9,6 @@ Licensed under the MIT License. See LICENSE for details.
 #include <algorithm>
 #include <cstdlib>
 #include <cstdio>
-#include <cstdarg>
 #include <climits>
 #include <cmath>
 #include <filesystem>
@@ -412,6 +411,38 @@ std::vector<std::wstring> get_installed_language_tags()
 
     std::sort(tags.begin(), tags.end());
     tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
+
+    // Hide base language tags (e.g. "en") when regional variants (e.g. "en-us",
+    // "en-gb") exist.  Showing both "English" and "English (United States)"
+    // confuses users and the base voice uses British phonemes anyway.
+    {
+        std::vector<std::wstring> filtered;
+        filtered.reserve(tags.size());
+        for (const auto& tag : tags) {
+            // Always hide the synthetic "default" tag — it's internal only.
+            if (_wcsicmp(tag.c_str(), L"default") == 0) {
+                continue;
+            }
+            // A "base" tag has no dash/underscore (e.g. "en", "es", "de").
+            if (tag.find(L'-') == std::wstring::npos && tag.find(L'_') == std::wstring::npos) {
+                // Check if any regional variant exists.
+                const std::wstring prefix = tag + L"-";
+                bool has_regional = false;
+                for (const auto& other : tags) {
+                    if (other.size() > prefix.size() && _wcsnicmp(other.c_str(), prefix.c_str(), prefix.size()) == 0) {
+                        has_regional = true;
+                        break;
+                    }
+                }
+                if (has_regional) {
+                    continue; // skip base tag
+                }
+            }
+            filtered.push_back(tag);
+        }
+        tags = std::move(filtered);
+    }
+
     return tags;
 }
 
@@ -774,11 +805,11 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
     }
     const std::string espeak_tag_utf8 = utils::wstring_to_string(espeak_tag);
 
-    // Frontend language.
-    if (nvspFrontend_setLanguage_ && frontend_) {
+    // Frontend language — skip if unchanged (avoids expensive YAML reload).
+    if (nvspFrontend_setLanguage_ && frontend_ && tag != current_lang_tag_) {
         if (!nvspFrontend_setLanguage_(frontend_, tag_utf8.c_str())) {
             const char* err = nvspFrontend_getLastError_ ? nvspFrontend_getLastError_(frontend_) : "nvspFrontend_setLanguage failed";
-            (void)err;
+            DEBUG_LOG("set_language: frontend failed for '%s': %s", tag_utf8.c_str(), err ? err : "(null)");
             return E_FAIL;
         }
     }
@@ -789,32 +820,85 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
             return true;
         }
 
-        // Prefer SetVoiceByProperties (matches by language code, like NVDA does).
-        // This correctly picks "en-US" for "en-us" without needing exact voice file names.
-        auto try_set_by_language = [&](const std::string& lang) -> bool {
-            if (lang.empty() || !espeak_SetVoiceByProperties_) return false;
-            if (!current_espeak_voice_.empty() && _stricmp(current_espeak_voice_.c_str(), lang.c_str()) == 0) {
-                return true;
+        // Cache check: skip if the voice is already set.
+        if (!current_espeak_voice_.empty() && _stricmp(current_espeak_voice_.c_str(), desired.c_str()) == 0) {
+            return true;
+        }
+
+        // --- Strategy 1: Use espeak_ListVoices to find the full voice identifier ---
+        // This mirrors what NVDA does: enumerate voices, find the one whose
+        // packed language list contains the desired tag, then call SetVoiceByName
+        // with the full identifier (e.g. "gmw\en-US") instead of just "en-us".
+        // The full identifier resolves directly to the voice file path, avoiding
+        // eSpeak's fragile suffix-matching fallback in SelectVoiceByName.
+        auto try_set_by_list = [&](const std::string& lang) -> bool {
+            if (lang.empty() || !espeak_ListVoices_ || !espeak_SetVoiceByName_) return false;
+
+            const espeak_VOICE** voices = espeak_ListVoices_(nullptr);
+            if (!voices) return false;
+
+            // Search for best match: exact language tag > base language.
+            const char* exact_id = nullptr;
+            int exact_priority = 99;
+            const char* base_id = nullptr;
+            int base_priority = 99;
+
+            // Extract base language for partial matching (e.g. "en" from "en-us").
+            std::string base_lang = lang;
+            {
+                const size_t dash = base_lang.find_first_of("-_");
+                if (dash != std::string::npos) base_lang.resize(dash);
             }
-            espeak_VOICE voice_spec{};
-            voice_spec.languages = lang.c_str();
-            int rc = -1;
-            __try {
-                rc = espeak_SetVoiceByProperties_(&voice_spec);
-            } __except(EXCEPTION_EXECUTE_HANDLER) {
-                DEBUG_LOG("espeak_SetVoiceByProperties crashed for '%s'", lang.c_str());
+
+            for (int ix = 0; voices[ix] != nullptr; ++ix) {
+                const char* langs = voices[ix]->languages;
+                if (!langs) continue;
+                // eSpeak packs languages as: [priority_byte][nul-terminated-tag] repeated.
+                const char* p = langs;
+                while (*p) {
+                    const int priority = static_cast<unsigned char>(*p);
+                    const char* ltag = p + 1;
+                    if (_stricmp(ltag, lang.c_str()) == 0) {
+                        // Exact match (e.g. "en-us" == "en-us").
+                        if (priority < exact_priority) {
+                            exact_priority = priority;
+                            exact_id = voices[ix]->identifier;
+                        }
+                    } else if (_stricmp(ltag, base_lang.c_str()) == 0) {
+                        // Base language match (e.g. "en" from "en-us").
+                        if (priority < base_priority) {
+                            base_priority = priority;
+                            base_id = voices[ix]->identifier;
+                        }
+                    }
+                    p = ltag + strlen(ltag) + 1; // skip past NUL terminator
+                }
+            }
+
+            // Prefer exact match, fall back to base language match.
+            const char* chosen_id = exact_id ? exact_id : base_id;
+            if (!chosen_id) {
+                return false;
+            }
+
+            DEBUG_LOG("select_espeak_voice: ListVoices resolved '%s' -> identifier='%s' (exact=%s)",
+                      lang.c_str(), chosen_id, exact_id ? "yes" : "no(base)");
+
+            bool crashed = false;
+            const int rc = safe_espeak_SetVoiceByName(espeak_SetVoiceByName_, chosen_id, &crashed);
+            if (crashed || rc == k_espeak_crash_rc) {
+                DEBUG_LOG("espeak_SetVoiceByName crashed for identifier '%s'", chosen_id);
                 return false;
             }
             if (rc == 0) {
                 current_espeak_voice_ = lang;
-                DEBUG_LOG("espeak_SetVoiceByProperties OK for '%s'", lang.c_str());
+                resolved_espeak_identifier_ = chosen_id;
                 return true;
             }
-            DEBUG_LOG("espeak_SetVoiceByProperties failed for '%s' (rc=%d)", lang.c_str(), rc);
             return false;
         };
 
-        // Fallback: SetVoiceByName (matches voice file name).
+        // --- Strategy 2: Fallback to SetVoiceByName with short tag ---
         auto try_set_by_name = [&](const std::string& name) -> bool {
             if (name.empty() || !espeak_SetVoiceByName_) return false;
             bool crashed = false;
@@ -825,33 +909,54 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
             }
             if (rc == 0) {
                 current_espeak_voice_ = name;
+                resolved_espeak_identifier_ = name;
+                DEBUG_LOG("espeak_SetVoiceByName OK for '%s'", name.c_str());
                 return true;
             }
+            DEBUG_LOG("espeak_SetVoiceByName failed for '%s' (rc=%d)", name.c_str(), rc);
             return false;
         };
 
-        // 1) Try SetVoiceByProperties with the exact language tag (e.g. "en-us").
-        if (try_set_by_language(desired)) {
+        // --- Strategy 3: SetVoiceByProperties (language scoring) ---
+        auto try_set_by_language = [&](const std::string& lang) -> bool {
+            if (lang.empty() || !espeak_SetVoiceByProperties_) return false;
+            espeak_VOICE voice_spec{};
+            voice_spec.languages = lang.c_str();
+            const int rc = espeak_SetVoiceByProperties_(&voice_spec);
+            if (rc == 0) {
+                current_espeak_voice_ = lang;
+                resolved_espeak_identifier_.clear(); // can't know identifier from this path
+                DEBUG_LOG("espeak_SetVoiceByProperties OK for '%s'", lang.c_str());
+                return true;
+            }
+            DEBUG_LOG("espeak_SetVoiceByProperties failed for '%s' (rc=%d)", lang.c_str(), rc);
+            return false;
+        };
+
+        // 1) Primary: enumerate voices and use full identifier (NVDA approach).
+        if (try_set_by_list(desired)) {
             return true;
         }
 
-        // 2) Try base language (e.g. "en" from "en-us").
+        // 2) Fallback: SetVoiceByName with short tag.
+        if (try_set_by_name(desired)) return true;
+
+        // 3) Fallback: SetVoiceByProperties.
+        if (try_set_by_language(desired)) return true;
+
+        // 4) Try base language (e.g. "en" from "en-us").
         std::string base = desired;
         const size_t pos = base.find_first_of("-_");
         if (pos != std::string::npos) {
             base.resize(pos);
-            if (try_set_by_language(base)) {
-                return true;
-            }
+            if (try_set_by_list(base)) return true;
+            if (try_set_by_name(base)) return true;
+            if (try_set_by_language(base)) return true;
         }
 
-        // 3) Fallback to SetVoiceByName with base language.
-        if (try_set_by_name(base.empty() ? desired : base)) {
-            return true;
-        }
-
-        // 4) Last resort: English.
-        return try_set_by_language("en") || try_set_by_name("en");
+        // 5) Last resort: English.
+        if (try_set_by_list("en")) return true;
+        return try_set_by_name("en") || try_set_by_language("en");
     };
 
     bool voice_ok = select_espeak_voice(espeak_tag_utf8);
@@ -1246,6 +1351,12 @@ HRESULT runtime::init_espeak()
     if (!espeak_ng_InitializePath_) {
         espeak_ng_InitializePath_ = reinterpret_cast<espeak_ng_InitializePath_t>(GetProcAddress(espeak_mod_, "espeak_ng_InitializePath"));
     }
+    if (!espeak_ListVoices_) {
+        espeak_ListVoices_ = reinterpret_cast<espeak_ListVoices_t>(GetProcAddress(espeak_mod_, "espeak_ListVoices"));
+    }
+    if (!espeak_GetCurrentVoice_) {
+        espeak_GetCurrentVoice_ = reinterpret_cast<espeak_GetCurrentVoice_t>(GetProcAddress(espeak_mod_, "espeak_GetCurrentVoice"));
+    }
 
     if (!espeak_Initialize_ || !espeak_TextToPhonemes_) {
         return E_FAIL;
@@ -1279,6 +1390,12 @@ HRESULT runtime::init_espeak()
 
     if (is_espeak_initialized(espeak_mod_)) {
         if (health_check()) {
+            // health_check() smoke-tests with SetVoiceByName("en"),
+            // which silently changes eSpeak's active voice to British
+            // English.  Clear the cache so the next set_language() call
+            // actually calls eSpeak to restore the desired voice.
+            current_espeak_voice_.clear();
+            resolved_espeak_identifier_.clear();
             return S_OK;
         }
 
@@ -1364,6 +1481,12 @@ HRESULT runtime::init_espeak()
     if (SUCCEEDED(hr)) {
         mark_espeak_initialized(espeak_mod_);
         espeak_needs_reinit_ = false;
+        // try_init smoke-tests with SetVoiceByName("en"), leaving the
+        // active voice as British English.  Clear the cache so the
+        // caller's set_language() actually calls eSpeak to set the
+        // desired voice.
+        current_espeak_voice_.clear();
+        resolved_espeak_identifier_.clear();
     }
 
     return hr;
@@ -1449,8 +1572,21 @@ void runtime::text_to_ipa_utf8(const std::wstring& text, std::string& out_ipa)
             out_ipa.reserve(want);
         }
 
-        // eSpeak is not thread-safe.
+        // eSpeak is not thread-safe; acquire the global mutex.
         std::lock_guard<std::mutex> lock(espeak_mutex());
+
+        // Re-apply the voice under the SAME lock as TextToPhonemes.
+        // eSpeak's voice state is process-global: if another SAPI instance
+        // called set_language() between our set_language() and this call,
+        // the active voice would be wrong.  By re-setting it here under
+        // the mutex that also guards TextToPhonemes, we guarantee atomicity.
+        if (!resolved_espeak_identifier_.empty() && espeak_SetVoiceByName_) {
+            bool vc = false;
+            const int reapply_rc = safe_espeak_SetVoiceByName(espeak_SetVoiceByName_, resolved_espeak_identifier_.c_str(), &vc);
+            DEBUG_LOG("text_to_ipa: re-applied voice '%s' rc=%d", resolved_espeak_identifier_.c_str(), reapply_rc);
+        } else {
+            DEBUG_LOG("text_to_ipa: NO resolved identifier to re-apply (voice='%s')", current_espeak_voice_.c_str());
+        }
 
         const void* text_ptr = static_cast<const void*>(t.c_str());
         while (text_ptr) {
@@ -1489,6 +1625,8 @@ void runtime::text_to_ipa_utf8(const std::wstring& text, std::string& out_ipa)
         // Successful call (even if output is empty) -> reset crash streak.
         espeak_crash_streak_ = 0;
         trim_ascii_whitespace(out_ipa);
+        DEBUG_LOG("text_to_ipa: voice='%s' ipa='%.200s'",
+                  current_espeak_voice_.c_str(), out_ipa.c_str());
         return;
     }
 
@@ -1525,6 +1663,8 @@ void runtime::text_to_ipa_utf8(const std::wstring& text, std::string& out_ipa)
     // Success after retry.
     espeak_crash_streak_ = 0;
     trim_ascii_whitespace(out_ipa);
+    DEBUG_LOG("text_to_ipa (retry): voice='%s' ipa='%.200s'",
+              current_espeak_voice_.c_str(), out_ipa.c_str());
 }
 
 void runtime::apply_preset_and_volume(void* frame_ptr, const speak_params& params)

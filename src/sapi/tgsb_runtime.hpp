@@ -275,6 +275,8 @@ private:
     using espeak_Terminate_t = int (__cdecl*)();
     using espeak_Info_t = const char* (__cdecl*)(const char** path_data);
     using espeak_ng_InitializePath_t = void (__cdecl*)(const char* path);
+    using espeak_ListVoices_t = const espeak_VOICE** (__cdecl*)(espeak_VOICE* voice_spec);
+    using espeak_GetCurrentVoice_t = espeak_VOICE* (__cdecl*)(void);
 
     espeak_Initialize_t espeak_Initialize_ = nullptr;
     espeak_SetVoiceByName_t espeak_SetVoiceByName_ = nullptr;
@@ -283,6 +285,8 @@ private:
     espeak_Terminate_t espeak_Terminate_ = nullptr;
     espeak_Info_t espeak_Info_ = nullptr;
     espeak_ng_InitializePath_t espeak_ng_InitializePath_ = nullptr;
+    espeak_ListVoices_t espeak_ListVoices_ = nullptr;
+    espeak_GetCurrentVoice_t espeak_GetCurrentVoice_ = nullptr;
 
     // eSpeak is process-global; guard calls.
     static std::mutex& espeak_mutex();
@@ -296,8 +300,11 @@ private:
     // Extended frame callback used by nvspFrontend_queueIPA_Ex_ (ABI v2+).
     static void __cdecl frontend_frame_ex_cb(void* userData, const void* frameOrNull, const void* frameExOrNull, double durationMs, double fadeMs, int userIndex);
 
-    // Current eSpeak voice name (per-runtime; setting is global but we track to avoid redundant calls).
+    // Current eSpeak voice tag (per-runtime; setting is global but we track to avoid redundant calls).
     std::string current_espeak_voice_;
+    // The full eSpeak voice identifier (e.g. "gmw\en-US") resolved via espeak_ListVoices.
+    // Used to re-apply the voice under the espeak_mutex in text_to_ipa_utf8.
+    std::string resolved_espeak_identifier_;
 
     // Reusable work buffer for IPA generation to reduce per-utterance allocations.
     std::string ipa_buf_;
