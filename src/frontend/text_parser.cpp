@@ -240,6 +240,89 @@ static std::u32string applyStressPattern(
   return result;
 }
 
+// ── Onset maximization ───────────────────────────────────────────────────
+//
+// Insert IPA '.' syllable boundaries at linguistically correct positions
+// using the Maximal Onset Principle: for a consonant cluster between two
+// vowel nuclei, assign the longest suffix that is a legal onset to the
+// following syllable.
+
+static std::u32string applySyllableBoundaries(
+    const std::u32string& stripped,
+    const std::vector<NucleusInfo>& nuclei,
+    const std::vector<std::u32string>& legalOnsets)
+{
+  // Build insertion list (positions where '.' goes).
+  std::vector<size_t> dots;
+
+  for (size_t n = 0; n + 1 < nuclei.size(); ++n) {
+    // Find end of current nucleus (first non-vowel, non-length-mark after
+    // nucleus start).
+    size_t codaStart = nuclei[n].start;
+    {
+      bool inV = false;
+      for (size_t j = nuclei[n].start; j < stripped.size(); ++j) {
+        if (isIpaVowel(stripped[j])) {
+          inV = true;
+        } else if (isLengthMark(stripped[j]) && inV) {
+          // length mark extends vowel
+        } else if (isTieBar(stripped[j]) && inV) {
+          if (j + 1 < stripped.size()) ++j;  // skip tied char
+        } else if (isSyllabicMark(stripped[j])) {
+          // skip
+        } else {
+          codaStart = j;
+          break;
+        }
+      }
+      if (codaStart == nuclei[n].start) continue;  // no consonants between
+    }
+
+    size_t onsetEnd = nuclei[n + 1].start;  // just before next nucleus
+
+    if (codaStart >= onsetEnd) continue;  // adjacent nuclei (diphthong)
+
+    // Extract the consonant cluster.
+    std::u32string cluster(stripped.begin() + codaStart,
+                           stripped.begin() + onsetEnd);
+
+    // Try suffix lengths from longest to 2 (single consonant onset is
+    // always legal — that's the default fallback).
+    size_t onsetLen = 1;  // default: one consonant goes to next syllable
+    for (size_t tryLen = cluster.size(); tryLen >= 2; --tryLen) {
+      std::u32string suffix(cluster.end() - tryLen, cluster.end());
+      for (const auto& legal : legalOnsets) {
+        if (suffix == legal) {
+          onsetLen = tryLen;
+          goto found;
+        }
+      }
+    }
+    found:
+
+    // Insert '.' before the onset.
+    size_t dotPos = onsetEnd - onsetLen;
+    if (dotPos > codaStart || onsetLen == cluster.size()) {
+      // Only insert if there's at least one coda consonant, OR the whole
+      // cluster is a legal onset (all consonants go to next syllable).
+      dots.push_back(dotPos);
+    } else {
+      // Fallback: put dot after first consonant.
+      dots.push_back(codaStart + 1);
+    }
+  }
+
+  if (dots.empty()) return stripped;
+
+  // Apply dots from back to front to preserve positions.
+  std::u32string result = stripped;
+  std::sort(dots.begin(), dots.end(), std::greater<size_t>());
+  for (size_t pos : dots) {
+    result.insert(result.begin() + static_cast<ptrdiff_t>(pos), U'.');
+  }
+  return result;
+}
+
 // Convert a u32 string back to UTF-8.
 static std::string u32ToUtf8(const std::u32string& s) {
   std::string result;
@@ -269,7 +352,8 @@ static std::string u32ToUtf8(const std::u32string& s) {
 static std::string correctStress(
     const std::string& textWord,
     const std::string& ipaChunk,
-    const std::unordered_map<std::string, std::vector<int>>& dict)
+    const std::unordered_map<std::string, std::vector<int>>& dict,
+    const std::vector<std::u32string>& legalOnsets)
 {
   // Lowercase and strip punctuation from text word.
   const std::string key = asciiLower(stripPunct(textWord));
@@ -309,7 +393,16 @@ static std::string correctStress(
     }
   }
 
-  // Apply the new stress pattern.
+  // Apply syllable boundaries (dots) first, then re-find nuclei, then stress.
+  // Dots must go on the stripped (stress-free) string so positions are clean.
+  if (!legalOnsets.empty() && nuclei.size() >= 2) {
+    std::u32string dotted = applySyllableBoundaries(stripped, nuclei, legalOnsets);
+    auto dottedNuclei = findNuclei(dotted);
+    std::u32string corrected = applyStressPattern(dotted, dottedNuclei, pattern);
+    return u32ToUtf8(corrected);
+  }
+
+  // No onset table or monosyllable — just stress.
   std::u32string corrected = applyStressPattern(stripped, nuclei, pattern);
   return u32ToUtf8(corrected);
 }
@@ -323,7 +416,8 @@ static std::string correctStress(
 std::string runTextParser(
     const std::string& text,
     const std::string& ipa,
-    const std::unordered_map<std::string, std::vector<int>>& stressDict)
+    const std::unordered_map<std::string, std::vector<int>>& stressDict,
+    const std::vector<std::u32string>& legalOnsets)
 {
   if (text.empty() || stressDict.empty()) return ipa;
 
@@ -341,7 +435,7 @@ std::string runTextParser(
   bool anyChange = false;
 
   for (size_t i = 0; i < textWords.size(); ++i) {
-    std::string corrected = correctStress(textWords[i], ipaChunks[i], stressDict);
+    std::string corrected = correctStress(textWords[i], ipaChunks[i], stressDict, legalOnsets);
     if (corrected != ipaChunks[i]) {
       ipaChunks[i] = std::move(corrected);
       anyChange = true;

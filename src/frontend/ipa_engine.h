@@ -65,6 +65,7 @@ struct Token {
 
   bool wordStart = false;
   bool syllableStart = false;
+  int syllableIndex = -1;   // -1 = unassigned. Set by syllable_marking pass.
   int stress = 0; // 0 none, 1 primary, 2 secondary
 
   bool tiedTo = false;

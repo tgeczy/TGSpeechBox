@@ -24,7 +24,7 @@ settings:
   # crossfade aspiration/frication through voiceGenerator instead of
   # hitting the crude 4ms stopFade path.
   singleWordFinalFadeMs: 25
-  clauseFinalFadeMs: 25
+  clauseFinalFadeMs: 15
 
   # US: smoother overall, less breath noise on stop releases.
   postStopAspirationEnabled: true
@@ -36,14 +36,14 @@ settings:
 
   # US tends to shorten length-marked vowels in word-final closed syllables
   # (e.g. "tools", "smooth").
-  lengthenedVowelFinalCodaScale: 0.90
+  lengthenedVowelFinalCodaScale: 0.75
 
   # Allow length marks to apply to consonants too (for word-final R lengthening)
   applyLengthenedScaleToVowelsOnly: false
   # Make length marks more effective.
   # 1.05 was too subtle - FORCE vowels (for, door, snore) need more presence before R.
-  # With 1.15, a double length mark (ːː) gives ~32% more length.
-  lengthenedScale: 1.15
+  # With 1.10, a double length mark (ːː) gives ~32% more length.
+  lengthenedScale: 1.10
 
   # Use the US/CA GOOSE vowel variant.
   englishLongUShortenEnabled: true
@@ -71,25 +71,26 @@ settings:
   microprosodyVoicedF0LowerEnabled: true
   nasalizationAnticipatoryEnabled: false
   prominence:
-    enabled: true
+    enabled: false
 
-    # Score: phonological stress classification.
-    secondaryStressLevel: 0.6     # prominence SCORE for secondary stress (0-1)
+    # English: stress marks are the primary source. Vowel length is
+    # phonemic but eSpeak already marks stress, so longVowelWeight
+    # is low. Word-initial boost gives a subtle naturalness nudge.
+    primaryStressWeight: 1.25
+    secondaryStressWeight: 1.10
     longVowelWeight: 0.0          # English stress is lexical, not length-based
     longVowelMode: "never"
 
-    wordInitialBoost: 0.1
-    wordFinalReduction: 0.1
+    wordInitialBoost: 0.05
+    wordFinalReduction: 0.05
 
-    # Duration: direct vowel multipliers (replace old stressDiv for vowels only)
-    primaryStressWeight: 1.4      # primary-stressed vowels x 1.4
-    secondaryStressWeight: 1.1    # secondary-stressed vowels x 1.1
-    durationProminentFloorMs: 45
-    durationReducedCeiling: 0.85
+    # Duration: prominent syllables hold steady, unstressed ones can shrink
+    durationProminentFloorMs: 5
+    durationReducedCeiling: 0.70
 
     # Amplitude: subtle contour shaping
-    amplitudeBoostDb: 1.5
-    amplitudeReductionDb: 2.0
+    amplitudeBoostDb: 0.3
+    amplitudeReductionDb: 0.0
 
     # Let prominence drive Fujisaki accents
     pitchFromProminence: true
@@ -247,11 +248,74 @@ settings:
           pa4: 1.3
           pa5: 1.4
   boundarySmoothing:
-    enabled: false
-    f1Scale: 0.6
-    f3Scale: 1.2
+    enabled: true
+
+    # ── Global fallbacks (used when consonant place is unknown) ──
+    f1Scale: 0.50
+    f2Scale: 0.50
+    f3Scale: 0.80        # was 1.2 — pre-silence protection now handles
+                          # utterance-final metallic bends; this can be
+                          # tighter without hurting "three" etc.
+
     nasalF1Instant: true
+    nasalF2F3SpansPhone: true
+
+    # ── Fade durations (ms) ──
+    # Liquid↔vowel gets extra room — /ɹ/ has the largest F3 excursion
+    # in English (~1700→2500 Hz) and needs time to resolve.
+    liquidToVowelFadeMs: 22   # was 14 default — huge F3 swing needs room
+    vowelToLiquidFadeMs: 20   # was 14 default
+    stopToVowelFadeMs: 20
+    vowelToStopFadeMs: 22
+    fricToVowelFadeMs: 18
+    vowelToFricFadeMs: 18
+    nasalToVowelFadeMs: 16
+    vowelToNasalFadeMs: 16
+    nasalToStopFadeMs: 12
+    liquidToStopFadeMs: 12
+    fricToStopFadeMs: 10
     stopToFricFadeMs: 15
+    vowelToVowelFadeMs: 20
+
+    # ── Per-place transition speeds ──
+    #
+    # These control what fraction of the fade time each formant uses
+    # to reach its target.  Lower = faster arrival, higher = slower.
+    # The key insight: the formant that carries the PLACE CUE for each
+    # articulator must be slow enough to be heard, or the consonant
+    # loses its identity.
+    #
+    # NOTE: /ɹ/ and /l/ are classified alveolar by place but are
+    # approximants with complex tongue shapes.  The alveolar values
+    # below compromise between fast /t/,/d/,/s/ and slow /ɹ/,/l/.
+    # A future code-level liquid override would let us tighten these.
+
+    # Labial (/b/, /p/, /m/, /f/, /v/)
+    # Lips are light and independent of tongue — F2/F3 drift gently.
+    labialF1Scale: 0.30      # jaw drops fast, lips don't impede
+    labialF2Scale: 0.55      # lips don't drag the tongue — F2 drifts
+    labialF3Scale: 0.55      # same — tongue barely involved
+
+    # Alveolar (/t/, /d/, /n/, /s/, /z/, /ɹ/, /l/)
+    # Tongue tip is fast for stops/fricatives, but /ɹ/ and /l/ live
+    # here too and their F3 transitions are large.  F3 kept moderate
+    # to protect /ɹ/ → vowel from spiking.
+    alveolarF1Scale: 0.40    # jaw — moderate
+    alveolarF2Scale: 0.50    # compromise: fast enough for /s/, safe for /ɹ/
+    alveolarF3Scale: 0.65    # MUST be slow — /ɹ/ F3 jumps 700+ Hz
+
+    # Palatal/postalveolar (/ʃ/, /ʒ/, /tʃ/, /dʒ/, /j/)
+    # Tongue blade — F3 IS the place cue.  Rushing it erases /ʃ/ vs /s/.
+    palatalF1Scale: 0.35     # jaw — moderate
+    palatalF2Scale: 0.55     # blade is medium speed
+    palatalF3Scale: 0.75     # SLOW — low F3 region must linger
+
+    # Velar (/k/, /ɡ/, /ŋ/)
+    # Tongue body — heaviest articulator.  F2 transition IS the velar
+    # cue.  F2-F3 convergence (velar pinch) needs time to develop.
+    velarF1Scale: 0.35       # jaw — moderate
+    velarF2Scale: 0.65       # SLOW — tongue body is heavy, F2 IS identity
+    velarF3Scale: 0.60       # slow — pinch convergence needs time
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: true
@@ -316,38 +380,68 @@ settings:
     stopBeforeStopScale: 0.60      # /kt/ in "act", "fact"
     tripleClusterMiddleScale: 0.55 # middle C in /str/, /kst/
     affricateInClusterScale: 0.75  # /tʃ/ in "lunchbox"
-    wordMedialConsonantScale: 0.85 # intervocalic C's
+    wordMedialConsonantScale: 0.90 # intervocalic C's
     wordFinalObstruentScale: 0.90  # final /t/, /d/, /s/ etc.
-  # ------------------------------------------------------------------
-  # Cluster blend — C→C articulatory anticipation.
-  # Sets endCf targets on C1 so its formants ramp toward C2's place
-  # before the crossfade boundary.  Works alongside clusterTiming:
-  #   clusterTiming  → adjusts HOW LONG each consonant is
-  #   clusterBlend   → adjusts WHAT THE FORMANTS DO during the overlap
-  # ------------------------------------------------------------------
-  clusterBlend:
-    enabled: true
-    strength: 0.35              # Master blend fraction (0.0–1.0)
 
-    # Per-manner-pair scale factors (multiplied by strength).
-    nasalToStopScale:   1.30    # /ŋk/, /mp/, /nt/, /nd/
-    fricToStopScale:    0.85    # /st/, /sk/, /sp/
-    stopToFricScale:    0.70    # /ts/, /ks/
-    nasalToFricScale:   1.00    # /nf/, /ns/, /mf/
-    liquidToStopScale:  0.85    # /lt/, /rk/, /lp/
-    liquidToFricScale:  0.75    # /ls/, /rf/
-    fricToFricScale:    0.60    # /sʃ/ (rare, morpheme boundaries)
-    stopToStopScale:    0.55    # /kt/, /pt/, /gd/
-    defaultPairScale:   0.50    # Anything not listed above
+  syllableStructure:
+    # Legal word-initial onset clusters for English.
+    # Used by the text parser's onset maximization to place syllable
+    # boundaries at linguistically correct positions.
+    legalOnsets:
+      # CC: stop + liquid/glide
+      - pl
+      - pɹ
+      - bl
+      - bɹ
+      - tɹ
+      - tw
+      - dɹ
+      - dw
+      - kl
+      - kɹ
+      - kw
+      - ɡl
+      - ɡɹ
+      - ɡw
+      # CC: fricative + liquid/nasal/glide
+      - fl
+      - fɹ
+      - fj
+      - θɹ
+      - sl
+      - sm
+      - sn
+      - sp
+      - st
+      - sk
+      - sw
+      - ʃɹ
+      - vj
+      - hj
+      # CC: other
+      - bj
+      - pj
+      - pw
+      - kj
+      - tj
+      - dj
+      - mj
+      - nj
+      - lj
+      # CCC: s + stop + liquid/glide
+      - spl
+      - spɹ
+      - stɹ
+      - skɹ
+      - skw
+      - skl
+      # CCC: s + stop + j
+      - spj
+      - stj
+      - skj
 
-    # Context modifiers
-    homorganicScale:    0.30    # Same place → less shift needed
-    wordBoundaryScale:  0.50    # C2 starts a new word → weaker
-
-    # Per-formant scaling
-    f1Scale: 0.50               # F1 blend is gentler (jaw, not place)
   legacyPitchMode: espeak_style
-  legacyPitchInflectionScale: 2.0
+  legacyPitchInflectionScale: 0.56
   singleWordClauseTypeOverrideCommaOnly: false
 normalization:
   preReplacements:

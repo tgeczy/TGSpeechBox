@@ -1391,6 +1391,8 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
 
   bool newWord = true;
   int pendingStress = 0;
+  bool pendingSyllableBoundary = false;
+  bool wordHasExplicitBoundaries = false;
 
   // IMPORTANT:
   // We must NOT keep raw pointers into outTokens across push_back(), because
@@ -1424,6 +1426,7 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
 
     if (c == U' ') {
       newWord = true;
+      wordHasExplicitBoundaries = false;
       ++i;
       continue;
     }
@@ -1436,6 +1439,14 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
     }
     if (c == U'\u02CC') { // ˌ
       pendingStress = 2;
+      ++i;
+      continue;
+    }
+
+    // Explicit syllable boundary marker (inserted by onset maximization).
+    if (c == U'.') {
+      pendingSyllableBoundary = true;
+      wordHasExplicitBoundaries = true;
       ++i;
       continue;
     }
@@ -1562,8 +1573,15 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
       return lastIndex >= 0 && lastIndex < static_cast<int>(outTokens.size());
     };
 
-    // Syllable start detection.
-    if (haveLast()) {
+    // Explicit syllable boundary from '.' marker.
+    if (pendingSyllableBoundary) {
+      t.syllableStart = true;
+      pendingSyllableBoundary = false;
+    }
+
+    // Heuristic syllable start detection — only when the word has no
+    // explicit '.' boundaries (onset maximization already placed them).
+    if (!wordHasExplicitBoundaries && haveLast()) {
       Token& last = outTokens[lastIndex];
       if (!tokenIsVowel(last) && tokenIsVowel(t)) {
         last.syllableStart = true;

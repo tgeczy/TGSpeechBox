@@ -1389,7 +1389,7 @@ phonemes:
     _isStop: true
     _isVoiced: false
     _isVowel: false
-    aspirationAmplitude: 0.30
+    aspirationAmplitude: 0.40
     caNP: 0
     cb1: 300
     cb2: 150
@@ -1407,7 +1407,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.55
+    fricationAmplitude: 0.75
     pa1: 0.25
     pa2: 0.30
     pa3: 0.25
@@ -2161,8 +2161,10 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.75
   "á":
-    # Hungarian long á /aː/ - widened bandwidths further for smoother sound.
-    # Research shows F1≈672, F2≈1669 (from Hungarian Phonetic Analysis)
+    # Hungarian long á /aː/ - open central UNROUNDED vowel.
+    # Distinct from ᴒ: higher F1 (more open), higher F2 (central), no rounding.
+    # Amplitude reduced from 0.85 — was perceptually far too loud.
+    # Widened bandwidths further for smoother sound.
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -2206,7 +2208,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.85
+    voiceAmplitude: 0.78
   "ã":
     _isAfricate: false
     _isLiquid: true
@@ -5639,9 +5641,12 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ᴒ":
-    # Hungarian short a /ɒ/ - open back rounded vowel.
-    # F2 raised from 1080 to 1200 for smoother transitions from palatals.
-    # Widened bandwidths for smoother sound.
+    # Hungarian short a /ɒ/ - open back ROUNDED vowel.
+    # Must be clearly distinct from á (open central unrounded).
+    # Rounding pulls F1 down (less open) and F2 down (back + lip protrusion).
+    # Target: F1 ~620, F2 ~1000 — darker/rounder than English /ɑ/.
+    # Previous F1=760 was MORE open than English ɑ=700, sounding American.
+    # Source: Olaszy FDB + cross-linguistic [ɒ] data.
     _isLiquid: false
     _isNasal: false
     _isStop: false
@@ -5657,8 +5662,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 760
-    cf2: 1100
+    cf1: 620
+    cf2: 1000
     cf3: 2450
     cf4: 3300
     cf5: 3750
@@ -5679,13 +5684,13 @@ phonemes:
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 660
-    pf2: 1050
+    pf1: 560
+    pf2: 950
     pf3: 2500
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.88
+    voiceAmplitude: 0.80
   "ᴜ":
     _isLiquid: false
     _isNasal: true
@@ -6353,7 +6358,7 @@ voiceProfiles:
       ᴇ: {cf1: 402, cf2: 2438, cf3: 3218, pf1: 458, pf2: 2490, pf3: 3218}
       ᴏ: {cf1: 688, cf2: 1180, cf3: 2520, pf1: 677, pf2: 1169, pf3: 2550}
       ᴐ: {cf1: 655, cf2: 1294, cf3: 2520, pf1: 633, pf2: 1169, pf3: 2550}
-      ᴒ: {cf1: 848, cf2: 1294, cf3: 2697, pf1: 741, pf2: 1237, pf3: 2750}
+      ᴒ: {cf1: 692, cf2: 1176, cf3: 2697, pf1: 629, pf2: 1120, pf3: 2750}
       ᴜ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592}
       ᵁ: {cf1: 463, cf2: 1350, cf3: 2666, pf1: 513, pf2: 1462, pf3: 2592}
       ᵃ: {cf1: 731, cf2: 1663, cf3: 2750, pf1: 784, pf2: 1429, pf3: 2855}
@@ -6499,7 +6504,7 @@ voiceProfiles:
       ᴇ: {cf1: 458, cf2: 2754, cf3: 3559, pf1: 522, pf2: 2812, pf3: 3559}
       ᴏ: {cf1: 783, cf2: 1350, cf3: 2830, pf1: 771, pf2: 1337, pf3: 2830}
       ᴐ: {cf1: 746, cf2: 1478, cf3: 2830, pf1: 722, pf2: 1337, pf3: 2830}
-      ᴒ: {cf1: 964, cf2: 1478, cf3: 2993, pf1: 844, pf2: 1414, pf3: 3050}
+      ᴒ: {cf1: 787, cf2: 1343, cf3: 2993, pf1: 716, pf2: 1280, pf3: 3050}
       ᴜ: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878}
       ᵁ: {cf1: 528, cf2: 1542, cf3: 2958, pf1: 585, pf2: 1669, pf3: 2878}
       ᵃ: {cf1: 832, cf2: 1894, cf3: 3050, pf1: 893, pf2: 1631, pf3: 3164}

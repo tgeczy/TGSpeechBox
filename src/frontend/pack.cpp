@@ -5,6 +5,7 @@ Licensed under the MIT License. See LICENSE for details.
 */
 
 #include "pack.h"
+#include "utf8.h"
 #include "voice_profile.h"
 
 #include <algorithm>
@@ -534,6 +535,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationVelarPinchThreshold", lp.coarticulationVelarPinchThreshold);
   getNum("coarticulationVelarPinchF2Scale", lp.coarticulationVelarPinchF2Scale);
   getNum("coarticulationVelarPinchF3", lp.coarticulationVelarPinchF3);
+  getNum("coarticulationCrossSyllableScale", lp.coarticulationCrossSyllableScale);
 
   // Special coarticulation rules (language-specific Hz deltas)
   getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);
@@ -741,6 +743,19 @@ if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMa
   getNumFrom(*bs, "velarF1Scale", lp.boundarySmoothingVelarF1Scale);
   getNumFrom(*bs, "velarF2Scale", lp.boundarySmoothingVelarF2Scale);
   getNumFrom(*bs, "velarF3Scale", lp.boundarySmoothingVelarF3Scale);
+
+  // Syllable-aware transition controls.
+  getNumFrom(*bs, "withinSyllableScale", lp.boundarySmoothingWithinSyllableScale);
+  getNumFrom(*bs, "withinSyllableFadeScale", lp.boundarySmoothingWithinSyllableFadeScale);
+}
+
+if (const yaml_min::Node* ss = settings.get("syllableStructure"); ss && ss->isMap()) {
+  std::vector<std::string> onsetStrs;
+  getStrListFrom(*ss, "legalOnsets", onsetStrs);
+  lp.legalOnsets.clear();
+  for (const auto& s : onsetStrs) {
+    if (!s.empty()) lp.legalOnsets.push_back(utf8ToU32(s));
+  }
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {
