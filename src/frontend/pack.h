@@ -656,6 +656,12 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double clusterTimingWordFinalObstruentScale = 0.90;
   double clusterTimingAffricateInClusterScale = 0.75;
 
+  // Syllable-aware duration — onset/coda asymmetry and open-syllable compression.
+  bool syllableDurationEnabled = false;
+  double syllableDurationOnsetScale = 1.10;                 // onset C's get 10% more time
+  double syllableDurationCodaScale = 0.85;                  // coda C's get 15% less time
+  double syllableDurationUnstressedOpenNucleusScale = 0.80; // unstressed open-syllable vowels compress
+
   // Cluster blend — C→C articulatory anticipation (formant ramping).
   //
   // Sets endCf targets on the first consonant of a CC pair so its formants

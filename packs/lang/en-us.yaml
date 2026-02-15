@@ -71,7 +71,7 @@ settings:
   microprosodyVoicedF0LowerEnabled: true
   nasalizationAnticipatoryEnabled: false
   prominence:
-    enabled: false
+    enabled: true
 
     # English: stress marks are the primary source. Vowel length is
     # phonemic but eSpeak already marks stress, so longVowelWeight
@@ -86,7 +86,7 @@ settings:
 
     # Duration: prominent syllables hold steady, unstressed ones can shrink
     durationProminentFloorMs: 5
-    durationReducedCeiling: 0.70
+    durationReducedCeiling: 0.85
 
     # Amplitude: subtle contour shaping
     amplitudeBoostDb: 0.3
@@ -382,6 +382,12 @@ settings:
     affricateInClusterScale: 0.75  # /tʃ/ in "lunchbox"
     wordMedialConsonantScale: 0.90 # intervocalic C's
     wordFinalObstruentScale: 0.90  # final /t/, /d/, /s/ etc.
+
+  syllableDuration:
+    enabled: true
+    onsetScale: 1.10
+    codaScale: 0.85
+    unstressedOpenNucleusScale: 0.90
 
   syllableStructure:
     # Legal word-initial onset clusters for English.

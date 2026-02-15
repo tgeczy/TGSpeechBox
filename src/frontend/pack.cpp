@@ -552,6 +552,12 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("clusterTimingWordFinalObstruentScale", lp.clusterTimingWordFinalObstruentScale);
   getNum("clusterTimingAffricateInClusterScale", lp.clusterTimingAffricateInClusterScale);
 
+  // Syllable-aware duration
+  getBool("syllableDurationEnabled", lp.syllableDurationEnabled);
+  getNum("syllableDurationOnsetScale", lp.syllableDurationOnsetScale);
+  getNum("syllableDurationCodaScale", lp.syllableDurationCodaScale);
+  getNum("syllableDurationUnstressedOpenNucleusScale", lp.syllableDurationUnstressedOpenNucleusScale);
+
   // Cluster blend — C→C articulatory anticipation.
   getBool("clusterBlendEnabled", lp.clusterBlendEnabled);
   getNum("clusterBlendStrength", lp.clusterBlendStrength);
@@ -1003,6 +1009,13 @@ if (const yaml_min::Node* ct = settings.get("clusterTiming"); ct && ct->isMap())
   getNumFrom(*ct, "affricateInClusterScale", lp.clusterTimingAffricateInClusterScale);
   getNumFrom(*ct, "wordMedialConsonantScale", lp.clusterTimingWordMedialConsonantScale);
   getNumFrom(*ct, "wordFinalObstruentScale", lp.clusterTimingWordFinalObstruentScale);
+}
+
+if (const yaml_min::Node* sd = settings.get("syllableDuration"); sd && sd->isMap()) {
+  getBoolFrom(*sd, "enabled", lp.syllableDurationEnabled);
+  getNumFrom(*sd, "onsetScale", lp.syllableDurationOnsetScale);
+  getNumFrom(*sd, "codaScale", lp.syllableDurationCodaScale);
+  getNumFrom(*sd, "unstressedOpenNucleusScale", lp.syllableDurationUnstressedOpenNucleusScale);
 }
 
 if (const yaml_min::Node* cb = settings.get("clusterBlend"); cb && cb->isMap()) {

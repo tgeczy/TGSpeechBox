@@ -221,6 +221,88 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
     }
   }
 
+  // ── Pass 2b: Syllable-position duration shaping ──
+  //
+  // Onset consonants get slightly more time (they initiate the gesture),
+  // coda consonants get less (they trail off).  Unstressed open syllables
+  // (no coda) compress their nucleus — these are the lightest syllables
+  // in natural speech rhythm.
+
+  if (lang.syllableDurationEnabled) {
+    const double onsetSc = lang.syllableDurationOnsetScale;
+    const double codaSc  = lang.syllableDurationCodaScale;
+    const double openSc  = lang.syllableDurationUnstressedOpenNucleusScale;
+
+    for (size_t w = 0; w < words.size(); ++w) {
+      const size_t wStart = words[w].start;
+      const size_t wEnd   = (w + 1 < words.size()) ? words[w + 1].start : tokens.size();
+
+      // Count syllables in this word.
+      int maxSyll = -1;
+      for (size_t i = wStart; i < wEnd; ++i) {
+        if (tokens[i].syllableIndex > maxSyll) maxSyll = tokens[i].syllableIndex;
+      }
+      if (maxSyll < 1) continue;  // monosyllable or unassigned — skip
+
+      // Process each syllable except the last — word-final syllables are
+      // already shaped by wordFinalObstruentScale and phrase-final lengthening.
+      // Compressing them further makes final syllables disappear.
+      for (int syll = 0; syll < maxSyll; ++syll) {
+        // Collect real phoneme indices in this syllable.
+        int nucleusIdx = -1;
+        bool syllStressed = false;
+        bool hasCoda = false;
+
+        // First pass: find nucleus and stress.
+        for (size_t i = wStart; i < wEnd; ++i) {
+          Token& t = tokens[i];
+          if (t.syllableIndex != syll) continue;
+          if (isSilenceOrMissing(t)) continue;
+          if (t.preStopGap || t.clusterGap || t.vowelHiatusGap ||
+              t.postStopAspiration || t.voicedClosure) continue;
+          if (t.stress > 0) syllStressed = true;
+          if (nucleusIdx < 0 && isVowel(t)) nucleusIdx = static_cast<int>(i);
+        }
+        if (nucleusIdx < 0) continue;  // no vowel — skip
+
+        // Check for coda consonants (real phonemes after nucleus).
+        for (size_t i = static_cast<size_t>(nucleusIdx) + 1; i < wEnd; ++i) {
+          Token& t = tokens[i];
+          if (t.syllableIndex != syll) break;
+          if (isSilenceOrMissing(t)) continue;
+          if (t.preStopGap || t.clusterGap || t.vowelHiatusGap ||
+              t.postStopAspiration || t.voicedClosure) continue;
+          if (!isVowel(t)) { hasCoda = true; break; }
+        }
+
+        // Apply scales.
+        for (size_t i = wStart; i < wEnd; ++i) {
+          Token& t = tokens[i];
+          if (t.syllableIndex != syll) continue;
+          if (isSilenceOrMissing(t)) continue;
+          if (t.preStopGap || t.clusterGap || t.vowelHiatusGap ||
+              t.postStopAspiration || t.voicedClosure) continue;
+
+          if (!isVowel(t)) {
+            // Consonant: onset or coda?
+            if (static_cast<int>(i) < nucleusIdx) {
+              t.durationMs *= onsetSc;
+            } else if (static_cast<int>(i) > nucleusIdx) {
+              t.durationMs *= codaSc;
+            }
+          } else if (!syllStressed && !hasCoda && !t.tiedFrom) {
+            // Unstressed open-syllable vowel.
+            t.durationMs *= openSc;
+          }
+
+          // Safety clamps.
+          if (t.durationMs < 2.0) t.durationMs = 2.0;
+          t.fadeMs = std::min(t.fadeMs, t.durationMs);
+        }
+      }
+    }
+  }
+
   // ── Pass 3: Amplitude realization ──
   //
   // Boost is scaled by primaryStressWeight so the weight knob controls
