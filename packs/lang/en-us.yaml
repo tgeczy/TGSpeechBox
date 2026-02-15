@@ -160,9 +160,9 @@ settings:
         stress: next-unstressed
         action: replace
         replaceTo: ɾ
-        replaceDurationMs: 22.0
+        replaceDurationMs: 30.0
         replaceRemovesClosure: true
-        replaceClosureScale: 0.3
+        replaceClosureScale: 0.5
         replaceRemovesAspiration: false
 
     # ── /l/ darkness by position ─────────────────────────────────
@@ -385,7 +385,8 @@ settings:
 
   clusterBlend:
     enabled: true
-    forwardDriftStrength: 0.30
+    strength: 0.25
+    forwardDriftStrength: 0.25
 
   syllableDuration:
     enabled: true

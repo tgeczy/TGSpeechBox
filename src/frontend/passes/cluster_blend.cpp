@@ -362,6 +362,7 @@ bool runClusterBlend(
     for (int i = 0; i < static_cast<int>(tokens.size()); ++i) {
       Token& t = tokens[static_cast<size_t>(i)];
       if (isSilence(t)) continue;
+      if (isVowelFlag(t)) continue;  // vowels get endCf from coarticulation, not drift
       if (t.hasEndCf1 && t.hasEndCf2 && t.hasEndCf3) continue;
 
       const int ni = findNextRealToken(tokens, i);
