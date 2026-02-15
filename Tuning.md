@@ -1084,24 +1084,77 @@ Tuning notes:
 
 ### Boundary smoothing
 
-Boundary smoothing increases the crossfade (fade) time at "harsh" segment boundaries (vowel→stop, stop→vowel, vowel→fricative, etc.) to reduce micro-clicks and make syllables flow together. At the same time, it sets per-formant transition scales (`transF1Scale`, `transF2Scale`, `transF3Scale`) to values **below 1.0** so that formant frequencies arrive at their target early — in the first 30-50% of the fade — then hold steady while the amplitude crossfade finishes naturally. This "formants lead, amplitude follows" approach prevents the "wrong formants at full amplitude" discontinuity that can occur with longer fades.
+#### How boundary smoothing differs from coarticulation
+
+Coarticulation and boundary smoothing work together but answer different questions:
+
+**Coarticulation answers: WHERE should the formants be?** It computes the actual Hz targets. When you say /ba/, the /a/ vowel doesn't start at pure /a/ formants — it starts shifted toward the labial locus because your lips are still closing from the /b/. Coarticulation calculates that shifted starting point (using MITalk locus math: `start = vowel + k * (consonantLocus - vowel)`), sets that as the frame's cf1/cf2/cf3, and puts the pure vowel target in endCf1/endCf2/endCf3. It defines the endpoints of the journey — where you start and where you're going.
+
+**Boundary smoothing answers: HOW FAST should the formants get there?** It doesn't touch Hz values at all. It sets fade durations (how many ms the crossfade between adjacent frames takes) and transScale values (what fraction of that fade time each formant group uses to reach its target). It defines the speed and shape of the journey.
+
+Think of it as **GPS vs driving style**. Coarticulation is the GPS — it says "you're at point A, your destination is point B." Boundary smoothing is how you drive — do you floor it and arrive in 30% of the time, or do you cruise and use the full duration? Both passes are place-aware: coarticulation picks different locus targets for labials vs velars vs palatals, and boundary smoothing picks different transition speeds to match the articulator physics.
+
+#### What it does
+
+Boundary smoothing increases the crossfade (fade) time at "harsh" segment boundaries (vowel→stop, stop→vowel, vowel→fricative, etc.) to reduce micro-clicks and make syllables flow together. At the same time, it sets per-formant transition scales (`transF1Scale`, `transF2Scale`, `transF3Scale`) to values **below 1.0** so that formant frequencies arrive at their target early — then hold steady while the amplitude crossfade finishes naturally. This "formants lead, amplitude follows" approach prevents the "wrong formants at full amplitude" discontinuity that can occur with longer fades.
+
+#### Place-aware transition speeds
+
+Transition scales are selected based on the consonant's **place of articulation**, because different articulators have different physical mass and speed:
+
+| Place | Articulator | F1 Scale | F2 Scale | F3 Scale | Rationale |
+|-------|-------------|----------|----------|----------|-----------|
+| Labial | Lips (light, fast) | 0.25 | 0.60 | 0.55 | Lips are independent of tongue — F2/F3 drift rather than snap |
+| Alveolar | Tongue tip (light, precise) | 0.30 | 0.40 | 0.35 | Tip flicks fast — formants arrive quickly |
+| Palatal | Tongue blade (medium) | 0.30 | 0.55 | **0.70** | F3 must linger in the low postalveolar region — F3 IS the /ʃ/ vs /s/ distinction |
+| Velar | Tongue body (heavy) | 0.30 | **0.65** | 0.60 | Tongue body is the heaviest articulator — F2 transition IS the velar cue |
+| Unknown | (fallback) | 0.30 | 0.50 | 0.50 | Global defaults when place can't be determined |
+
+For C→V transitions, the consonant's place determines the speeds. For V→C transitions, the same consonant-based speeds are used but with a **40% departure slowdown** — the vowel should hold its identity longer before the consonant's influence takes over. For example, a velar V→C transition: `0.65 * 1.4 = 0.91` — nearly full fade duration, because the vowel needs to hold while the heavy tongue body begins its slow velar movement.
+
+#### Direction and context awareness
+
+Beyond place, the pass adjusts for transition direction and utterance position:
+
+- **V→C departure slowdown (1.4x):** When leaving a vowel, formant transitions are 40% slower. The ear expects the vowel to hold its quality before consonant influence takes over.
+- **Pre-silence vowel protection:** Utterance-final vowels (last sound before silence) skip transScale entirely. The vowel holds steady and just fades in amplitude. Without this, formants bend into silence and sound metallic (e.g. "three" where /iː/ would rush toward nowhere).
+- **Utterance-final consonant gentling (1.5x):** Word-final consonants before silence get 50% gentler scales — there's no following target to rush toward.
+- **V→V (hiatus):** Vowel-to-vowel transitions skip transScale entirely. Both sides are targets; no rushing.
+
+The pre-silence lookahead skips micro-gaps (preStopGap, clusterGap, vowelHiatusGap) to find the real next token — a closure gap before a word-final stop does NOT count as "silence" for this purpose.
+
+#### Safety guards
 
 Two safety guards prevent the fade stretch from causing artifacts:
 - **Aspiration bypass:** Tokens whose onset is aspiration-dominant (`aspirationAmplitude > 0.08`, `voiceAmplitude < 0.1` — e.g. /h/, voiceless fricatives) are skipped entirely. Aspiration needs a crisp onset; a gradual fade-in sounds mushy.
 - **Voicing-flip guard:** When voicing flips between two non-vowel, non-stop consonants (e.g. /z/→/s/), the fade is not stretched. A longer crossfade would make voicing and aspiration overlap, producing buzz. Stops, vowels, and word boundaries are exempt from this guard.
+
+#### Configuration
 
 ```yaml
 settings:
   boundarySmoothing:
     enabled: true
 
-    # Per-formant transition scaling (fraction of fade time).
-    # Values < 1.0 make formants arrive BEFORE the amplitude crossfade
-    # finishes, so formant frequencies are settled by the time the new
-    # phoneme reaches full amplitude.
-    f1Scale: 0.3    # F1 arrives in 30% of fade (fast — place perception)
-    f2Scale: 0.5    # F2 arrives in 50% of fade
-    f3Scale: 0.5    # F3 arrives in 50% of fade
+    # Global fallback transition scales (used when place is Unknown).
+    f1Scale: 0.3
+    f2Scale: 0.5
+    f3Scale: 0.5
+
+    # Per-place-of-articulation transition speeds.
+    # These override the global scales when the consonant's place is known.
+    labialF1Scale: 0.25
+    labialF2Scale: 0.60
+    labialF3Scale: 0.55
+    alveolarF1Scale: 0.30
+    alveolarF2Scale: 0.40
+    alveolarF3Scale: 0.35
+    palatalF1Scale: 0.30
+    palatalF2Scale: 0.55
+    palatalF3Scale: 0.70
+    velarF1Scale: 0.30
+    velarF2Scale: 0.65
+    velarF3Scale: 0.60
 
     # Plosive/nasal-specific transition behavior.
     plosiveSpansPhone: true       # formants ramp across entire plosive burst
@@ -1129,14 +1182,12 @@ settings:
 Flat-key equivalents (for the boolean/scale settings only):
 
 - `boundarySmoothingEnabled`
-- `boundarySmoothingF1Scale`
-- `boundarySmoothingF2Scale`
-- `boundarySmoothingF3Scale`
+- `boundarySmoothingF1Scale`, `boundarySmoothingF2Scale`, `boundarySmoothingF3Scale`
 - `boundarySmoothingPlosiveSpansPhone`
 - `boundarySmoothingNasalF1Instant`
 - `boundarySmoothingNasalF2F3SpansPhone`
 
-**Note:** The per-boundary fade time values (`vowelToStopFadeMs`, `stopToVowelFadeMs`, etc.) are only available via the nested `boundarySmoothing:` block — there are no flat-key equivalents for individual fade times.
+**Note:** The per-boundary fade times and per-place transition scales are only available via the nested `boundarySmoothing:` block — there are no flat-key equivalents for these.
 
 #### Transition coverage
 
@@ -1152,11 +1203,19 @@ The pass handles a comprehensive set of boundary types:
 
 The fade is capped at 75% of the token's duration to preserve some steady-state. A 6ms floor prevents the cap from creating near-discontinuities on very short sentence-final phones.
 
-Tuning notes:
-- `f1Scale: 0.3` means F1 reaches its target in the first 30% of the fade. Lower values = faster formant arrival. Values above 1.0 make formants lag behind amplitude (usually bad — causes clicks).
-- `nasalF1Instant: true` is important for natural nasal transitions — F1 jumps sharply at the velum opening/closing, overriding the smoothing scale.
+#### Tuning notes
+
+**Per-place tuning by ear:**
+- If velars still sound too abrupt (sharp /g/ in "dialog"): increase `velarF2Scale` toward 0.75
+- If palatals lose their /ʃ/ quality ("bridge" sounds too /s/-like): increase `palatalF3Scale` toward 0.80
+- If labials sound too "drifty": decrease `labialF2Scale` toward 0.50
+- If alveolars sound too snappy: increase `alveolarF2Scale` toward 0.50
+
+**General:**
+- `nasalF1Instant: true` is important for natural nasal transitions — F1 jumps sharply at the velum opening/closing, overriding the place-based scale.
 - Aspiration-dominant tokens (/h/, voiceless fricatives) are automatically skipped — they keep their natural crisp onset.
 - If consonant-to-consonant transitions sound harsh, the generic fallback (10ms) may need tuning for your language.
+- The pre-silence protection skips the nasal F1 override too — utterance-final nasalized vowels hold steady rather than snapping. This is correct behavior but worth monitoring if your language has prominent final nasal vowels (e.g. French).
 
 ### Trajectory limiting
 
