@@ -1,0 +1,2250 @@
+# Brazilian Portuguese translations for TGSpeechBox NVDA add-on.
+# Copyright (C) 2024-2026 TGSpeechBox contributors
+# This file is distributed under the MIT license.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: TGSpeechBox\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-15 00:00+0000\n"
+"PO-Revision-Date: 2026-02-15 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Brazilian Portuguese\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Voice tilt (brightness)"
+msgstr "Inclinação vocal (brilho)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Noise glottal modulation"
+msgstr "Modulação glotal de ruído"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pitch-sync F1 delta"
+msgstr "Delta F1 sincronizado com tom"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pitch-sync B1 delta"
+msgstr "Delta B1 sincronizado com tom"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Speed quotient (voice tension)"
+msgstr "Quociente de velocidade (tensão vocal)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Aspiration tilt (breath color)"
+msgstr "Inclinação de aspiração (cor da respiração)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Formant sharpness (cascade bandwidth)"
+msgstr "Nitidez de formantes (largura de banda em cascata)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Voice tremor (shakiness)"
+msgstr "Tremor vocal (vibração)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Creakiness (laryngealization)"
+msgstr "Crepitância (laringealização)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Breathiness"
+msgstr "Soprosidade"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Jitter (pitch variation)"
+msgstr "Jitter (variação de tom)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Shimmer (amplitude variation)"
+msgstr "Shimmer (variação de amplitude)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Glottal sharpness"
+msgstr "Nitidez glotal"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Legacy pitch inflection scale (only active when pitch mode is classic)"
+msgstr "Escala de inflexão tonal legada (ativa apenas quando o modo de tom é clássico)"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pause mode"
+msgstr "Modo de pausa"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Sample rate"
+msgstr "Taxa de amostragem"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Language"
+msgstr "Idioma"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Stop closure mode"
+msgstr "Modo de fechamento de oclusiva"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Spelling diphthong mode"
+msgstr "Modo de ditongo na soletração"
+
+#. Synth driver setting label
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Pitch mode"
+msgstr "Modo de tom"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Always"
+msgstr "Sempre"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "After vowel"
+msgstr "Após vogal"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Vowel and cluster"
+msgstr "Vogal e grupo consonantal"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "None"
+msgstr "Nenhum"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Monophthong"
+msgstr "Monotongo"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Absolute"
+msgstr "Absoluto"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Relative"
+msgstr "Relativo"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Immediate neighbors only"
+msgstr "Apenas vizinhos imediatos"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Allow C_V (one consonant)"
+msgstr "Permitir C_V (uma consoante)"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Allow CC_V (two consonants)"
+msgstr "Permitir CC_V (duas consoantes)"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "eSpeak style"
+msgstr "Estilo eSpeak"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Fujisaki"
+msgstr "Fujisaki"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Classic"
+msgstr "Clássico"
+
+#. Pause mode choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Off"
+msgstr "Desativado"
+
+#. Pause mode choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Short"
+msgstr "Curta"
+
+#. Pause mode choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "Long"
+msgstr "Longa"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "11025 Hz"
+msgstr "11025 Hz"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "16000 Hz (default)"
+msgstr "16000 Hz (padrão)"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "22050 Hz"
+msgstr "22050 Hz"
+
+#. Sample rate choice
+#: synthDrivers/tgspeechbox/constants.py
+msgid "44100 Hz"
+msgstr "44100 Hz"
+
+#. Settings panel title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "TGSpeechBox language packs"
+msgstr "Pacotes de idioma do TGSpeechBox"
+
+#. Settings panel description
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Edit language-pack settings (packs/lang/*.yaml) without using Notepad. Only the YAML 'settings:' section is edited."
+msgstr "Editar configurações de pacotes de idioma (packs/lang/*.yaml) sem usar o Bloco de Notas. Apenas a seção 'settings:' do YAML é editada."
+
+#. Language tag label
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Language tag:"
+msgstr "Tag de idioma:"
+
+#. Reset defaults button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset Language Pack Defaults..."
+msgstr "Restaurar padrões do pacote de idioma..."
+
+#. Save voice profile button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Save Voice Profile Sliders to YAML..."
+msgstr "Salvar controles do perfil de voz em YAML..."
+
+#. Edit setting button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Edit setting:"
+msgstr "Editar configuração:"
+
+#. Setting label
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Setting:"
+msgstr "Configuração:"
+
+#. Value label
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Value:"
+msgstr "Valor:"
+
+#. GitHub link button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Open TGSpeechBox on GitHub"
+msgstr "Abrir TGSpeechBox no GitHub"
+
+#. Update check button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Check for Add-on Updates"
+msgstr "Verificar atualizações do complemento"
+
+#. Pending edit indicator
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "(pending edit)"
+msgstr "(edição pendente)"
+
+#. Source file indicator (format string)
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "(from {}.yaml)"
+msgstr "(de {}.yaml)"
+
+#. Update check failure dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Could not check for updates:
+{}
+
+Would you like to download the add-on anyway?"
+msgstr ""
+"Não foi possível verificar atualizações:
+{}
+
+Deseja baixar o complemento mesmo assim?"
+
+#. Update check failure dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Version Check Failed"
+msgstr "Falha na verificação de versão"
+
+#. No update available dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"You already have the latest version installed.
+
+Installed version: {}
+Latest version: {}"
+msgstr ""
+"Você já tem a versão mais recente instalada.
+
+Versão instalada: {}
+Versão mais recente: {}"
+
+#. No update available dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "No Update Available"
+msgstr "Nenhuma atualização disponível"
+
+#. Update available dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"A new version is available!
+
+Installed version: {}
+Latest version: {}
+
+Download and install the update?"
+msgstr ""
+"Uma nova versão está disponível!
+
+Versão instalada: {}
+Versão mais recente: {}
+
+Baixar e instalar a atualização?"
+
+#. Update available dialog message (version unknown)
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Latest version available: {}
+
+Download and install?"
+msgstr ""
+"Versão mais recente disponível: {}
+
+Baixar e instalar?"
+
+#. Update available dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Update Available"
+msgstr "Atualização disponível"
+
+#. Download failure dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Failed to download add-on:
+{}"
+msgstr ""
+"Falha ao baixar o complemento:
+{}"
+
+#. Download exception dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"An error occurred during download:
+{}"
+msgstr ""
+"Ocorreu um erro durante o download:
+{}"
+
+#. Download error dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Download Error"
+msgstr "Erro de download"
+
+#. Download success but install failure dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Download complete, but failed to launch installer:
+{}
+
+File saved to:
+{}
+
+Please install it manually by opening the file."
+msgstr ""
+"Download concluído, mas falha ao iniciar o instalador:
+{}
+
+Arquivo salvo em:
+{}
+
+Por favor, instale manualmente abrindo o arquivo."
+
+#. Warning dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Warning"
+msgstr "Aviso"
+
+#. Reset defaults dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset to Factory Defaults"
+msgstr "Restaurar padrões de fábrica"
+
+#. Reset defaults dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"This will overwrite language pack YAML files in packs/lang/ with the factory default versions from packs/.defaults/.
+
+Any customizations you have made will be lost."
+msgstr ""
+"Isso substituirá os arquivos YAML de pacotes de idioma em packs/lang/ pelas versões padrão de fábrica de packs/.defaults/.
+
+Todas as personalizações feitas serão perdidas."
+
+#. Reset single language pack option
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset only the currently selected language pack ({})"
+msgstr "Restaurar apenas o pacote de idioma selecionado atualmente ({})"
+
+#. Yes button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Yes"
+msgstr "Sim"
+
+#. No button
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "No"
+msgstr "Não"
+
+#. Factory defaults folder missing message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Factory defaults folder not found:
+{}
+
+Cannot reset language packs."
+msgstr ""
+"Pasta de padrões de fábrica não encontrada:
+{}
+
+Não é possível restaurar os pacotes de idioma."
+
+#. Error dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Error"
+msgstr "Erro"
+
+#. Failed to create directory message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Failed to create language pack directory:
+{}"
+msgstr ""
+"Falha ao criar o diretório do pacote de idioma:
+{}"
+
+#. Failed to read defaults directory message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Failed to read defaults directory:
+{}"
+msgstr ""
+"Falha ao ler o diretório de padrões:
+{}"
+
+#. No factory default for specific language pack message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"No factory default found for language pack '{}'.
+
+The file '{}.yaml' does not exist in the .defaults folder."
+msgstr ""
+"Nenhum padrão de fábrica encontrado para o pacote de idioma '{}'.
+
+O arquivo '{}.yaml' não existe na pasta .defaults."
+
+#. Not found dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Not Found"
+msgstr "Não encontrado"
+
+#. Reset completed with errors message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Reset completed with errors.
+
+Copied {} file(s).
+
+Errors:
+{}"
+msgstr ""
+"Restauração concluída com erros.
+
+Copiados {} arquivo(s).
+
+Erros:
+{}"
+
+#. Single language pack reset success message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Successfully reset '{}' language pack to factory defaults."
+msgstr "Pacote de idioma '{}' restaurado com sucesso para os padrões de fábrica."
+
+#. Reset complete dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Reset Complete"
+msgstr "Restauração concluída"
+
+#. Multiple language packs reset success message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Successfully reset {} language pack file(s) to factory defaults."
+msgstr "Restaurados com sucesso {} arquivo(s) de pacotes de idioma para os padrões de fábrica."
+
+#. Cannot save - wrong synthesizer message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "TGSpeechBox must be the active synthesizer to save voice profile settings."
+msgstr "O TGSpeechBox deve ser o sintetizador ativo para salvar as configurações do perfil de voz."
+
+#. Cannot save dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cannot Save"
+msgstr "Não é possível salvar"
+
+#. Error accessing synthesizer message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Error accessing synthesizer: {}"
+msgstr "Erro ao acessar o sintetizador: {}"
+
+#. Feature not supported message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "This feature requires a newer version of the frontend DLL."
+msgstr "Este recurso requer uma versão mais recente da DLL do frontend."
+
+#. Not supported dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Not Supported"
+msgstr "Não suportado"
+
+#. Save voice profile confirmation dialog message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Save the following slider settings to profile '{}'?
+
+VoicingTone:
+  voicedTiltDbPerOct: {:.2f}
+  noiseGlottalModDepth: {:.2f}
+  pitchSyncF1DeltaHz: {:.1f}
+  pitchSyncB1DeltaHz: {:.1f}
+  speedQuotient: {:.2f}
+  aspirationTiltDbPerOct: {:.2f}
+
+  cascadeBwScale: {:.2f}
+
+FrameEx:
+  creakiness: {:.2f}
+  breathiness: {:.2f}
+  jitter: {:.2f}
+  shimmer: {:.2f}
+  sharpness: {:.2f}
+
+This will update packs/phonemes.yaml."
+msgstr ""
+"Salvar as seguintes configurações de controles no perfil '{}'?
+
+VoicingTone:
+  voicedTiltDbPerOct: {:.2f}
+  noiseGlottalModDepth: {:.2f}
+  pitchSyncF1DeltaHz: {:.1f}
+  pitchSyncB1DeltaHz: {:.1f}
+  speedQuotient: {:.2f}
+  aspirationTiltDbPerOct: {:.2f}
+
+  cascadeBwScale: {:.2f}
+
+FrameEx:
+  creakiness: {:.2f}
+  breathiness: {:.2f}
+  jitter: {:.2f}
+  shimmer: {:.2f}
+  sharpness: {:.2f}
+
+Isso atualizará packs/phonemes.yaml."
+
+#. Save voice profile dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Save Voice Profile Settings"
+msgstr "Salvar configurações do perfil de voz"
+
+#. Save success message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid ""
+"Successfully saved slider settings for profile '{}'.
+
+The frontend will reload the settings on next speech."
+msgstr ""
+"Configurações de controles salvas com sucesso para o perfil '{}'.
+
+O frontend recarregará as configurações na próxima fala."
+
+#. Save complete dialog title
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Save Complete"
+msgstr "Salvamento concluído"
+
+#. Save failure message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Failed to save settings: {}"
+msgstr "Falha ao salvar configurações: {}"
+
+#. YAML save error message
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Error saving to phonemes.yaml: {}"
+msgstr "Erro ao salvar em phonemes.yaml: {}"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Affricate Duration (ms)"
+msgstr "Duração de Africada (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Allophone Rules Enabled"
+msgstr "Regras Alofônicas Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Allophone Rules: Enabled"
+msgstr "Regras Alofônicas: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Apply Lengthened Scale To Vowels Only"
+msgstr "Aplicar Escala de Alongamento Somente a Vogais"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Auto Diphthong Offglide To Semivowel"
+msgstr "Auto Ditongo Deslizamento para Semivogal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Auto Tie Diphthongs"
+msgstr "Ligar Ditongos Automaticamente"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Enabled"
+msgstr "Suavização de Limites Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing F1 Scale"
+msgstr "Suavização de Limites F1 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing F2 Scale"
+msgstr "Suavização de Limites F2 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing F3 Scale"
+msgstr "Suavização de Limites F3 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Fric To Stop (ms)"
+msgstr "Suavização de Limites Fricativa para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Fric To Vowel (ms)"
+msgstr "Suavização de Limites Fricativa para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Liquid To Stop (ms)"
+msgstr "Suavização de Limites Líquida para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Liquid To Vowel (ms)"
+msgstr "Suavização de Limites Líquida para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal F1 Instant"
+msgstr "Suavização de Limites F1 Nasal Instantâneo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal F2 F3 Spans Phone"
+msgstr "Suavização de Limites F2 F3 Nasal Abrange Fone"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal To Stop (ms)"
+msgstr "Suavização de Limites Nasal para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Nasal To Vowel (ms)"
+msgstr "Suavização de Limites Nasal para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Plosive Spans Phone"
+msgstr "Suavização de Limites Plosiva Abrange Fone"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Stop To Fric (ms)"
+msgstr "Suavização de Limites Oclusiva para Fricativa (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Stop To Vowel (ms)"
+msgstr "Suavização de Limites Oclusiva para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Fric (ms)"
+msgstr "Suavização de Limites Vogal para Fricativa (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Liquid (ms)"
+msgstr "Suavização de Limites Vogal para Líquida (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Nasal (ms)"
+msgstr "Suavização de Limites Vogal para Nasal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Stop (ms)"
+msgstr "Suavização de Limites Vogal para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing Vowel To Vowel (ms)"
+msgstr "Suavização de Limites Vogal para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Alveolar F1 Scale"
+msgstr "Suavização de Limites: Escala F1 Alveolar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Alveolar F2 Scale"
+msgstr "Suavização de Limites: Escala F2 Alveolar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Alveolar F3 Scale"
+msgstr "Suavização de Limites: Escala F3 Alveolar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Enabled"
+msgstr "Suavização de Limites: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: F1 Scale"
+msgstr "Suavização de Limites: F1 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: F2 Scale"
+msgstr "Suavização de Limites: F2 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: F3 Scale"
+msgstr "Suavização de Limites: F3 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Fric To Stop Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Fricativa para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Fric To Vowel Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Fricativa para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Labial F1 Scale"
+msgstr "Suavização de Limites: Escala F1 Labial"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Labial F2 Scale"
+msgstr "Suavização de Limites: Escala F2 Labial"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Labial F3 Scale"
+msgstr "Suavização de Limites: Escala F3 Labial"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Liquid To Stop Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Líquida para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Liquid To Vowel Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Líquida para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal F1 Instant"
+msgstr "Suavização de Limites: F1 Nasal Instantâneo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal F2 F3 Spans Phone"
+msgstr "Suavização de Limites: F2 F3 Nasal Abrange Fone"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal To Stop Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Nasal para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Nasal To Vowel Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Nasal para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Palatal F1 Scale"
+msgstr "Suavização de Limites: Escala F1 Palatal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Palatal F2 Scale"
+msgstr "Suavização de Limites: Escala F2 Palatal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Palatal F3 Scale"
+msgstr "Suavização de Limites: Escala F3 Palatal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Plosive Spans Phone"
+msgstr "Suavização de Limites: Plosiva Abrange Fone"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Stop To Fric Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Oclusiva para Fricativa (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Stop To Vowel Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Oclusiva para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Velar F1 Scale"
+msgstr "Suavização de Limites: Escala F1 Velar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Velar F2 Scale"
+msgstr "Suavização de Limites: Escala F2 Velar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Velar F3 Scale"
+msgstr "Suavização de Limites: Escala F3 Velar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Fric Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Vogal para Fricativa (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Liquid Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Vogal para Líquida (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Nasal Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Vogal para Nasal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Stop Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Vogal para Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Vowel To Vowel Fade (ms)"
+msgstr "Suavização de Limites: Desvanecer de Vogal para Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Within Syllable Fade Scale"
+msgstr "Suavização de Limites: Escala de Desvanecer Intrassilábico"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: Within Syllable Scale"
+msgstr "Suavização de Limites: Escala Intrassilábica"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Clause Final Fade (ms)"
+msgstr "Desvanecer Final de Cláusula (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Default Pair Scale"
+msgstr "Mistura de Grupo Escala de Par Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Enabled"
+msgstr "Mistura de Grupo Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend F1 Scale"
+msgstr "Mistura de Grupo F1 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Forward Drift Strength"
+msgstr "Mistura de Grupo Intensidade de Deriva para Frente"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Fric To Fric Scale"
+msgstr "Mistura de Grupo Escala de Fricativa para Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Fric To Stop Scale"
+msgstr "Mistura de Grupo Fricativa para Oclusiva Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Homorganic Scale"
+msgstr "Mistura de Grupo Escala Homorgânica"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Liquid To Fric Scale"
+msgstr "Mistura de Grupo Escala de Líquida para Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Liquid To Stop Scale"
+msgstr "Mistura de Grupo Líquida para Oclusiva Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Nasal To Fric Scale"
+msgstr "Mistura de Grupo Escala de Nasal para Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Nasal To Stop Scale"
+msgstr "Mistura de Grupo Nasal para Oclusiva Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Stop To Fric Scale"
+msgstr "Mistura de Grupo Oclusiva para Fricativa Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Stop To Stop Scale"
+msgstr "Mistura de Grupo Escala de Oclusiva para Oclusiva"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Strength"
+msgstr "Mistura de Grupo Intensidade"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend Word Boundary Scale"
+msgstr "Mistura de Grupo Escala de Limite de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Default Pair Scale"
+msgstr "Mistura de Grupo: Escala de Par Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Enabled"
+msgstr "Mistura de Grupo: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: F1 Scale"
+msgstr "Mistura de Grupo: F1 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Forward Drift Strength"
+msgstr "Mistura de Grupo: Intensidade de Deriva para Frente"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Fric To Fric Scale"
+msgstr "Mistura de Grupo: Escala de Fricativa para Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Fric To Stop Scale"
+msgstr "Mistura de Grupo: Fricativa para Oclusiva Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Homorganic Scale"
+msgstr "Mistura de Grupo: Escala Homorgânica"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Liquid To Fric Scale"
+msgstr "Mistura de Grupo: Escala de Líquida para Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Liquid To Stop Scale"
+msgstr "Mistura de Grupo: Líquida para Oclusiva Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Nasal To Fric Scale"
+msgstr "Mistura de Grupo: Escala de Nasal para Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Nasal To Stop Scale"
+msgstr "Mistura de Grupo: Nasal para Oclusiva Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Stop To Fric Scale"
+msgstr "Mistura de Grupo: Oclusiva para Fricativa Scale"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Stop To Stop Scale"
+msgstr "Mistura de Grupo: Escala de Oclusiva para Oclusiva"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Strength"
+msgstr "Mistura de Grupo: Intensidade"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Blend: Word Boundary Scale"
+msgstr "Mistura de Grupo: Escala de Limite de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Affricate In Cluster Scale"
+msgstr "Temporização de Grupo Escala de Africada em Grupo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Enabled"
+msgstr "Temporização de Grupo Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Fric Before Fric Scale"
+msgstr "Temporização de Grupo Escala de Fricativa antes de Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Fric Before Stop Scale"
+msgstr "Temporização de Grupo Escala de Fricativa antes de Oclusiva"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Stop Before Fric Scale"
+msgstr "Temporização de Grupo Escala de Oclusiva antes de Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Stop Before Stop Scale"
+msgstr "Temporização de Grupo Escala de Oclusiva antes de Oclusiva"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Triple Cluster Middle Scale"
+msgstr "Temporização de Grupo Escala de Grupo Triplo Médio"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Word Final Obstruent Scale"
+msgstr "Temporização de Grupo Escala de Obstruinte Final de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing Word Medial Consonant Scale"
+msgstr "Temporização de Grupo Escala de Consoante Medial de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Affricate In Cluster Scale"
+msgstr "Temporização de Grupo: Escala de Africada em Grupo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Enabled"
+msgstr "Temporização de Grupo: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Fric Before Fric Scale"
+msgstr "Temporização de Grupo: Escala de Fricativa antes de Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Fric Before Stop Scale"
+msgstr "Temporização de Grupo: Escala de Fricativa antes de Oclusiva"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Stop Before Fric Scale"
+msgstr "Temporização de Grupo: Escala de Oclusiva antes de Fricativa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Stop Before Stop Scale"
+msgstr "Temporização de Grupo: Escala de Oclusiva antes de Oclusiva"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Triple Cluster Middle Scale"
+msgstr "Temporização de Grupo: Escala de Grupo Triplo Médio"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Word Final Obstruent Scale"
+msgstr "Temporização de Grupo: Escala de Obstruinte Final de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Cluster Timing: Word Medial Consonant Scale"
+msgstr "Temporização de Grupo: Escala de Consoante Medial de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Adjacency Max Consonants"
+msgstr "Coarticulação Máximo de Consoantes Adjacentes"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Alveolar Back Vowel Strength Boost"
+msgstr "Coarticulação Reforço de Intensidade Alveolar Vogal Posterior"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Alveolar F2 Locus"
+msgstr "Coarticulação Alveolar Locus F2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Alveolar Scale"
+msgstr "Coarticulação Escala Alveolar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Aspiration Blend End"
+msgstr "Coarticulação Fim de Mistura de Aspiração"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Aspiration Blend Start"
+msgstr "Coarticulação Início de Mistura de Aspiração"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Back Vowel F2 Threshold"
+msgstr "Coarticulação Limiar F2 de Vogal Posterior"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Cross Syllable Scale"
+msgstr "Coarticulação Escala Intersilábica"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Enabled"
+msgstr "Coarticulação Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation F1 Scale"
+msgstr "Coarticulação F1 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation F2 Scale"
+msgstr "Coarticulação F2 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation F3 Scale"
+msgstr "Coarticulação F3 Escala"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Graduated"
+msgstr "Coarticulação Graduado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Labial F2 Locus"
+msgstr "Coarticulação Labial Locus F2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Labial Scale"
+msgstr "Coarticulação Escala Labial"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Labialized Fricative F2 Pull"
+msgstr "Coarticulação Atração F2 de Fricativa Labializada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Mitalk K"
+msgstr "Coarticulação Mitalk K"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Palatal Scale"
+msgstr "Coarticulação Escala Palatal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Strength"
+msgstr "Coarticulação Intensidade"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Transition Extent"
+msgstr "Coarticulação Extensão de Transição"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus"
+msgstr "Coarticulação Velar Locus F2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch Enabled"
+msgstr "Coarticulação Compressão Velar Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch F2 Scale"
+msgstr "Coarticulação Escala F2 de Compressão Velar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch F3"
+msgstr "Coarticulação F3 de Compressão Velar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Pinch Threshold"
+msgstr "Coarticulação Limiar de Compressão Velar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar Scale"
+msgstr "Coarticulação Escala Velar"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Word Initial Fade Scale"
+msgstr "Coarticulação Escala de Desvanecer Inicial de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Fade (ms)"
+msgstr "Desvanecer Padrão (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Glottal Open Quotient"
+msgstr "Quociente de Abertura Glotal Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Output Gain"
+msgstr "Ganho de Saída Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Pre Formant Gain"
+msgstr "Ganho Pré-Formante Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Vibrato Pitch Offset"
+msgstr "Deslocamento de Vibrato Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Vibrato Speed"
+msgstr "Velocidade de Vibrato Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Voice Turbulence Amplitude"
+msgstr "Amplitude de Turbulência Vocal Padrão"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Default Vowel Duration (ms)"
+msgstr "Duração de Vogal Padrão (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "English Long U Key"
+msgstr "Tecla de U Longo Inglês"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "English Long U Shorten Enabled"
+msgstr "Encurtamento de U Longo Inglês Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "English Long U Word Final Scale"
+msgstr "Escala Final de Palavra U Longo Inglês"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fade After Liquid (ms)"
+msgstr "Desvanecer Após Líquida (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Accent Dur"
+msgstr "Fujisaki Duração de Acento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Accent Len"
+msgstr "Fujisaki Comprimento de Acento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Accent Mode"
+msgstr "Fujisaki Modo de Acento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Max"
+msgstr "Fujisaki Máximo de Declinação"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Post Floor"
+msgstr "Fujisaki Piso Pós-Declinação"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Rate"
+msgstr "Fujisaki Taxa de Declinação"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Declination Scale"
+msgstr "Fujisaki Escala de Declinação"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Phrase Amp"
+msgstr "Fujisaki Amplitude de Frase"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Phrase Decay"
+msgstr "Fujisaki Decaimento de Frase"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Phrase Len"
+msgstr "Fujisaki Duração de Frase"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Primary Accent Amp"
+msgstr "Fujisaki Amplitude de Acento Primário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Secondary Accent Amp"
+msgstr "Fujisaki Amplitude de Acento Secundário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Hu Short A Vowel Enabled"
+msgstr "Vogal A Curta Húngara Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Hu Short A Vowel Key"
+msgstr "Tecla de Vogal A Curta Húngara"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Hu Short A Vowel Scale"
+msgstr "Escala de Vogal A Curta Húngara"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Legacy Pitch Inflection Scale"
+msgstr "Escala de Inflexão de Tom Legada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Legacy Pitch Mode"
+msgstr "Modo de Tom Legado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Enabled"
+msgstr "Contraste de Comprimento Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Geminate Closure Scale"
+msgstr "Contraste de Comprimento Escala de Fechamento Geminado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Geminate Release Scale"
+msgstr "Contraste de Comprimento Escala de Soltura Geminada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Long Vowel Floor (ms)"
+msgstr "Contraste de Comprimento Piso de Vogal Longa (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Pre Geminate Vowel Scale"
+msgstr "Contraste de Comprimento Escala de Vogal Pré-Geminada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast Short Vowel Ceiling (ms)"
+msgstr "Contraste de Comprimento Teto de Vogal Curta (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Enabled"
+msgstr "Contraste de Comprimento: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Geminate Closure Scale"
+msgstr "Contraste de Comprimento: Escala de Fechamento Geminado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Geminate Release Scale"
+msgstr "Contraste de Comprimento: Escala de Soltura Geminada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Long Vowel Floor"
+msgstr "Contraste de Comprimento: Piso de Vogal Longa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Pre Geminate Vowel Scale"
+msgstr "Contraste de Comprimento: Escala de Vogal Pré-Geminada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Length Contrast: Short Vowel Ceiling"
+msgstr "Contraste de Comprimento: Teto de Vogal Curta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Lengthened Scale"
+msgstr "Escala de Alongamento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Lengthened Scale Hu"
+msgstr "Escala de Alongamento Húngaro"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Lengthened Vowel Final Coda Scale"
+msgstr "Escala de Coda Final de Vogal Alongada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Enabled"
+msgstr "Dinâmica de Líquidas Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Start F1"
+msgstr "Dinâmica de Líquidas Início de Deslizamento Labial F1"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Start F2"
+msgstr "Dinâmica de Líquidas Início de Deslizamento Labial F2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Transition (%)"
+msgstr "Dinâmica de Líquidas Transição de Deslizamento Labial (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Labial Glide Transition Enabled"
+msgstr "Dinâmica de Líquidas Transição de Deslizamento Labial Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Lateral Onglide Duration (%)"
+msgstr "Dinâmica de Líquidas Duração de Deslizamento Lateral (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Lateral Onglide F1 Delta"
+msgstr "Dinâmica de Líquidas Deslizamento Lateral F1 Delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Lateral Onglide F2 Delta"
+msgstr "Dinâmica de Líquidas Deslizamento Lateral F2 Delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Rhotic F3 Dip Duration (%)"
+msgstr "Dinâmica de Líquidas Duração de Queda de F3 Rótica (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Rhotic F3 Dip Enabled"
+msgstr "Dinâmica de Líquidas Queda de F3 Rótica Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics Rhotic F3 Minimum"
+msgstr "Dinâmica de Líquidas Mínimo de F3 Rótica"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Enabled"
+msgstr "Dinâmica de Líquidas: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition enabled"
+msgstr "Dinâmica de Líquidas: Transição de Deslizamento Labial habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition start F1"
+msgstr "Dinâmica de Líquidas: Transição de Deslizamento Labial início F1"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition start F2"
+msgstr "Dinâmica de Líquidas: Transição de Deslizamento Labial início F2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Labial Glide Transition transition (%)"
+msgstr "Dinâmica de Líquidas: Transição de Deslizamento Labial transição (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Lateral Onglide duration (%)"
+msgstr "Dinâmica de Líquidas: duração de Deslizamento Lateral (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Lateral Onglide F1 Delta"
+msgstr "Dinâmica de Líquidas: Deslizamento Lateral F1 Delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Lateral Onglide F2 Delta"
+msgstr "Dinâmica de Líquidas: Deslizamento Lateral F2 Delta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Rhotic F3 Dip dip Duration (%)"
+msgstr "Dinâmica de Líquidas: Queda de F3 Rótica duração de Queda (%)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Rhotic F3 Dip enabled"
+msgstr "Dinâmica de Líquidas: Queda de F3 Rótica habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Dynamics: Rhotic F3 Dip F3 Minimum"
+msgstr "Dinâmica de Líquidas: Queda de F3 Rótica F3 Mínimo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Liquid Fade (ms)"
+msgstr "Desvanecer de Líquida (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Enabled"
+msgstr "Microprosódia Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Min Vowel (ms)"
+msgstr "Microprosódia Vogal Mínima (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiced F0 Lower (Hz)"
+msgstr "Microprosódia Redução de F0 Sonora (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiced F0 Lower Enabled"
+msgstr "Microprosódia Redução de F0 Sonora Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless F0 Raise (Hz)"
+msgstr "Microprosódia Elevação de F0 Surda (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless F0 Raise Enabled"
+msgstr "Microprosódia Elevação de F0 Surda Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless F0 Raise End (Hz)"
+msgstr "Microprosódia Fim de Elevação de F0 Surda (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Nasalization Anticipatory Amplitude"
+msgstr "Nasalização Amplitude Antecipatória"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Nasalization Anticipatory Blend"
+msgstr "Nasalização Mistura Antecipatória"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Nasalization Anticipatory Enabled"
+msgstr "Nasalização Antecipatória Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Enabled"
+msgstr "Alongamento Final de Frase Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Final Syllable Scale"
+msgstr "Alongamento Final de Frase Escala de Sílaba Final"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Nucleus Only Mode"
+msgstr "Alongamento Final de Frase Modo Somente Núcleo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Penultimate Syllable Scale"
+msgstr "Alongamento Final de Frase Escala de Sílaba Penúltima"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Question Scale"
+msgstr "Alongamento Final de Frase Escala de Pergunta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Statement Scale"
+msgstr "Alongamento Final de Frase Escala de Declaração"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Positional Allophones: Enabled"
+msgstr "Alofones Posicionais: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration Duration (ms)"
+msgstr "Pós-Oclusiva Duração de Aspiração (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration Enabled"
+msgstr "Pós-Oclusiva Aspiração Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration Phoneme"
+msgstr "Pós-Oclusiva Fonema de Aspiração"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Primary Stress Div"
+msgstr "Divisor de Acento Primário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Amplitude Boost (dB)"
+msgstr "Proeminência Reforço de Amplitude (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Amplitude Reduction (dB)"
+msgstr "Proeminência Redução de Amplitude (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Duration Prominent Floor (ms)"
+msgstr "Proeminência Piso de Duração Proeminente (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Duration Reduced Ceiling"
+msgstr "Proeminência Teto de Duração Reduzida"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Enabled"
+msgstr "Proeminência Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Long Vowel Mode"
+msgstr "Proeminência Modo de Vogal Longa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Long Vowel Weight"
+msgstr "Proeminência Peso de Vogal Longa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Pitch From Prominence"
+msgstr "Proeminência Tom a partir de Proeminência"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Primary Stress Weight"
+msgstr "Proeminência Peso de Acento Primário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Secondary Stress Level"
+msgstr "Proeminência Nível de Acento Secundário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Secondary Stress Weight"
+msgstr "Proeminência Peso de Acento Secundário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Word Final Reduction"
+msgstr "Proeminência Redução Final de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Word Initial Boost"
+msgstr "Proeminência Reforço Inicial de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Amplitude Boost (dB)"
+msgstr "Proeminência: Reforço de Amplitude (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Amplitude Reduction (dB)"
+msgstr "Proeminência: Redução de Amplitude (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Duration Prominent Floor (ms)"
+msgstr "Proeminência: Piso de Duração Proeminente (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Duration Reduced Ceiling"
+msgstr "Proeminência: Teto de Duração Reduzida"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Enabled"
+msgstr "Proeminência: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Long Vowel Mode"
+msgstr "Proeminência: Modo de Vogal Longa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Long Vowel Weight"
+msgstr "Proeminência: Peso de Vogal Longa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Pitch From Prominence"
+msgstr "Proeminência: Tom a partir de Proeminência"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Primary Stress Weight"
+msgstr "Proeminência: Peso de Acento Primário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Secondary Stress Level"
+msgstr "Proeminência: Nível de Acento Secundário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Secondary Stress Weight"
+msgstr "Proeminência: Peso de Acento Secundário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Word Final Reduction"
+msgstr "Proeminência: Redução Final de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Word Initial Boost"
+msgstr "Proeminência: Reforço Inicial de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Enabled"
+msgstr "Redução de Velocidade Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Schwa Min Duration (ms)"
+msgstr "Redução de Velocidade Duração Mínima de Schwa (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Schwa Reduction Threshold"
+msgstr "Redução de Velocidade Limiar de Redução de Schwa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Reduction Schwa Scale"
+msgstr "Redução de Velocidade Escala de Schwa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Secondary Stress Div"
+msgstr "Divisor de Acento Secundário"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Fade (ms)"
+msgstr "Desvanecer de Limite de Segmento (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Gap (ms)"
+msgstr "Intervalo de Limite de Segmento (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Skip Vowel To Liquid"
+msgstr "Limite de Segmento Skip Vogal para Líquida"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Segment Boundary Skip Vowel To Vowel"
+msgstr "Limite de Segmento Skip Vogal para Vogal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Semivowel Offglide Scale"
+msgstr "Escala de Deslizamento de Semivogal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Clause Type Override"
+msgstr "Anulação de Tipo de Cláusula de Palavra Única"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Clause Type Override Comma Only"
+msgstr "Anulação de Tipo de Cláusula de Palavra Única Somente Vírgula"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Final Fade (ms)"
+msgstr "Desvanecer Final de Palavra Única (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Final Hold (ms)"
+msgstr "Retenção Final de Palavra Única (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Final Liquid Hold Scale"
+msgstr "Escala de Retenção de Líquida Final de Palavra Única"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Single Word Tuning Enabled"
+msgstr "Ajuste de Palavra Única Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coartic Max Delta (Hz)"
+msgstr "Coart. Especial Delta Máx. (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coarticulation Enabled"
+msgstr "Special Coarticulação Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coarticulation: Enabled"
+msgstr "Coarticulação Especial: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Special Coarticulation: Max Delta (Hz)"
+msgstr "Coarticulação Especial: Delta Máx. (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Spelling Diphthong Mode"
+msgstr "Modo de Ditongo de Soletração"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure After Nasals Enabled"
+msgstr "Fechamento de Oclusiva Após Nasais Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Cluster Fade (ms)"
+msgstr "Fechamento de Oclusiva Desvanecer de Grupo (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Cluster Gap (ms)"
+msgstr "Fechamento de Oclusiva Intervalo de Grupo (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Cluster Gaps Enabled"
+msgstr "Fechamento de Oclusiva Intervalos de Grupo Habilitados"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Mode"
+msgstr "Fechamento de Oclusiva Modo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Vowel Fade (ms)"
+msgstr "Fechamento de Oclusiva Desvanecer de Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Vowel Gap (ms)"
+msgstr "Fechamento de Oclusiva Intervalo de Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Word Boundary Cluster Fade (ms)"
+msgstr "Fechamento de Oclusiva Desvanecer de Grupo em Limite de Palavra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Closure Word Boundary Cluster Gap (ms)"
+msgstr "Fechamento de Oclusiva Intervalo de Grupo em Limite de Palavra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stop Duration (ms)"
+msgstr "Duração de Oclusiva (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stressed Vowel Hiatus Fade (ms)"
+msgstr "Desvanecer de Hiato de Vogal Acentuada (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Stressed Vowel Hiatus Gap (ms)"
+msgstr "Intervalo de Hiato de Vogal Acentuada (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Strip Allophone Digits"
+msgstr "Remover Dígitos Alofônicos"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Strip Hyphen"
+msgstr "Remover Hífen"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Coda Scale"
+msgstr "Duração Silábica Escala de Coda"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Enabled"
+msgstr "Duração Silábica Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Onset Scale"
+msgstr "Duração Silábica Escala de Ataque"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration Unstressed Open Nucleus Scale"
+msgstr "Duração Silábica Escala de Núcleo Aberto Átono"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Coda Scale"
+msgstr "Duração Silábica: Escala de Coda"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Enabled"
+msgstr "Duração Silábica: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Onset Scale"
+msgstr "Duração Silábica: Escala de Ataque"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Syllable Duration: Unstressed Open Nucleus Scale"
+msgstr "Duração Silábica: Escala de Núcleo Aberto Átono"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tap Duration (ms)"
+msgstr "Duração de Vibrante Simples (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tied From Vowel Duration (ms)"
+msgstr "Duração de Vogal Ligada Desde (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tied From Vowel Fade (ms)"
+msgstr "Tied From Desvanecer de Vogal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tied Vowel Duration (ms)"
+msgstr "Duração de Vogal Ligada (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tonal"
+msgstr "Tonal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tone Contours Absolute"
+msgstr "Contornos Tonais Absolutos"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tone Contours Mode"
+msgstr "Modo de Contornos Tonais"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Tone Digits Enabled"
+msgstr "Dígitos Tonais Habilitados"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Apply Across Word Boundary"
+msgstr "Limite de Trajetória Aplicar Através de Limite de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Apply To"
+msgstr "Limite de Trajetória Aplicar A"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Enabled"
+msgstr "Limite de Trajetória Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Cf2"
+msgstr "Limite de Trajetória Máx. Hz Por Ms Cf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Cf3"
+msgstr "Limite de Trajetória Máx. Hz Por Ms Cf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Pf2"
+msgstr "Limite de Trajetória Máx. Hz Por Ms Pf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Max Hz Per Ms Pf3"
+msgstr "Limite de Trajetória Máx. Hz Por Ms Pf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Window (ms)"
+msgstr "Limite de Trajetória Janela (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Apply Across Word Boundary"
+msgstr "Limite de Trajetória: Aplicar Através de Limite de Palavra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Apply To"
+msgstr "Limite de Trajetória: Aplicar A"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Enabled"
+msgstr "Limite de Trajetória: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms cf2"
+msgstr "Limite de Trajetória: Máx. Hz Por Ms cf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms cf3"
+msgstr "Limite de Trajetória: Máx. Hz Por Ms cf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms pf2"
+msgstr "Limite de Trajetória: Máx. Hz Por Ms pf2"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms pf3"
+msgstr "Limite de Trajetória: Máx. Hz Por Ms pf3"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Window (ms)"
+msgstr "Limite de Trajetória: Janela (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trill Fallback Duration (ms)"
+msgstr "Duração de Reserva de Trinado (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trill Modulation (ms)"
+msgstr "Modulação de Trinado (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trill Modulation Fade (ms)"
+msgstr "Desvanecer de Modulação de Trinado (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Voice Profile Name"
+msgstr "Nome do Perfil de Voz"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Voiced Consonant Duration (ms)"
+msgstr "Duração de Consoante Sonora (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Voiceless Fricative Duration (ms)"
+msgstr "Duração de Fricativa Surda (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Vowel Before Liquid Duration (ms)"
+msgstr "Duração de Vogal antes de Líquida (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Vowel Before Nasal Duration (ms)"
+msgstr "Duração de Vogal antes de Nasal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Final Schwa Min Duration (ms)"
+msgstr "Duração Mínima de Schwa Final de Palavra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Final Schwa Reduction Enabled"
+msgstr "Redução de Schwa Final de Palavra Habilitada"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Final Schwa Scale"
+msgstr "Escala de Schwa Final de Palavra"
