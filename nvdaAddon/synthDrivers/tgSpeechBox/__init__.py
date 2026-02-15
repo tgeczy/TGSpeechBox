@@ -1439,6 +1439,14 @@ class SynthDriver(SynthDriver):
             return
 
         self._audio.isSpeaking = True
+
+        # Double-check: cancel() may have run between the check above
+        # and the flag set.  If so, undo immediately so the AudioThread
+        # doesn't play stale frames (fixes MultiLang overlap bug).
+        if generation != self._speakGen:
+            self._audio.isSpeaking = False
+            return
+
         self._audio.kick()
 
     def cancel(self):
@@ -1450,6 +1458,17 @@ class SynthDriver(SynthDriver):
             if not hasattr(self, "_audio") or not self._audio:
                 return
 
+            # === PHASE 1: Stop audio output IMMEDIATELY ===
+            # isSpeaking must be cleared BEFORE anything else so the
+            # AudioThread's inner loop exits at the next iteration and
+            # the post-synthesize isSpeaking re-check prevents it from
+            # feeding any more audio to the WavePlayer.
+            self._audio.isSpeaking = False
+            if self._audio._wavePlayer:
+                self._audio._wavePlayer.stop()
+            self._audio._applyFadeIn = True
+
+            # === PHASE 2: Invalidate in-flight work ===
             # Bump generation to invalidate any in-flight or pending _speakBg jobs.
             # BgThread checks this counter between chunks and inside _onFrame callbacks.
             self._speakGen += 1
@@ -1463,19 +1482,17 @@ class SynthDriver(SynthDriver):
             except queue.Empty:
                 pass
 
+            # === PHASE 3: Purge frame queue and flush resonators ===
+            # We do NOT call player.synthesize() here because the
+            # AudioThread may still be inside its own synthesize() call
+            # (it exits after checking isSpeaking, which we just cleared).
+            # Concurrent synthesize() calls on the unsynchronised C DLL
+            # cause data races.  Instead, just purge the frame queue.
+            # The fade-in envelope (_applyFadeIn) will mask any stale
+            # resonator energy when the next utterance starts.
             self._player.queueFrame(None, 3.0, 3.0, purgeQueue=True)
-            # Flush DSP resonator state so stale energy from the
-            # interrupted utterance doesn't pop on the next one.
-            for _ in range(4):
-                try:
-                    self._player.synthesize(4096)
-                except Exception:
-                    break
-            self._audio.isSpeaking = False
+
             self._audio.kick()
-            if self._audio._wavePlayer:
-                self._audio._wavePlayer.stop()
-            self._audio._applyFadeIn = True
         except Exception:
             log.debug("TGSpeechBox: cancel failed", exc_info=True)
 

@@ -259,6 +259,15 @@ class AudioThread(threading.Thread):
                         self._synthErrorLogged = True
                     break
 
+                # Re-check isSpeaking after synthesize() returns.
+                # cancel() may have cleared the flag while we were inside
+                # the DLL — without this check, we'd feed stale audio to
+                # the WavePlayer *after* cancel()'s stop(), restarting
+                # playback and causing overlap with the next synth
+                # (the MultiLang simultaneous-speaking bug).
+                if not self.isSpeaking:
+                    break
+
                 if data:
                     n = int(getattr(data, "length", 0) or 0)
                     if n <= 0:
@@ -266,7 +275,7 @@ class AudioThread(threading.Thread):
 
                     nbytes = n * 2  # 16-bit = 2 bytes per sample
                     audioBytes = ctypes.string_at(ctypes.addressof(data), nbytes)
-                    
+
                     # Apply fade-in to first chunk after stop()/idle() to prevent click
                     if self._applyFadeIn and isFirstChunk:
                         audioBytes = self._applyFadeInEnvelope(audioBytes)

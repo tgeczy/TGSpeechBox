@@ -785,16 +785,38 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
 
     auto select_espeak_voice = [&](const std::string& desired) -> bool {
         std::lock_guard<std::mutex> lock(espeak_mutex());
-        if (!espeak_SetVoiceByName_) {
-            // If the build doesn't export voice selection, don't fail here.
+        if (!espeak_SetVoiceByName_ && !espeak_SetVoiceByProperties_) {
             return true;
         }
 
-        auto try_set_voice = [&](const std::string& name) -> bool {
-            if (name.empty()) return false;
-            if (!current_espeak_voice_.empty() && _stricmp(current_espeak_voice_.c_str(), name.c_str()) == 0) {
+        // Prefer SetVoiceByProperties (matches by language code, like NVDA does).
+        // This correctly picks "en-US" for "en-us" without needing exact voice file names.
+        auto try_set_by_language = [&](const std::string& lang) -> bool {
+            if (lang.empty() || !espeak_SetVoiceByProperties_) return false;
+            if (!current_espeak_voice_.empty() && _stricmp(current_espeak_voice_.c_str(), lang.c_str()) == 0) {
                 return true;
             }
+            espeak_VOICE voice_spec{};
+            voice_spec.languages = lang.c_str();
+            int rc = -1;
+            __try {
+                rc = espeak_SetVoiceByProperties_(&voice_spec);
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                DEBUG_LOG("espeak_SetVoiceByProperties crashed for '%s'", lang.c_str());
+                return false;
+            }
+            if (rc == 0) {
+                current_espeak_voice_ = lang;
+                DEBUG_LOG("espeak_SetVoiceByProperties OK for '%s'", lang.c_str());
+                return true;
+            }
+            DEBUG_LOG("espeak_SetVoiceByProperties failed for '%s' (rc=%d)", lang.c_str(), rc);
+            return false;
+        };
+
+        // Fallback: SetVoiceByName (matches voice file name).
+        auto try_set_by_name = [&](const std::string& name) -> bool {
+            if (name.empty() || !espeak_SetVoiceByName_) return false;
             bool crashed = false;
             const int rc = safe_espeak_SetVoiceByName(espeak_SetVoiceByName_, name.c_str(), &crashed);
             if (crashed || rc == k_espeak_crash_rc) {
@@ -805,27 +827,31 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
                 current_espeak_voice_ = name;
                 return true;
             }
-            DEBUG_LOG("espeak_SetVoiceByName failed for '%s' (rc=%d)", name.c_str(), rc);
             return false;
         };
 
-        if (try_set_voice(desired)) {
+        // 1) Try SetVoiceByProperties with the exact language tag (e.g. "en-us").
+        if (try_set_by_language(desired)) {
             return true;
         }
 
-        // Fallback: strip region/script (e.g. en-us -> en).
+        // 2) Try base language (e.g. "en" from "en-us").
         std::string base = desired;
         const size_t pos = base.find_first_of("-_");
         if (pos != std::string::npos) {
             base.resize(pos);
+            if (try_set_by_language(base)) {
+                return true;
+            }
         }
 
-        if (try_set_voice(base)) {
+        // 3) Fallback to SetVoiceByName with base language.
+        if (try_set_by_name(base.empty() ? desired : base)) {
             return true;
         }
 
-        // Last resort.
-        return try_set_voice("en");
+        // 4) Last resort: English.
+        return try_set_by_language("en") || try_set_by_name("en");
     };
 
     bool voice_ok = select_espeak_voice(espeak_tag_utf8);
@@ -1122,6 +1148,7 @@ HRESULT runtime::load_modules()
     // Resolve eSpeak exports.
     espeak_Initialize_ = reinterpret_cast<espeak_Initialize_t>(GetProcAddress(espeak_mod_, "espeak_Initialize"));
     espeak_SetVoiceByName_ = reinterpret_cast<espeak_SetVoiceByName_t>(GetProcAddress(espeak_mod_, "espeak_SetVoiceByName"));
+    espeak_SetVoiceByProperties_ = reinterpret_cast<espeak_SetVoiceByProperties_t>(GetProcAddress(espeak_mod_, "espeak_SetVoiceByProperties"));
     espeak_TextToPhonemes_ = reinterpret_cast<espeak_TextToPhonemes_t>(GetProcAddress(espeak_mod_, "espeak_TextToPhonemes"));
     espeak_Terminate_ = reinterpret_cast<espeak_Terminate_t>(GetProcAddress(espeak_mod_, "espeak_Terminate"));
     espeak_Info_ = reinterpret_cast<espeak_Info_t>(GetProcAddress(espeak_mod_, "espeak_Info"));
@@ -1203,6 +1230,9 @@ HRESULT runtime::init_espeak()
     }
     if (!espeak_SetVoiceByName_) {
         espeak_SetVoiceByName_ = reinterpret_cast<espeak_SetVoiceByName_t>(GetProcAddress(espeak_mod_, "espeak_SetVoiceByName"));
+    }
+    if (!espeak_SetVoiceByProperties_) {
+        espeak_SetVoiceByProperties_ = reinterpret_cast<espeak_SetVoiceByProperties_t>(GetProcAddress(espeak_mod_, "espeak_SetVoiceByProperties"));
     }
     if (!espeak_TextToPhonemes_) {
         espeak_TextToPhonemes_ = reinterpret_cast<espeak_TextToPhonemes_t>(GetProcAddress(espeak_mod_, "espeak_TextToPhonemes"));

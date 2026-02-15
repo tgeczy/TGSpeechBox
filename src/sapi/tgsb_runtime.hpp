@@ -258,6 +258,19 @@ private:
     // --- function pointers (libespeak-ng.dll) ---
     using espeak_Initialize_t = int (__cdecl*)(int output, int buflength, const char* path, int options);
     using espeak_SetVoiceByName_t = int (__cdecl*)(const char* name);
+    // espeak_VOICE struct (minimal; only the fields we need for SetVoiceByProperties).
+    // The real struct has more fields, but they're all pointers/ints initialized to 0.
+    struct espeak_VOICE {
+        const char* name;       // voice name (NULL for language match)
+        const char* languages;  // language string for matching (e.g. "en-us")
+        const char* identifier; // voice file identifier (NULL)
+        unsigned char gender;
+        unsigned char age;
+        unsigned char variant;
+        unsigned char xx1;      // padding
+        int spare1;
+    };
+    using espeak_SetVoiceByProperties_t = int (__cdecl*)(espeak_VOICE* voice_spec);
     using espeak_TextToPhonemes_t = const char* (__cdecl*)(const void** textptr, int textmode, int phonememode);
     using espeak_Terminate_t = int (__cdecl*)();
     using espeak_Info_t = const char* (__cdecl*)(const char** path_data);
@@ -265,6 +278,7 @@ private:
 
     espeak_Initialize_t espeak_Initialize_ = nullptr;
     espeak_SetVoiceByName_t espeak_SetVoiceByName_ = nullptr;
+    espeak_SetVoiceByProperties_t espeak_SetVoiceByProperties_ = nullptr;
     espeak_TextToPhonemes_t espeak_TextToPhonemes_ = nullptr;
     espeak_Terminate_t espeak_Terminate_ = nullptr;
     espeak_Info_t espeak_Info_ = nullptr;
