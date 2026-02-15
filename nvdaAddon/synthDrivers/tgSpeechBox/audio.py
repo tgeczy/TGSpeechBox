@@ -247,8 +247,10 @@ class AudioThread(threading.Thread):
 
             lastIndex = None
             isFirstChunk = True
+            didSpeak = False
 
             while self._keepAlive and self.isSpeaking:
+                didSpeak = True
                 try:
                     data = player.synthesize(8192)
                 except Exception:
@@ -299,19 +301,25 @@ class AudioThread(threading.Thread):
 
                 break
 
-            # Stream finished - go idle and prepare for next stream
-            try:
-                if wavePlayer:
-                    wavePlayer.idle()
-                    # Next audio feed should have fade-in applied
-                    self._applyFadeIn = True
-            except Exception:
-                if not self._idleErrorLogged:
-                    log.debug("nvSpeechPlayer: WavePlayer.idle failed", exc_info=True)
-                    self._idleErrorLogged = True
+            # Only idle + notify on natural completion.
+            # If cancel() set isSpeaking=False, the inner loop exited early
+            # and we must NOT fire synthDoneSpeaking (MultiLang counts these
+            # to pump its language-switching queue — a spurious notification
+            # makes it skip ahead before the next utterance plays).
+            # If the inner loop was never entered (spurious kick from
+            # cancel), didSpeak is False and we also skip.
+            if didSpeak and self.isSpeaking:
+                try:
+                    if wavePlayer:
+                        wavePlayer.idle()
+                        self._applyFadeIn = True
+                except Exception:
+                    if not self._idleErrorLogged:
+                        log.debug("nvSpeechPlayer: WavePlayer.idle failed", exc_info=True)
+                        self._idleErrorLogged = True
 
-            s = synthRef()
-            if s:
-                synthDoneSpeaking.notify(synth=s)
+                s = synthRef()
+                if s:
+                    synthDoneSpeaking.notify(synth=s)
 
             self.isSpeaking = False

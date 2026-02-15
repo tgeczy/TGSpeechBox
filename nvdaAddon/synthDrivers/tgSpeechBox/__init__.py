@@ -1393,6 +1393,11 @@ class SynthDriver(SynthDriver):
         if hadRealSpeech:
             self._player.queueFrame(None, 1.0, 1.0)
 
+        # Final generation check — if cancel() was called while we were
+        # generating IPA/frames above, don't start the audio thread.
+        if generation != self._speakGen:
+            return
+
         self._audio.isSpeaking = True
         self._audio.kick()
 
