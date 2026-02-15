@@ -429,19 +429,26 @@ class SynthDriver(SynthDriver):
         # =======================================================================
         super().__init__()
 
+        # Fresh config: loadSettings() has no saved [speech.tgSpeechBox]
+        # section, so our language setter never fires.  Force it now.
+        if not getattr(self, "_espeakLang", ""):
+            self._set_language(self._language or "auto")
+
         # =======================================================================
         # 10. Post-init tasks (after NVDA has restored settings)
         # =======================================================================
-        
+
         self._scheduleEnableLangPackWrites()
         self._refreshLangPackSettingsCache()
 
-        # Preload optional language packs
+        # Preload optional language packs (so they're cached for fast switching).
+        # setLanguage both loads AND activates, so restore afterwards.
         for tag in ("bg", "zh", "hu", "pt", "pl", "es"):
             try:
                 self._frontend.setLanguage(tag)
             except Exception:
                 pass
+        self._applyFrontendLangTag(self._resolvedLang or "en-us")
 
         # Schedule deferred re-application of voice profile
         # (in case NVDA's settings restore missed something)
