@@ -1123,22 +1123,23 @@ class SynthDriver(SynthDriver):
             return ""
 
         latinFallback = getattr(self, "_latinFallbackLang", "en-gb")
+        espeakLang = getattr(self, "_espeakLang", "en")
 
-        segments = splitByScript(text, self._espeakLang, latinFallback)
+        segments = splitByScript(text, espeakLang, latinFallback)
 
         # Fast path: no script switching needed (single segment, base lang).
         if len(segments) == 1 and segments[0][1] is None:
             return self._espeakTextToIPA(text)
 
         ipaChunks = []
-        currentLang = self._espeakLang
+        currentLang = espeakLang
 
         for segText, langOverride in segments:
             if not segText or not segText.strip():
                 continue
 
             # Switch eSpeak language if needed.
-            targetLang = langOverride or self._espeakLang
+            targetLang = langOverride or espeakLang
             if targetLang != currentLang:
                 try:
                     _espeak.setVoiceByLanguage(targetLang)
@@ -1151,9 +1152,9 @@ class SynthDriver(SynthDriver):
                 ipaChunks.append(ipa)
 
         # Restore base language if we switched away.
-        if currentLang != self._espeakLang:
+        if currentLang != espeakLang:
             try:
-                _espeak.setVoiceByLanguage(self._espeakLang)
+                _espeak.setVoiceByLanguage(espeakLang)
             except Exception:
                 pass
 
