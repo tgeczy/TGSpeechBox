@@ -1,7 +1,105 @@
 # NVDA API Reference — Multi-Version Comparison
 
-Versions compared: **2023.3 | 2024.4 | 2025.3 | 2026.1+**  
-Modules scanned: 40  
+Versions compared: **2023.3 | 2024.4 | 2025.3 | 2026.1+**
+Modules scanned: 40
+Source: auto-generated from NVDA source trees + NVDA What's New changelog
+
+---
+
+## Synth Driver API Changelog (What Changed When)
+
+This section summarizes breaking changes, deprecations, and additions relevant
+to synth driver and speech add-on development, extracted from NVDA's official
+What's New document. Versions without synth-relevant changes are omitted.
+
+### 2025.3
+
+- **SAPI5 deprecations** (no replacement): `synthDrivers.sapi5.LP_c_ubyte`, `LP_c_ulong`, `LP__ULARGE_INTEGER`, `SynthDriver.isSpeaking`.
+- `config.conf["speech"]["includeCLDR"]` **removed** — check `config.conf["speech"]["symbolDictionaries"]` for `"cldr"` instead.
+- eSpeak NG updated to commit `3b8ef3d`.
+
+### 2025.2
+
+- **New extension point**: `synthDriverHandler.pre_synthSpeak` — fires before `speak()` is called on the current synth. Useful for intercepting/modifying speech sequences.
+- **New function**: `utils.mmdevice.getOutputDevices()` for enumerating audio output devices (replaces removed `nvwave` functions).
+- `synthDriverHandler.synthDriver.languageIsSupported(lang)` added for checking language support.
+- `speech.commands.LangChangeCommand` gains static methods for language detection and voice switching.
+- eSpeak NG updated to commit `e93d3a9`.
+
+### 2025.1 (MAJOR BREAKING RELEASE)
+
+- **WASAPI is now mandatory** — opt-out removed. All audio goes through WASAPI.
+- **`nvwave.WasapiWavePlayer` renamed to `nvwave.WavePlayer`**. Constructor signature changed:
+  - `outputDevice` now only accepts **string** arguments (Windows core audio endpoint device IDs).
+  - `closeWhenIdle` parameter **removed**.
+  - `buffered` parameter **removed**.
+- **Audio config path moved**: `config.conf["speech"]["outputDevice"]` **removed**. Use `config.conf["audio"]["outputDevice"]` (string endpoint device ID).
+- **Device enumeration removed from nvwave**: `nvwave.getOutputDeviceNames()`, `nvwave.outputDeviceIDToName()`, `nvwave.outputDeviceNameToID()` all **removed**. Use `utils.mmdevice.getOutputDevices()` (added 2025.2).
+- **WASAPI config key removed**: `config.conf["audio"]["WASAPI"]` gone.
+- **Hidden settings**: `DriverSetting` instances with `id` starting with `_` are no longer shown in NVDA's settings UI. Useful for internal parameters.
+- **SAPI5 now uses `nvwave.WavePlayer`** for audio output. `synthDrivers.sapi5.SPAudioState` and `.SynthDriver.ttsAudioStream` **removed**.
+- Unicode normalization enabled by default for speech output.
+- eSpeak NG stays at 1.52.0.
+
+### 2024.4
+
+- eSpeak NG updated to **1.52.0** (first stable 1.52 release).
+- `[documentFormatting][reportFontAttributes]` deprecated as `bool`; migrating to `int` (`OutputMode` enum).
+
+### 2024.1
+
+- **Minimum Windows version raised to 8.1** (Windows 7/8 dropped).
+- **WASAPI introduced as experimental** option in Advanced settings. Includes volume-following and separate NVDA sound volume.
+- Audio output device and ducking options moved from "Select Synthesizer" dialog to Audio settings panel (`NVDA+Ctrl+U`).
+- eSpeak NG updated to commit `530bf0abf`.
+
+### 2023.2
+
+- **New extension points**:
+  - `synthDriverHandler.synthChanged` — fires when the synth driver changes.
+  - `nvwave.decide_playWaveFile` — can intercept wave file playback.
+  - `tones.decide_beep` — can intercept beeps.
+  - `inputCore.decide_executeGesture` — can intercept gesture execution.
+- Synth Settings Ring now caches available values lazily (first access, not load time).
+- `useConfig=False` can now be set on supported settings for a synth driver.
+
+### 2023.1
+
+- Config spec changes: `[keyboard]` modifier key booleans replaced by `NVDAModifierKeys` enum. `[documentFormatting]` `reportLineIndentation` changed from `bool` to `int` (0-3).
+
+---
+
+### Key Compatibility Notes for TGSpeechBox
+
+| Topic | 2023.3 | 2024.4 | 2025.1+ |
+|-------|--------|--------|---------|
+| WavePlayer constructor | `purpose=` and `buffered=` both accepted | Same | `purpose=` only; `buffered=` **removed** |
+| WavePlayer class name | `WasapiWavePlayer` / `WinmmWavePlayer` | Same | Unified `WavePlayer` |
+| `feed()` signature | `(data, size=None, onDone=None)` | Same | Same |
+| Output device config | `config.conf["speech"]["outputDevice"]` | Same | `config.conf["audio"]["outputDevice"]` |
+| `AudioPurpose.SPEECH` | Available | Available | Available |
+| `BooleanDriverSetting` | Available | Available | Available |
+| `IndexCommand`, `PitchCommand` | `speech.commands` | Same | Same |
+| `_espeak.getVoiceList()` | Available | Available | Available |
+| `_espeak.setVoiceByName()` | Available | Available | Available |
+| WASAPI | Optional (off by default) | Optional | **Mandatory** |
+
+### eSpeak NG Version Timeline
+
+| NVDA | eSpeak NG |
+|------|-----------|
+| 2023.1 | commit `9de65fcb` (1.52-dev) |
+| 2023.2 | commit `f520fecb` (1.52-dev) |
+| 2023.3 | commit `54ee11a79` (1.52-dev) |
+| 2024.1 | commit `530bf0abf` (1.52-dev) |
+| 2024.2 | commit `cb62d93fd7` (1.52-dev) |
+| 2024.3 | commit `961454ff` (1.52-dev) |
+| 2024.4 | **1.52.0** (first stable) |
+| 2025.1 | 1.52.0 |
+| 2025.2 | commit `e93d3a9` (post-1.52.0) |
+| 2025.3 | commit `3b8ef3d` (post-1.52.0) |
+
+---
 
 ### Legend
 
