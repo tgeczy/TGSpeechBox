@@ -9,3 +9,4 @@ vowelcharts/
 build/
 build-x64/
 .claude
+tools/gen_nvda_api_ref.py
