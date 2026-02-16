@@ -590,26 +590,30 @@ class SynthDriver(SynthDriver):
 
     @staticmethod
     def _resolveAutoLang() -> str:
-        """Map NVDA's UI language to the closest available TGSpeechBox language tag."""
+        """Map NVDA's UI language to the closest available TGSpeechBox language tag.
+
+        Uses getWindowsLanguage() for regional variant detection (e.g. en_US
+        vs en_GB), falling back to getLanguage() if unavailable.
+        """
         try:
             import languageHandler
-            nvdaLang = (languageHandler.getLanguage() or "en").strip().lower().replace("_", "-")
+            # Prefer the OS locale — it has the regional variant (e.g. "en_US").
+            nvdaLang = ""
+            winLang = getattr(languageHandler, "getWindowsLanguage", None)
+            if winLang:
+                nvdaLang = (winLang() or "").strip().lower().replace("_", "-")
+            if not nvdaLang:
+                nvdaLang = (languageHandler.getLanguage() or "en").strip().lower().replace("_", "-")
         except Exception:
             return "en-us"
-        # Exact match first (e.g. "es-mx", "en-gb", "pt-br")
+        # Exact match first (e.g. "en-us", "en-gb", "es-mx", "pt-br")
         if nvdaLang in languages and nvdaLang != "auto":
             return nvdaLang
         # Try base language (e.g. "en" from "en-au")
         base = nvdaLang.split("-", 1)[0] if "-" in nvdaLang else nvdaLang
         if base in languages and base != "auto":
             return base
-        # Try common regional defaults
-        _REGION_DEFAULTS = {
-            "en": "en-us", "es": "es", "pt": "pt-br",
-        }
-        if base in _REGION_DEFAULTS:
-            return _REGION_DEFAULTS[base]
-        # Check if any language tag starts with the base (e.g. "en" -> "en-us")
+        # Check if any language tag starts with the base (e.g. "hu" -> "hu")
         for tag in languages:
             if tag != "auto" and tag.startswith(base + "-"):
                 return tag
