@@ -1,13 +1,13 @@
 # NVDA API Reference — Multi-Version Comparison
 
-Versions compared: **2024.4 | 2025.3 | 2026.1+**  
+Versions compared: **2023.3 | 2024.4 | 2025.3 | 2026.1+**  
 Modules scanned: 40  
 
 ### Legend
 
 | Tag | Meaning |
 |-----|---------|
-| `ALL` | Present in all versions (2024.4, 2025.3, 2026.1+) |
+| `ALL` | Present in all versions (2023.3, 2024.4, 2025.3, 2026.1+) |
 | `since X` | Added in version X (not in earlier) |
 | `until X` | Removed after version X |
 | `changed X` | Signature changed in version X |
@@ -348,33 +348,33 @@ Modules scanned: 40
 
 ---
 
-## `audio/soundSplit.py`
+## `audio/soundSplit.py`  — `NEW MODULE since 2024.4`
 
-### class `SoundSplitState`(DisplayStringIntEnum)  — `ALL`  *(line 25)*
+### class `SoundSplitState`(DisplayStringIntEnum)  — `since 2024.4`  *(line 25)*
 
-### @property `SoundSplitState._displayStringLabels`(self) -> dict[IntEnum, str]  — `ALL`  *(line 36)*
+### @property `SoundSplitState._displayStringLabels`(self) -> dict[IntEnum, str]  — `since 2024.4`  *(line 36)*
 
-### `SoundSplitState.getAppVolume`(self) -> VolumeTupleT  — `ALL`  *(line 59)*
+### `SoundSplitState.getAppVolume`(self) -> VolumeTupleT  — `since 2024.4`  *(line 59)*
 
-### `SoundSplitState.getNVDAVolume`(self) -> VolumeTupleT  — `ALL`  *(line 74)*
+### `SoundSplitState.getNVDAVolume`(self) -> VolumeTupleT  — `since 2024.4`  *(line 74)*
 
-### class `_AudioSessionNotificationWrapper`(AudioSessionNotification)  — `ALL`  *(line 114)*
+### class `_AudioSessionNotificationWrapper`(AudioSessionNotification)  — `since 2024.4`  *(line 114)*
 
-### `_AudioSessionNotificationWrapper.on_session_created`(self, new_session: AudioSession)  — `ALL`  *(line 117)*
+### `_AudioSessionNotificationWrapper.on_session_created`(self, new_session: AudioSession)  — `since 2024.4`  *(line 117)*
 
-### class `_VolumeRestorer`(AudioSessionEvents)  — `ALL`  *(line 227)*
+### class `_VolumeRestorer`(AudioSessionEvents)  — `since 2024.4`  *(line 227)*
 
-### `_VolumeRestorer.on_state_changed`(self, new_state: str, new_state_id: int)  — `ALL`  *(line 231)*
+### `_VolumeRestorer.on_state_changed`(self, new_state: str, new_state_id: int)  — `since 2024.4`  *(line 231)*
 
-### `_VolumeRestorer.restoreVolume`(self)  — `ALL`  *(line 236)*
+### `_VolumeRestorer.restoreVolume`(self)  — `since 2024.4`  *(line 236)*
 
-### `_VolumeRestorer.unregister`(self)  — `ALL`  *(line 252)*
+### `_VolumeRestorer.unregister`(self)  — `since 2024.4`  *(line 252)*
 
-### class `_VolumeSetter`(AudioSessionNotification)  — `ALL`  *(line 159)*
+### class `_VolumeSetter`(AudioSessionNotification)  — `since 2024.4`  *(line 159)*
 
-### `_VolumeSetter.on_session_created`(self, new_session: AudioSession)  — `ALL`  *(line 166)*
+### `_VolumeSetter.on_session_created`(self, new_session: AudioSession)  — `since 2024.4`  *(line 166)*
 
-### `_applyToAllAudioSessions`(callback: AudioSessionNotification, applyToFuture: bool=True) -> None  — `ALL`  *(line 127)*
+### `_applyToAllAudioSessions`(callback: AudioSessionNotification, applyToFuture: bool=True) -> None  — `since 2024.4`  *(line 127)*
 
   Executes provided callback function on all active audio sessions.
   Additionally, if applyToFuture is True, then it will register a notification with audio session manager,
@@ -382,15 +382,15 @@ Modules scanned: 40
   That notification will be active until next invokation of this function,
   or until _unregisterCallback() is called.
 
-### `_setSoundSplitState`(state: SoundSplitState, initial: bool=False) -> dict  — `ALL`  *(line 184)*
+### `_setSoundSplitState`(state: SoundSplitState, initial: bool=False) -> dict  — `since 2024.4`  *(line 184)*
 
-### `_toggleSoundSplitState`() -> None  — `ALL`  *(line 203)*
+### `_toggleSoundSplitState`() -> None  — `since 2024.4`  *(line 203)*
 
-### `_unregisterCallback`() -> None  — `ALL`  *(line 151)*
+### `_unregisterCallback`() -> None  — `since 2024.4`  *(line 151)*
 
-### `initialize`() -> None  — `ALL`  *(line 94)*
+### `initialize`() -> None  — `since 2024.4`  *(line 94)*
 
-### `terminate`()  — `ALL`  *(line 106)*
+### `terminate`()  — `since 2024.4`  *(line 106)*
 
 ---
 
@@ -422,7 +422,7 @@ Modules scanned: 40
 ### @classmethod `AutoSettings._getConfigSpecForSettings`(cls, settings: SupportedSettingType) -> dict[str, str]  — `changed 2026.1+`  *(line 129)*
 
   **Signature history:**
-  - **2024.4:** `AutoSettings._getConfigSpecForSettings(cls, settings: SupportedSettingType) -> Dict`
+  - **2023.3:** `AutoSettings._getConfigSpecForSettings(cls, settings: SupportedSettingType) -> Dict`
   - **2026.1+:** `AutoSettings._getConfigSpecForSettings(cls, settings: SupportedSettingType) -> dict[str, str]`
 
 ### `AutoSettings._get_supportedSettings`(self) -> SupportedSettingType  — `ALL`  *(line 117)*
@@ -608,7 +608,7 @@ Modules scanned: 40
 ### `AutoPropertyType.__init__`(**kwargs: Any)  — `changed 2025.3`  *(line 63)*
 
   **Signature history:**
-  - **2024.4:** `AutoPropertyType.__init__(self, name, bases, dict)`
+  - **2023.3:** `AutoPropertyType.__init__(self, name, bases, dict)`
   - **2025.3:** `AutoPropertyType.__init__(**kwargs: Any)`
 
 ### class `CachingGetter`(Getter)  — `ALL`  *(line 48)*
@@ -685,7 +685,7 @@ Modules scanned: 40
 ### `ScriptableType.__new__`(**kwargs: Any)  — `changed 2025.3`  *(line 186)*
 
   **Signature history:**
-  - **2024.4:** `ScriptableType.__new__(meta, name, bases, dict)`
+  - **2023.3:** `ScriptableType.__new__(meta, name, bases, dict)`
   - **2025.3:** `ScriptableType.__new__(**kwargs: Any)`
 
 ---
@@ -719,7 +719,7 @@ Modules scanned: 40
 
   Checks if a given value or spec is a section of a config profile.
 
-### `AggregatedSection._linkDeprecatedValues`(self, key: aggregatedSection._cacheKeyT, val: aggregatedSection._cacheValueT)  — `ALL`  *(line 1270)*
+### `AggregatedSection._linkDeprecatedValues`(self, key: aggregatedSection._cacheKeyT, val: aggregatedSection._cacheValueT)  — `since 2024.4`  *(line 1270)*
 
   Link deprecated config keys and values to their replacements.
   
@@ -994,7 +994,7 @@ Modules scanned: 40
 ### `_setSystemConfig`(fromPath: str, *, prefix: str=sys.prefix, addonsToCopy: Collection[str]=())  — `changed 2026.1+`  *(line 338)*
 
   **Signature history:**
-  - **2024.4:** `_setSystemConfig(fromPath)`
+  - **2023.3:** `_setSystemConfig(fromPath)`
   - **2026.1+:** `_setSystemConfig(fromPath: str, *, prefix: str=sys.prefix, addonsToCopy: Collection[str]=())`
 
 ### `_transformSpec`(spec: ConfigObj)  — `ALL`  *(line 448)*
@@ -1067,7 +1067,7 @@ Modules scanned: 40
 ### `setSystemConfigToCurrentConfig`(*, addonsToCopy: Collection[str]=())  — `changed 2026.1+`  *(line 307)*
 
   **Signature history:**
-  - **2024.4:** `setSystemConfigToCurrentConfig()`
+  - **2023.3:** `setSystemConfigToCurrentConfig()`
   - **2026.1+:** `setSystemConfigToCurrentConfig(*, addonsToCopy: Collection[str]=())`
 
   Replaces the system configuration with the current user configuration.
@@ -1091,17 +1091,17 @@ Modules scanned: 40
 > When creating new parameter options, consider using F{FeatureFlag} which explicitely defines
 > the default value.
 
-### class `AddonsAutomaticUpdate`(DisplayStringStrEnum)  — `ALL`  *(line 278)*
+### class `AddonsAutomaticUpdate`(DisplayStringStrEnum)  — `since 2024.4`  *(line 278)*
 
-### @property `AddonsAutomaticUpdate._displayStringLabels`(self)  — `ALL`  *(line 284)*
+### @property `AddonsAutomaticUpdate._displayStringLabels`(self)  — `since 2024.4`  *(line 284)*
 
-### class `BrailleMode`(DisplayStringStrEnum)  — `ALL`  *(line 132)*
+### class `BrailleMode`(DisplayStringStrEnum)  — `since 2024.4`  *(line 132)*
 
   Enumeration containing the possible config values for "Braille mode" option in braille settings.
   Use BrailleMode.MEMBER.value to compare with the config;
   use BrailleMode.MEMBER.displayString in the UI for a translatable description of this member.
 
-### @property `BrailleMode._displayStringLabels`(self) -> dict['BrailleMode', str]  — `ALL`  *(line 142)*
+### @property `BrailleMode._displayStringLabels`(self) -> dict['BrailleMode', str]  — `since 2024.4`  *(line 142)*
 
 ### class `LoggingLevel`(DisplayStringIntEnum)  — `since 2026.1+`  *(line 412)*
 
@@ -1123,17 +1123,17 @@ Modules scanned: 40
 
 ### @property `NVDAKey._displayStringLabels`(self)  — `ALL`  *(line 43)*
 
-### class `OutputMode`(DisplayStringIntFlag)  — `ALL`  *(line 297)*
+### class `OutputMode`(DisplayStringIntFlag)  — `since 2024.4`  *(line 297)*
 
   Enumeration for ways to output information, such as formatting.
   Use OutputMode.MEMBER.value to compare with the config;
   use OutputMode.MEMBER.displayString in the UI for a translatable description of this member.
 
-### @property `OutputMode._displayStringLabels`(self)  — `ALL`  *(line 309)*
+### @property `OutputMode._displayStringLabels`(self)  — `since 2024.4`  *(line 309)*
 
-### class `ParagraphStartMarker`(DisplayStringStrEnum)  — `ALL`  *(line 322)*
+### class `ParagraphStartMarker`(DisplayStringStrEnum)  — `since 2024.4`  *(line 322)*
 
-### @property `ParagraphStartMarker._displayStringLabels`(self)  — `ALL`  *(line 328)*
+### @property `ParagraphStartMarker._displayStringLabels`(self)  — `since 2024.4`  *(line 328)*
 
 ### class `PlayErrorSound`(DisplayStringIntEnum)  — `since 2026.1+`  *(line 442)*
 
@@ -1527,7 +1527,7 @@ Modules scanned: 40
 ### `HandlerRegistrar.__init__`(self, *, _deprecationMessage: str | None=None)  — `changed 2025.3`  *(line 103)*
 
   **Signature history:**
-  - **2024.4:** `HandlerRegistrar.__init__(self)`
+  - **2023.3:** `HandlerRegistrar.__init__(self)`
   - **2025.3:** `HandlerRegistrar.__init__(self, *, _deprecationMessage: str | None=None)`
 
   Initialise the handler registrar.
@@ -1559,7 +1559,7 @@ Modules scanned: 40
 ### `_getHandlerKey`(handler: Callable) -> HandlerKeyT  — `changed 2025.3`  *(line 78)*
 
   **Signature history:**
-  - **2024.4:** `_getHandlerKey(handler: HandlerT) -> HandlerKeyT`
+  - **2023.3:** `_getHandlerKey(handler: HandlerT) -> HandlerKeyT`
   - **2025.3:** `_getHandlerKey(handler: Callable) -> HandlerKeyT`
 
   Get a key which identifies a handler function.
@@ -1649,7 +1649,7 @@ Modules scanned: 40
 
 ### class `AdvancedPanel`(SettingsPanel)  — `ALL`  *(line 4739)*
 
-### `AdvancedPanel.isValid`(self) -> bool  — `ALL`  *(line 4818)*
+### `AdvancedPanel.isValid`(self) -> bool  — `since 2024.4`  *(line 4818)*
 
 ### `AdvancedPanel.makeSettings`(self, settingsSizer)  — `ALL`  *(line 4759)*
 
@@ -1670,7 +1670,7 @@ Modules scanned: 40
 
 ### `AdvancedPanelControls.haveConfigDefaultsBeenRestored`(self)  — `ALL`  *(line 4625)*
 
-### `AdvancedPanelControls.isValid`(self) -> bool  — `ALL`  *(line 4604)*
+### `AdvancedPanelControls.isValid`(self) -> bool  — `since 2024.4`  *(line 4604)*
 
 ### `AdvancedPanelControls.onOpenScratchpadDir`(self, evt)  — `ALL`  *(line 4618)*
 
@@ -1680,13 +1680,15 @@ Modules scanned: 40
 
 ### class `AudioPanel`(SettingsPanel)  — `ALL`  *(line 3475)*
 
-### `AudioPanel._appendSoundSplitModesList`(self, settingsSizerHelper: guiHelper.BoxSizerHelper) -> None  — `ALL`  *(line 3563)*
+### @staticmethod `AudioPanel._addAudioCombos`(panel: SettingsPanel, sHelper: guiHelper.BoxSizerHelper)  — `until 2023.3`  *(line 2590)*
+
+### `AudioPanel._appendSoundSplitModesList`(self, settingsSizerHelper: guiHelper.BoxSizerHelper) -> None  — `since 2024.4`  *(line 3563)*
 
 ### `AudioPanel._onSoundVolChange`(self, event: wx.Event) -> None  — `ALL`  *(line 3615)*
 
   Called when the sound volume follow checkbox is checked or unchecked.
 
-### `AudioPanel.isValid`(self) -> bool  — `ALL`  *(line 3619)*
+### `AudioPanel.isValid`(self) -> bool  — `since 2024.4`  *(line 3619)*
 
 ### `AudioPanel.makeSettings`(self, settingsSizer: wx.BoxSizer) -> None  — `ALL`  *(line 3480)*
 
@@ -1813,7 +1815,7 @@ Modules scanned: 40
 
 ### class `BrailleSettingsSubPanel`(AutoSettingsMixin, SettingsPanel)  — `ALL`  *(line 5048)*
 
-### `BrailleSettingsSubPanel._onModeChange`(self, evt: wx.CommandEvent)  — `ALL`  *(line 5490)*
+### `BrailleSettingsSubPanel._onModeChange`(self, evt: wx.CommandEvent)  — `since 2024.4`  *(line 5490)*
 
 ### @property `BrailleSettingsSubPanel.driver`(self)  — `ALL`  *(line 5052)*
 
@@ -1823,7 +1825,7 @@ Modules scanned: 40
 
 ### `BrailleSettingsSubPanel.onBlinkCursorChange`(self, evt)  — `ALL`  *(line 5476)*
 
-### `BrailleSettingsSubPanel.onReadByParagraphChange`(self, evt: wx.CommandEvent)  — `ALL`  *(line 5487)*
+### `BrailleSettingsSubPanel.onReadByParagraphChange`(self, evt: wx.CommandEvent)  — `since 2024.4`  *(line 5487)*
 
 ### `BrailleSettingsSubPanel.onSave`(self)  — `ALL`  *(line 5422)*
 
@@ -1897,7 +1899,11 @@ Modules scanned: 40
 
 ### class `KeyboardSettingsPanel`(SettingsPanel)  — `ALL`  *(line 1971)*
 
-### `KeyboardSettingsPanel.isValid`(self) -> bool  — `ALL`  *(line 2109)*
+### `KeyboardSettingsPanel.isValid`(self) -> bool  — `changed 2024.4`  *(line 2109)*
+
+  **Signature history:**
+  - **2023.3:** `KeyboardSettingsPanel.isValid(self)`
+  - **2024.4:** `KeyboardSettingsPanel.isValid(self) -> bool`
 
 ### `KeyboardSettingsPanel.makeSettings`(self, settingsSizer)  — `ALL`  *(line 1976)*
 
@@ -2215,9 +2221,13 @@ Modules scanned: 40
   makes sense for them. It is expected that sub-classes call this method in response to changes in
   the number of GUI items in their panel.
 
-### `SettingsPanel._validationErrorMessageBox`(self, message: str, option: str, category: Optional[str]=None)  — `ALL`  *(line 449)*
+### `SettingsPanel._validationErrorMessageBox`(self, message: str, option: str, category: Optional[str]=None)  — `since 2024.4`  *(line 449)*
 
-### `SettingsPanel.isValid`(self) -> bool  — `ALL`  *(line 440)*
+### `SettingsPanel.isValid`(self) -> bool  — `changed 2024.4`  *(line 440)*
+
+  **Signature history:**
+  - **2023.3:** `SettingsPanel.isValid(self)`
+  - **2024.4:** `SettingsPanel.isValid(self) -> bool`
 
   Evaluate whether the current circumstances of this panel are valid
   and allow saving all the settings in a L{MultiCategorySettingsDialog}.
@@ -2272,7 +2282,7 @@ Modules scanned: 40
 
 ### `SpeechSettingsPanel._enterTriggersOnChangeSynth`(self, evt)  — `ALL`  *(line 1185)*
 
-### `SpeechSettingsPanel.isValid`(self) -> bool  — `ALL`  *(line 1220)*
+### `SpeechSettingsPanel.isValid`(self) -> bool  — `since 2024.4`  *(line 1220)*
 
 ### `SpeechSettingsPanel.makeSettings`(self, settingsSizer)  — `ALL`  *(line 1146)*
 
@@ -2436,25 +2446,25 @@ Modules scanned: 40
 
 ### `VoiceSettingsPanel._appendDelayedCharacterDescriptions`(self, settingsSizerHelper: guiHelper.BoxSizerHelper) -> None  — `ALL`  *(line 1867)*
 
-### `VoiceSettingsPanel._appendSpeechModesList`(self, settingsSizerHelper: guiHelper.BoxSizerHelper) -> None  — `ALL`  *(line 1851)*
+### `VoiceSettingsPanel._appendSpeechModesList`(self, settingsSizerHelper: guiHelper.BoxSizerHelper) -> None  — `since 2024.4`  *(line 1851)*
 
-### `VoiceSettingsPanel._appendSymbolDictionariesList`(self, settingsSizerHelper: guiHelper.BoxSizerHelper) -> None  — `ALL`  *(line 1835)*
+### `VoiceSettingsPanel._appendSymbolDictionariesList`(self, settingsSizerHelper: guiHelper.BoxSizerHelper) -> None  — `since 2024.4`  *(line 1835)*
 
 ### `VoiceSettingsPanel._getSettingControlHelpId`(self, controlId: str) -> str  — `changed 2025.3`  *(line 1629)*
 
   **Signature history:**
-  - **2024.4:** `VoiceSettingsPanel._getSettingControlHelpId(self, controlId)`
+  - **2023.3:** `VoiceSettingsPanel._getSettingControlHelpId(self, controlId)`
   - **2025.3:** `VoiceSettingsPanel._getSettingControlHelpId(self, controlId: str) -> str`
 
-### `VoiceSettingsPanel._onSpeechModesListChange`(self, evt: wx.CommandEvent)  — `ALL`  *(line 1922)*
+### `VoiceSettingsPanel._onSpeechModesListChange`(self, evt: wx.CommandEvent)  — `since 2024.4`  *(line 1922)*
 
-### `VoiceSettingsPanel._onUnicodeNormalizationChange`(self, evt: wx.CommandEvent)  — `ALL`  *(line 1949)*
+### `VoiceSettingsPanel._onUnicodeNormalizationChange`(self, evt: wx.CommandEvent)  — `since 2024.4`  *(line 1949)*
 
 ### @property `VoiceSettingsPanel.driver`(self)  — `ALL`  *(line 1622)*
 
 ### `VoiceSettingsPanel.getSettings`(self) -> AutoSettings  — `ALL`  *(line 1626)*
 
-### `VoiceSettingsPanel.isValid`(self) -> bool  — `ALL`  *(line 1955)*
+### `VoiceSettingsPanel.isValid`(self) -> bool  — `since 2024.4`  *(line 1955)*
 
 ### `VoiceSettingsPanel.makeSettings`(self, settingsSizer)  — `ALL`  *(line 1646)*
 
@@ -2527,7 +2537,7 @@ Modules scanned: 40
 ### `_createGettextTranslation`(localeName: str) -> tuple[None | gettext.GNUTranslations | gettext.NullTranslations, str | None]  — `changed 2025.3`  *(line 321)*
 
   **Signature history:**
-  - **2024.4:** `_createGettextTranslation(localeName: str) -> Union[None, gettext.GNUTranslations, gettext.NullTranslations]`
+  - **2023.3:** `_createGettextTranslation(localeName: str) -> Union[None, gettext.GNUTranslations, gettext.NullTranslations]`
   - **2025.3:** `_createGettextTranslation(localeName: str) -> tuple[None | gettext.GNUTranslations | gettext.NullTranslations, str | None]`
 
 ### `_setPythonLocale`(localeString: str) -> bool  — `ALL`  *(line 385)*
@@ -2538,7 +2548,7 @@ Modules scanned: 40
 ### `ansiCodePageFromNVDALocale`(localeName: str) -> str | None  — `changed 2026.1+`  *(line 234)*
 
   **Signature history:**
-  - **2024.4:** `ansiCodePageFromNVDALocale(localeName: str) -> Optional[str]`
+  - **2023.3:** `ansiCodePageFromNVDALocale(localeName: str) -> Optional[str]`
   - **2026.1+:** `ansiCodePageFromNVDALocale(localeName: str) -> str | None`
 
   Returns either ANSI code page for a given locale using GetLocaleInfoEx or None
@@ -2547,7 +2557,7 @@ Modules scanned: 40
 ### `englishCountryNameFromNVDALocale`(localeName: str) -> str | None  — `changed 2026.1+`  *(line 215)*
 
   **Signature history:**
-  - **2024.4:** `englishCountryNameFromNVDALocale(localeName: str) -> Optional[str]`
+  - **2023.3:** `englishCountryNameFromNVDALocale(localeName: str) -> Optional[str]`
   - **2026.1+:** `englishCountryNameFromNVDALocale(localeName: str) -> str | None`
 
   Returns either English name of the given country using GetLocaleInfoEx or None
@@ -2556,7 +2566,7 @@ Modules scanned: 40
 ### `englishLanguageNameFromNVDALocale`(localeName: str) -> str | None  — `changed 2026.1+`  *(line 182)*
 
   **Signature history:**
-  - **2024.4:** `englishLanguageNameFromNVDALocale(localeName: str) -> Optional[str]`
+  - **2023.3:** `englishLanguageNameFromNVDALocale(localeName: str) -> Optional[str]`
   - **2026.1+:** `englishLanguageNameFromNVDALocale(localeName: str) -> str | None`
 
   Returns either English name of the given language  using `GetLocaleInfoEx` or None
@@ -2565,7 +2575,7 @@ Modules scanned: 40
 ### `getAvailableLanguages`(presentational: bool=False) -> list[tuple[str, str]]  — `changed 2026.1+`  *(line 277)*
 
   **Signature history:**
-  - **2024.4:** `getAvailableLanguages(presentational: bool=False) -> List[Tuple[str, str]]`
+  - **2023.3:** `getAvailableLanguages(presentational: bool=False) -> List[Tuple[str, str]]`
   - **2026.1+:** `getAvailableLanguages(presentational: bool=False) -> list[tuple[str, str]]`
 
   generates a list of locale names, plus their full localized language and country names.
@@ -2581,7 +2591,7 @@ Modules scanned: 40
 ### `getLanguageDescription`(language: str) -> weakref.ReferenceType | None  — `changed 2026.1+`  *(line 153)*
 
   **Signature history:**
-  - **2024.4:** `getLanguageDescription(language: str) -> Optional[str]`
+  - **2023.3:** `getLanguageDescription(language: str) -> Optional[str]`
   - **2026.1+:** `getLanguageDescription(language: str) -> weakref.ReferenceType | None`
 
   Finds out the description (localized full name) of a given local name
@@ -2602,7 +2612,7 @@ Modules scanned: 40
 ### `listNVDALocales`() -> list[str]  — `changed 2026.1+`  *(line 259)*
 
   **Signature history:**
-  - **2024.4:** `listNVDALocales() -> List[str]`
+  - **2023.3:** `listNVDALocales() -> List[str]`
   - **2026.1+:** `listNVDALocales() -> list[str]`
 
 ### `localeNameToWindowsLCID`(localeName: str) -> int  — `ALL`  *(line 110)*
@@ -2621,10 +2631,24 @@ Modules scanned: 40
   'englishLanguageName_englishCountryName.localeANSICodePage'
   Raises exception if the given locale is not known to Windows.
 
+### `makeNpgettext`(translations: Union[None, gettext.GNUTranslations, gettext.NullTranslations]) -> Callable[[str, str, str, Union[int, float]], str]  — `until 2023.3`  *(line 315)*
+
+  Obtain a  npgettext function for use with a gettext translations instance.
+  npgettext is used to support message contexts with respect to ngettext,
+  but Python 3.7's gettext module doesn't support this,
+  so NVDA must provide its own implementation.
+
+### `makePgettext`(translations)  — `until 2023.3`  *(line 293)*
+
+  Obtain a pgettext function for use with a gettext translations instance.
+  pgettext is used to support message contexts,
+  but Python 3.7's gettext module doesn't support this,
+  so NVDA must provide its own implementation.
+
 ### `normalizeLanguage`(lang: str) -> str | None  — `changed 2026.1+`  *(line 452)*
 
   **Signature history:**
-  - **2024.4:** `normalizeLanguage(lang: str) -> Optional[str]`
+  - **2023.3:** `normalizeLanguage(lang: str) -> Optional[str]`
   - **2026.1+:** `normalizeLanguage(lang: str) -> str | None`
 
   Normalizes a  language-dialect string  in to a standard form we can deal with.
@@ -2674,7 +2698,7 @@ Modules scanned: 40
 ### `windowsLCIDToLocaleName`(lcid: int) -> str | None  — `changed 2026.1+`  *(line 128)*
 
   **Signature history:**
-  - **2024.4:** `windowsLCIDToLocaleName(lcid: int) -> Optional[str]`
+  - **2023.3:** `windowsLCIDToLocaleName(lcid: int) -> Optional[str]`
   - **2026.1+:** `windowsLCIDToLocaleName(lcid: int) -> str | None`
 
   Gets a normalized locale from a Windows LCID.
@@ -2724,6 +2748,10 @@ Modules scanned: 40
 
 ### `WasapiWavePlayer._callback`(cppPlayer, feedId)  — `until 2024.4`  *(line 869)*
 
+### @staticmethod `WasapiWavePlayer._deviceNameToId`(name, fallbackToDefault=True)  — `until 2023.3`  *(line 1038)*
+
+### @staticmethod `WasapiWavePlayer._getDevices`()  — `until 2023.3`  *(line 1026)*
+
 ### @classmethod `WasapiWavePlayer._idleCheck`(cls)  — `until 2024.4`  *(line 1061)*
 
   Check whether there are open audio streams that should be considered
@@ -2739,7 +2767,7 @@ Modules scanned: 40
   action and some streams might be stopped a little after the timeout elapses,
   but this isn't problematic for our purposes.
 
-### @classmethod `WasapiWavePlayer._isDefaultDevice`(cls, name)  — `until 2024.4`  *(line 1103)*
+### @classmethod `WasapiWavePlayer._isDefaultDevice`(cls, name)  — `since 2024.4`  *(line 1103)*
 
 ### @classmethod `WasapiWavePlayer._scheduleIdleCheck`(cls)  — `until 2024.4`  *(line 1046)*
 
@@ -3011,6 +3039,8 @@ Modules scanned: 40
 
 ### `_isDebugForNvWave`()  — `ALL`  *(line 71)*
 
+### `_wasPlay_errcheck`(res, func, args)  — `until 2023.3`  *(line 747)*
+
 ### `_winmm_errcheck`(res, func, args)  — `until 2024.4`  *(line 143)*
 
 ### `getOutputDeviceNames`()  — `until 2024.4`  *(line 649)*
@@ -3043,7 +3073,7 @@ Modules scanned: 40
   @note: Depending on number of devices, and the position of the device in the list,
   this may take some time (~3ms)
 
-### `playErrorSound`() -> None  — `ALL`  *(line 568)*
+### `playErrorSound`() -> None  — `since 2024.4`  *(line 568)*
 
 ### `playWaveFile`(fileName: str, asynchronous: bool=True, isSpeechWaveFileCommand: bool=False)  — `ALL`  *(line 82)*
 
@@ -3054,7 +3084,7 @@ Modules scanned: 40
           If ``False``, the calling thread is blocked until the wave has finished playing.
   :param isSpeechWaveFileCommand: whether this wave is played as part of a speech sequence.
 
-### `terminate`() -> None  — `ALL`  *(line 562)*
+### `terminate`() -> None  — `since 2024.4`  *(line 562)*
 
 ### `usingWasapiWavePlayer`() -> bool  — `until 2024.4`  *(line 1140)*
 
@@ -3100,7 +3130,7 @@ Modules scanned: 40
   To return to the default value, specify neither.
   This base class should not be instantiated directly.
 
-### `BaseProsodyCommand.__eq__`(self, __o: object) -> bool  — `ALL`  *(line 338)*
+### `BaseProsodyCommand.__eq__`(self, __o: object) -> bool  — `since 2024.4`  *(line 338)*
 
 ### `BaseProsodyCommand.__init__`(self, offset=0, multiplier=1)  — `ALL`  *(line 263)*
 
@@ -3113,7 +3143,7 @@ Modules scanned: 40
           e.g. 0.5 is half, 1 returns to the configured setting.
   @param multiplier: int/float
 
-### `BaseProsodyCommand.__ne__`(self, __o) -> bool  — `ALL`  *(line 345)*
+### `BaseProsodyCommand.__ne__`(self, __o) -> bool  — `since 2024.4`  *(line 345)*
 
 ### `BaseProsodyCommand.__repr__`(self)  — `ALL`  *(line 326)*
 
@@ -3147,7 +3177,7 @@ Modules scanned: 40
 
   Insert a break between words.
 
-### `BreakCommand.__eq__`(self, __o: object) -> bool  — `ALL`  *(line 216)*
+### `BreakCommand.__eq__`(self, __o: object) -> bool  — `since 2024.4`  *(line 216)*
 
 ### `BreakCommand.__init__`(self, time: int=0)  — `ALL`  *(line 206)*
 
@@ -3172,7 +3202,7 @@ Modules scanned: 40
 
   Turns character mode on and off for speech synths.
 
-### `CharacterModeCommand.__eq__`(self, __o: object) -> bool  — `ALL`  *(line 172)*
+### `CharacterModeCommand.__eq__`(self, __o: object) -> bool  — `since 2024.4`  *(line 172)*
 
 ### `CharacterModeCommand.__init__`(self, state)  — `ALL`  *(line 159)*
 
@@ -3209,7 +3239,7 @@ Modules scanned: 40
   Instead, use one of the subclasses of L{BaseCallbackCommand}.
   NVDA handles the indexing and dispatches callbacks as appropriate.
 
-### `IndexCommand.__eq__`(self, __o: object) -> bool  — `ALL`  *(line 138)*
+### `IndexCommand.__eq__`(self, __o: object) -> bool  — `since 2024.4`  *(line 138)*
 
 ### `IndexCommand.__init__`(self, index)  — `ALL`  *(line 126)*
 
@@ -3227,7 +3257,7 @@ Modules scanned: 40
 ### `LangChangeCommand.__init__`(self, lang: str | None)  — `changed 2025.3`  *(line 183)*
 
   **Signature history:**
-  - **2024.4:** `LangChangeCommand.__init__(self, lang: Optional[str])`
+  - **2023.3:** `LangChangeCommand.__init__(self, lang: Optional[str])`
   - **2025.3:** `LangChangeCommand.__init__(self, lang: str | None)`
 
   :param lang: The language to switch to: If None then the NVDA locale will be used.
@@ -3240,7 +3270,7 @@ Modules scanned: 40
   This command accepts Unicode International Phonetic Alphabet (IPA) characters.
   Note that this is not well supported by synthesizers.
 
-### `PhonemeCommand.__eq__`(self, __o: object) -> bool  — `ALL`  *(line 395)*
+### `PhonemeCommand.__eq__`(self, __o: object) -> bool  — `since 2024.4`  *(line 395)*
 
 ### `PhonemeCommand.__init__`(self, ipa, text=None)  — `ALL`  *(line 377)*
 
@@ -3269,18 +3299,18 @@ Modules scanned: 40
   Note: Some of these commands are processed by NVDA and are not directly passed to synth drivers.
   synth drivers will only receive commands derived from L{SynthCommand}.
 
-### class `SuppressUnicodeNormalizationCommand`(SpeechCommand)  — `ALL`  *(line 233)*
+### class `SuppressUnicodeNormalizationCommand`(SpeechCommand)  — `since 2024.4`  *(line 233)*
 
   Suppresses Unicode normalization at a point in a speech sequence.
   For any text after this, Unicode normalization will be suppressed when state is True.
   When state is False, original behavior of normalization will be restored.
   This command is a no-op when normalization is disabled.
 
-### `SuppressUnicodeNormalizationCommand.__init__`(self, state: bool=True)  — `ALL`  *(line 242)*
+### `SuppressUnicodeNormalizationCommand.__init__`(self, state: bool=True)  — `since 2024.4`  *(line 242)*
 
   :param state: Suppress normalization if True, don't suppress when False
 
-### `SuppressUnicodeNormalizationCommand.__repr__`(self)  — `ALL`  *(line 248)*
+### `SuppressUnicodeNormalizationCommand.__repr__`(self)  — `since 2024.4`  *(line 248)*
 
 ### class `SynthCommand`(SpeechCommand)  — `ALL`  *(line 112)*
 
@@ -3329,7 +3359,7 @@ Modules scanned: 40
 
 ---
 
-## `speech/extensions.py`
+## `speech/extensions.py`  — `NEW MODULE since 2024.4`
 
 > Extension points for speech.
 
@@ -3642,14 +3672,22 @@ Modules scanned: 40
   @return: C{True} if say all is currently running, C{False} if not.
   @rtype: bool
 
-### `_SayAllHandler.readObjects`(self, obj: 'NVDAObjects.NVDAObject', startedFromScript: bool | None=False)  — `ALL`  *(line 96)*
+### `_SayAllHandler.readObjects`(self, obj: 'NVDAObjects.NVDAObject', startedFromScript: bool | None=False)  — `changed 2024.4`  *(line 96)*
+
+  **Signature history:**
+  - **2023.3:** `_SayAllHandler.readObjects(self, obj: 'NVDAObjects.NVDAObject')`
+  - **2024.4:** `_SayAllHandler.readObjects(self, obj: 'NVDAObjects.NVDAObject', startedFromScript: bool | None=False)`
 
   Start or restarts the object reader.
   :param obj: the object to be read
   :param startedFromScript: whether the current say all action was initially started from a script; use None to keep
           the last value unmodified, e.g. when the say all action is resumed during skim reading.
 
-### `_SayAllHandler.readText`(self, cursor: CURSOR, startPos: Optional[textInfos.TextInfo]=None, nextLineFunc: Optional[Callable[[textInfos.TextInfo], textInfos.TextInfo]]=None, shouldUpdateCaret: bool=True, startedFromScript: bool | None=False) -> None  — `ALL`  *(line 108)*
+### `_SayAllHandler.readText`(self, cursor: CURSOR, startPos: Optional[textInfos.TextInfo]=None, nextLineFunc: Optional[Callable[[textInfos.TextInfo], textInfos.TextInfo]]=None, shouldUpdateCaret: bool=True, startedFromScript: bool | None=False) -> None  — `changed 2024.4`  *(line 108)*
+
+  **Signature history:**
+  - **2023.3:** `_SayAllHandler.readText(self, cursor: CURSOR, startPos: Optional[textInfos.TextInfo]=None, nextLineFunc: Optional[Callable[[textInfos.TextInfo], textInfos.TextInfo]]=None, shouldUpdateCaret: bool=True) -> None`
+  - **2024.4:** `_SayAllHandler.readText(self, cursor: CURSOR, startPos: Optional[textInfos.TextInfo]=None, nextLineFunc: Optional[Callable[[textInfos.TextInfo], textInfos.TextInfo]]=None, shouldUpdateCaret: bool=True, startedFromScript: bool | None=False) -> None`
 
   Start or restarts the reader
   :param cursor: the type of cursor used for say all
@@ -3750,11 +3788,11 @@ Modules scanned: 40
 
 ### class `SpeechMode`(DisplayStringIntEnum)  — `ALL`  *(line 96)*
 
-### @property `SpeechMode._displayStringLabels`(self) -> dict[Self, str]  — `ALL`  *(line 103)*
+### @property `SpeechMode._displayStringLabels`(self) -> dict[Self, str]  — `since 2024.4`  *(line 103)*
 
 ### class `SpeechState`  — `ALL`  *(line 118)*
 
-### `_columnCountText`(count: int) -> str  — `ALL`  *(line 2204)*
+### `_columnCountText`(count: int) -> str  — `since 2024.4`  *(line 2204)*
 
 ### `_extendSpeechSequence_addMathForTextInfo`(speechSequence: SpeechSequence, info: textInfos.TextInfo, field: textInfos.Field) -> None  — `ALL`  *(line 1482)*
 
@@ -3773,14 +3811,18 @@ Modules scanned: 40
   Gets the speech sequence for a given message.
   @param text: the message to speak
 
-### `_getSpeakSsmlSpeech`(ssml: str, markCallback: 'MarkCallbackT | None'=None, _prefixSpeechCommand: SpeechCommand | None=None) -> SpeechSequence  — `ALL`  *(line 277)*
+### `_getSpeakSsmlSpeech`(ssml: str, markCallback: 'MarkCallbackT | None'=None, _prefixSpeechCommand: SpeechCommand | None=None) -> SpeechSequence  — `since 2024.4`  *(line 277)*
 
   Gets the speech sequence for given SSML.
   :param ssml: The SSML data to speak
   :param markCallback: An optional callback called for every mark command in the SSML.
   :param _prefixSpeechCommand: A SpeechCommand to append before the sequence.
 
-### `_getSpellingCharAddCapNotification`(speakCharAs: str, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool, reportNormalized: bool=False) -> Generator[SequenceItemT, None, None]  — `ALL`  *(line 392)*
+### `_getSpellingCharAddCapNotification`(speakCharAs: str, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool, reportNormalized: bool=False) -> Generator[SequenceItemT, None, None]  — `changed 2024.4`  *(line 392)*
+
+  **Signature history:**
+  - **2023.3:** `_getSpellingCharAddCapNotification(speakCharAs: str, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool) -> Generator[SequenceItemT, None, None]`
+  - **2024.4:** `_getSpellingCharAddCapNotification(speakCharAs: str, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool, reportNormalized: bool=False) -> Generator[SequenceItemT, None, None]`
 
   This function produces a speech sequence containing a character to be spelt as well as commands
   to indicate that this character is uppercase and/or normalized, if applicable.
@@ -3798,7 +3840,11 @@ Modules scanned: 40
   is spelled by the synthesizer.
   @param seq: The speech sequence to be spelt.
 
-### `_getSpellingSpeechWithoutCharMode`(text: str, locale: str, useCharacterDescriptions: bool, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool, fallbackToCharIfNoDescription: bool=True, unicodeNormalization: bool=False, reportNormalizedForCharacterNavigation: bool=False) -> Generator[SequenceItemT, None, None]  — `ALL`  *(line 440)*
+### `_getSpellingSpeechWithoutCharMode`(text: str, locale: str, useCharacterDescriptions: bool, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool, fallbackToCharIfNoDescription: bool=True, unicodeNormalization: bool=False, reportNormalizedForCharacterNavigation: bool=False) -> Generator[SequenceItemT, None, None]  — `changed 2024.4`  *(line 440)*
+
+  **Signature history:**
+  - **2023.3:** `_getSpellingSpeechWithoutCharMode(text: str, locale: str, useCharacterDescriptions: bool, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool, fallbackToCharIfNoDescription: bool=True) -> Generator[SequenceItemT, None, None]`
+  - **2024.4:** `_getSpellingSpeechWithoutCharMode(text: str, locale: str, useCharacterDescriptions: bool, sayCapForCapitals: bool, capPitchChange: int, beepForCapitals: bool, fallbackToCharIfNoDescription: bool=True, unicodeNormalization: bool=False, reportNormalizedForCharacterNavigation: bool=False) -> Generator[SequenceItemT, None, None]`
 
   Processes text when spelling by character.
   This doesn't take care of character mode (Option "Use spelling functionality").
@@ -3827,11 +3873,15 @@ Modules scanned: 40
 
 ### `_isControlEndFieldCommand`(command: Union[str, textInfos.FieldCommand])  — `ALL`  *(line 1920)*
 
-### `_objectSpeech_calculateAllowedProps`(reason: OutputReason, shouldReportTextContent: bool, objRole: controlTypes.Role) -> dict[str, bool]  — `ALL`  *(line 919)*
+### `_objectSpeech_calculateAllowedProps`(reason: OutputReason, shouldReportTextContent: bool, objRole: controlTypes.Role) -> dict[str, bool]  — `changed 2024.4`  *(line 919)*
 
-### `_rowAndColumnCountText`(rowCount: int, columnCount: int) -> Optional[str]  — `ALL`  *(line 2174)*
+  **Signature history:**
+  - **2023.3:** `_objectSpeech_calculateAllowedProps(reason, shouldReportTextContent)`
+  - **2024.4:** `_objectSpeech_calculateAllowedProps(reason: OutputReason, shouldReportTextContent: bool, objRole: controlTypes.Role) -> dict[str, bool]`
 
-### `_rowCountText`(count: int) -> str  — `ALL`  *(line 2194)*
+### `_rowAndColumnCountText`(rowCount: int, columnCount: int) -> Optional[str]  — `since 2024.4`  *(line 2174)*
+
+### `_rowCountText`(count: int) -> str  — `since 2024.4`  *(line 2194)*
 
 ### `_setLastSpeechString`(speechSequence: SpeechSequence, symbolLevel: characterProcessing.SymbolLevel | None, priority: Spri)  — `since 2026.1+`  *(line 148)*
 
@@ -3915,7 +3965,7 @@ Modules scanned: 40
 ### `getTextInfoSpeech`(info: textInfos.TextInfo, useCache: Union[bool, SpeakTextInfoState]=True, formatConfig: dict[str, bool | int] | None=None, unit: Optional[str]=None, reason: OutputReason=OutputReason.QUERY, _prefixSpeechCommand: Optional[SpeechCommand]=None, onlyInitialFields: bool=False, suppressBlanks: bool=False) -> Generator[SpeechSequence, None, bool]  — `changed 2026.1+`  *(line 1528)*
 
   **Signature history:**
-  - **2024.4:** `getTextInfoSpeech(info: textInfos.TextInfo, useCache: Union[bool, SpeakTextInfoState]=True, formatConfig: Dict[str, bool]=None, unit: Optional[str]=None, reason: OutputReason=OutputReason.QUERY, _prefixSpeechCommand: Optional[SpeechCommand]=None, onlyInitialFields: bool=False, suppressBlanks: bool=False) -> Generator[SpeechSequence, None, bool]`
+  - **2023.3:** `getTextInfoSpeech(info: textInfos.TextInfo, useCache: Union[bool, SpeakTextInfoState]=True, formatConfig: Dict[str, bool]=None, unit: Optional[str]=None, reason: OutputReason=OutputReason.QUERY, _prefixSpeechCommand: Optional[SpeechCommand]=None, onlyInitialFields: bool=False, suppressBlanks: bool=False) -> Generator[SpeechSequence, None, bool]`
   - **2026.1+:** `getTextInfoSpeech(info: textInfos.TextInfo, useCache: Union[bool, SpeakTextInfoState]=True, formatConfig: dict[str, bool | int] | None=None, unit: Optional[str]=None, reason: OutputReason=OutputReason.QUERY, _prefixSpeechCommand: Optional[SpeechCommand]=None, onlyInitialFields: bool=False, suppressBlanks: bool=False) -> Generator[SpeechSequence, None, bool]`
 
 ### `initialize`()  — `ALL`  *(line 166)*
@@ -3935,7 +3985,11 @@ Modules scanned: 40
 
 ### `pauseSpeech`(switch)  — `ALL`  *(line 241)*
 
-### `processText`(locale: str, text: str, symbolLevel: characterProcessing.SymbolLevel, normalize: bool=False) -> str  — `ALL`  *(line 197)*
+### `processText`(locale: str, text: str, symbolLevel: characterProcessing.SymbolLevel, normalize: bool=False) -> str  — `changed 2024.4`  *(line 197)*
+
+  **Signature history:**
+  - **2023.3:** `processText(locale, text, symbolLevel)`
+  - **2024.4:** `processText(locale: str, text: str, symbolLevel: characterProcessing.SymbolLevel, normalize: bool=False) -> str`
 
   Processes text for symbol pronunciation, speech dictionaries and Unicode normalization.
   :param locale: The language the given text is in, passed for symbol pronunciation.
@@ -3947,7 +4001,11 @@ Modules scanned: 40
 
 ### `setSpeechMode`(newMode: SpeechMode)  — `ALL`  *(line 144)*
 
-### `speak`(speechSequence: SpeechSequence, symbolLevel: characterProcessing.SymbolLevel | None=None, priority: Spri=Spri.NORMAL)  — `ALL`  *(line 1108)*
+### `speak`(speechSequence: SpeechSequence, symbolLevel: characterProcessing.SymbolLevel | None=None, priority: Spri=Spri.NORMAL)  — `changed 2024.4`  *(line 1108)*
+
+  **Signature history:**
+  - **2023.3:** `speak(speechSequence: SpeechSequence, symbolLevel: Optional[int]=None, priority: Spri=Spri.NORMAL)`
+  - **2024.4:** `speak(speechSequence: SpeechSequence, symbolLevel: characterProcessing.SymbolLevel | None=None, priority: Spri=Spri.NORMAL)`
 
   Speaks a sequence of text and speech commands
   @param speechSequence: the sequence of text and L{SpeechCommand} objects to speak
@@ -3987,7 +4045,7 @@ Modules scanned: 40
 
 ### `speakSpelling`(text: str, locale: Optional[str]=None, useCharacterDescriptions: bool=False, priority: Optional[Spri]=None) -> None  — `ALL`  *(line 355)*
 
-### `speakSsml`(ssml: str, markCallback: 'MarkCallbackT | None'=None, symbolLevel: characterProcessing.SymbolLevel | None=None, _prefixSpeechCommand: SpeechCommand | None=None, priority: Spri | None=None) -> None  — `ALL`  *(line 299)*
+### `speakSsml`(ssml: str, markCallback: 'MarkCallbackT | None'=None, symbolLevel: characterProcessing.SymbolLevel | None=None, _prefixSpeechCommand: SpeechCommand | None=None, priority: Spri | None=None) -> None  — `since 2024.4`  *(line 299)*
 
   Speaks a given speech sequence provided as ssml.
   :param ssml: The SSML data to speak.
@@ -3996,7 +4054,11 @@ Modules scanned: 40
   :param _prefixSpeechCommand: A SpeechCommand to append before the sequence.
   :param priority: The speech priority.
 
-### `speakText`(text: str, reason: OutputReason=OutputReason.MESSAGE, symbolLevel: characterProcessing.SymbolLevel | None=None, priority: Spri | None=None)  — `ALL`  *(line 1007)*
+### `speakText`(text: str, reason: OutputReason=OutputReason.MESSAGE, symbolLevel: characterProcessing.SymbolLevel | None=None, priority: Spri | None=None)  — `changed 2024.4`  *(line 1007)*
+
+  **Signature history:**
+  - **2023.3:** `speakText(text: str, reason: OutputReason=OutputReason.MESSAGE, symbolLevel: Optional[int]=None, priority: Optional[Spri]=None)`
+  - **2024.4:** `speakText(text: str, reason: OutputReason=OutputReason.MESSAGE, symbolLevel: characterProcessing.SymbolLevel | None=None, priority: Spri | None=None)`
 
   Speaks some text.
   @param text: The text to speak.
@@ -4204,7 +4266,7 @@ Modules scanned: 40
 ### `SynthDriver._get_availableLanguages`(self) -> set[str | None]  — `changed 2026.1+`  *(line 248)*
 
   **Signature history:**
-  - **2024.4:** `SynthDriver._get_availableLanguages(self) -> Set[Optional[str]]`
+  - **2023.3:** `SynthDriver._get_availableLanguages(self) -> Set[Optional[str]]`
   - **2026.1+:** `SynthDriver._get_availableLanguages(self) -> set[str | None]`
 
 ### `SynthDriver._get_availableVariants`(self)  — `ALL`  *(line 311)*
@@ -4218,32 +4280,56 @@ Modules scanned: 40
 ### `SynthDriver._get_language`(self) -> str | None  — `changed 2026.1+`  *(line 242)*
 
   **Signature history:**
-  - **2024.4:** `SynthDriver._get_language(self) -> Optional[str]`
+  - **2023.3:** `SynthDriver._get_language(self) -> Optional[str]`
   - **2026.1+:** `SynthDriver._get_language(self) -> str | None`
 
-### `SynthDriver._get_pitch`(self) -> int  — `ALL`  *(line 282)*
+### `SynthDriver._get_pitch`(self) -> int  — `changed 2024.4`  *(line 282)*
 
-### `SynthDriver._get_rate`(self) -> int  — `ALL`  *(line 272)*
+  **Signature history:**
+  - **2023.3:** `SynthDriver._get_pitch(self)`
+  - **2024.4:** `SynthDriver._get_pitch(self) -> int`
+
+### `SynthDriver._get_rate`(self) -> int  — `changed 2024.4`  *(line 272)*
+
+  **Signature history:**
+  - **2023.3:** `SynthDriver._get_rate(self)`
+  - **2024.4:** `SynthDriver._get_rate(self) -> int`
 
 ### `SynthDriver._get_variant`(self)  — `ALL`  *(line 298)*
 
 ### `SynthDriver._get_voice`(self)  — `ALL`  *(line 251)*
 
-### `SynthDriver._get_volume`(self) -> int  — `ALL`  *(line 292)*
+### `SynthDriver._get_volume`(self) -> int  — `changed 2024.4`  *(line 292)*
+
+  **Signature history:**
+  - **2023.3:** `SynthDriver._get_volume(self)`
+  - **2024.4:** `SynthDriver._get_volume(self) -> int`
 
 ### `SynthDriver._set_inflection`(self, value)  — `ALL`  *(line 319)*
 
 ### `SynthDriver._set_language`(self, language)  — `ALL`  *(line 245)*
 
-### `SynthDriver._set_pitch`(self, value: int)  — `ALL`  *(line 285)*
+### `SynthDriver._set_pitch`(self, value: int)  — `changed 2024.4`  *(line 285)*
 
-### `SynthDriver._set_rate`(self, value: int)  — `ALL`  *(line 275)*
+  **Signature history:**
+  - **2023.3:** `SynthDriver._set_pitch(self, value)`
+  - **2024.4:** `SynthDriver._set_pitch(self, value: int)`
+
+### `SynthDriver._set_rate`(self, value: int)  — `changed 2024.4`  *(line 275)*
+
+  **Signature history:**
+  - **2023.3:** `SynthDriver._set_rate(self, value)`
+  - **2024.4:** `SynthDriver._set_rate(self, value: int)`
 
 ### `SynthDriver._set_variant`(self, value)  — `ALL`  *(line 301)*
 
 ### `SynthDriver._set_voice`(self, value)  — `ALL`  *(line 254)*
 
-### `SynthDriver._set_volume`(self, value: int)  — `ALL`  *(line 295)*
+### `SynthDriver._set_volume`(self, value: int)  — `changed 2024.4`  *(line 295)*
+
+  **Signature history:**
+  - **2023.3:** `SynthDriver._set_volume(self, value)`
+  - **2024.4:** `SynthDriver._set_volume(self, value: int)`
 
 ### `SynthDriver.cancel`(self)  — `ALL`  *(line 239)*
 
@@ -4278,7 +4364,7 @@ Modules scanned: 40
 ### `VoiceInfo.__init__`(self, id, displayName, language: str | None=None)  — `changed 2026.1+`  *(line 45)*
 
   **Signature history:**
-  - **2024.4:** `VoiceInfo.__init__(self, id, displayName, language: Optional[str]=None)`
+  - **2023.3:** `VoiceInfo.__init__(self, id, displayName, language: Optional[str]=None)`
   - **2026.1+:** `VoiceInfo.__init__(self, id, displayName, language: str | None=None)`
 
   @param language: The ID of the language this voice speaks,
@@ -4287,7 +4373,7 @@ Modules scanned: 40
 ### `_getSynthDriver`(name: str) -> type[SynthDriver]  — `changed 2026.1+`  *(line 436)*
 
   **Signature history:**
-  - **2024.4:** `_getSynthDriver(name) -> SynthDriver`
+  - **2023.3:** `_getSynthDriver(name) -> SynthDriver`
   - **2026.1+:** `_getSynthDriver(name: str) -> type[SynthDriver]`
 
 ### `changeVoice`(synth, voice)  — `ALL`  *(line 423)*
@@ -4295,7 +4381,7 @@ Modules scanned: 40
 ### `findAndSetNextSynth`(currentSynthName: str, *, _leftToTry: list[str] | None=None) -> bool  — `changed 2026.1+`  *(line 546)*
 
   **Signature history:**
-  - **2024.4:** `findAndSetNextSynth(currentSynthName: str) -> bool`
+  - **2023.3:** `findAndSetNextSynth(currentSynthName: str) -> bool`
   - **2026.1+:** `findAndSetNextSynth(currentSynthName: str, *, _leftToTry: list[str] | None=None) -> bool`
 
   Finds the first untried synth in ``defaultSynthPriorityList`` and switches to it.
@@ -4309,19 +4395,19 @@ Modules scanned: 40
 ### `getSynth`() -> SynthDriver | None  — `changed 2026.1+`  *(line 470)*
 
   **Signature history:**
-  - **2024.4:** `getSynth() -> Optional[SynthDriver]`
+  - **2023.3:** `getSynth() -> Optional[SynthDriver]`
   - **2026.1+:** `getSynth() -> SynthDriver | None`
 
 ### `getSynthInstance`(name: str, asDefault: bool=False)  — `changed 2026.1+`  *(line 474)*
 
   **Signature history:**
-  - **2024.4:** `getSynthInstance(name, asDefault=False)`
+  - **2023.3:** `getSynthInstance(name, asDefault=False)`
   - **2026.1+:** `getSynthInstance(name: str, asDefault: bool=False)`
 
 ### `getSynthList`() -> list[tuple[str, str]]  — `changed 2026.1+`  *(line 440)*
 
   **Signature history:**
-  - **2024.4:** `getSynthList() -> List[Tuple[str, str]]`
+  - **2023.3:** `getSynthList() -> List[Tuple[str, str]]`
   - **2026.1+:** `getSynthList() -> list[tuple[str, str]]`
 
 ### `handlePostConfigProfileSwitch`(resetSpeechIfNeeded=True)  — `ALL`  *(line 566)*
@@ -4340,7 +4426,7 @@ Modules scanned: 40
 ### `setSynth`(name: str | None, isFallback: bool=False, *, _leftToTry: list[str] | None=None) -> bool  — `changed 2026.1+`  *(line 488)*
 
   **Signature history:**
-  - **2024.4:** `setSynth(name: Optional[str], isFallback: bool=False)`
+  - **2023.3:** `setSynth(name: Optional[str], isFallback: bool=False)`
   - **2026.1+:** `setSynth(name: str | None, isFallback: bool=False, *, _leftToTry: list[str] | None=None) -> bool`
 
   Set the currently active speech synth by name.
@@ -4575,7 +4661,7 @@ Modules scanned: 40
 ### @classmethod `OneCoreSynthDriver._percentToParam`(cls, percent, min, max)  — `changed 2025.3`  *(line 326)*
 
   **Signature history:**
-  - **2024.4:** `OneCoreSynthDriver._percentToParam(self, percent, min, max)`
+  - **2023.3:** `OneCoreSynthDriver._percentToParam(self, percent, min, max)`
   - **2025.3:** `OneCoreSynthDriver._percentToParam(cls, percent, min, max)`
 
   Overrides SynthDriver._percentToParam to return floating point parameter values.
@@ -4676,13 +4762,13 @@ Modules scanned: 40
 ### `SapiSink.Bookmark`(self, streamNum: int, pos: int, bookmark: str, bookmarkId: int)  — `changed 2025.3`  *(line 489)*
 
   **Signature history:**
-  - **2024.4:** `SapiSink.Bookmark(self, streamNum, pos, bookmark, bookmarkId)`
+  - **2023.3:** `SapiSink.Bookmark(self, streamNum, pos, bookmark, bookmarkId)`
   - **2025.3:** `SapiSink.Bookmark(self, streamNum: int, pos: int, bookmark: str, bookmarkId: int)`
 
 ### `SapiSink.EndStream`(self, streamNum: int, pos: int)  — `changed 2025.3`  *(line 501)*
 
   **Signature history:**
-  - **2024.4:** `SapiSink.EndStream(self, streamNum, pos)`
+  - **2023.3:** `SapiSink.EndStream(self, streamNum, pos)`
   - **2025.3:** `SapiSink.EndStream(self, streamNum: int, pos: int)`
 
 ### `SapiSink.ISpNotifySink_Notify`(self)  — `since 2025.3`  *(line 458)*
@@ -4693,13 +4779,13 @@ Modules scanned: 40
 ### `SapiSink.StartStream`(self, streamNum: int, pos: int)  — `changed 2025.3`  *(line 480)*
 
   **Signature history:**
-  - **2024.4:** `SapiSink.StartStream(self, streamNum, pos)`
+  - **2023.3:** `SapiSink.StartStream(self, streamNum, pos)`
   - **2025.3:** `SapiSink.StartStream(self, streamNum: int, pos: int)`
 
 ### `SapiSink.__init__`(self, synthRef: weakref.ReferenceType['SynthDriver'])  — `changed 2025.3`  *(line 455)*
 
   **Signature history:**
-  - **2024.4:** `SapiSink.__init__(self, synthRef: weakref.ReferenceType)`
+  - **2023.3:** `SapiSink.__init__(self, synthRef: weakref.ReferenceType)`
   - **2025.3:** `SapiSink.__init__(self, synthRef: weakref.ReferenceType['SynthDriver'])`
 
 ### `SapiSink.onIndexReached`(self, streamNum: int, index: int)  — `since 2025.3`  *(line 518)*
@@ -4746,7 +4832,7 @@ Modules scanned: 40
 ### `SynthDriver._initTts`(self, voice: str | None=None)  — `changed 2025.3`  *(line 735)*
 
   **Signature history:**
-  - **2024.4:** `SynthDriver._initTts(self, voice=None)`
+  - **2023.3:** `SynthDriver._initTts(self, voice=None)`
   - **2025.3:** `SynthDriver._initTts(self, voice: str | None=None)`
 
 ### `SynthDriver._initWasapiAudio`(self)  — `since 2025.3`  *(line 705)*
@@ -4983,9 +5069,10 @@ Modules scanned: 40
 
 ### `WinVersion.__ge__`(self, other)  — `ALL`  *(line 142)*
 
-### `WinVersion.__init__`(self, major: int=0, minor: int=0, build: int=0, revision: int=0, releaseName: str | None=None, servicePack: str='', productType: str='', processorArchitecture: str='')  — `changed 2025.3`  *(line 83)*
+### `WinVersion.__init__`(self, major: int=0, minor: int=0, build: int=0, revision: int=0, releaseName: str | None=None, servicePack: str='', productType: str='', processorArchitecture: str='')  — `changed 2024.4, 2025.3`  *(line 83)*
 
   **Signature history:**
+  - **2023.3:** `WinVersion.__init__(self, major: int=0, minor: int=0, build: int=0, releaseName: Optional[str]=None, servicePack: str='', productType: str='', processorArchitecture: str='')`
   - **2024.4:** `WinVersion.__init__(self, major: int=0, minor: int=0, build: int=0, releaseName: str | None=None, servicePack: str='', productType: str='', processorArchitecture: str='')`
   - **2025.3:** `WinVersion.__init__(self, major: int=0, minor: int=0, build: int=0, revision: int=0, releaseName: str | None=None, servicePack: str='', productType: str='', processorArchitecture: str='')`
 
@@ -4999,7 +5086,7 @@ Modules scanned: 40
   On server systems, unless noted otherwise, client release names will be returned.
   For example, 'Windows 11 24H2' will be returned on Server 2025 systems.
 
-### `__getattr__`(attrName: str) -> Any  — `ALL`  *(line 226)*
+### `__getattr__`(attrName: str) -> Any  — `since 2024.4`  *(line 226)*
 
   Module level `__getattr__` used to preserve backward compatibility.
 
@@ -5011,21 +5098,27 @@ Modules scanned: 40
 ### `getWinVer`() -> WinVersion  — `changed 2026.1+`  *(line 170)*
 
   **Signature history:**
-  - **2024.4:** `getWinVer()`
+  - **2023.3:** `getWinVer()`
   - **2026.1+:** `getWinVer() -> WinVersion`
 
   Returns a record of current Windows version NVDA is running on.
 
+### `isFullScreenMagnificationAvailable`() -> bool  — `until 2023.3`  *(line 214)*
+
+  Technically this is always False. The Magnification API has been marked by MS as unsupported for
+  WOW64 applications such as NVDA. For our usages, support has been added since Windows 8, relying on our
+  testing our specific usage of the API with each Windows version since Windows 8
+
 ### `isSupportedOS`() -> bool  — `changed 2026.1+`  *(line 214)*
 
   **Signature history:**
-  - **2024.4:** `isSupportedOS()`
+  - **2023.3:** `isSupportedOS()`
   - **2026.1+:** `isSupportedOS() -> bool`
 
 ### `isUwpOcrAvailable`() -> bool  — `changed 2026.1+`  *(line 222)*
 
   **Signature history:**
-  - **2024.4:** `isUwpOcrAvailable()`
+  - **2023.3:** `isUwpOcrAvailable()`
   - **2026.1+:** `isUwpOcrAvailable() -> bool`
 
 ---
@@ -5034,8 +5127,8 @@ Modules scanned: 40
 
 | Metric | Count |
 |--------|-------|
-| Stable across all versions | 881 |
-| Added in newer version | 206 |
-| Removed in newer version | 48 |
-| Signature changed | 38 |
-| **Total entries** | **1173** |
+| Stable across all versions | 807 |
+| Added in newer version | 265 |
+| Removed in newer version | 54 |
+| Signature changed | 54 |
+| **Total entries** | **1180** |

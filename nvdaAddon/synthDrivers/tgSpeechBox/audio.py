@@ -118,24 +118,15 @@ class AudioThread(threading.Thread):
                 return None
 
     def _feed(self, data: bytes, onDone=None) -> None:
-        """Feed audio data to the wave player.
-        
-        Handles API differences across NVDA versions.
-        """
+        """Feed audio data to the wave player."""
         if not self._wavePlayer:
             return
         try:
-            self._wavePlayer.feed(data, len(data), onDone=onDone)
-        except TypeError:
-            try:
-                if onDone is None:
-                    self._wavePlayer.feed(data)
-                else:
-                    self._wavePlayer.feed(data, onDone=onDone)
-            except Exception:
-                if not self._feedErrorLogged:
-                    log.error("nvSpeechPlayer: WavePlayer.feed failed", exc_info=True)
-                    self._feedErrorLogged = True
+            self._wavePlayer.feed(data, onDone=onDone)
+        except Exception:
+            if not self._feedErrorLogged:
+                log.error("nvSpeechPlayer: WavePlayer.feed failed", exc_info=True)
+                self._feedErrorLogged = True
 
     def _applyFadeInEnvelope(self, audioBytes: bytes) -> bytes:
         """Apply fade-in envelope to audio samples. Returns modified bytes.
@@ -178,20 +169,9 @@ class AudioThread(threading.Thread):
         # and we've set the wake event.
         try:
             self.join(timeout=2.0)
-        except TypeError:
-            # Very old Python versions without timeout parameter - just join blocking
-            # This is rare in practice (Python 3.7+ all support timeout)
-            try:
-                self.join()
-            except (RuntimeError, AttributeError):
-                # Thread not started or already dead
-                pass
-        except (RuntimeError, AttributeError):
-            # RuntimeError: cannot join current thread / thread not started
-            # AttributeError: shouldn't happen but be defensive
+        except RuntimeError:
+            # cannot join current thread / thread not started
             pass
-        except Exception:
-            log.debug("nvSpeechPlayer: AudioThread.join raised unexpected error", exc_info=True)
         
         # Stop the wave player
         try:
@@ -217,37 +197,26 @@ class AudioThread(threading.Thread):
             except Exception:
                 pass
 
-    def _createWavePlayer(self, device):
-        """Create a WavePlayer with fallbacks for different NVDA versions.
+    def pausePlayback(self, switch: bool):
+        """Pause or resume the WavePlayer. Thread-safe (called from main thread)."""
+        wp = self._wavePlayer
+        if wp:
+            try:
+                wp.pause(switch)
+            except Exception:
+                pass
 
-        Tries: purpose=SPEECH → buffered=True → bare constructor.
-        Returns the WavePlayer or raises on total failure.
+    def _createWavePlayer(self, device):
+        """Create a WavePlayer for audio output.
+
+        Uses purpose=AudioPurpose.SPEECH which is available in NVDA 2023.3+.
         """
-        try:
-            return nvwave.WavePlayer(
-                channels=1,
-                samplesPerSec=self._sampleRate,
-                bitsPerSample=16,
-                outputDevice=device,
-                purpose=nvwave.AudioPurpose.SPEECH,
-            )
-        except (TypeError, AttributeError):
-            pass
-        try:
-            return nvwave.WavePlayer(
-                channels=1,
-                samplesPerSec=self._sampleRate,
-                bitsPerSample=16,
-                outputDevice=device,
-                buffered=True,
-            )
-        except TypeError:
-            pass
         return nvwave.WavePlayer(
             channels=1,
             samplesPerSec=self._sampleRate,
             bitsPerSample=16,
             outputDevice=device,
+            purpose=nvwave.AudioPurpose.SPEECH,
         )
 
     def run(self):

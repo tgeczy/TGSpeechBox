@@ -24,25 +24,10 @@ from logHandler import log
 from synthDrivers import _espeak
 from synthDriverHandler import SynthDriver, VoiceInfo, synthDoneSpeaking, synthIndexReached
 
-# NVDA command classes moved around across versions; keep imports tolerant.
-try:
-    from speech.commands import IndexCommand, PitchCommand
-except Exception:
-    try:
-        from speech.commands import IndexCommand  # type: ignore
-        PitchCommand = None  # type: ignore
-    except Exception:
-        import speech  # fallback
-        IndexCommand = getattr(speech, "IndexCommand", None)
-        PitchCommand = getattr(speech, "PitchCommand", None)
-
-from autoSettingsUtils.driverSetting import DriverSetting, NumericDriverSetting
-
-# BooleanDriverSetting exists in modern NVDA, but keep a safe fallback for older builds.
-try:
-    from autoSettingsUtils.driverSetting import BooleanDriverSetting  # type: ignore
-except Exception:  # pragma: no cover
-    BooleanDriverSetting = None  # type: ignore
+from speech.commands import IndexCommand, PitchCommand
+from autoSettingsUtils.driverSetting import (
+    BooleanDriverSetting, DriverSetting, NumericDriverSetting,
+)
 
 # Local module imports
 from . import speechPlayer
@@ -74,47 +59,21 @@ except Exception:
 # ── Direct eSpeak voice selection (bypasses NVDA's async wrapper) ────────
 #
 # NVDA's _espeak.setVoiceByLanguage() uses espeak_SetVoiceByProperties which
-# can pick the wrong voice (e.g. British English for "en-us").  This mirrors
-# the SAPI fix: enumerate voices via espeak_ListVoices, find the one whose
-# packed language list matches, then call espeak_SetVoiceByName with the full
+# can pick the wrong voice (e.g. British English for "en-us").  This uses the
+# public _espeak API to enumerate voices via getVoiceList(), find the one whose
+# packed language list matches, then call setVoiceByName() with the full
 # identifier (e.g. "gmw/en-US").
 
 def _espeakSetVoiceDirect(langTag: str) -> bool:
-    """Set eSpeak voice directly on the DLL using ListVoices identifier resolution.
+    """Set eSpeak voice using _espeak public API with accurate language matching.
 
     Returns True if the voice was set successfully.
     """
-    espeakDLL = getattr(_espeak, "espeakDLL", None)
-    if not espeakDLL:
-        return False
-
-    listVoices = getattr(espeakDLL, "espeak_ListVoices", None)
-    setByName = getattr(espeakDLL, "espeak_SetVoiceByName", None)
-    if not listVoices or not setByName:
-        return False
-
-    # espeak_ListVoices returns a NULL-terminated array of espeak_VOICE pointers.
-    # We need to define the struct to parse the packed languages field.
-    class ESPEAK_VOICE(ctypes.Structure):
-        _fields_ = [
-            ("name", ctypes.c_char_p),
-            ("languages", ctypes.c_char_p),
-            ("identifier", ctypes.c_char_p),
-            ("gender", ctypes.c_ubyte),
-            ("age", ctypes.c_ubyte),
-            ("variant", ctypes.c_ubyte),
-            ("xx1", ctypes.c_ubyte),
-            ("spare", ctypes.c_int),
-        ]
-
-    listVoices.restype = ctypes.POINTER(ctypes.POINTER(ESPEAK_VOICE))
-    listVoices.argtypes = [ctypes.POINTER(ESPEAK_VOICE)]
-
     try:
-        voices = listVoices(None)
+        voiceList = _espeak.getVoiceList()
     except Exception:
         return False
-    if not voices:
+    if not voiceList:
         return False
 
     tag = langTag.lower().replace("_", "-")
@@ -125,20 +84,11 @@ def _espeakSetVoiceDirect(langTag: str) -> bool:
     baseId = None
     basePri = 99
 
-    ix = 0
-    while True:
+    for voice in voiceList:
         try:
-            vp = voices[ix]
-            if not vp:
-                break
-        except (ValueError, IndexError):
-            break
-        ix += 1
-
-        try:
-            rawLangs = vp.contents.languages
-            vid = vp.contents.identifier
-        except (ValueError, AttributeError):
+            rawLangs = voice.languages
+            vid = voice.identifier
+        except AttributeError:
             continue
         if not rawLangs or not vid:
             continue
@@ -172,19 +122,18 @@ def _espeakSetVoiceDirect(langTag: str) -> bool:
     if not chosenId:
         return False
 
-    setByName.restype = ctypes.c_int
-    setByName.argtypes = [ctypes.c_char_p]
+    # Decode bytes identifier to str for the public API call.
+    try:
+        name = chosenId.decode("utf-8", errors="replace") if isinstance(chosenId, bytes) else chosenId
+    except Exception:
+        name = chosenId
 
     try:
-        rc = setByName(chosenId)
-        if rc == 0:
-            log.debug(
-                "TGSpeechBox: eSpeak voice set directly: %r -> %r",
-                tag, chosenId.decode("utf-8", errors="replace"),
-            )
-            return True
+        _espeak.setVoiceByName(name)
+        log.debug("TGSpeechBox: eSpeak voice set directly: %r -> %r", tag, name)
+        return True
     except Exception:
-        log.debug("TGSpeechBox: espeak_SetVoiceByName failed", exc_info=True)
+        log.debug("TGSpeechBox: setVoiceByName failed", exc_info=True)
 
     return False
 
@@ -1711,8 +1660,8 @@ class SynthDriver(SynthDriver):
 
     def pause(self, switch):
         try:
-            if self._audio and self._audio._wavePlayer:
-                self._audio._wavePlayer.pause(switch)
+            if self._audio:
+                self._audio.pausePlayback(switch)
         except Exception:
             log.debug("TGSpeechBox: pause failed", exc_info=True)
 
