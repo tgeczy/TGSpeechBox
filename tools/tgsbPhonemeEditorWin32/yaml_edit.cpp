@@ -426,6 +426,7 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"trajectoryLimitApplyTo", "trajectoryLimit", nullptr},
   {"trajectoryLimitWindowMs", "trajectoryLimit", nullptr},
   {"trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit", nullptr},
+  {"trajectoryLimitLiquidRateScale", "trajectoryLimit", nullptr},
   {"trajectoryLimitMaxHzPerMsCf2", "trajectoryLimit", "maxHzPerMs"},
   {"trajectoryLimitMaxHzPerMsCf3", "trajectoryLimit", "maxHzPerMs"},
   

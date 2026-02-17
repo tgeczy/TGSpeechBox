@@ -1351,24 +1351,33 @@ Trajectory limiting caps how fast key formants are allowed to move across token 
 settings:
   trajectoryLimit:
     enabled: true
-    applyTo: [cf2, cf3]     # start here (F2/F3)
+    applyTo: [cf1, cf2, cf3, pf2, pf3]
 
     # Maximum allowed change rate in Hz per ms (at speed=1.0)
     maxHzPerMs:
+      cf1: 15
       cf2: 18
       cf3: 22
+      pf2: 18
+      pf3: 22
 
     # Upper cap on how much we are allowed to "spread" a change (ms at speed=1.0)
     windowMs: 25
 
     # If false, do not apply the limiter across word boundaries.
     applyAcrossWordBoundary: false
+
+    # Liquids (/ɹ/, /l/) get gentler rate limits — their large formant
+    # excursions are perceptually expected.  1.5 = allow 50% faster Hz/ms.
+    liquidRateScale: 1.5
 ```
 
 Tuning notes:
 - Smaller `maxHzPerMs` = smoother transitions (but too small can blur consonant identity).
 - Larger `windowMs` = the limiter has more room to soften big jumps (try 30–40ms if you want fewer "corners").
 - If you want the effect only inside words, keep `applyAcrossWordBoundary: false`.
+- The pass is transScale-aware: it reads `transF1Scale`/`transF2Scale`/`transF3Scale` from boundary smoothing and computes the actual Hz/ms rate through the effective (compressed or expanded) fade, not the raw fade time.
+- Nasals and semivowels are always exempt (sharp transitions are their perceptual identity). Liquids are rate-limited but at `liquidRateScale`× the normal limit.
 
 ### Phrase-final lengthening
 
@@ -1400,24 +1409,45 @@ settings:
 
 ### Microprosody
 
-Microprosody adds small F0 perturbations around consonant→vowel boundaries (e.g. voiceless consonants slightly raise the following vowel onset). This is subtle but can add a more "human" feel.
+Microprosody adds small F0 perturbations around consonant→vowel boundaries and models several natural pitch/duration effects. Five independently-gated phases run per vowel:
+
+1. **Onset F0** (backward-looking): voiceless C raises vowel start pitch; voiced obstruent lowers it.
+2. **Endpoint F0** (forward-looking): voiceless C after vowel raises end pitch; voiced obstruent lowers it.
+3. **Intrinsic vowel F0**: high vowels (low F1) run slightly higher F0; low vowels (high F1) run lower.
+4. **Pre-voiceless shortening**: vowels before voiceless consonants are shortened (strongest duration cue in English).
+5. **Total perturbation cap**: clamps combined pitch delta so no single vowel shifts more than `maxTotalDeltaHz`.
 
 ```yaml
-settings:
-  microprosody:
-    enabled: true
+  # All fields are flat keys (no nested block).
+  microprosodyEnabled: true
+  microprosodyMinVowelMs: 25
 
-    voicelessF0Raise:
-      enabled: true
-      deltaHz: 12
-      endDeltaHz: 0
+  # Phase 1: onset (backward-looking)
+  microprosodyVoicelessF0RaiseEnabled: true
+  microprosodyVoicelessF0RaiseHz: 15
+  microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: 8
+  microprosodyVoicedFricativeLowerScale: 0.6   # fricatives lower less than stops
 
-    voicedF0Lower:
-      enabled: true
-      deltaHz: 6
+  # Phase 2: endpoint (forward-looking)
+  microprosodyFollowingF0Enabled: true
+  microprosodyFollowingVoicelessRaiseHz: 10
+  microprosodyFollowingVoicedLowerHz: 5
 
-    # Avoid overdoing this on very short vowels.
-    minVowelMs: 25
+  # Phase 3: intrinsic vowel F0 (F1-based height classification)
+  microprosodyIntrinsicF0Enabled: true
+  microprosodyIntrinsicF0HighThreshold: 400    # F1 below = high vowel
+  microprosodyIntrinsicF0LowThreshold: 600     # F1 above = low vowel
+  microprosodyIntrinsicF0HighRaiseHz: 6
+  microprosodyIntrinsicF0LowDropHz: 4
+
+  # Phase 4: pre-voiceless shortening
+  microprosodyPreVoicelessShortenEnabled: true
+  microprosodyPreVoicelessShortenScale: 0.85
+  microprosodyPreVoicelessMinMs: 25
+
+  # Phase 5: total perturbation cap (0 = no cap)
+  microprosodyMaxTotalDeltaHz: 0
 ```
 
 ### Rate compensation

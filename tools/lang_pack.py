@@ -350,6 +350,7 @@ class LanguagePack:
     trajectory_limit_apply_mask: int = (1 << 8) | (1 << 9)  # cf2 | cf3
     trajectory_limit_window_ms: float = 25.0
     trajectory_limit_apply_across_word_boundary: bool = False
+    trajectory_limit_liquid_rate_scale: float = 1.5
     liquid_dynamics_enabled: bool = False
     liquid_dynamics_lateral_onglide_f1_delta: float = -50.0
     liquid_dynamics_lateral_onglide_f2_delta: float = 200.0
@@ -401,6 +402,7 @@ class LanguagePack:
     microprosody_pre_voiceless_shorten_enabled: bool = True
     microprosody_pre_voiceless_shorten_scale: float = 0.85
     microprosody_pre_voiceless_min_ms: float = 25.0
+    microprosody_max_total_delta_hz: float = 0.0
     rate_comp_enabled: bool = False
     rate_comp_vowel_floor_ms: float = 25.0
     rate_comp_fricative_floor_ms: float = 18.0
@@ -788,6 +790,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.trajectory_limit_enabled = gb("trajectoryLimitEnabled", lp.trajectory_limit_enabled)
     lp.trajectory_limit_window_ms = gn("trajectoryLimitWindowMs", lp.trajectory_limit_window_ms)
     lp.trajectory_limit_apply_across_word_boundary = gb("trajectoryLimitApplyAcrossWordBoundary", lp.trajectory_limit_apply_across_word_boundary)
+    lp.trajectory_limit_liquid_rate_scale = gn("trajectoryLimitLiquidRateScale", lp.trajectory_limit_liquid_rate_scale)
     lp.liquid_dynamics_enabled = gb("liquidDynamicsEnabled", lp.liquid_dynamics_enabled)
     lp.liquid_dynamics_lateral_onglide_f1_delta = gn("liquidDynamicsLateralOnglideF1Delta", lp.liquid_dynamics_lateral_onglide_f1_delta)
     lp.liquid_dynamics_lateral_onglide_f2_delta = gn("liquidDynamicsLateralOnglideF2Delta", lp.liquid_dynamics_lateral_onglide_f2_delta)
@@ -839,6 +842,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.microprosody_pre_voiceless_shorten_enabled = gb("microprosodyPreVoicelessShortenEnabled", lp.microprosody_pre_voiceless_shorten_enabled)
     lp.microprosody_pre_voiceless_shorten_scale = gn("microprosodyPreVoicelessShortenScale", lp.microprosody_pre_voiceless_shorten_scale)
     lp.microprosody_pre_voiceless_min_ms = gn("microprosodyPreVoicelessMinMs", lp.microprosody_pre_voiceless_min_ms)
+    lp.microprosody_max_total_delta_hz = gn("microprosodyMaxTotalDeltaHz", lp.microprosody_max_total_delta_hz)
     lp.nasal_min_duration_ms = gn("nasalMinDurationMs", lp.nasal_min_duration_ms)
     lp.rate_comp_enabled = gb("rateCompEnabled", lp.rate_comp_enabled)
     lp.rate_comp_vowel_floor_ms = gn("rateCompVowelFloorMs", lp.rate_comp_vowel_floor_ms)
@@ -1037,6 +1041,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.trajectory_limit_enabled = _gb_from(_tl, "enabled", lp.trajectory_limit_enabled)
         lp.trajectory_limit_window_ms = _gn_from(_tl, "windowMs", lp.trajectory_limit_window_ms)
         lp.trajectory_limit_apply_across_word_boundary = _gb_from(_tl, "applyAcrossWordBoundary", lp.trajectory_limit_apply_across_word_boundary)
+        lp.trajectory_limit_liquid_rate_scale = _gn_from(_tl, "liquidRateScale", lp.trajectory_limit_liquid_rate_scale)
         if "maxHzPerMs" in _tl and isinstance(_tl["maxHzPerMs"], dict):
             _mh = _tl["maxHzPerMs"]
 

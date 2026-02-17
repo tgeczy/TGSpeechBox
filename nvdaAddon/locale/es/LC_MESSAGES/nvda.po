@@ -1657,6 +1657,11 @@ msgstr "Microprosodia Habilitado"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Max Total Delta (Hz)"
+msgstr "Microprosodia Máx. Delta Total (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Microprosody Min Vowel (ms)"
 msgstr "Microprosodia Vocal Mínima (ms)"
 
@@ -2322,6 +2327,11 @@ msgstr "Límite de Trayectoria Máx. Hz Por Ms Pf3"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Liquid Rate Scale"
+msgstr "Límite de Trayectoria Escala de Velocidad de Líquidas"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Trajectory Limit Window (ms)"
 msgstr "Límite de Trayectoria Ventana (ms)"
 
@@ -2339,6 +2349,11 @@ msgstr "Límite de Trayectoria: Aplicar A"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Trajectory Limit: Enabled"
 msgstr "Límite de Trayectoria: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Liquid Rate Scale"
+msgstr "Límite de Trayectoria: Escala de Velocidad de Líquidas"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

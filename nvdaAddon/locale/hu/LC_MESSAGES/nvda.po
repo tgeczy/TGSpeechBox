@@ -1636,6 +1636,11 @@ msgstr "Mikroprozódia Engedélyezve"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Max Total Delta (Hz)"
+msgstr "Mikroprozódia Maximális összdelta (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Microprosody Min Vowel (ms)"
 msgstr "Mikroprozódia Minimális magánhangzó (ms)"
 
@@ -2301,6 +2306,11 @@ msgstr "Pályakorlát Max. Hz/ms Pf3"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Liquid Rate Scale"
+msgstr "Pályakorlát Likvida sebességi skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Trajectory Limit Window (ms)"
 msgstr "Pályakorlát Ablak (ms)"
 
@@ -2318,6 +2328,11 @@ msgstr "Pályakorlát: Alkalmazás"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Trajectory Limit: Enabled"
 msgstr "Pályakorlát: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Liquid Rate Scale"
+msgstr "Pályakorlát: Likvida sebességi skála"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
