@@ -588,6 +588,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
   getNum("trajectoryLimitWindowMs", lp.trajectoryLimitWindowMs);
   getBool("trajectoryLimitApplyAcrossWordBoundary", lp.trajectoryLimitApplyAcrossWordBoundary);
+  getNum("trajectoryLimitLiquidRateScale", lp.trajectoryLimitLiquidRateScale);
 
   // Flat-key parsing for trajectoryLimit fields (NVDA settings panel compatibility)
   {
@@ -692,6 +693,19 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getBool("microprosodyVoicedF0LowerEnabled", lp.microprosodyVoicedF0LowerEnabled);
   getNum("microprosodyVoicedF0LowerHz", lp.microprosodyVoicedF0LowerHz);
   getNum("microprosodyMinVowelMs", lp.microprosodyMinVowelMs);
+  getBool("microprosodyFollowingF0Enabled", lp.microprosodyFollowingF0Enabled);
+  getNum("microprosodyFollowingVoicelessRaiseHz", lp.microprosodyFollowingVoicelessRaiseHz);
+  getNum("microprosodyFollowingVoicedLowerHz", lp.microprosodyFollowingVoicedLowerHz);
+  getNum("microprosodyVoicedFricativeLowerScale", lp.microprosodyVoicedFricativeLowerScale);
+  getBool("microprosodyIntrinsicF0Enabled", lp.microprosodyIntrinsicF0Enabled);
+  getNum("microprosodyIntrinsicF0HighThreshold", lp.microprosodyIntrinsicF0HighThreshold);
+  getNum("microprosodyIntrinsicF0LowThreshold", lp.microprosodyIntrinsicF0LowThreshold);
+  getNum("microprosodyIntrinsicF0HighRaiseHz", lp.microprosodyIntrinsicF0HighRaiseHz);
+  getNum("microprosodyIntrinsicF0LowDropHz", lp.microprosodyIntrinsicF0LowDropHz);
+  getBool("microprosodyPreVoicelessShortenEnabled", lp.microprosodyPreVoicelessShortenEnabled);
+  getNum("microprosodyPreVoicelessShortenScale", lp.microprosodyPreVoicelessShortenScale);
+  getNum("microprosodyPreVoicelessMinMs", lp.microprosodyPreVoicelessMinMs);
+  getNum("microprosodyMaxTotalDeltaHz", lp.microprosodyMaxTotalDeltaHz);
 
   getNum("nasalMinDurationMs", lp.nasalMinDurationMs);
 
@@ -830,6 +844,7 @@ if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap(
   getBoolFrom(*tl, "enabled", lp.trajectoryLimitEnabled);
   getNumFrom(*tl, "windowMs", lp.trajectoryLimitWindowMs);
   getBoolFrom(*tl, "applyAcrossWordBoundary", lp.trajectoryLimitApplyAcrossWordBoundary);
+  getNumFrom(*tl, "liquidRateScale", lp.trajectoryLimitLiquidRateScale);
 
   // applyTo: [cf2, cf3, ...]
   {

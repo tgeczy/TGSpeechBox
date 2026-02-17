@@ -1,7 +1,13 @@
 /*
-TGSpeechBox — Microprosody pass (voiceless F0 raise, voiced F0 lower).
+TGSpeechBox — Microprosody pass (F0 perturbations + pre-voiceless shortening).
 Copyright 2025-2026 Tamas Geczy.
 Licensed under the MIT License. See LICENSE for details.
+
+Five independently-gated effects per vowel:
+  Phase 1: Onset F0 — backward-looking (voiceless raise / voiced lower)
+  Phase 2: Endpoint F0 — forward-looking (voiceless raise / voiced lower)
+  Phase 3: Intrinsic vowel F0 (high vowels higher, low vowels lower)
+  Phase 4: Pre-voiceless shortening (duration)
 */
 
 #include "microprosody.h"
@@ -19,8 +25,6 @@ static inline bool isVowel(const Token& t) {
 static inline bool isVoicelessConsonant(const Token& t) {
   if (!t.def) return false;
   if ((t.def->flags & kIsVowel) != 0) return false;
-  // This codebase only tracks "voiced" as an explicit flag.
-  // Treat any non-vowel without kIsVoiced as voiceless.
   return (t.def->flags & kIsVoiced) == 0;
 }
 
@@ -28,6 +32,24 @@ static inline bool isVoicedStop(const Token& t) {
   if (!t.def) return false;
   if ((t.def->flags & kIsStop) == 0) return false;
   return (t.def->flags & kIsVoiced) != 0;
+}
+
+// Voiced obstruents: stops, affricates, and voiced fricatives.
+// Excludes sonorants (nasals, liquids, semivowels).
+static inline bool isVoicedObstruent(const Token& t) {
+  if (!t.def) return false;
+  if ((t.def->flags & kIsVowel) != 0) return false;
+  if ((t.def->flags & kIsVoiced) == 0) return false;
+  const uint32_t f = t.def->flags;
+  if ((f & kIsStop) != 0) return true;
+  if ((f & kIsAfricate) != 0) return true;
+  // Voiced fricatives: check frication amplitude on def or token.
+  int idx = static_cast<int>(FieldId::fricationAmplitude);
+  uint64_t bit = 1ull << idx;
+  double val = 0.0;
+  if (t.setMask & bit) val = t.field[idx];
+  else if (t.def->setMask & bit) val = t.def->field[idx];
+  return val > 0.05;
 }
 
 static inline bool isSilenceOrMissing(const Token& t) {
@@ -48,43 +70,95 @@ bool runMicroprosody(PassContext& ctx, std::vector<Token>& tokens, std::string& 
 
   const int vpIdx = static_cast<int>(FieldId::voicePitch);
   const int epIdx = static_cast<int>(FieldId::endVoicePitch);
+  const int f1Idx = static_cast<int>(FieldId::cf1);
+  const uint64_t f1Bit = 1ULL << f1Idx;
 
   for (size_t i = 0; i < tokens.size(); ++i) {
     Token& v = tokens[i];
     if (!isVowel(v) || isSilenceOrMissing(v)) continue;
 
-    // Find the nearest previous real token.
+    if (!hasField(v, FieldId::voicePitch) || !hasField(v, FieldId::endVoicePitch))
+      continue;
+
+    // Skip very short vowels — no room for microprosody.
+    if (v.durationMs < lang.microprosodyMinVowelMs) continue;
+
+    double startP = v.field[vpIdx];
+    double endP = v.field[epIdx];
+    const double origStartP = startP;
+    const double origEndP = endP;
+
+    // Find prev and next non-silence tokens.
     const Token* prev = nullptr;
     for (size_t j = i; j > 0; --j) {
-      const Token& cand = tokens[j - 1];
-      if (isSilenceOrMissing(cand)) continue;
-      prev = &cand;
-      break;
+      if (!isSilenceOrMissing(tokens[j - 1])) { prev = &tokens[j - 1]; break; }
     }
-    if (!prev) continue;
-
-    if (!hasField(v, FieldId::voicePitch) || !hasField(v, FieldId::endVoicePitch)) {
-      continue;
+    const Token* next = nullptr;
+    for (size_t j = i + 1; j < tokens.size(); ++j) {
+      if (!isSilenceOrMissing(tokens[j])) { next = &tokens[j]; break; }
     }
 
-    double startPitch = v.field[vpIdx];
-    double endPitch = v.field[epIdx];
-
-    // Voiceless consonants tend to raise the following vowel onset.
-    if (lang.microprosodyVoicelessF0RaiseEnabled && isVoicelessConsonant(*prev)) {
-      const double d = lang.microprosodyVoicelessF0RaiseHz;
-      v.field[vpIdx] = std::max(20.0, startPitch + d);
-      // Let it decay naturally by keeping endPitch unchanged.
-      v.field[epIdx] = std::max(20.0, endPitch);
-      continue;
+    // ── Phase 1: Onset F0 (backward-looking) ──
+    if (prev) {
+      if (lang.microprosodyVoicelessF0RaiseEnabled && isVoicelessConsonant(*prev)) {
+        startP += lang.microprosodyVoicelessF0RaiseHz;
+      } else if (lang.microprosodyVoicedF0LowerEnabled && isVoicedObstruent(*prev)) {
+        double d = lang.microprosodyVoicedF0LowerHz;
+        if (!isVoicedStop(*prev)) d *= lang.microprosodyVoicedFricativeLowerScale;
+        startP -= d;
+      }
     }
 
-    // Voiced stop consonants can slightly lower the following vowel onset.
-    if (lang.microprosodyVoicedF0LowerEnabled && isVoicedStop(*prev)) {
-      const double d = lang.microprosodyVoicedF0LowerHz;
-      v.field[vpIdx] = std::max(20.0, startPitch + d);
-      v.field[epIdx] = std::max(20.0, endPitch);
-      continue;
+    // ── Phase 2: Endpoint F0 (forward-looking) ──
+    if (next && lang.microprosodyFollowingF0Enabled) {
+      if (isVoicelessConsonant(*next)) {
+        endP += lang.microprosodyFollowingVoicelessRaiseHz;
+      } else if (isVoicedObstruent(*next)) {
+        endP -= lang.microprosodyFollowingVoicedLowerHz;
+      }
+    }
+
+    // ── Phase 3: Intrinsic vowel F0 ──
+    if (lang.microprosodyIntrinsicF0Enabled) {
+      double f1 = 0.0;
+      if (v.setMask & f1Bit) f1 = v.field[f1Idx];
+      else if (v.def && (v.def->setMask & f1Bit)) f1 = v.def->field[f1Idx];
+
+      if (f1 > 0.0) {
+        double delta = 0.0;
+        if (f1 < lang.microprosodyIntrinsicF0HighThreshold) {
+          delta = lang.microprosodyIntrinsicF0HighRaiseHz;
+        } else if (f1 > lang.microprosodyIntrinsicF0LowThreshold) {
+          delta = -lang.microprosodyIntrinsicF0LowDropHz;
+        }
+        if (delta != 0.0) {
+          startP += delta;
+          endP += delta;
+        }
+      }
+    }
+
+    // ── Clamp total perturbation ──
+    if (lang.microprosodyMaxTotalDeltaHz > 0.0) {
+      const double cap = lang.microprosodyMaxTotalDeltaHz;
+      const double dStart = startP - origStartP;
+      const double dEnd = endP - origEndP;
+      if (dStart >  cap) startP = origStartP + cap;
+      if (dStart < -cap) startP = origStartP - cap;
+      if (dEnd   >  cap) endP   = origEndP   + cap;
+      if (dEnd   < -cap) endP   = origEndP   - cap;
+    }
+
+    // Write back (20 Hz floor to prevent zero/negative pitch).
+    v.field[vpIdx] = std::max(20.0, startP);
+    v.field[epIdx] = std::max(20.0, endP);
+
+    // ── Phase 4: Pre-voiceless shortening (duration, not pitch) ──
+    if (next && lang.microprosodyPreVoicelessShortenEnabled) {
+      if (isVoicelessConsonant(*next)) {
+        v.durationMs *= lang.microprosodyPreVoicelessShortenScale;
+        v.durationMs = std::max(v.durationMs, lang.microprosodyPreVoicelessMinMs);
+      }
     }
   }
 

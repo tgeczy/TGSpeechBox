@@ -26,6 +26,37 @@ static int findLastVowel(const std::vector<Token>& tokens, int start, int end) {
   return -1;
 }
 
+static inline bool isSemivowel(const Token& t) {
+  return t.def && ((t.def->flags & kIsSemivowel) != 0);
+}
+
+// Find the first vowel token between [start, end) indices.  Returns -1 if none.
+static int findFirstVowel(const std::vector<Token>& tokens, int start, int end) {
+  for (int i = start; i < end; ++i) {
+    const Token& t = tokens[static_cast<size_t>(i)];
+    if (t.silence || !t.def) continue;
+    if (isVowel(t)) return i;
+  }
+  return -1;
+}
+
+// Extend the nucleus past adjacent vowels (diphthong: /eɪ/) and semivowels
+// (offglide: /ej/ from non-eSpeak phonemizers).  First non-vowel,
+// non-semivowel token marks the start of the true coda.
+static int findNucleusEnd(const std::vector<Token>& tokens, int nucleusIdx, int end) {
+  int last = nucleusIdx;
+  for (int i = nucleusIdx + 1; i < end; ++i) {
+    const Token& t = tokens[static_cast<size_t>(i)];
+    if (t.silence || !t.def) continue;
+    if (isVowel(t) || isSemivowel(t)) {
+      last = i;  // diphthong vowel or offglide — still nucleus
+    } else {
+      break;     // real coda consonant — stop
+    }
+  }
+  return last;
+}
+
 }  // namespace
 
 bool runProsody(PassContext& ctx, std::vector<Token>& tokens, std::string& outError) {
@@ -90,23 +121,30 @@ bool runProsody(PassContext& ctx, std::vector<Token>& tokens, std::string& outEr
     const bool codaBias = lang.phraseFinalLengtheningCodaScale > 0.0 ||
                           lang.phraseFinalLengtheningNucleusScale > 0.0;
     const int lastNucleus = codaBias
-        ? findLastVowel(tokens, lastSyllStart, static_cast<int>(tokens.size()))
+        ? findFirstVowel(tokens, lastSyllStart, static_cast<int>(tokens.size()))
         : -1;
     const double nucScale = (lang.phraseFinalLengtheningNucleusScale > 0.0)
         ? lang.phraseFinalLengtheningNucleusScale * clauseScale : lastScale;
     const double codScale = (lang.phraseFinalLengtheningCodaScale > 0.0)
         ? lang.phraseFinalLengtheningCodaScale * clauseScale : lastScale;
 
+    // Find where nucleus ends (including diphthong offglides).
+    const int nucleusEnd = (codaBias && lastNucleus >= 0)
+        ? findNucleusEnd(tokens, lastNucleus, static_cast<int>(tokens.size()))
+        : lastNucleus;
+
     for (size_t i = static_cast<size_t>(lastSyllStart); i < tokens.size(); ++i) {
       Token& t = tokens[i];
       if (t.silence || !t.def) continue;
       if (codaBias && lastNucleus >= 0) {
-        if (static_cast<int>(i) == lastNucleus)
-          t.durationMs *= nucScale;
-        else if (static_cast<int>(i) > lastNucleus)
-          t.durationMs *= codScale;
-        else
-          t.durationMs *= lastScale;  // onset: existing behavior
+        const int ii = static_cast<int>(i);
+        if (ii >= lastNucleus && ii <= nucleusEnd) {
+          t.durationMs *= nucScale;      // vowel + offglide = nucleus
+        } else if (ii > nucleusEnd) {
+          t.durationMs *= codScale;      // true coda consonants
+        } else {
+          t.durationMs *= lastScale;     // onset
+        }
       } else {
         t.durationMs *= lastScale;
       }

@@ -1657,6 +1657,11 @@ msgstr "Microprosodia Habilitado"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Max Total Delta (Hz)"
+msgstr "Microprosodia Máx. Delta Total (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Microprosody Min Vowel (ms)"
 msgstr "Microprosodia Vocal Mínima (ms)"
 
@@ -1684,6 +1689,66 @@ msgstr "Microprosodia Elevación de F0 Sorda Habilitada"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Microprosody Voiceless F0 Raise End (Hz)"
 msgstr "Microprosodia Fin de Elevación de F0 Sorda (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following F0 Enabled"
+msgstr "Microprosodia F0 Siguiente Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following Voiced Lower (Hz)"
+msgstr "Microprosodia Reducción Sonora Siguiente (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following Voiceless Raise (Hz)"
+msgstr "Microprosodia Elevación Sorda Siguiente (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Enabled"
+msgstr "Microprosodia F0 Intrínseca Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 High Raise (Hz)"
+msgstr "Microprosodia Elevación F0 Vocal Alta (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 High Threshold"
+msgstr "Microprosodia Umbral F0 Vocal Alta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Low Drop (Hz)"
+msgstr "Microprosodia Caída F0 Vocal Baja (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Low Threshold"
+msgstr "Microprosodia Umbral F0 Vocal Baja"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Min (ms)"
+msgstr "Microprosodia Mínimo Pre-Sorda (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Shorten Enabled"
+msgstr "Microprosodia Acortamiento Pre-Sorda Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Shorten Scale"
+msgstr "Microprosodia Escala de Acortamiento Pre-Sorda"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiced Fricative Lower Scale"
+msgstr "Microprosodia Escala de Reducción Fricativa Sonora"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -1887,23 +1952,108 @@ msgstr "Prominencia: Refuerzo Inicial de Palabra"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Rate Reduction Enabled"
-msgstr "Reducción de Velocidad Habilitado"
+msgid "Nasal Min Duration (ms)"
+msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Rate Reduction Schwa Min Duration (ms)"
-msgstr "Reducción de Velocidad Duración Mínima de Schwa (ms)"
+msgid "Phrase Final Lengthening Coda Scale"
+msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Rate Reduction Schwa Reduction Threshold"
-msgstr "Reducción de Velocidad Umbral de Reducción de Schwa"
+msgid "Phrase Final Lengthening Nucleus Scale"
+msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Rate Reduction Schwa Scale"
-msgstr "Reducción de Velocidad Escala de Schwa"
+msgid "Rate Comp Affricate Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Cluster Max Ratio Shift"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Cluster Proportion Guard"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Enabled"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Floor Speed Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Fricative Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Liquid Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Nasal Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Schwa Reduction Enabled"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Schwa Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Schwa Threshold"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Semivowel Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Stop Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Tap Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Trill Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Voiced Consonant Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Vowel Floor (ms)"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Word Final Bonus (ms)"
+msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2177,6 +2327,11 @@ msgstr "Límite de Trayectoria Máx. Hz Por Ms Pf3"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit Liquid Rate Scale"
+msgstr "Límite de Trayectoria Escala de Velocidad de Líquidas"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Trajectory Limit Window (ms)"
 msgstr "Límite de Trayectoria Ventana (ms)"
 
@@ -2194,6 +2349,11 @@ msgstr "Límite de Trayectoria: Aplicar A"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Trajectory Limit: Enabled"
 msgstr "Límite de Trayectoria: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Liquid Rate Scale"
+msgstr "Límite de Trayectoria: Escala de Velocidad de Líquidas"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

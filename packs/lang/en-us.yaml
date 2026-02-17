@@ -319,6 +319,15 @@ settings:
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: true
+    windowMs: 25
+    liquidRateScale: 1.5
+    applyTo: [cf1, cf2, cf3, pf2, pf3]
+    maxHzPerMs:
+      cf1: 15
+      cf2: 18
+      cf3: 22
+      pf2: 18
+      pf3: 22
   # ------------------------------------------------------------------
   # Special coarticulation: YAML-driven Hz deltas on vowels adjacent
   # to specific consonants.  Runs *after* the locus coarticulation pass,
