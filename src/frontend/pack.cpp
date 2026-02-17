@@ -691,10 +691,69 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("microprosodyVoicedF0LowerHz", lp.microprosodyVoicedF0LowerHz);
   getNum("microprosodyMinVowelMs", lp.microprosodyMinVowelMs);
 
-  getBool("rateReductionEnabled", lp.rateReductionEnabled);
-  getNum("rateReductionSchwaReductionThreshold", lp.rateReductionSchwaReductionThreshold);
-  getNum("rateReductionSchwaMinDurationMs", lp.rateReductionSchwaMinDurationMs);
-  getNum("rateReductionSchwaScale", lp.rateReductionSchwaScale);
+  getNum("nasalMinDurationMs", lp.nasalMinDurationMs);
+
+  // ── Rate compensation (nested YAML) ──
+  if (const yaml_min::Node* rc = settings.get("rateCompensation"); rc && rc->isMap()) {
+    getBoolFrom(*rc, "enabled", lp.rateCompEnabled);
+    if (const yaml_min::Node* md = rc->get("minimumDurations"); md && md->isMap()) {
+      getNumFrom(*md, "vowelMs", lp.rateCompVowelFloorMs);
+      getNumFrom(*md, "fricativeMs", lp.rateCompFricativeFloorMs);
+      getNumFrom(*md, "stopMs", lp.rateCompStopFloorMs);
+      getNumFrom(*md, "nasalMs", lp.rateCompNasalFloorMs);
+      getNumFrom(*md, "liquidMs", lp.rateCompLiquidFloorMs);
+      getNumFrom(*md, "affricateMs", lp.rateCompAffricateFloorMs);
+      getNumFrom(*md, "semivowelMs", lp.rateCompSemivowelFloorMs);
+      getNumFrom(*md, "tapMs", lp.rateCompTapFloorMs);
+      getNumFrom(*md, "trillMs", lp.rateCompTrillFloorMs);
+      getNumFrom(*md, "voicedConsonantMs", lp.rateCompVoicedConsonantFloorMs);
+    }
+    getNumFrom(*rc, "wordFinalBonusMs", lp.rateCompWordFinalBonusMs);
+    getNumFrom(*rc, "floorSpeedScale", lp.rateCompFloorSpeedScale);
+    getBoolFrom(*rc, "clusterProportionGuard", lp.rateCompClusterProportionGuard);
+    getNumFrom(*rc, "clusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
+    if (const yaml_min::Node* sr = rc->get("schwaReduction"); sr && sr->isMap()) {
+      getBoolFrom(*sr, "enabled", lp.rateCompSchwaReductionEnabled);
+      getNumFrom(*sr, "threshold", lp.rateCompSchwaThreshold);
+      getNumFrom(*sr, "scale", lp.rateCompSchwaScale);
+    }
+  }
+
+  // ── Rate compensation (flat-key fallbacks) ──
+  getBool("rateCompEnabled", lp.rateCompEnabled);
+  getNum("rateCompVowelFloorMs", lp.rateCompVowelFloorMs);
+  getNum("rateCompFricativeFloorMs", lp.rateCompFricativeFloorMs);
+  getNum("rateCompStopFloorMs", lp.rateCompStopFloorMs);
+  getNum("rateCompNasalFloorMs", lp.rateCompNasalFloorMs);
+  getNum("rateCompLiquidFloorMs", lp.rateCompLiquidFloorMs);
+  getNum("rateCompAffricateFloorMs", lp.rateCompAffricateFloorMs);
+  getNum("rateCompSemivowelFloorMs", lp.rateCompSemivowelFloorMs);
+  getNum("rateCompTapFloorMs", lp.rateCompTapFloorMs);
+  getNum("rateCompTrillFloorMs", lp.rateCompTrillFloorMs);
+  getNum("rateCompVoicedConsonantFloorMs", lp.rateCompVoicedConsonantFloorMs);
+  getNum("rateCompWordFinalBonusMs", lp.rateCompWordFinalBonusMs);
+  getNum("rateCompFloorSpeedScale", lp.rateCompFloorSpeedScale);
+  getBool("rateCompClusterProportionGuard", lp.rateCompClusterProportionGuard);
+  getNum("rateCompClusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
+  getBool("rateCompSchwaReductionEnabled", lp.rateCompSchwaReductionEnabled);
+  getNum("rateCompSchwaThreshold", lp.rateCompSchwaThreshold);
+  getNum("rateCompSchwaScale", lp.rateCompSchwaScale);
+
+  // ── BACKWARD COMPAT: old rateReduction* keys map to new fields ──
+  {
+    bool oldEnabled = false;
+    getBool("rateReductionEnabled", oldEnabled);
+    if (oldEnabled && !lp.rateCompEnabled) {
+      lp.rateCompEnabled = true;
+      lp.rateCompSchwaReductionEnabled = true;
+    }
+    double oldThreshold = 0.0;
+    getNum("rateReductionSchwaReductionThreshold", oldThreshold);
+    if (oldThreshold > 0.0) lp.rateCompSchwaThreshold = oldThreshold;
+    double oldScale = 0.0;
+    getNum("rateReductionSchwaScale", oldScale);
+    if (oldScale > 0.0) lp.rateCompSchwaScale = oldScale;
+  }
 
   getBool("wordFinalSchwaReductionEnabled", lp.wordFinalSchwaReductionEnabled);
   getNum("wordFinalSchwaScale", lp.wordFinalSchwaScale);

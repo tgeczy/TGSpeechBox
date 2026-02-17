@@ -60,7 +60,7 @@ settings:
   coarticulationEnabled: true
   trajectoryLimitEnabled: false
   microprosodyEnabled: false
-  rateReductionEnabled: true
+
   segmentBoundarySkipVowelToLiquid: false
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
@@ -387,6 +387,36 @@ settings:
     enabled: true
     strength: 0.25
     forwardDriftStrength: 0.25
+
+  # ------------------------------------------------------------------
+  # Rate compensation: enforce perceptual duration floors at high speed.
+  # Prevents speed compression from crushing segments below audibility.
+  # At normal speed (1x) this pass does nothing.
+  # ------------------------------------------------------------------
+  rateCompensation:
+    enabled: true
+    minimumDurations:
+      vowelMs: 25          # formant identity needs ~25ms
+      fricativeMs: 18       # spectral identity needs noise cycles
+      stopMs: 4             # already tiny — protect what's left
+      nasalMs: 18           # place perception (second layer on top of universal floor)
+      liquidMs: 15           # /ɹ/ and /l/ need F3 transition time
+      affricateMs: 12        # shorter than fricative, longer than stop
+      semivowelMs: 10        # glide needs trajectory
+      tapMs: 4               # quick by nature
+      trillMs: 12            # needs modulation cycles
+      voicedConsonantMs: 10  # catch-all voiced C
+
+    wordFinalBonusMs: 5      # extra floor at word end (morphology)
+    floorSpeedScale: 0.0     # 0.0 = rigid floors (recommended)
+
+    clusterProportionGuard: true
+    clusterMaxRatioShift: 0.4
+
+    schwaReduction:
+      enabled: false         # off for en-us for now (tune later)
+      threshold: 2.5
+      scale: 0.8
 
   syllableDuration:
     enabled: true

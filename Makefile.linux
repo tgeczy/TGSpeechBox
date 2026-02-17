@@ -55,7 +55,7 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/pitch_fujisaki.cpp \
 	$(PASSESDIR)/prominence.cpp \
 	$(PASSESDIR)/prosody.cpp \
-	$(PASSESDIR)/reduction.cpp \
+	$(PASSESDIR)/rate_compensation.cpp \
 	$(PASSESDIR)/special_coartic.cpp \
 	$(PASSESDIR)/trajectory_limit.cpp
 
@@ -191,7 +191,7 @@ $(BUILDDIR)/pass_pipeline.o: $(PASSESDIR)/pass_pipeline.cpp
 $(BUILDDIR)/prosody.o: $(PASSESDIR)/prosody.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
-$(BUILDDIR)/reduction.o: $(PASSESDIR)/reduction.cpp
+$(BUILDDIR)/rate_compensation.o: $(PASSESDIR)/rate_compensation.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/special_coartic.o: $(PASSESDIR)/special_coartic.cpp

@@ -760,12 +760,11 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
         if (tokenIsLiquid(t) || tokenIsSemivowel(t)) {
           fade = lang.liquidFadeMs / curSpeed;
         }
-        // Nasals need a minimum duration for place perception.
-        // Unlike stops (which are brief bursts), nasal place depends on
-        // formant transitions that need enough time to register.
-        // Without this floor, ɲ becomes indistinguishable from n at high speed.
-        if (tokenIsNasal(t) && dur < 18.0) {
-          dur = 18.0;
+        // Universal nasal floor: place perception depends on formant
+        // transitions that need real time (/ɲ/ vs /n/ vs /ŋ/).
+        // Configurable per-pack; rate_compensation adds a second layer.
+        if (tokenIsNasal(t) && dur < lang.nasalMinDurationMs) {
+          dur = lang.nasalMinDurationMs;
         }
       }
     }

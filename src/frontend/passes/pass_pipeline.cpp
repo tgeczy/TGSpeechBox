@@ -12,7 +12,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "microprosody.h"
 #include "nasalization.h"
 #include "prosody.h"
-#include "reduction.h"
+#include "rate_compensation.h"
 #include "liquid_dynamics.h"
 #include "length_contrast.h"
 #include "boundary_smoothing.h"
@@ -37,7 +37,7 @@ const PassDesc kPasses[] = {
     {"cluster_blend", PassStage::PostTiming, &passes::runClusterBlend},
     {"prominence", PassStage::PostTiming, &passes::runProminence},
     {"prosody", PassStage::PostTiming, &passes::runProsody},
-    {"reduction", PassStage::PostTiming, &passes::runReduction},
+    {"rate_compensation", PassStage::PostTiming, &passes::runRateCompensation},
     {"liquid_dynamics", PassStage::PostTiming, &passes::runLiquidDynamics},
     {"length_contrast", PassStage::PostTiming, &passes::runLengthContrast},
 

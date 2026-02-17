@@ -284,7 +284,8 @@ struct LanguagePack {
   double voicedConsonantDurationMs = 30.0;    // Voiced non-vowel default
   double tapDurationMs = 14.0;                // Tap/flap duration (ɾ)
   double trillFallbackDurationMs = 40.0;      // Trill duration if trillModulationMs unset
-  
+  double nasalMinDurationMs = 18.0;           // Universal nasal floor (place perception)
+
   // Vowel context-dependent durations
   double tiedVowelDurationMs = 40.0;          // Vowel tied to following segment (diphthong start)
   double tiedFromVowelDurationMs = 20.0;      // Vowel tied from previous (diphthong end)
@@ -847,11 +848,43 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double microprosodyVoicedF0LowerHz = 8.0;
   double microprosodyMinVowelMs = 25.0;
 
-  // Rate-dependent reduction.
-  bool rateReductionEnabled = false;
-  double rateReductionSchwaReductionThreshold = 2.5;
-  double rateReductionSchwaMinDurationMs = 15.0;
-  double rateReductionSchwaScale = 0.8;
+  // ── Rate compensation ──
+  // Enforces perceptual duration floors at high speech rates.
+  // Prevents speed compression from pushing segments below audibility.
+  // Runs PostTiming after cluster_timing, cluster_blend, and prominence.
+  bool rateCompEnabled = false;
+
+  // Per-class minimum durations (ms). Absolute floors regardless of speed.
+  // Set to 0.0 to disable floor for that class.
+  double rateCompVowelFloorMs = 25.0;
+  double rateCompFricativeFloorMs = 18.0;
+  double rateCompStopFloorMs = 4.0;
+  double rateCompNasalFloorMs = 18.0;
+  double rateCompLiquidFloorMs = 15.0;
+  double rateCompAffricateFloorMs = 12.0;
+  double rateCompSemivowelFloorMs = 10.0;
+  double rateCompTapFloorMs = 4.0;
+  double rateCompTrillFloorMs = 12.0;
+  double rateCompVoicedConsonantFloorMs = 10.0;
+
+  // Word-final segments get extra floor padding (added to class floor).
+  double rateCompWordFinalBonusMs = 5.0;
+
+  // Optional: let floors shrink slightly at extreme speeds (0.0 = rigid).
+  double rateCompFloorSpeedScale = 0.0;
+
+  // Cluster proportion guard: prevent single-segment bulge after floor
+  // enforcement. If one consonant in a cluster hits its floor, nudge
+  // neighbors proportionally.
+  bool rateCompClusterProportionGuard = true;
+  double rateCompClusterMaxRatioShift = 0.4;
+
+  // Absorbed from old reduction pass: rate-dependent schwa shortening.
+  // At speeds above threshold, unstressed schwas shorten. Floor still
+  // enforced — this can't create sub-threshold segments.
+  bool rateCompSchwaReductionEnabled = false;
+  double rateCompSchwaThreshold = 2.5;
+  double rateCompSchwaScale = 0.8;
 
   // Word-final schwa reduction.
   // Languages like Danish, German, French, European Portuguese reduce word-final
