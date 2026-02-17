@@ -455,7 +455,9 @@ def _getPanelClass():
                 "nasalizationAnticipatoryBlend",
                 "nasalizationAnticipatoryEnabled",
                 # --- Phrase-final lengthening ---
+                "phraseFinalLengtheningCodaFricativeScale",
                 "phraseFinalLengtheningCodaScale",
+                "phraseFinalLengtheningCodaStopScale",
                 "phraseFinalLengtheningEnabled",
                 "phraseFinalLengtheningFinalSyllableScale",
                 "phraseFinalLengtheningNucleusOnlyMode",

@@ -370,6 +370,8 @@ class LanguagePack:
     phrase_final_lengthening_nucleus_only_mode: bool = True
     phrase_final_lengthening_nucleus_scale: float = 0.0
     phrase_final_lengthening_coda_scale: float = 0.0
+    phrase_final_lengthening_coda_stop_scale: float = 0.0
+    phrase_final_lengthening_coda_fricative_scale: float = 0.0
     prominence_enabled: bool = False
     prominence_secondary_stress_level: float = 0.6
     prominence_long_vowel_weight: float = 0.5
@@ -810,6 +812,8 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.phrase_final_lengthening_nucleus_only_mode = gb("phraseFinalLengtheningNucleusOnlyMode", lp.phrase_final_lengthening_nucleus_only_mode)
     lp.phrase_final_lengthening_nucleus_scale = gn("phraseFinalLengtheningNucleusScale", lp.phrase_final_lengthening_nucleus_scale)
     lp.phrase_final_lengthening_coda_scale = gn("phraseFinalLengtheningCodaScale", lp.phrase_final_lengthening_coda_scale)
+    lp.phrase_final_lengthening_coda_stop_scale = gn("phraseFinalLengtheningCodaStopScale", lp.phrase_final_lengthening_coda_stop_scale)
+    lp.phrase_final_lengthening_coda_fricative_scale = gn("phraseFinalLengtheningCodaFricativeScale", lp.phrase_final_lengthening_coda_fricative_scale)
     lp.prominence_enabled = gb("prominenceEnabled", lp.prominence_enabled)
     lp.prominence_primary_stress_weight = gn("prominencePrimaryStressWeight", lp.prominence_primary_stress_weight)
     lp.prominence_secondary_stress_weight = gn("prominenceSecondaryStressWeight", lp.prominence_secondary_stress_weight)
