@@ -651,6 +651,8 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("phraseFinalLengtheningStatementScale", lp.phraseFinalLengtheningStatementScale);
   getNum("phraseFinalLengtheningQuestionScale", lp.phraseFinalLengtheningQuestionScale);
   getBool("phraseFinalLengtheningNucleusOnlyMode", lp.phraseFinalLengtheningNucleusOnlyMode);
+  getNum("phraseFinalLengtheningNucleusScale", lp.phraseFinalLengtheningNucleusScale);
+  getNum("phraseFinalLengtheningCodaScale", lp.phraseFinalLengtheningCodaScale);
 
   // ── Prominence pass (nested block + flat-key fallbacks) ──
   if (const yaml_min::Node* pr = settings.get("prominence"); pr && pr->isMap()) {

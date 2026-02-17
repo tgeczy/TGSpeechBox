@@ -86,10 +86,30 @@ bool runProsody(PassContext& ctx, std::vector<Token>& tokens, std::string& outEr
     }
   } else {
     // Full-syllable mode: scale everything from the last syllable start onward.
+    // With coda bias: nucleus gets nucleusScale, post-nucleus coda gets codaScale.
+    const bool codaBias = lang.phraseFinalLengtheningCodaScale > 0.0 ||
+                          lang.phraseFinalLengtheningNucleusScale > 0.0;
+    const int lastNucleus = codaBias
+        ? findLastVowel(tokens, lastSyllStart, static_cast<int>(tokens.size()))
+        : -1;
+    const double nucScale = (lang.phraseFinalLengtheningNucleusScale > 0.0)
+        ? lang.phraseFinalLengtheningNucleusScale * clauseScale : lastScale;
+    const double codScale = (lang.phraseFinalLengtheningCodaScale > 0.0)
+        ? lang.phraseFinalLengtheningCodaScale * clauseScale : lastScale;
+
     for (size_t i = static_cast<size_t>(lastSyllStart); i < tokens.size(); ++i) {
       Token& t = tokens[i];
       if (t.silence || !t.def) continue;
-      t.durationMs *= lastScale;
+      if (codaBias && lastNucleus >= 0) {
+        if (static_cast<int>(i) == lastNucleus)
+          t.durationMs *= nucScale;
+        else if (static_cast<int>(i) > lastNucleus)
+          t.durationMs *= codScale;
+        else
+          t.durationMs *= lastScale;  // onset: existing behavior
+      } else {
+        t.durationMs *= lastScale;
+      }
     }
 
     if (penultSyllStart >= 0) {
