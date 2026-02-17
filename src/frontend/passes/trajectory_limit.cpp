@@ -17,14 +17,39 @@ static inline bool tokIsSilenceOrMissing(const Token& t) {
   return t.silence || !t.def;
 }
 
-// Check if this token needs sharp formant transitions (semivowels, liquids, nasals).
-// These sounds are perceptually sensitive to over-smoothing.
-// Nasals: place perception (n vs ɲ) depends on F2 transitions in adjacent vowels,
-// not the nasal murmur itself, so limiting destroys the place cue.
-static inline bool tokNeedsSharpTransition(const Token& t) {
-  if (!t.def) return false;
-  const uint32_t f = t.def->flags;
-  return ((f & kIsSemivowel) != 0) || ((f & kIsLiquid) != 0) || ((f & kIsNasal) != 0);
+// Nasals: ALWAYS skip — place perception (n vs ɲ vs ŋ) depends on sharp
+// F2 transitions in adjacent vowels.  Rate limiting destroys the place cue.
+static inline bool tokIsNasal(const Token& t) {
+  return t.def && ((t.def->flags & kIsNasal) != 0);
+}
+
+// Semivowels: ALWAYS skip — the fast glide trajectory IS the percept.
+static inline bool tokIsSemivowel(const Token& t) {
+  return t.def && ((t.def->flags & kIsSemivowel) != 0);
+}
+
+// Liquids: rate-limit but with gentler limits (liquidRateScale multiplier).
+static inline bool tokIsLiquid(const Token& t) {
+  return t.def && ((t.def->flags & kIsLiquid) != 0);
+}
+
+// Map a FieldId index to its transF*Scale group (1=F1, 2=F2, 3=F3).
+// Returns 0 for fields not in any formant group.
+static inline int transScaleGroup(int fieldIdx) {
+  const FieldId fid = static_cast<FieldId>(fieldIdx);
+  switch (fid) {
+    case FieldId::cf1: case FieldId::pf1:
+    case FieldId::cb1: case FieldId::pb1:
+      return 1;
+    case FieldId::cf2: case FieldId::pf2:
+    case FieldId::cb2: case FieldId::pb2:
+      return 2;
+    case FieldId::cf3: case FieldId::pf3:
+    case FieldId::cb3: case FieldId::pb3:
+      return 3;
+    default:
+      return 0;
+  }
 }
 
 static inline double getResolvedField(const Token& t, int idx) {
@@ -74,22 +99,39 @@ bool runTrajectoryLimit(PassContext& ctx, std::vector<Token>& tokens, std::strin
       continue;
     }
 
-    // Skip semivowels and liquids - they need sharp formant transitions.
-    if (tokNeedsSharpTransition(cur) || tokNeedsSharpTransition(prev)) {
-      continue;
-    }
+    // Skip nasals and semivowels entirely — they need sharp transitions.
+    if (tokIsNasal(cur) || tokIsNasal(prev)) continue;
+    if (tokIsSemivowel(cur) || tokIsSemivowel(prev)) continue;
+
+    // Liquids get rate-limited but with gentler limits.
+    const bool liquidInvolved = tokIsLiquid(cur) || tokIsLiquid(prev);
 
     // The fade belongs to the *incoming* token (cur) and is the time over
     // which its targets are interpolated from the previous token.
     const double curFade = std::max(0.001, cur.fadeMs);
+
+    // Get transScale for each formant group.  0.0 means "no override"
+    // (= use full fade), so treat 0.0 as 1.0.
+    auto effectiveScale = [](double s) -> double {
+      return (s > 0.001) ? s : 1.0;
+    };
+    const double tsF1 = effectiveScale(cur.transF1Scale);
+    const double tsF2 = effectiveScale(cur.transF2Scale);
+    const double tsF3 = effectiveScale(cur.transF3Scale);
+    const double tsArr[4] = {1.0, tsF1, tsF2, tsF3};
 
     double neededFade = 0.0;
 
     for (int idx = 0; idx < static_cast<int>(kFrameFieldCount); ++idx) {
       if ((mask & (1ULL << idx)) == 0) continue;
 
-      const double maxHzPerMs = lang.trajectoryLimitMaxHzPerMs[static_cast<size_t>(idx)];
-      if (maxHzPerMs <= 0.0) continue;
+      double effectiveMaxRate = lang.trajectoryLimitMaxHzPerMs[static_cast<size_t>(idx)];
+      if (effectiveMaxRate <= 0.0) continue;
+
+      // Liquids get a gentler limit (larger multiplier = more Hz/ms allowed).
+      if (liquidInvolved) {
+        effectiveMaxRate *= lang.trajectoryLimitLiquidRateScale;
+      }
 
       const double a = getResolvedField(prev, idx);
       const double b = getResolvedField(cur, idx);
@@ -98,8 +140,21 @@ bool runTrajectoryLimit(PassContext& ctx, std::vector<Token>& tokens, std::strin
       const double delta = std::abs(b - a);
       if (delta <= 1e-6) continue;
 
-      const double required = delta / maxHzPerMs;
-      if (required > neededFade) neededFade = required;
+      // Account for transScale: effective fade for this formant group
+      // is curFade * transScale.  If transScale compresses the fade,
+      // the actual Hz/ms rate is higher.
+      const double ts = tsArr[transScaleGroup(idx)];
+      const double effectiveFade = curFade * ts;
+      const double currentRate = delta / std::max(0.001, effectiveFade);
+
+      if (currentRate > effectiveMaxRate) {
+        // Need this much effective fade time for this field.
+        const double requiredEffective = delta / effectiveMaxRate;
+        // Convert back to raw fadeMs: requiredEffective = rawFade * ts
+        // → rawFade = requiredEffective / ts
+        const double requiredRaw = requiredEffective / std::max(0.001, ts);
+        if (requiredRaw > neededFade) neededFade = requiredRaw;
+      }
     }
 
     // Only act if current fade is shorter than what we need.

@@ -782,6 +782,9 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   }();
   double trajectoryLimitWindowMs = 25.0;
   bool trajectoryLimitApplyAcrossWordBoundary = false;
+  // Liquids get gentler rate limiting (larger transitions are expected).
+  // 1.5 = allow 50% faster Hz/ms than the normal limit.
+  double trajectoryLimitLiquidRateScale = 1.5;
 
   
 
