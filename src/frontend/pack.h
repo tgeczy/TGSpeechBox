@@ -850,6 +850,26 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double microprosodyVoicedF0LowerHz = 8.0;
   double microprosodyMinVowelMs = 25.0;
 
+  // Following-consonant F0: adjust vowel END pitch based on next C.
+  bool microprosodyFollowingF0Enabled = true;
+  double microprosodyFollowingVoicelessRaiseHz = 10.0;
+  double microprosodyFollowingVoicedLowerHz = 5.0;
+
+  // Voiced fricatives lower F0 less than voiced stops.
+  double microprosodyVoicedFricativeLowerScale = 0.6;
+
+  // Intrinsic vowel F0: high vowels slightly higher, low vowels lower.
+  bool microprosodyIntrinsicF0Enabled = true;
+  double microprosodyIntrinsicF0HighThreshold = 400.0;  // F1 below = high vowel
+  double microprosodyIntrinsicF0LowThreshold = 600.0;   // F1 above = low vowel
+  double microprosodyIntrinsicF0HighRaiseHz = 6.0;
+  double microprosodyIntrinsicF0LowDropHz = 4.0;
+
+  // Pre-voiceless shortening: vowels before voiceless C are shorter.
+  bool microprosodyPreVoicelessShortenEnabled = true;
+  double microprosodyPreVoicelessShortenScale = 0.85;  // 85% of normal
+  double microprosodyPreVoicelessMinMs = 25.0;         // matches rate comp floor
+
   // ── Rate compensation ──
   // Enforces perceptual duration floors at high speech rates.
   // Prevents speed compression from pushing segments below audibility.
