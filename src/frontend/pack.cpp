@@ -705,6 +705,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getBool("microprosodyPreVoicelessShortenEnabled", lp.microprosodyPreVoicelessShortenEnabled);
   getNum("microprosodyPreVoicelessShortenScale", lp.microprosodyPreVoicelessShortenScale);
   getNum("microprosodyPreVoicelessMinMs", lp.microprosodyPreVoicelessMinMs);
+  getNum("microprosodyMaxTotalDeltaHz", lp.microprosodyMaxTotalDeltaHz);
 
   getNum("nasalMinDurationMs", lp.nasalMinDurationMs);
 

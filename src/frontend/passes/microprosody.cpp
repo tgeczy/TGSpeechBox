@@ -85,6 +85,8 @@ bool runMicroprosody(PassContext& ctx, std::vector<Token>& tokens, std::string& 
 
     double startP = v.field[vpIdx];
     double endP = v.field[epIdx];
+    const double origStartP = startP;
+    const double origEndP = endP;
 
     // Find prev and next non-silence tokens.
     const Token* prev = nullptr;
@@ -134,6 +136,17 @@ bool runMicroprosody(PassContext& ctx, std::vector<Token>& tokens, std::string& 
           endP += delta;
         }
       }
+    }
+
+    // ── Clamp total perturbation ──
+    if (lang.microprosodyMaxTotalDeltaHz > 0.0) {
+      const double cap = lang.microprosodyMaxTotalDeltaHz;
+      const double dStart = startP - origStartP;
+      const double dEnd = endP - origEndP;
+      if (dStart >  cap) startP = origStartP + cap;
+      if (dStart < -cap) startP = origStartP - cap;
+      if (dEnd   >  cap) endP   = origEndP   + cap;
+      if (dEnd   < -cap) endP   = origEndP   - cap;
     }
 
     // Write back (20 Hz floor to prevent zero/negative pitch).

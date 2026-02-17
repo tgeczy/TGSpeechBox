@@ -872,6 +872,7 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool microprosodyPreVoicelessShortenEnabled = true;
   double microprosodyPreVoicelessShortenScale = 0.85;  // 85% of normal
   double microprosodyPreVoicelessMinMs = 25.0;         // matches rate comp floor
+  double microprosodyMaxTotalDeltaHz = 0.0;            // 0 = no cap
 
   // ── Rate compensation ──
   // Enforces perceptual duration floors at high speech rates.
