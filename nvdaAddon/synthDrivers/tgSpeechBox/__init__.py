@@ -1039,8 +1039,8 @@ class SynthDriver(SynthDriver):
         ("microprosodyEnabled", "microprosodyEnabled", "bool", False, None),
         ("microprosodyVoicelessF0RaiseEnabled", "microprosodyVoicelessF0RaiseEnabled", "bool", False, None),
         ("microprosodyVoicedF0LowerEnabled", "microprosodyVoicedF0LowerEnabled", "bool", False, None),
-        # --- Rate reduction settings ---
-        ("rateReductionEnabled", "rateReductionEnabled", "bool", False, None),
+        # --- Rate compensation settings ---
+        ("rateCompEnabled", "rateCompEnabled", "bool", False, None),
         # --- Nasalization settings ---
         ("nasalizationAnticipatoryEnabled", "nasalizationAnticipatoryEnabled", "bool", False, None),
         # --- Liquid dynamics settings ---
