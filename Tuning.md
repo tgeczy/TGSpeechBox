@@ -1388,6 +1388,14 @@ settings:
 
     # If true, apply mostly to the "nucleus" (vowel-like) portion.
     nucleusOnlyMode: true
+
+    # Coda bias (full-syllable mode only, nucleusOnlyMode: false).
+    # Stretches coda consonants more than the nucleus vowel, preserving
+    # vowel clarity while giving word-final morphological segments
+    # (/s/, /d/, /z/) the lengthening they need.
+    # Both default to 0.0 (disabled — uses finalSyllableScale for all).
+    nucleusScale: 1.0    # vowel stays near natural length
+    codaScale: 1.4       # coda consonants get the stretch
 ```
 
 ### Microprosody
@@ -1412,20 +1420,43 @@ settings:
     minVowelMs: 25
 ```
 
-### Rate-dependent reduction
+### Rate compensation
 
-At high speech rates, some distinctions are better represented as reduction rather than "perfect" articulation. Start conservative.
+Rate compensation enforces configurable perceptual duration floors at high speech rates. At normal speed (1x) the pass does nothing. At high speed it prevents segments from being crushed below their audibility threshold.
+
+Every phoneme class has its own minimum duration floor. Word-final segments get extra padding because English carries morphological information at word boundaries (plural /s/, past tense /d/, possessive /z/). An optional cluster proportion guard prevents single-segment "bulge" when one consonant in a cluster hits its floor.
 
 ```yaml
 settings:
-  rateReduction:
+  rateCompensation:
     enabled: true
+    minimumDurations:
+      vowelMs: 25          # formant identity needs ~25ms
+      fricativeMs: 18       # spectral identity needs noise cycles
+      stopMs: 4             # already tiny — protect what's left
+      nasalMs: 18           # place perception (/ɲ/ vs /n/ vs /ŋ/)
+      liquidMs: 15           # /ɹ/ and /l/ need F3 transition time
+      affricateMs: 12        # shorter than fricative, longer than stop
+      semivowelMs: 10        # glide needs trajectory
+      tapMs: 4               # quick by nature
+      trillMs: 12            # needs modulation cycles
+      voicedConsonantMs: 10  # catch-all voiced C
 
-    # Schwas become shorter/weaker beyond this speed multiplier.
-    schwaReductionThreshold: 2.5
-    schwaMinDurationMs: 15
-    schwaScale: 0.80
+    wordFinalBonusMs: 5      # extra floor at word end (morphology)
+    floorSpeedScale: 0.0     # 0.0 = rigid floors (recommended)
+
+    clusterProportionGuard: true
+    clusterMaxRatioShift: 0.4
+
+    schwaReduction:
+      enabled: false         # rate-dependent schwa shortening
+      threshold: 2.5
+      scale: 0.8
 ```
+
+All fields also have flat-key equivalents (e.g. `rateCompVowelFloorMs: 25`). Old `rateReductionEnabled` keys are mapped to the new system automatically for backward compatibility.
+
+A separate universal `nasalMinDurationMs` field (default 18.0) in pack.h enforces a nasal floor in `calculateTimes` for all languages regardless of whether rate compensation is enabled. Rate compensation's `nasalMs` floor is a second layer on top.
 
 ### Word-final schwa reduction
 
@@ -1438,7 +1469,7 @@ settings:
   wordFinalSchwaMinDurationMs: 8.0   # floor to avoid total silence
 ```
 
-Unlike rate-dependent schwa reduction (which activates at high speeds), this applies at all speech rates.
+Unlike rate-dependent schwa shortening (which activates at high speeds via rate compensation), this applies at all speech rates. It runs as Phase 0 of the rate compensation pass, gated by its own bool — it executes even when `rateCompEnabled` is false.
 
 ### Anticipatory nasalization
 
