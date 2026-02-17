@@ -816,6 +816,8 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool phraseFinalLengtheningNucleusOnlyMode = true;
   double phraseFinalLengtheningNucleusScale = 0.0;  // 0 = use finalSyllableScale
   double phraseFinalLengtheningCodaScale = 0.0;     // 0 = use finalSyllableScale
+  double phraseFinalLengtheningCodaStopScale = 0.0;      // 0 = fall back to codaScale
+  double phraseFinalLengtheningCodaFricativeScale = 0.0;  // 0 = fall back to codaScale
 
   // ── Prominence pass ──
   bool prominenceEnabled = false;
