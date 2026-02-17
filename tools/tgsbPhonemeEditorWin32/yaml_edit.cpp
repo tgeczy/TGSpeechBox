@@ -534,6 +534,26 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"prominenceAmplitudeReductionDb", "prominence", nullptr},
   {"prominencePitchFromProminence", "prominence", nullptr},
 
+  // rateCompensation settings
+  {"rateCompEnabled", "rateCompensation", nullptr},
+  {"rateCompVowelFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompFricativeFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompStopFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompNasalFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompLiquidFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompAffricateFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompSemivowelFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompTapFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompTrillFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompVoicedConsonantFloorMs", "rateCompensation", "minimumDurations"},
+  {"rateCompWordFinalBonusMs", "rateCompensation", nullptr},
+  {"rateCompFloorSpeedScale", "rateCompensation", nullptr},
+  {"rateCompClusterProportionGuard", "rateCompensation", nullptr},
+  {"rateCompClusterMaxRatioShift", "rateCompensation", nullptr},
+  {"rateCompSchwaReductionEnabled", "rateCompensation", "schwaReduction"},
+  {"rateCompSchwaThreshold", "rateCompensation", "schwaReduction"},
+  {"rateCompSchwaScale", "rateCompensation", "schwaReduction"},
+
   // syllableDuration settings
   {"syllableDurationEnabled", "syllableDuration", nullptr},
   {"syllableDurationOnsetScale", "syllableDuration", nullptr},
