@@ -1666,6 +1666,66 @@ msgstr "Microprosódia Fim de Elevação de F0 Surda (Hz)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following F0 Enabled"
+msgstr "Microprosódia F0 Seguinte Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following Voiced Lower (Hz)"
+msgstr "Microprosódia Redução Sonora Seguinte (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following Voiceless Raise (Hz)"
+msgstr "Microprosódia Elevação Surda Seguinte (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Enabled"
+msgstr "Microprosódia F0 Intrínseca Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 High Raise (Hz)"
+msgstr "Microprosódia Elevação F0 Vogal Alta (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 High Threshold"
+msgstr "Microprosódia Limiar F0 Vogal Alta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Low Drop (Hz)"
+msgstr "Microprosódia Queda F0 Vogal Baixa (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Low Threshold"
+msgstr "Microprosódia Limiar F0 Vogal Baixa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Min (ms)"
+msgstr "Microprosódia Mínimo Pré-Surda (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Shorten Enabled"
+msgstr "Microprosódia Encurtamento Pré-Surda Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Shorten Scale"
+msgstr "Microprosódia Escala de Encurtamento Pré-Surda"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiced Fricative Lower Scale"
+msgstr "Microprosódia Escala de Redução Fricativa Sonora"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Nasalization Anticipatory Amplitude"
 msgstr "Nasalização Amplitude Antecipatória"
 

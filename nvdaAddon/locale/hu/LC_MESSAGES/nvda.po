@@ -1666,6 +1666,66 @@ msgstr "Mikroprozódia Zöngétlen F0 emelés vége (Hz)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following F0 Enabled"
+msgstr "Mikroprozódia Következő F0 engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following Voiced Lower (Hz)"
+msgstr "Mikroprozódia Következő zöngés csökkentés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Following Voiceless Raise (Hz)"
+msgstr "Mikroprozódia Következő zöngétlen emelés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Enabled"
+msgstr "Mikroprozódia Belső F0 engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 High Raise (Hz)"
+msgstr "Mikroprozódia Magas magánhangzó F0 emelés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 High Threshold"
+msgstr "Mikroprozódia Magas magánhangzó F0 küszöb"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Low Drop (Hz)"
+msgstr "Mikroprozódia Mély magánhangzó F0 csökkenés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Intrinsic F0 Low Threshold"
+msgstr "Mikroprozódia Mély magánhangzó F0 küszöb"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Min (ms)"
+msgstr "Mikroprozódia Zöngétlen előtti minimum (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Shorten Enabled"
+msgstr "Mikroprozódia Zöngétlen előtti rövidítés engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Pre Voiceless Shorten Scale"
+msgstr "Mikroprozódia Zöngétlen előtti rövidítés mértéke"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiced Fricative Lower Scale"
+msgstr "Mikroprozódia Zöngés réshang csökkentés mértéke"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Nasalization Anticipatory Amplitude"
 msgstr "Nazalizáció Előlegező amplitúdó"
 
