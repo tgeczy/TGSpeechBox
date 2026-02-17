@@ -27,7 +27,13 @@ struct Node {
   std::string scalar;
 
   std::unordered_map<std::string, Node> map;
+  // Preserves insertion order of map keys for round-trip fidelity.
+  std::vector<std::string> keyOrder;
   std::vector<Node> seq;
+
+  // True if this node was parsed from inline flow syntax ({...} or [...]).
+  // Used by the editor serializer to emit compact output.
+  bool flowStyle = false;
 
   bool isScalar() const { return type == Type::Scalar; }
   bool isMap() const { return type == Type::Map; }

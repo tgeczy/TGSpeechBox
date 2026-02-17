@@ -26,6 +26,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <shlwapi.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <string>
 #include <unordered_set>
@@ -34,6 +35,7 @@ Licensed under the MIT License. See LICENSE for details.
 namespace fs = std::filesystem;
 
 // yaml_edit.* and tgsb_runtime.* live in the tgsb_editor namespace.
+using tgsb_editor::Node;
 using tgsb_editor::ReplacementRule;
 using tgsb_editor::ReplacementWhen;
 using tgsb_editor::TgsbRuntime;
@@ -993,6 +995,34 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
   ShowEditPhonemeDialog(app.hInst, app.wnd, st);
   if (!st.ok) return;
 
+  // Bug 7: Warn on critical flag changes (isVowel, isVoiced, etc.).
+  {
+    const char* criticalFlags[] = {"_isVowel", "_isVoiced", "_isStop", "_isNasal",
+                                   "_isSemivowel", "_isLiquid", "_isAffricate"};
+    std::string flagWarnings;
+    for (const char* flag : criticalFlags) {
+      const Node* origF = st.original.get(flag);
+      const Node* newF = st.working.get(flag);
+      std::string origVal = origF ? origF->asString("false") : "false";
+      std::string newVal = newF ? newF->asString("false") : "false";
+      if (origVal != newVal) {
+        flagWarnings += std::string(flag) + ": " + origVal + " -> " + newVal + "\n";
+      }
+    }
+    if (!flagWarnings.empty()) {
+      std::wstring msg = L"Warning: You changed critical phoneme flags for '"
+        + utf8ToWide(key) + L"':\n\n"
+        + utf8ToWide(flagWarnings)
+        + L"\nThis phoneme is shared across ALL language packs.\n"
+          L"Flag changes affect timing, microprosody, prominence,\n"
+          L"and syllable detection globally.\n\n"
+          L"Apply this change?";
+      int res = MessageBoxW(app.wnd, msg.c_str(), L"Flag Change Warning",
+                            MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+      if (res != IDYES) return;
+    }
+  }
+
   *node = st.working;
   app.phonemesDirty = true;
   msgBox(app.wnd, L"Phoneme updated. Remember to save phonemes YAML (Ctrl+P).", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
@@ -1033,11 +1063,62 @@ static void onSaveLanguage(AppController& app) {
   app.setStatus(L"Saved language YAML");
 }
 
+// Validate formant ordering: cf1 < cf2 < cf3 ... and pf1 < pf2 < pf3 ...
+// Returns empty string on success, or a multi-line error listing violations.
+static std::string validateFormantOrdering(AppController& app) {
+  std::string errors;
+  auto keys = app.phonemes.phonemeKeysSorted();
+
+  // Pairs of (prefix, count): cascade and parallel formant frequencies.
+  const char* prefixes[] = {"cf", "pf"};
+  const char* labels[] = {"cascade", "parallel"};
+
+  for (const auto& phonemeKey : keys) {
+    const Node* node = app.phonemes.getPhonemeNode(phonemeKey);
+    if (!node || !node->isMap()) continue;
+
+    for (int p = 0; p < 2; ++p) {
+      double prev = 0.0;
+      int prevIdx = 0;
+      for (int i = 1; i <= 6; ++i) {
+        char fieldName[8];
+        std::snprintf(fieldName, sizeof(fieldName), "%s%d", prefixes[p], i);
+        const Node* fn = node->get(fieldName);
+        if (!fn) continue;
+        double val = 0.0;
+        if (!fn->asNumber(val) || val <= 0.0) continue;
+        if (prev > 0.0 && val <= prev) {
+          char buf[256];
+          std::snprintf(buf, sizeof(buf),
+            "%s: %s F%d (%.0f Hz) <= F%d (%.0f Hz)\n",
+            phonemeKey.c_str(), labels[p], i, val, prevIdx, prev);
+          errors += buf;
+        }
+        prev = val;
+        prevIdx = i;
+      }
+    }
+  }
+  return errors;
+}
+
 static void onSavePhonemes(AppController& app) {
   if (!app.phonemes.isLoaded()) {
     msgBox(app.wnd, L"No phonemes YAML loaded.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
+
+  // Validate formant ordering before save (Bug 8).
+  std::string formantErrors = validateFormantOrdering(app);
+  if (!formantErrors.empty()) {
+    std::wstring msg = L"Formant ordering violations found:\n\n"
+      + utf8ToWide(formantErrors)
+      + L"\nFormant frequencies must be in ascending order (F1 < F2 < F3 ...).\n"
+        L"Save anyway?";
+    int res = MessageBoxW(app.wnd, msg.c_str(), L"Validation Warning", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    if (res != IDYES) return;
+  }
+
   std::string err;
   if (!app.phonemes.save(err)) {
     msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);
