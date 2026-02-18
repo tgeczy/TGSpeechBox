@@ -583,6 +583,36 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getBool("boundarySmoothingPlosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
   getBool("boundarySmoothingNasalF1Instant", lp.boundarySmoothingNasalF1Instant);
   getBool("boundarySmoothingNasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
+  // Fade times (flat-key equivalents of nested boundarySmoothing block)
+  getNum("boundarySmoothingVowelToStopFadeMs", lp.boundarySmoothingVowelToStopMs);
+  getNum("boundarySmoothingStopToVowelFadeMs", lp.boundarySmoothingStopToVowelMs);
+  getNum("boundarySmoothingVowelToFricFadeMs", lp.boundarySmoothingVowelToFricMs);
+  getNum("boundarySmoothingFricToVowelFadeMs", lp.boundarySmoothingFricToVowelMs);
+  getNum("boundarySmoothingVowelToNasalFadeMs", lp.boundarySmoothingVowelToNasalMs);
+  getNum("boundarySmoothingNasalToVowelFadeMs", lp.boundarySmoothingNasalToVowelMs);
+  getNum("boundarySmoothingVowelToLiquidFadeMs", lp.boundarySmoothingVowelToLiquidMs);
+  getNum("boundarySmoothingLiquidToVowelFadeMs", lp.boundarySmoothingLiquidToVowelMs);
+  getNum("boundarySmoothingNasalToStopFadeMs", lp.boundarySmoothingNasalToStopMs);
+  getNum("boundarySmoothingLiquidToStopFadeMs", lp.boundarySmoothingLiquidToStopMs);
+  getNum("boundarySmoothingFricToStopFadeMs", lp.boundarySmoothingFricToStopMs);
+  getNum("boundarySmoothingStopToFricFadeMs", lp.boundarySmoothingStopToFricMs);
+  getNum("boundarySmoothingVowelToVowelFadeMs", lp.boundarySmoothingVowelToVowelMs);
+  // Place-of-articulation transition speed overrides
+  getNum("boundarySmoothingLabialF1Scale", lp.boundarySmoothingLabialF1Scale);
+  getNum("boundarySmoothingLabialF2Scale", lp.boundarySmoothingLabialF2Scale);
+  getNum("boundarySmoothingLabialF3Scale", lp.boundarySmoothingLabialF3Scale);
+  getNum("boundarySmoothingAlveolarF1Scale", lp.boundarySmoothingAlveolarF1Scale);
+  getNum("boundarySmoothingAlveolarF2Scale", lp.boundarySmoothingAlveolarF2Scale);
+  getNum("boundarySmoothingAlveolarF3Scale", lp.boundarySmoothingAlveolarF3Scale);
+  getNum("boundarySmoothingPalatalF1Scale", lp.boundarySmoothingPalatalF1Scale);
+  getNum("boundarySmoothingPalatalF2Scale", lp.boundarySmoothingPalatalF2Scale);
+  getNum("boundarySmoothingPalatalF3Scale", lp.boundarySmoothingPalatalF3Scale);
+  getNum("boundarySmoothingVelarF1Scale", lp.boundarySmoothingVelarF1Scale);
+  getNum("boundarySmoothingVelarF2Scale", lp.boundarySmoothingVelarF2Scale);
+  getNum("boundarySmoothingVelarF3Scale", lp.boundarySmoothingVelarF3Scale);
+  // Syllable-aware transition controls
+  getNum("boundarySmoothingWithinSyllableScale", lp.boundarySmoothingWithinSyllableScale);
+  getNum("boundarySmoothingWithinSyllableFadeScale", lp.boundarySmoothingWithinSyllableFadeScale);
 
   // Trajectory limiting (optional)
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
