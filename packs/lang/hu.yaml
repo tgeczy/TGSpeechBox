@@ -1,4 +1,4 @@
-# Hungarian language pack — Opus 4.6 revision
+# Hungarian language pack — v2.95 revision
 # Hungarian is SYLLABLE-TIMED with fixed initial stress, phonemic vowel length,
 # and a rich palatal consonant inventory. Prosody is relatively flat with
 # gentle final fall — quite different from English stress-timing.
@@ -25,15 +25,6 @@ settings:
   primaryStressDiv: 1.05
   secondaryStressDiv: 1.00
 
-  prominence:
-    enabled: true
-    secondaryStressLevel: 0.15    # Hungarian has no real secondary stress
-    primaryStressWeight: 1.05     # match old primaryStressDiv — minimal lengthening
-    secondaryStressWeight: 1.00   # match old secondaryStressDiv — no lengthening
-    durationReducedCeiling: 1.0   # no unstressed reduction (syllable-timed)
-    amplitudeBoostDb: 1.8         # stress lives in amplitude, not duration
-    amplitudeReductionDb: 0.0
-
   # === LENGTH CONTRAST ===
   # Hungarian has phonemic vowel length (a/á, e/é, i/í, etc.) — this MUST be
   # perceptually clear. The short/long distinction is the #1 prosodic feature.
@@ -44,8 +35,8 @@ settings:
 
   lengthContrast:
     enabled: true
-    shortVowelCeilingMs: 70
-    longVowelFloorMs: 115
+    shortVowelCeiling: 70
+    longVowelFloor: 115
     geminateClosureScale: 1.6
     geminateReleaseScale: 0.90
     preGeminateVowelScale: 0.85
@@ -123,32 +114,126 @@ settings:
   boundarySmoothingEnabled: true
   trajectoryLimit:
     enabled: true
-    applyTo: [cf2, cf3]
+    applyTo: [cf1, cf2, cf3, pf2, pf3]
     maxHzPerMs:
+      cf1: 16
       cf2: 24
       cf3: 28
+      pf2: 24
+      pf3: 28
     windowMs: 20
+    liquidRateScale: 1.5
     applyAcrossWordBoundary: false
 
   # === PHRASE-FINAL LENGTHENING ===
   # Hungarian has moderate final lengthening — less than English.
-  phraseFinalLengthening:
+  # Nucleus-only mode: stretch the vowel, not the coda consonants.
+  phraseFinalLengtheningEnabled: true
+  phraseFinalLengtheningNucleusOnlyMode: true
+  phraseFinalLengtheningFinalSyllableScale: 1.18
+  phraseFinalLengtheningPenultimateSyllableScale: 1.05
+  phraseFinalLengtheningStatementScale: 1.0
+  phraseFinalLengtheningQuestionScale: 0.90
+
+  # === RATE COMPENSATION ===
+  # Protect segments from being crushed at high speech rates.
+  # Critical for Hungarian: word-final vowels (like -ük, -ek, -öt) must
+  # stay audible or morphology disappears. Trill needs room too.
+  rateCompensation:
     enabled: true
-    finalSyllableScale: 1.18
-    penultimateSyllableScale: 1.05
-    nucleusOnlyMode: true
+    minimumDurations:
+      vowelMs: 28
+      fricativeMs: 18
+      stopMs: 4
+      nasalMs: 18
+      liquidMs: 15
+      affricateMs: 14
+      semivowelMs: 10
+      tapMs: 4
+      trillMs: 16
+      voicedConsonantMs: 10
+    wordFinalBonusMs: 8
+    floorSpeedScale: 0.0
+    clusterProportionGuard: true
+    clusterMaxRatioShift: 0.4
+    schwaReduction:
+      enabled: false
 
   # === MICROPROSODY ===
-  # Subtle F0 effects. Voiceless F0 raise off for Hungarian — it can
-  # interfere with the flat prosodic profile. Voiced lowering is natural.
-  microprosody:
+  # Subtle F0 effects tuned for Hungarian's flat prosodic profile.
+  # Voiceless onset raise OFF — it creates English-like bounce.
+  # Pre-voiceless shortening OFF — Hungarian vowel length is phonemic,
+  # duration must NEVER be shortened by allophonic rules.
+  microprosodyEnabled: true
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: 4.0
+  microprosodyVoicedFricativeLowerScale: 0.5
+  microprosodyMinVowelMs: 25.0
+
+  # Following-consonant F0: very subtle for Hungarian's flat contour.
+  microprosodyFollowingF0Enabled: true
+  microprosodyFollowingVoicelessRaiseHz: 3.0
+  microprosodyFollowingVoicedLowerHz: 2.0
+
+  # Intrinsic vowel F0: universal biomechanics, keep subtle.
+  microprosodyIntrinsicF0Enabled: true
+  microprosodyIntrinsicF0HighThreshold: 400.0
+  microprosodyIntrinsicF0LowThreshold: 600.0
+  microprosodyIntrinsicF0HighRaiseHz: 3.0
+  microprosodyIntrinsicF0LowDropHz: 2.0
+
+  # Pre-voiceless shortening: OFF for Hungarian. Vowel length is phonemic.
+  microprosodyPreVoicelessShortenEnabled: false
+
+  # Cap: Hungarian prosody is flatter than English.
+  microprosodyMaxTotalDeltaHz: 8.0
+
+  # === PROMINENCE ===
+  # Hungarian prominence is very different from English:
+  #   - Stress is ALWAYS word-initial, realized through F0 + intensity
+  #     (Fónagy, 1958), NOT through duration
+  #   - Vowel length is PHONEMIC (distinguishes words), NOT prosodic
+  #   - There is NO secondary stress (White & Mády, 2008)
+  #   - Unstressed vowels are NOT reduced
+  #
+  # So: amplitude is our main realization channel. Duration stays
+  # hands-off — the length contrast system (lengthenedScale: 1.80,
+  # shortVowelCeiling/longVowelFloor) is sacred.
+  #
+  # Long vowels get a subtle amplitude lift via longVowelWeight. This
+  # matches the perceptual effect where non-native speakers "hear"
+  # long vowels as stressed — they aren't, but they do carry natural
+  # acoustic weight from their duration alone. A tiny amplitude nudge
+  # makes this sound more alive without inventing fake stress.
+  prominence:
     enabled: true
-    voicelessF0Raise:
-      enabled: false
-    voicedF0Lower:
-      enabled: true
-      deltaHz: 6
-    minVowelMs: 25
+
+    # Sources
+    primaryStressWeight: 1.0
+    secondaryStressWeight: 0.15      # gentle compound boundary — low enough that stray ˌ on case suffixes is inaudible
+    longVowelWeight: 0.35            # subtle weight for unstressed long vowels
+    longVowelMode: "unstressed-only" # only boosts long vowels NOT already stressed
+    wordInitialBoost: 0.15           # reinforces natural word-initial stress
+    wordFinalReduction: 0.0          # Hungarian doesn't trail off
+
+    # Duration: HANDS OFF. Hungarian vowel duration is phonemic.
+    # The length contrast system handles this. Prominence must not interfere.
+    durationProminentFloorMs: 0      # disabled
+    durationReducedCeiling: 1.0      # no reduction — Hungarian doesn't reduce unstressed vowels
+
+    # Amplitude: THIS is how Hungarian stress lives.
+    # Stressed syllable gets a real intensity boost. Unstressed gets a
+    # very mild reduction — just enough for contour, not enough to
+    # create English-style reduction (which would sound wrong).
+    amplitudeBoostDb: 1.8
+    amplitudeReductionDb: 0.0        # Hungarian does NOT reduce unstressed vowels
+
+    # Pitch: disabled for now — hu.yaml uses espeak_style pitch model.
+    # The prominence-driven Fujisaki accent path only fires under
+    # fujisaki_style. When Hungarian eventually moves to Fujisaki,
+    # flip this to true and the long-vowel pitch peaks come free.
+    pitchFromProminence: false
 
   # === TRILL (rolled R) ===
   trillModulationMs: 28.0
@@ -197,6 +282,8 @@ settings:
   singleWordClauseTypeOverride: "."
   singleWordClauseTypeOverrideCommaOnly: true
 
+  spellingDiphthongMode: monophthong
+  legacyPitchInflectionScale: 0.56
 normalization:
   preReplacements:
     # === LONG VOWEL MAPPINGS ===
@@ -249,11 +336,12 @@ normalization:
       when:
         atWordStart: true
 
-    # === STRIP SECONDARY STRESS ===
-    # Hungarian has fixed initial primary stress only.
-    # eSpeak sometimes inserts secondary stress in compounds — strip it.
-    - from: "ˌ"
-      to: ""
+    # === COMPOUND BOUNDARY STRESS ===
+    # Removed blanket ˌ strip — eSpeak's ˌ on compound second-elements
+    # is correct. The prominence pass handles it gently via
+    # secondaryStressWeight: 0.3 (mild amplitude boost at compound boundary).
+    # - from: "ˌ"
+    #   to: ""
 
   replacements:
     # === CLUSTER CLARITY ===

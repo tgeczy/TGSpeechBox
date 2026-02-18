@@ -58,17 +58,47 @@ settings:
 
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
   coarticulationEnabled: true
-  trajectoryLimitEnabled: false
-  microprosodyEnabled: false
-
+  trajectoryLimitEnabled: true
+  microprosodyEnabled: true
   segmentBoundarySkipVowelToLiquid: false
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 0
-  phraseFinalLengtheningEnabled: false
+  phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
+  phraseFinalLengtheningFinalSyllableScale: 1.10
+  phraseFinalLengtheningNucleusScale: 1.0
+  phraseFinalLengtheningCodaScale: 1.10
+  phraseFinalLengtheningCodaStopScale: 1.30
+  phraseFinalLengtheningCodaFricativeScale: 1.0
+  phraseFinalLengtheningPenultimateSyllableScale: 1.08
+  phraseFinalLengtheningStatementScale: 1.0
+  phraseFinalLengtheningQuestionScale: 0.85
   microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicelessF0RaiseHz: 12.0
   microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: 4.0
+  microprosodyVoicedFricativeLowerScale: 0.5
+
+  # Following-consonant F0: vowel END pitch adjusts to what comes next.
+  microprosodyFollowingF0Enabled: true
+  microprosodyFollowingVoicelessRaiseHz: 3.0
+  microprosodyFollowingVoicedLowerHz: 2.0
+
+  # Intrinsic vowel F0: high vowels naturally higher-pitched than low.
+  microprosodyIntrinsicF0Enabled: true
+  microprosodyIntrinsicF0HighThreshold: 400.0
+  microprosodyIntrinsicF0LowThreshold: 600.0
+  microprosodyIntrinsicF0HighRaiseHz: 3.0
+  microprosodyIntrinsicF0LowDropHz: 2.0
+
+  # Pre-voiceless shortening: "bat" vowel shorter than "bad" vowel.
+  microprosodyPreVoicelessShortenEnabled: true
+  microprosodyPreVoicelessShortenScale: 0.92
+  microprosodyPreVoicelessMinMs: 35.0
+
+  # Safety cap: total F0 perturbation per vowel can't exceed this.
+  microprosodyMaxTotalDeltaHz: 10.0
   nasalizationAnticipatoryEnabled: false
   prominence:
     enabled: true
@@ -85,7 +115,7 @@ settings:
     wordFinalReduction: 0.05
 
     # Duration: prominent syllables hold steady, unstressed ones can shrink
-    durationProminentFloorMs: 40
+    durationProminentFloorMs: 55
     durationReducedCeiling: 0.92
 
     # Amplitude: subtle contour shaping
@@ -317,14 +347,13 @@ settings:
     velarF2Scale: 0.65       # SLOW — tongue body is heavy, F2 IS identity
     velarF3Scale: 0.60       # slow — pinch convergence needs time
   trajectoryLimit:
-    enabled: false
+    enabled: true
     applyAcrossWordBoundary: true
     windowMs: 25
     liquidRateScale: 1.5
-    applyTo: [cf1, cf2, cf3, pf2, pf3]
+    applyTo: [cf2, cf3, pf2, pf3]
     maxHzPerMs:
-      cf1: 15
-      cf2: 18
+      cf2: 26
       cf3: 22
       pf2: 18
       pf3: 22
@@ -394,36 +423,47 @@ settings:
 
   clusterBlend:
     enabled: true
-    strength: 0.25
-    forwardDriftStrength: 0.25
+    forwardDriftStrength: 0.30
 
   # ------------------------------------------------------------------
   # Rate compensation: enforce perceptual duration floors at high speed.
   # Prevents speed compression from crushing segments below audibility.
-  # At normal speed (1x) this pass does nothing.
+  # At normal speed (1x) this pass does nothing — your cluster timing,
+  # prominence, and other artistic tuning are untouched.
+  # Only kicks in when speed pushes absolute durations below the floors.
   # ------------------------------------------------------------------
   rateCompensation:
     enabled: true
     minimumDurations:
-      vowelMs: 25          # formant identity needs ~25ms
-      fricativeMs: 18       # spectral identity needs noise cycles
-      stopMs: 4             # already tiny — protect what's left
-      nasalMs: 18           # place perception (second layer on top of universal floor)
+      vowelMs: 20     # formant identity needs ~20 to 30ms to establish F1/F2
+      fricativeMs: 18       # spectral noise identity needs multiple cycles
+      stopMs: 4             # already tiny — protect what's left of the burst
+      nasalMs: 18           # place perception (/ɲ/ vs /n/ vs /ŋ/)
       liquidMs: 15           # /ɹ/ and /l/ need F3 transition time
       affricateMs: 12        # shorter than fricative, longer than stop
-      semivowelMs: 10        # glide needs trajectory
-      tapMs: 4               # quick by nature
-      trillMs: 12            # needs modulation cycles
-      voicedConsonantMs: 10  # catch-all voiced C
+      semivowelMs: 10        # glide needs some trajectory to register
+      tapMs: 4               # quick by nature, don't over-protect
+      trillMs: 12            # needs at least one modulation cycle
+      voicedConsonantMs: 10  # catch-all for voiced C's not matched above
 
-    wordFinalBonusMs: 5      # extra floor at word end (morphology)
-    floorSpeedScale: 0.0     # 0.0 = rigid floors (recommended)
+    # Word-final segments carry morphological load in English:
+    # plural /s/, past tense /d/, possessive /z/. Extra protection.
+    wordFinalBonusMs: 5
 
+    # 0.0 = rigid floors at all speeds (recommended to start).
+    # Increase toward 1.0 if floors make 4x+ speech feel too slow.
+    floorSpeedScale: 0.0
+
+    # When a floor bumps one consonant in a cluster, its neighbors
+    # can end up disproportionately short — creating a "bulge".
+    # This smooths the ratios back toward their pre-floor proportions.
     clusterProportionGuard: true
     clusterMaxRatioShift: 0.4
 
+    # Rate-dependent schwa shortening (absorbed from old reduction pass).
+    # Off for now — enable once base floors are tuned and sounding right.
     schwaReduction:
-      enabled: false         # off for en-us for now (tune later)
+      enabled: false
       threshold: 2.5
       scale: 0.8
 

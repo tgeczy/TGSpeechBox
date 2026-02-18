@@ -1,4 +1,7 @@
 # Polish (pl)
+# TGSpeechBox language pack.
+# Polish is syllable-timed with penultimate stress, no phonemic vowel length,
+# heavy consonant clusters, and rich palatalization contrasts.
 
 settings:
   primaryStressDiv: 1.25
@@ -18,6 +21,71 @@ settings:
   singleWordFinalHoldMs: 45
   singleWordFinalFadeMs: 18
   boundarySmoothingEnabled: true
+
+  # --- Phrase-final lengthening ---
+  # Polish declarative sentences have a falling nuclear contour (H* L-L%).
+  # Nucleus-only mode avoids stretching heavy coda clusters like /stk/ or /ɲtɕ/.
+  phraseFinalLengtheningEnabled: true
+  phraseFinalLengtheningNucleusOnlyMode: true
+  phraseFinalLengtheningFinalSyllableScale: 1.15
+  phraseFinalLengtheningPenultimateSyllableScale: 1.05
+  phraseFinalLengtheningStatementScale: 1.0
+  # Polish yes/no questions rise steeply (+142 Hz female, +81 Hz male per research).
+  # Slight shortening cues the listener that more contour is coming.
+  phraseFinalLengtheningQuestionScale: 0.88
+
+  # --- Microprosody ---
+  # Polish has NO phonemic vowel length. Pre-voiceless shortening is disabled
+  # because there's no "bat vs bad" distinction to cue. All vowels are short
+  # and equal — stretching or shortening by voicing context sounds foreign.
+  microprosodyEnabled: true
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: 4.0
+  microprosodyVoicedFricativeLowerScale: 0.5
+  microprosodyFollowingF0Enabled: true
+  microprosodyFollowingVoicelessRaiseHz: 3.0
+  microprosodyFollowingVoicedLowerHz: 2.0
+  microprosodyIntrinsicF0Enabled: true
+  microprosodyIntrinsicF0HighThreshold: 400.0
+  microprosodyIntrinsicF0LowThreshold: 600.0
+  microprosodyIntrinsicF0HighRaiseHz: 3.0
+  microprosodyIntrinsicF0LowDropHz: 2.0
+  microprosodyPreVoicelessShortenEnabled: false
+  microprosodyMaxTotalDeltaHz: 8.0
+
+  # --- Trajectory limit ---
+  # Polish consonant clusters can be massive (5+ consonants word-initially).
+  # Trajectory limiting helps formant transitions stay smooth through clusters
+  # without smearing identity. Values match Hungarian (also cluster-heavy).
+  trajectoryLimitEnabled: true
+  trajectoryLimit:
+    maxHzPerMs:
+      cf2: 24
+      cf3: 22
+      pf2: 18
+      pf3: 22
+
+  # --- Rate compensation ---
+  # Heavy clusters need protection at fast speeds. Polish clusters like
+  # /pʂ/, /stʂ/, /ʑdʑ/ need each segment to maintain minimum identity.
+  rateCompensation:
+    enabled: true
+    minimumDurations:
+      vowelMs: 30
+      fricativeMs: 18
+      stopMs: 4
+      nasalMs: 18
+      liquidMs: 15
+      affricateMs: 12
+      semivowelMs: 10
+      tapMs: 4
+      trillMs: 12
+      voicedConsonantMs: 10
+    wordFinalBonusMs: 3
+    floorSpeedScale: 0.0
+    clusterProportionGuard: true
+    clusterMaxRatioShift: 0.4
 
 normalization:
   preReplacements:
