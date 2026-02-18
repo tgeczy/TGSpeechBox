@@ -4082,17 +4082,17 @@ phonemes:
     _isVowel: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 70
-    cb2: 110
-    cb3: 140
+    cb1: 80
+    cb2: 120
+    cb3: 150
     cb4: 260
     cb5: 220
     cb6: 1100
     cbN0: 100
     cbNP: 100
-    cf1: 320
-    cf2: 1300
-    cf3: 2300
+    cf1: 400
+    cf2: 1600
+    cf3: 2400
     cf4: 3200
     cf5: 3600
     cf6: 4800
