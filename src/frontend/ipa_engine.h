@@ -35,6 +35,11 @@ struct TrajectoryState {
   double prevVoiceAmp = 0.0;
   double prevFricAmp = 0.0;
 
+  // Full previous base frame for voice bar emission.
+  // Contains pitch, GOQ, outputGain, vibrato — everything PhonemeDef lacks.
+  double prevBase[kFrameFieldCount] = {};
+  bool hasPrevBase = false;
+
   void reset() {
     prevCf2 = 0.0;
     prevCf3 = 0.0;
@@ -44,6 +49,7 @@ struct TrajectoryState {
     prevWasNasal = false;
     prevVoiceAmp = 0.0;
     prevFricAmp = 0.0;
+    hasPrevBase = false;
   }
 };
 

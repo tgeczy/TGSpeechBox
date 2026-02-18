@@ -91,21 +91,40 @@ void emitFrames(
   bool prevTokenWasStop = false;
 
   for (const Token& t : tokens) {
-    if (t.silence || !t.def) {
-      // For voiced closure (voice bar): use a NULL frame with a generous fade.
-      // frame.cpp's NULL handling copies the entire previous frame and just zeros
-      // preFormantGain, keeping all resonator coefficients (frequencies AND bandwidths)
-      // stable.  This avoids IIR transients from bandwidth discontinuities that
-      // caused clicks at 16 kHz and occasional clicks at 22050 Hz.
-      // NOTE: Phase 3 (real voice bar frame) reverted — PhonemeDef fields don't
-      // include pitch, GOQ, outputGain, etc. so building from def zeros them out,
-      // causing catastrophic discontinuities on falling intonation.
-      if (t.voicedClosure && hadPrevFrame) {
-        double vbFadeMs = t.fadeMs;
-        if (vbFadeMs < 8.0) vbFadeMs = 8.0;
+    // ============================================
+    // VOICE BAR EMISSION (voiced stop closures)
+    // ============================================
+    // Build voice bar from the previous real frame (which has pitch, GOQ, outputGain,
+    // vibrato — everything PhonemeDef lacks) then override just the voice-bar-specific
+    // fields. Falls back to NULL frame if no previous base is available.
+    if (t.voicedClosure && hadPrevFrame) {
+      double vbFadeMs = t.fadeMs;
+      if (vbFadeMs < 8.0) vbFadeMs = 8.0;
+
+      if (trajectoryState->hasPrevBase) {
+        double vb[kFrameFieldCount];
+        std::memcpy(vb, trajectoryState->prevBase, sizeof(vb));
+
+        double vbAmp = (t.def && t.def->hasVoiceBarAmplitude) ? t.def->voiceBarAmplitude : 0.3;
+        double vbF1 = (t.def && t.def->hasVoiceBarF1) ? t.def->voiceBarF1 : 150.0;
+
+        vb[va] = vbAmp;
+        vb[fa] = 0.0;
+        vb[static_cast<int>(FieldId::aspirationAmplitude)] = 0.0;
+        vb[static_cast<int>(FieldId::cf1)] = vbF1;
+        vb[static_cast<int>(FieldId::pf1)] = vbF1;
+        vb[static_cast<int>(FieldId::preFormantGain)] = vbAmp;
+
+        nvspFrontend_Frame vbFrame;
+        std::memcpy(&vbFrame, vb, sizeof(vbFrame));
+        cb(userData, &vbFrame, t.durationMs, vbFadeMs, userIndexBase);
+      } else {
         cb(userData, nullptr, t.durationMs, vbFadeMs, userIndexBase);
-        continue;
       }
+      continue;
+    }
+
+    if (t.silence || !t.def) {
       cb(userData, nullptr, t.durationMs, t.fadeMs, userIndexBase);
       continue;
     }
@@ -118,6 +137,10 @@ void emitFrames(
       if ((mask & (1ull << f)) == 0) continue;
       base[f] = t.field[f];
     }
+
+    // Save full base for voice bar emission on the next voiced closure.
+    std::memcpy(trajectoryState->prevBase, base, sizeof(base));
+    trajectoryState->hasPrevBase = true;
 
     // Optional trill modulation (only when `_isTrill` is true for the phoneme).
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {
@@ -293,7 +316,12 @@ void emitFrames(
           seg2[evp] = startPitch + pitchDelta;  // end of token
 
           const int faIdx = static_cast<int>(FieldId::fricationAmplitude);
-          seg2[faIdx] *= (1.0 - decayRate);
+          // Stops: decay frication (burst is the only noise source, it should die).
+          // Affricates: keep frication at full — the whole point is sustained frication
+          // after the burst transient. Only the spectral tilt boost decays.
+          if (!isAffricate) {
+            seg2[faIdx] *= (1.0 - decayRate);
+          }
 
           nvspFrontend_Frame decayFrame;
           std::memcpy(&decayFrame, seg2, sizeof(decayFrame));
@@ -590,14 +618,40 @@ void emitFramesEx(
   bool prevTokenWasStop = false;
 
   for (const Token& t : tokens) {
-    if (t.silence || !t.def) {
-      // Voice bar: NULL frame with generous fade (same rationale as emitFrames)
-      if (t.voicedClosure && hadPrevFrame) {
-        double vbFadeMs = t.fadeMs;
-        if (vbFadeMs < 8.0) vbFadeMs = 8.0;
+    // ============================================
+    // VOICE BAR EMISSION (voiced stop closures) — Ex path
+    // ============================================
+    if (t.voicedClosure && hadPrevFrame) {
+      double vbFadeMs = t.fadeMs;
+      if (vbFadeMs < 8.0) vbFadeMs = 8.0;
+
+      if (trajectoryState->hasPrevBase) {
+        double vb[kFrameFieldCount];
+        std::memcpy(vb, trajectoryState->prevBase, sizeof(vb));
+
+        double vbAmp = (t.def && t.def->hasVoiceBarAmplitude) ? t.def->voiceBarAmplitude : 0.3;
+        double vbF1 = (t.def && t.def->hasVoiceBarF1) ? t.def->voiceBarF1 : 150.0;
+
+        vb[va] = vbAmp;
+        vb[fa] = 0.0;
+        vb[static_cast<int>(FieldId::aspirationAmplitude)] = 0.0;
+        vb[static_cast<int>(FieldId::cf1)] = vbF1;
+        vb[static_cast<int>(FieldId::pf1)] = vbF1;
+        vb[static_cast<int>(FieldId::preFormantGain)] = vbAmp;
+
+        nvspFrontend_Frame vbFrame;
+        std::memcpy(&vbFrame, vb, sizeof(vbFrame));
+
+        nvspFrontend_FrameEx vbFrameEx = frameExDefaults;
+        vbFrameEx.transAmplitudeMode = 1.0;  // source change: equal-power crossfade
+        cb(userData, &vbFrame, &vbFrameEx, t.durationMs, vbFadeMs, userIndexBase);
+      } else {
         cb(userData, nullptr, nullptr, t.durationMs, vbFadeMs, userIndexBase);
-        continue;
       }
+      continue;
+    }
+
+    if (t.silence || !t.def) {
       cb(userData, nullptr, nullptr, t.durationMs, t.fadeMs, userIndexBase);
       continue;
     }
@@ -609,6 +663,10 @@ void emitFramesEx(
       if ((mask & (1ull << f)) == 0) continue;
       base[f] = t.field[f];
     }
+
+    // Save full base for voice bar emission on the next voiced closure.
+    std::memcpy(trajectoryState->prevBase, base, sizeof(base));
+    trajectoryState->hasPrevBase = true;
 
     // Build FrameEx by mixing user defaults with per-phoneme values.
     // The mixing formula:
@@ -835,7 +893,9 @@ void emitFramesEx(
           seg2[evp] = startPitch + pitchDelta;
 
           const int faIdx = static_cast<int>(FieldId::fricationAmplitude);
-          seg2[faIdx] *= (1.0 - decayRate);
+          if (!isAffricate) {
+            seg2[faIdx] *= (1.0 - decayRate);
+          }
 
           nvspFrontend_Frame decayFrame;
           std::memcpy(&decayFrame, seg2, sizeof(decayFrame));
