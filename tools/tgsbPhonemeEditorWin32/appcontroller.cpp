@@ -26,6 +26,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <shlwapi.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <string>
 #include <unordered_set>
@@ -34,6 +35,7 @@ Licensed under the MIT License. See LICENSE for details.
 namespace fs = std::filesystem;
 
 // yaml_edit.* and tgsb_runtime.* live in the tgsb_editor namespace.
+using tgsb_editor::Node;
 using tgsb_editor::ReplacementRule;
 using tgsb_editor::ReplacementWhen;
 using tgsb_editor::TgsbRuntime;
@@ -823,7 +825,9 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "nasalizationAnticipatoryAmplitude",
     "nasalizationAnticipatoryBlend",
     "nasalizationAnticipatoryEnabled",
+    "phraseFinalLengtheningCodaFricativeScale",
     "phraseFinalLengtheningCodaScale",
+    "phraseFinalLengtheningCodaStopScale",
     "phraseFinalLengtheningEnabled",
     "phraseFinalLengtheningFinalSyllableScale",
     "phraseFinalLengtheningNucleusOnlyMode",
@@ -905,6 +909,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "trajectoryLimitApplyTo",
     "trajectoryLimitEnabled",
     "trajectoryLimitLiquidRateScale",
+    "trajectoryLimitMaxHzPerMsCf1",
     "trajectoryLimitMaxHzPerMsCf2",
     "trajectoryLimitMaxHzPerMsCf3",
     "trajectoryLimitMaxHzPerMsPf2",
@@ -970,6 +975,173 @@ static void onClonePhoneme(AppController& app) {
   msgBox(app.wnd, L"Cloned phoneme. Remember to save phonemes YAML (Ctrl+P).", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
 }
 
+// -------------------------
+// Bug 6: Language scope awareness helpers
+// -------------------------
+
+// Recursively compare two Node trees. Returns true if identical.
+static bool nodesEqual(const Node& a, const Node& b) {
+  if (a.type != b.type) return false;
+  switch (a.type) {
+    case Node::Type::Scalar:
+      return a.scalar == b.scalar;
+    case Node::Type::Map:
+      if (a.map.size() != b.map.size()) return false;
+      for (const auto& kv : a.map) {
+        auto it = b.map.find(kv.first);
+        if (it == b.map.end()) return false;
+        if (!nodesEqual(kv.second, it->second)) return false;
+      }
+      return true;
+    case Node::Type::Seq:
+      if (a.seq.size() != b.seq.size()) return false;
+      for (size_t i = 0; i < a.seq.size(); ++i) {
+        if (!nodesEqual(a.seq[i], b.seq[i])) return false;
+      }
+      return true;
+    case Node::Type::Null:
+    default:
+      return true;
+  }
+}
+
+// Build language suffix: "es" -> "_es", "en-us" -> "_enus", "pt-br" -> "_ptbr".
+static std::string makeLangSuffix(const std::string& langTag) {
+  std::string out = "_";
+  for (char c : langTag) {
+    if (c != '-') out += c;
+  }
+  return out;
+}
+
+// Return true if key looks language-specific (contains _ followed by 2+ letters).
+static bool isLangSpecificKey(const std::string& key) {
+  auto pos = key.find('_');
+  if (pos == std::string::npos || pos == 0) return false;
+  size_t tail = key.size() - pos - 1;
+  if (tail < 2) return false;
+  for (size_t i = pos + 1; i < key.size(); ++i) {
+    if (!std::isalpha(static_cast<unsigned char>(key[i]))) return false;
+  }
+  return true;
+}
+
+// Result of scanning all language packs for references to a phoneme.
+struct PhonemeUsageScan {
+  std::vector<std::string> usedInRules;   // lang tags that reference this key in normalization
+  std::vector<std::string> hasOverride;   // lang tags that have a phonemes: override for this key
+  int totalLangCount = 0;
+};
+
+// Scan all .yaml files in langDir for references to a phoneme key.
+static PhonemeUsageScan scanPhonemeUsage(const std::wstring& langDir, const std::string& phonemeKey) {
+  PhonemeUsageScan result;
+  if (langDir.empty()) return result;
+
+  std::error_code ec;
+  for (const auto& entry : fs::directory_iterator(langDir, ec)) {
+    if (!entry.is_regular_file()) continue;
+    auto ext = entry.path().extension().u8string();
+    if (ext != ".yaml" && ext != ".yml") continue;
+
+    result.totalLangCount++;
+    std::string langTag = entry.path().stem().u8string();
+
+    Node root;
+    std::string parseErr;
+    if (!nvsp_frontend::yaml_min::loadFile(entry.path().u8string(), root, parseErr)) continue;
+
+    // Check normalization.replacements for references.
+    const Node* norm = root.get("normalization");
+    if (norm && norm->isMap()) {
+      const Node* repl = norm->get("replacements");
+      if (repl && repl->isSeq()) {
+        for (const auto& item : repl->seq) {
+          if (!item.isMap()) continue;
+          const Node* f = item.get("from");
+          const Node* t = item.get("to");
+          std::string fv = f ? f->asString() : "";
+          std::string tv = t ? t->asString() : "";
+          if (fv == phonemeKey || tv == phonemeKey) {
+            result.usedInRules.push_back(langTag);
+            break; // one match per lang is enough
+          }
+        }
+      }
+    }
+
+    // Check phonemes: section for overrides.
+    const Node* phon = root.get("phonemes");
+    if (phon && phon->isMap()) {
+      if (phon->map.find(phonemeKey) != phon->map.end()) {
+        result.hasOverride.push_back(langTag);
+      }
+    }
+  }
+  return result;
+}
+
+// Build a human-readable summary of what changed between original and working nodes.
+static std::string describeChanges(const Node& original, const Node& working) {
+  std::string out;
+  // Check all keys in working.
+  for (const auto& kv : working.map) {
+    const Node* orig = original.get(kv.first);
+    if (!orig) {
+      out += "  + " + kv.first + ": " + kv.second.asString() + "\n";
+    } else if (!nodesEqual(*orig, kv.second)) {
+      out += "  " + kv.first + ": " + orig->asString() + " -> " + kv.second.asString() + "\n";
+    }
+  }
+  // Check for removed keys.
+  for (const auto& kv : original.map) {
+    if (working.map.find(kv.first) == working.map.end()) {
+      out += "  - " + kv.first + " (removed)\n";
+    }
+  }
+  return out;
+}
+
+// Build the full scope warning message for the dialog.
+static std::wstring buildScopeWarning(const std::string& key, const std::string& langTag,
+                                      const std::string& changes, const PhonemeUsageScan& usage) {
+  std::string msg;
+  msg += "You modified \"" + key + "\" which is shared globally.\n\n";
+
+  if (!changes.empty()) {
+    msg += "Changes:\n" + changes + "\n";
+  }
+
+  msg += "Impact:\n";
+  if (!usage.usedInRules.empty()) {
+    msg += "  Referenced in normalization rules: ";
+    for (size_t i = 0; i < usage.usedInRules.size(); ++i) {
+      if (i > 0) msg += ", ";
+      msg += usage.usedInRules[i];
+    }
+    msg += " (" + std::to_string(usage.usedInRules.size()) + " packs)\n";
+  }
+  if (!usage.hasOverride.empty()) {
+    msg += "  Has language-specific override: ";
+    for (size_t i = 0; i < usage.hasOverride.size(); ++i) {
+      if (i > 0) msg += ", ";
+      msg += usage.hasOverride[i];
+    }
+    msg += "\n";
+  }
+  int directUsers = usage.totalLangCount - static_cast<int>(usage.hasOverride.size());
+  if (directUsers > 0) {
+    msg += "  Uses global definition directly: " + std::to_string(directUsers) + " packs\n";
+  }
+
+  msg += "\nCreate \"" + key + makeLangSuffix(langTag) + "\" for " + langTag + " only?\n\n";
+  msg += "Yes = Create language-specific copy\n";
+  msg += "No = Apply globally (affects all languages)\n";
+  msg += "Cancel = Discard changes";
+
+  return utf8ToWide(msg);
+}
+
 static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
   std::string key = fromLanguageList ? getSelectedPhonemeKey(app.listLangPhonemes) : getSelectedPhonemeKey(app.listPhonemes);
   if (key.empty()) {
@@ -988,11 +1160,112 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
   st.original = *node;
   st.working = *node;
   st.runtime = &app.runtime;
-  st.runtime = &app.runtime;
 
   ShowEditPhonemeDialog(app.hInst, app.wnd, st);
   if (!st.ok) return;
 
+  // Nothing changed — silent return.
+  if (nodesEqual(st.original, st.working)) return;
+
+  // Bug 6: Language scope awareness.
+  // If a language is loaded AND the key is not already language-specific,
+  // scan all language packs to show the blast radius and offer clone-for-language.
+  std::string langTag = selectedLangTagUtf8(app);
+  bool langLoaded = app.language.isLoaded() && !langTag.empty();
+
+  if (langLoaded && !isLangSpecificKey(key)) {
+    PhonemeUsageScan usage = scanPhonemeUsage(app.langDir, key);
+    std::string changes = describeChanges(st.original, st.working);
+    std::wstring warning = buildScopeWarning(key, langTag, changes, usage);
+
+    int res = MessageBoxW(app.wnd, warning.c_str(), L"Shared Phoneme Warning",
+                          MB_YESNOCANCEL | MB_ICONWARNING | MB_DEFBUTTON1);
+
+    if (res == IDCANCEL) return;
+
+    if (res == IDYES) {
+      // Create language-specific clone.
+      std::string newKey = key + makeLangSuffix(langTag);
+
+      // If clone already exists, just apply edits to it.
+      Node* existing = app.phonemes.getPhonemeNode(newKey);
+      if (existing) {
+        *existing = st.working;
+      } else {
+        std::string cloneErr;
+        if (!app.phonemes.clonePhoneme(key, newKey, cloneErr)) {
+          msgBox(app.wnd, L"Clone failed:\n" + utf8ToWide(cloneErr), L"TGSB Phoneme Editor", MB_ICONERROR);
+          return;
+        }
+        // Apply the user's edits to the new clone (clonePhoneme copies original).
+        Node* cloned = app.phonemes.getPhonemeNode(newKey);
+        if (cloned) *cloned = st.working;
+      }
+
+      // Add normalization rule from -> to if not already present.
+      auto repls = app.language.replacements();
+      bool ruleExists = false;
+      for (const auto& r : repls) {
+        if (r.from == key && r.to == newKey && r.when.isEmpty()) {
+          ruleExists = true;
+          break;
+        }
+      }
+      if (!ruleExists) {
+        ReplacementRule newRule;
+        newRule.from = key;
+        newRule.to = newKey;
+        repls.push_back(newRule);
+        app.language.setReplacements(repls);
+        app.repls = app.language.replacements();
+        app.languageDirty = true;
+      }
+
+      // Refresh UI.
+      app.phonemeKeys = app.phonemes.phonemeKeysSorted();
+      rebuildPhonemeKeysU32(app);
+      populatePhonemeList(app, L"");
+      refreshLanguageDerivedLists(app);
+      app.phonemesDirty = true;
+
+      msgBox(app.wnd, L"Created \"" + utf8ToWide(newKey) + L"\" for " + utf8ToWide(langTag)
+        + L".\nRemember to save both phonemes (Ctrl+P) and language (Ctrl+S).",
+        L"TGSB Phoneme Editor", MB_ICONINFORMATION);
+      return;
+    }
+
+    // res == IDNO: fall through to apply globally (with flag warning if applicable).
+  }
+
+  // Bug 7: Warn on critical flag changes (isVowel, isVoiced, etc.).
+  {
+    const char* criticalFlags[] = {"_isVowel", "_isVoiced", "_isStop", "_isNasal",
+                                   "_isSemivowel", "_isLiquid", "_isAffricate"};
+    std::string flagWarnings;
+    for (const char* flag : criticalFlags) {
+      const Node* origF = st.original.get(flag);
+      const Node* newF = st.working.get(flag);
+      std::string origVal = origF ? origF->asString("false") : "false";
+      std::string newVal = newF ? newF->asString("false") : "false";
+      if (origVal != newVal) {
+        flagWarnings += std::string(flag) + ": " + origVal + " -> " + newVal + "\n";
+      }
+    }
+    if (!flagWarnings.empty()) {
+      std::wstring msg = L"Warning: You changed critical phoneme flags for '"
+        + utf8ToWide(key) + L"':\n\n"
+        + utf8ToWide(flagWarnings)
+        + L"\nThis phoneme is shared across ALL language packs.\n"
+          L"Flag changes affect timing, microprosody, prominence,\n"
+          L"and syllable detection globally.\n\n"
+          L"Apply this change?";
+      int res = MessageBoxW(app.wnd, msg.c_str(), L"Flag Change Warning",
+                            MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+      if (res != IDYES) return;
+    }
+  }
+
+  // Apply globally.
   *node = st.working;
   app.phonemesDirty = true;
   msgBox(app.wnd, L"Phoneme updated. Remember to save phonemes YAML (Ctrl+P).", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
@@ -1033,11 +1306,62 @@ static void onSaveLanguage(AppController& app) {
   app.setStatus(L"Saved language YAML");
 }
 
+// Validate formant ordering: cf1 < cf2 < cf3 ... and pf1 < pf2 < pf3 ...
+// Returns empty string on success, or a multi-line error listing violations.
+static std::string validateFormantOrdering(AppController& app) {
+  std::string errors;
+  auto keys = app.phonemes.phonemeKeysSorted();
+
+  // Pairs of (prefix, count): cascade and parallel formant frequencies.
+  const char* prefixes[] = {"cf", "pf"};
+  const char* labels[] = {"cascade", "parallel"};
+
+  for (const auto& phonemeKey : keys) {
+    const Node* node = app.phonemes.getPhonemeNode(phonemeKey);
+    if (!node || !node->isMap()) continue;
+
+    for (int p = 0; p < 2; ++p) {
+      double prev = 0.0;
+      int prevIdx = 0;
+      for (int i = 1; i <= 6; ++i) {
+        char fieldName[8];
+        std::snprintf(fieldName, sizeof(fieldName), "%s%d", prefixes[p], i);
+        const Node* fn = node->get(fieldName);
+        if (!fn) continue;
+        double val = 0.0;
+        if (!fn->asNumber(val) || val <= 0.0) continue;
+        if (prev > 0.0 && val <= prev) {
+          char buf[256];
+          std::snprintf(buf, sizeof(buf),
+            "%s: %s F%d (%.0f Hz) <= F%d (%.0f Hz)\n",
+            phonemeKey.c_str(), labels[p], i, val, prevIdx, prev);
+          errors += buf;
+        }
+        prev = val;
+        prevIdx = i;
+      }
+    }
+  }
+  return errors;
+}
+
 static void onSavePhonemes(AppController& app) {
   if (!app.phonemes.isLoaded()) {
     msgBox(app.wnd, L"No phonemes YAML loaded.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
     return;
   }
+
+  // Validate formant ordering before save (Bug 8).
+  std::string formantErrors = validateFormantOrdering(app);
+  if (!formantErrors.empty()) {
+    std::wstring msg = L"Formant ordering violations found:\n\n"
+      + utf8ToWide(formantErrors)
+      + L"\nFormant frequencies must be in ascending order (F1 < F2 < F3 ...).\n"
+        L"Save anyway?";
+    int res = MessageBoxW(app.wnd, msg.c_str(), L"Validation Warning", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    if (res != IDYES) return;
+  }
+
   std::string err;
   if (!app.phonemes.save(err)) {
     msgBox(app.wnd, L"Save failed:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONERROR);

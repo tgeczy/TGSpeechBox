@@ -11,17 +11,31 @@ Licensed under the MIT License. See LICENSE for details.
 #include <fstream>
 #include <locale>
 #include <sstream>
+#include <unordered_set>
 
 namespace tgsb_editor {
+
+// Set a key in a map node, maintaining keyOrder for round-trip fidelity.
+static void mapSet(Node& mapNode, const std::string& key, Node value) {
+  if (mapNode.map.find(key) == mapNode.map.end()) {
+    mapNode.keyOrder.push_back(key);
+  }
+  mapNode.map[key] = std::move(value);
+}
 
 static Node* getMapChild(Node& mapNode, const char* key) {
   if (mapNode.type != Node::Type::Map) {
     mapNode.type = Node::Type::Map;
     mapNode.map.clear();
+    mapNode.keyOrder.clear();
     mapNode.seq.clear();
     mapNode.scalar.clear();
   }
-  return &mapNode.map[std::string(key)];
+  std::string k(key);
+  if (mapNode.map.find(k) == mapNode.map.end()) {
+    mapNode.keyOrder.push_back(k);
+  }
+  return &mapNode.map[k];
 }
 
 static const Node* getMapChildConst(const Node& mapNode, const char* key) {
@@ -68,20 +82,6 @@ bool PhonemesYaml::load(const std::string& path, std::string& outError) {
   return true;
 }
 
-bool PhonemesYaml::save(std::string& outError) const {
-  if (m_path.empty()) {
-    outError = "No phonemes YAML loaded";
-    return false;
-  }
-  std::ofstream f(m_path, std::ios::binary);
-  if (!f) {
-    outError = "Could not write file: " + m_path;
-    return false;
-  }
-  std::string text = dumpYaml(m_root);
-  f.write(text.data(), static_cast<std::streamsize>(text.size()));
-  return true;
-}
 
 std::vector<std::string> PhonemesYaml::phonemeKeysSorted() const {
   std::vector<std::string> keys;
@@ -125,7 +125,7 @@ bool PhonemesYaml::clonePhoneme(const std::string& fromKey, const std::string& n
     outError = "Key already exists: " + newKey;
     return false;
   }
-  phonemesNode->map[newKey] = itFrom->second;
+  mapSet(*phonemesNode, newKey, itFrom->second);
   return true;
 }
 
@@ -146,18 +146,191 @@ bool LanguageYaml::load(const std::string& path, std::string& outError) {
   return true;
 }
 
+// Forward declarations for surgical language save.
+static void dumpNode(const Node& node, std::string& out, int ind);
+static std::string dumpKey(const std::string& s);
+
+// Serialize a single top-level key and its value (for comparison).
+static std::string dumpSingleTopLevelKey(const std::string& key, const Node& value) {
+  std::string out;
+  out += dumpKey(key) + ":";
+  if (value.isScalar()) {
+    out += " " + value.scalar + "\n";
+  } else {
+    out += "\n";
+    dumpNode(value, out, 2);
+  }
+  return out;
+}
+
+// Find top-level key line ranges in original file text.
+struct TopLevelRange {
+  std::string key;
+  size_t startLine = 0;  // first line of this key's block (the "key:" line)
+  size_t endLine = 0;    // one past the last line before the next top-level key
+};
+
+static void findTopLevelRanges(const std::vector<std::string>& lines,
+                               std::vector<TopLevelRange>& ranges,
+                               size_t& headerEnd) {
+  headerEnd = 0;
+  // Find top-level keys: lines starting with a non-space, non-comment char containing ':'.
+  for (size_t i = 0; i < lines.size(); ++i) {
+    const std::string& ln = lines[i];
+    if (ln.empty()) continue;
+    if (ln[0] == ' ' || ln[0] == '#' || ln[0] == '\r') continue;
+    auto colon = ln.find(':');
+    if (colon == std::string::npos) continue;
+
+    TopLevelRange r;
+    r.key = ln.substr(0, colon);
+    r.startLine = i;
+
+    // Close previous range.
+    if (!ranges.empty()) {
+      ranges.back().endLine = i;
+    } else {
+      headerEnd = i;  // everything before first key is the header
+    }
+    ranges.push_back(r);
+  }
+  // Close last range.
+  if (!ranges.empty()) {
+    ranges.back().endLine = lines.size();
+  }
+}
+
+// Strip comments and blank lines from a block of text for data comparison.
+static std::string stripForComparison(const std::vector<std::string>& lines,
+                                      size_t start, size_t end) {
+  std::string out;
+  for (size_t i = start; i < end; ++i) {
+    std::string ln = lines[i];
+    // Trim trailing whitespace.
+    while (!ln.empty() && (ln.back() == ' ' || ln.back() == '\r')) ln.pop_back();
+    // Skip pure blank lines.
+    size_t firstNonSpace = ln.find_first_not_of(' ');
+    if (firstNonSpace == std::string::npos) continue;
+    // Skip pure comment lines.
+    if (ln[firstNonSpace] == '#') continue;
+    // Strip inline comments (but be careful with quoted strings).
+    // Simple approach: find " #" (space-hash) outside quotes.
+    size_t hashPos = ln.find(" #", firstNonSpace);
+    if (hashPos != std::string::npos) {
+      ln = ln.substr(0, hashPos);
+      while (!ln.empty() && ln.back() == ' ') ln.pop_back();
+    }
+    out += ln;
+    out += "\n";
+  }
+  // Trim trailing newlines.
+  while (!out.empty() && out.back() == '\n') out.pop_back();
+  return out;
+}
+
 bool LanguageYaml::save(std::string& outError) const {
   if (m_path.empty()) {
     outError = "No language YAML loaded";
     return false;
   }
-  std::ofstream f(m_path, std::ios::binary);
-  if (!f) {
+
+  // --- Surgical save: read original, patch only modified top-level sections ---
+
+  // Read original file.
+  std::vector<std::string> origLines;
+  {
+    std::ifstream fin(m_path, std::ios::binary);
+    if (fin) {
+      std::string line;
+      while (std::getline(fin, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        origLines.push_back(line);
+      }
+    }
+  }
+
+  // If we can't read the original (new file?), fall back to full dump.
+  if (origLines.empty()) {
+    std::ofstream f(m_path, std::ios::binary);
+    if (!f) {
+      outError = "Could not write file: " + m_path;
+      return false;
+    }
+    std::string text = dumpYaml(m_root);
+    f.write(text.data(), static_cast<std::streamsize>(text.size()));
+    return true;
+  }
+
+  // Find top-level key ranges in original.
+  std::vector<TopLevelRange> ranges;
+  size_t headerEnd = 0;
+  findTopLevelRanges(origLines, ranges, headerEnd);
+
+  // Build output.
+  std::string output;
+
+  // 1. File header (comments/blanks before first top-level key) — verbatim.
+  for (size_t i = 0; i < headerEnd; ++i) {
+    output += origLines[i];
+    output += "\n";
+  }
+
+  // Build a set of keys we've output to detect new keys.
+  std::unordered_set<std::string> outputKeys;
+
+  // 2. Each top-level section: compare and keep original or re-serialize.
+  for (const auto& range : ranges) {
+    outputKeys.insert(range.key);
+    const Node* memNode = m_root.get(range.key);
+
+    if (!memNode) {
+      // Key was deleted from memory — skip it.
+      continue;
+    }
+
+    // Serialize in-memory version for comparison.
+    std::string serialized = dumpSingleTopLevelKey(range.key, *memNode);
+
+    // Strip both for comparison (ignore comments, trailing whitespace).
+    std::string origStripped = stripForComparison(origLines, range.startLine, range.endLine);
+    std::string serStripped = serialized;
+    while (!serStripped.empty() && serStripped.back() == '\n') serStripped.pop_back();
+
+    if (origStripped == serStripped) {
+      // Unchanged — keep original verbatim (preserves comments, spacing).
+      for (size_t i = range.startLine; i < range.endLine; ++i) {
+        output += origLines[i];
+        output += "\n";
+      }
+    } else {
+      // Changed — output re-serialized version.
+      output += serialized;
+    }
+  }
+
+  // 3. Append any new top-level keys that weren't in the original file.
+  if (m_root.isMap()) {
+    auto keys = m_root.keyOrder.empty()
+        ? std::vector<std::string>() : m_root.keyOrder;
+    if (keys.empty()) {
+      for (const auto& kv : m_root.map) keys.push_back(kv.first);
+    }
+    for (const auto& k : keys) {
+      if (outputKeys.find(k) != outputKeys.end()) continue;
+      const Node* n = m_root.get(k);
+      if (n) {
+        output += dumpSingleTopLevelKey(k, *n);
+      }
+    }
+  }
+
+  // Write output.
+  std::ofstream fout(m_path, std::ios::binary);
+  if (!fout) {
     outError = "Could not write file: " + m_path;
     return false;
   }
-  std::string text = dumpYaml(m_root);
-  f.write(text.data(), static_cast<std::streamsize>(text.size()));
+  fout.write(output.data(), static_cast<std::streamsize>(output.size()));
   return true;
 }
 
@@ -221,6 +394,7 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
     m_root.map.clear();
+    m_root.keyOrder.clear();
     m_root.seq.clear();
     m_root.scalar.clear();
   }
@@ -230,6 +404,9 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
   repl->seq.clear();
 
   for (const auto& r : rules) {
+    // Bug 5: skip no-op identity replacements (from == to with no conditions).
+    if (r.from == r.to && r.when.isEmpty()) continue;
+
     Node item;
     item.type = Node::Type::Map;
 
@@ -241,8 +418,8 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
     to.type = Node::Type::Scalar;
     to.scalar = r.to;
 
-    item.map["from"] = std::move(from);
-    item.map["to"] = std::move(to);
+    mapSet(item, "from", std::move(from));
+    mapSet(item, "to", std::move(to));
 
     if (!r.when.isEmpty()) {
       Node when;
@@ -252,40 +429,40 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
         Node b;
         b.type = Node::Type::Scalar;
         b.scalar = "true";
-        when.map["atWordStart"] = std::move(b);
+        mapSet(when, "atWordStart", std::move(b));
       }
       if (r.when.atWordEnd) {
         Node b;
         b.type = Node::Type::Scalar;
         b.scalar = "true";
-        when.map["atWordEnd"] = std::move(b);
+        mapSet(when, "atWordEnd", std::move(b));
       }
       if (!r.when.beforeClass.empty()) {
         Node s;
         s.type = Node::Type::Scalar;
         s.scalar = r.when.beforeClass;
-        when.map["beforeClass"] = std::move(s);
+        mapSet(when, "beforeClass", std::move(s));
       }
       if (!r.when.afterClass.empty()) {
         Node s;
         s.type = Node::Type::Scalar;
         s.scalar = r.when.afterClass;
-        when.map["afterClass"] = std::move(s);
+        mapSet(when, "afterClass", std::move(s));
       }
       if (!r.when.notBeforeClass.empty()) {
         Node s;
         s.type = Node::Type::Scalar;
         s.scalar = r.when.notBeforeClass;
-        when.map["notBeforeClass"] = std::move(s);
+        mapSet(when, "notBeforeClass", std::move(s));
       }
       if (!r.when.notAfterClass.empty()) {
         Node s;
         s.type = Node::Type::Scalar;
         s.scalar = r.when.notAfterClass;
-        when.map["notAfterClass"] = std::move(s);
+        mapSet(when, "notAfterClass", std::move(s));
       }
 
-      item.map["when"] = std::move(when);
+      mapSet(item, "when", std::move(when));
     }
 
     repl->seq.push_back(std::move(item));
@@ -325,6 +502,7 @@ void LanguageYaml::setClasses(const std::map<std::string, std::string>& classes)
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
     m_root.map.clear();
+    m_root.keyOrder.clear();
   }
 
   Node* norm = nullptr;
@@ -332,7 +510,7 @@ void LanguageYaml::setClasses(const std::map<std::string, std::string>& classes)
   if (it == m_root.map.end()) {
     Node n;
     n.type = Node::Type::Map;
-    m_root.map["normalization"] = std::move(n);
+    mapSet(m_root, "normalization", std::move(n));
     norm = &m_root.map["normalization"];
   } else {
     norm = &it->second;
@@ -349,7 +527,7 @@ void LanguageYaml::setClasses(const std::map<std::string, std::string>& classes)
     Node val;
     val.type = Node::Type::Scalar;
     val.scalar = kv.second;
-    classesNode.map[kv.first] = std::move(val);
+    mapSet(classesNode, kv.first, std::move(val));
   }
   norm->map["classes"] = std::move(classesNode);
 }
@@ -427,8 +605,11 @@ static const NestedKeyMapping kNestedMappings[] = {
   {"trajectoryLimitWindowMs", "trajectoryLimit", nullptr},
   {"trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit", nullptr},
   {"trajectoryLimitLiquidRateScale", "trajectoryLimit", nullptr},
+  {"trajectoryLimitMaxHzPerMsCf1", "trajectoryLimit", "maxHzPerMs"},
   {"trajectoryLimitMaxHzPerMsCf2", "trajectoryLimit", "maxHzPerMs"},
   {"trajectoryLimitMaxHzPerMsCf3", "trajectoryLimit", "maxHzPerMs"},
+  {"trajectoryLimitMaxHzPerMsPf2", "trajectoryLimit", "maxHzPerMs"},
+  {"trajectoryLimitMaxHzPerMsPf3", "trajectoryLimit", "maxHzPerMs"},
   
   // liquidDynamics settings
   {"liquidDynamicsEnabled", "liquidDynamics", nullptr},
@@ -634,6 +815,7 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
     m_root.map.clear();
+    m_root.keyOrder.clear();
     m_root.seq.clear();
     m_root.scalar.clear();
   }
@@ -650,7 +832,23 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
     if (sc->isMap() && sc->get("rules")) savedSpecialCoartic = *sc;
   }
 
+  // Bug 5 fix: Save original key ordering (up to 2 levels deep) so that
+  // round-tripping through the editor preserves YAML file order.
+  auto origTopOrder = s->keyOrder;
+  std::unordered_map<std::string, std::vector<std::string>> origNestedOrder;
+  for (const auto& kv : s->map) {
+    if (kv.second.isMap() && !kv.second.keyOrder.empty()) {
+      origNestedOrder[kv.first] = kv.second.keyOrder;
+      for (const auto& kv2 : kv.second.map) {
+        if (kv2.second.isMap() && !kv2.second.keyOrder.empty()) {
+          origNestedOrder[kv.first + "/" + kv2.first] = kv2.second.keyOrder;
+        }
+      }
+    }
+  }
+
   s->map.clear();
+  s->keyOrder.clear();
   s->seq.clear();
   s->scalar.clear();
 
@@ -666,18 +864,22 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
         
         // Ensure the top-level nested map exists
         if (s->map.find(mapping.nestedPath) == s->map.end()) {
-          s->map[mapping.nestedPath].type = Node::Type::Map;
+          Node nm;
+          nm.type = Node::Type::Map;
+          mapSet(*s, mapping.nestedPath, std::move(nm));
         }
         Node* target = &s->map[mapping.nestedPath];
-        
+
         // If there's a subPath, ensure that nested map exists too
         if (mapping.subPath) {
           if (target->map.find(mapping.subPath) == target->map.end()) {
-            target->map[mapping.subPath].type = Node::Type::Map;
+            Node nm;
+            nm.type = Node::Type::Map;
+            mapSet(*target, mapping.subPath, std::move(nm));
           }
           target = &target->map[mapping.subPath];
         }
-        
+
         // Set the leaf value
         Node v;
         // Check if this should be a sequence (like applyTo)
@@ -687,7 +889,7 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
           v.type = Node::Type::Scalar;
           v.scalar = kv.second;
         }
-        target->map[leafKey] = std::move(v);
+        mapSet(*target, leafKey, std::move(v));
         
         handled = true;
         break;
@@ -699,7 +901,7 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
       Node v;
       v.type = Node::Type::Scalar;
       v.scalar = kv.second;
-      s->map[kv.first] = std::move(v);
+      mapSet(*s, kv.first, std::move(v));
     }
   }
 
@@ -709,13 +911,39 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
     // The loop may have written "enabled" into this map via kNestedMappings.
     // Merge the saved "rules" key back in.
     if (const Node* rules = savedAllophoneRules.get("rules")) {
-      ar.map["rules"] = *rules;
+      mapSet(ar, "rules", *rules);
     }
   }
   if (!savedSpecialCoartic.map.empty()) {
     Node& sc = s->map["specialCoarticulation"];
     if (const Node* rules = savedSpecialCoartic.get("rules")) {
-      sc.map["rules"] = *rules;
+      mapSet(sc, "rules", *rules);
+    }
+  }
+
+  // Bug 5 fix: Restore original key ordering.  Keys that existed before
+  // the clear appear in their original positions; new keys are appended.
+  auto reorder = [](Node& node, const std::vector<std::string>& orig) {
+    if (orig.empty() || node.keyOrder.empty()) return;
+    std::unordered_set<std::string> remaining(node.keyOrder.begin(), node.keyOrder.end());
+    std::vector<std::string> result;
+    for (const auto& k : orig) {
+      if (remaining.erase(k)) result.push_back(k);
+    }
+    for (const auto& k : node.keyOrder) {
+      if (remaining.count(k)) result.push_back(k);
+    }
+    node.keyOrder = std::move(result);
+  };
+  reorder(*s, origTopOrder);
+  for (auto& kv : s->map) {
+    if (!kv.second.isMap()) continue;
+    auto it = origNestedOrder.find(kv.first);
+    if (it != origNestedOrder.end()) reorder(kv.second, it->second);
+    for (auto& kv2 : kv.second.map) {
+      if (!kv2.second.isMap()) continue;
+      auto it2 = origNestedOrder.find(kv.first + "/" + kv2.first);
+      if (it2 != origNestedOrder.end()) reorder(kv2.second, it2->second);
     }
   }
 }
@@ -725,6 +953,7 @@ void LanguageYaml::setSetting(const std::string& key, const std::string& value) 
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
     m_root.map.clear();
+    m_root.keyOrder.clear();
     m_root.seq.clear();
     m_root.scalar.clear();
   }
@@ -925,6 +1154,7 @@ void LanguageYaml::setAllophoneRules(const std::vector<AllophoneRuleEntry>& rule
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
     m_root.map.clear();
+    m_root.keyOrder.clear();
   }
   Node* s = getNestedMap(m_root, "settings");
   Node* ar = getNestedMap(*s, "allophoneRules");
@@ -936,35 +1166,35 @@ void LanguageYaml::setAllophoneRules(const std::vector<AllophoneRuleEntry>& rule
   for (const auto& r : rules) {
     Node item;
     item.type = Node::Type::Map;
-    if (!r.name.empty()) item.map["name"] = makeScalar(r.name);
-    if (!r.phonemes.empty()) item.map["phonemes"] = makeStringSeqNode(r.phonemes);
-    if (!r.flags.empty()) item.map["flags"] = makeStringSeqNode(r.flags);
-    if (!r.notFlags.empty()) item.map["notFlags"] = makeStringSeqNode(r.notFlags);
-    if (r.tokenType != "phoneme") item.map["tokenType"] = makeScalar(r.tokenType);
-    if (r.position != "any") item.map["position"] = makeScalar(r.position);
-    if (r.stress != "any") item.map["stress"] = makeScalar(r.stress);
-    if (!r.after.empty()) item.map["after"] = makeStringSeqNode(r.after);
-    if (!r.before.empty()) item.map["before"] = makeStringSeqNode(r.before);
-    if (!r.afterFlags.empty()) item.map["afterFlags"] = makeStringSeqNode(r.afterFlags);
-    if (!r.notAfterFlags.empty()) item.map["notAfterFlags"] = makeStringSeqNode(r.notAfterFlags);
-    if (!r.beforeFlags.empty()) item.map["beforeFlags"] = makeStringSeqNode(r.beforeFlags);
-    if (!r.notBeforeFlags.empty()) item.map["notBeforeFlags"] = makeStringSeqNode(r.notBeforeFlags);
-    if (!r.action.empty()) item.map["action"] = makeScalar(r.action);
+    if (!r.name.empty()) mapSet(item, "name", makeScalar(r.name));
+    if (!r.phonemes.empty()) mapSet(item, "phonemes", makeStringSeqNode(r.phonemes));
+    if (!r.flags.empty()) mapSet(item, "flags", makeStringSeqNode(r.flags));
+    if (!r.notFlags.empty()) mapSet(item, "notFlags", makeStringSeqNode(r.notFlags));
+    if (r.tokenType != "phoneme") mapSet(item, "tokenType", makeScalar(r.tokenType));
+    if (r.position != "any") mapSet(item, "position", makeScalar(r.position));
+    if (r.stress != "any") mapSet(item, "stress", makeScalar(r.stress));
+    if (!r.after.empty()) mapSet(item, "after", makeStringSeqNode(r.after));
+    if (!r.before.empty()) mapSet(item, "before", makeStringSeqNode(r.before));
+    if (!r.afterFlags.empty()) mapSet(item, "afterFlags", makeStringSeqNode(r.afterFlags));
+    if (!r.notAfterFlags.empty()) mapSet(item, "notAfterFlags", makeStringSeqNode(r.notAfterFlags));
+    if (!r.beforeFlags.empty()) mapSet(item, "beforeFlags", makeStringSeqNode(r.beforeFlags));
+    if (!r.notBeforeFlags.empty()) mapSet(item, "notBeforeFlags", makeStringSeqNode(r.notBeforeFlags));
+    if (!r.action.empty()) mapSet(item, "action", makeScalar(r.action));
     // Replace
-    if (!r.replaceTo.empty()) item.map["replaceTo"] = makeScalar(r.replaceTo);
-    if (r.replaceDurationMs != 0.0) item.map["replaceDurationMs"] = makeScalarD(r.replaceDurationMs);
-    if (r.replaceRemovesClosure) item.map["replaceRemovesClosure"] = makeScalar("true");
-    if (r.replaceRemovesAspiration) item.map["replaceRemovesAspiration"] = makeScalar("true");
-    if (r.replaceClosureScale != 0.0) item.map["replaceClosureScale"] = makeScalarD(r.replaceClosureScale);
-    if (r.replaceAspirationScale != 0.0) item.map["replaceAspirationScale"] = makeScalarD(r.replaceAspirationScale);
+    if (!r.replaceTo.empty()) mapSet(item, "replaceTo", makeScalar(r.replaceTo));
+    if (r.replaceDurationMs != 0.0) mapSet(item, "replaceDurationMs", makeScalarD(r.replaceDurationMs));
+    if (r.replaceRemovesClosure) mapSet(item, "replaceRemovesClosure", makeScalar("true"));
+    if (r.replaceRemovesAspiration) mapSet(item, "replaceRemovesAspiration", makeScalar("true"));
+    if (r.replaceClosureScale != 0.0) mapSet(item, "replaceClosureScale", makeScalarD(r.replaceClosureScale));
+    if (r.replaceAspirationScale != 0.0) mapSet(item, "replaceAspirationScale", makeScalarD(r.replaceAspirationScale));
     // Scale
-    if (r.durationScale != 1.0) item.map["durationScale"] = makeScalarD(r.durationScale);
-    if (r.fadeScale != 1.0) item.map["fadeScale"] = makeScalarD(r.fadeScale);
+    if (r.durationScale != 1.0) mapSet(item, "durationScale", makeScalarD(r.durationScale));
+    if (r.fadeScale != 1.0) mapSet(item, "fadeScale", makeScalarD(r.fadeScale));
     if (!r.fieldScales.empty()) {
       Node fs;
       fs.type = Node::Type::Map;
-      for (const auto& kv : r.fieldScales) fs.map[kv.first] = makeScalarD(kv.second);
-      item.map["fieldScales"] = std::move(fs);
+      for (const auto& kv : r.fieldScales) mapSet(fs, kv.first, makeScalarD(kv.second));
+      mapSet(item, "fieldScales", std::move(fs));
     }
     // Shift
     if (!r.fieldShifts.empty()) {
@@ -973,19 +1203,19 @@ void LanguageYaml::setAllophoneRules(const std::vector<AllophoneRuleEntry>& rule
       for (const auto& se : r.fieldShifts) {
         Node entry;
         entry.type = Node::Type::Map;
-        if (!se.field.empty()) entry.map["field"] = makeScalar(se.field);
-        if (se.deltaHz != 0.0) entry.map["deltaHz"] = makeScalarD(se.deltaHz);
-        if (se.targetHz != 0.0) entry.map["targetHz"] = makeScalarD(se.targetHz);
-        if (se.blend != 1.0) entry.map["blend"] = makeScalarD(se.blend);
+        if (!se.field.empty()) mapSet(entry, "field", makeScalar(se.field));
+        if (se.deltaHz != 0.0) mapSet(entry, "deltaHz", makeScalarD(se.deltaHz));
+        if (se.targetHz != 0.0) mapSet(entry, "targetHz", makeScalarD(se.targetHz));
+        if (se.blend != 1.0) mapSet(entry, "blend", makeScalarD(se.blend));
         fsh.seq.push_back(std::move(entry));
       }
-      item.map["fieldShifts"] = std::move(fsh);
+      mapSet(item, "fieldShifts", std::move(fsh));
     }
     // Insert
-    if (!r.insertPhoneme.empty()) item.map["insertPhoneme"] = makeScalar(r.insertPhoneme);
-    if (r.insertDurationMs != 18.0) item.map["insertDurationMs"] = makeScalarD(r.insertDurationMs);
-    if (r.insertFadeMs != 3.0) item.map["insertFadeMs"] = makeScalarD(r.insertFadeMs);
-    if (!r.insertContexts.empty()) item.map["insertContexts"] = makeStringSeqNode(r.insertContexts);
+    if (!r.insertPhoneme.empty()) mapSet(item, "insertPhoneme", makeScalar(r.insertPhoneme));
+    if (r.insertDurationMs != 18.0) mapSet(item, "insertDurationMs", makeScalarD(r.insertDurationMs));
+    if (r.insertFadeMs != 3.0) mapSet(item, "insertFadeMs", makeScalarD(r.insertFadeMs));
+    if (!r.insertContexts.empty()) mapSet(item, "insertContexts", makeStringSeqNode(r.insertContexts));
     rulesSeq.seq.push_back(std::move(item));
   }
 
@@ -1026,6 +1256,7 @@ void LanguageYaml::setSpecialCoarticRules(const std::vector<SpecialCoarticRuleEn
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
     m_root.map.clear();
+    m_root.keyOrder.clear();
   }
   Node* s = getNestedMap(m_root, "settings");
   Node* sc = getNestedMap(*s, "specialCoarticulation");
@@ -1036,15 +1267,15 @@ void LanguageYaml::setSpecialCoarticRules(const std::vector<SpecialCoarticRuleEn
   for (const auto& r : rules) {
     Node item;
     item.type = Node::Type::Map;
-    if (!r.name.empty()) item.map["name"] = makeScalar(r.name);
-    if (!r.triggers.empty()) item.map["triggers"] = makeStringSeqNode(r.triggers);
-    if (r.vowelFilter != "all") item.map["vowelFilter"] = makeScalar(r.vowelFilter);
-    if (r.formant != "f2") item.map["formant"] = makeScalar(r.formant);
-    if (r.deltaHz != 0.0) item.map["deltaHz"] = makeScalarD(r.deltaHz);
-    if (r.side != "both") item.map["side"] = makeScalar(r.side);
-    if (r.cumulative) item.map["cumulative"] = makeScalar("true");
-    if (r.unstressedScale != 1.0) item.map["unstressedScale"] = makeScalarD(r.unstressedScale);
-    if (r.phraseFinalStressedScale != 1.0) item.map["phraseFinalStressedScale"] = makeScalarD(r.phraseFinalStressedScale);
+    if (!r.name.empty()) mapSet(item, "name", makeScalar(r.name));
+    if (!r.triggers.empty()) mapSet(item, "triggers", makeStringSeqNode(r.triggers));
+    if (r.vowelFilter != "all") mapSet(item, "vowelFilter", makeScalar(r.vowelFilter));
+    if (r.formant != "f2") mapSet(item, "formant", makeScalar(r.formant));
+    if (r.deltaHz != 0.0) mapSet(item, "deltaHz", makeScalarD(r.deltaHz));
+    if (r.side != "both") mapSet(item, "side", makeScalar(r.side));
+    if (r.cumulative) mapSet(item, "cumulative", makeScalar("true"));
+    if (r.unstressedScale != 1.0) mapSet(item, "unstressedScale", makeScalarD(r.unstressedScale));
+    if (r.phraseFinalStressedScale != 1.0) mapSet(item, "phraseFinalStressedScale", makeScalarD(r.phraseFinalStressedScale));
     rulesSeq.seq.push_back(std::move(item));
   }
 
@@ -1166,6 +1397,34 @@ static std::vector<std::string> sortedKeys(const Node& mapNode) {
   return keys;
 }
 
+// Return insertion-order keys if available, else fall back to sorted.
+static std::vector<std::string> orderedKeys(const Node& mapNode) {
+  if (!mapNode.keyOrder.empty()) {
+    // keyOrder may be stale if keys were added programmatically without
+    // updating it.  Build a set of what's in keyOrder, then append any
+    // missing map keys at the end (sorted) to be safe.
+    std::vector<std::string> result;
+    result.reserve(mapNode.map.size());
+    std::unordered_set<std::string> seen;
+    for (const auto& k : mapNode.keyOrder) {
+      if (mapNode.map.find(k) != mapNode.map.end() && seen.insert(k).second) {
+        result.push_back(k);
+      }
+    }
+    if (result.size() < mapNode.map.size()) {
+      // Some keys were added without keyOrder.  Append them sorted.
+      std::vector<std::string> extra;
+      for (const auto& kv : mapNode.map) {
+        if (seen.find(kv.first) == seen.end()) extra.push_back(kv.first);
+      }
+      std::sort(extra.begin(), extra.end());
+      for (auto& k : extra) result.push_back(std::move(k));
+    }
+    return result;
+  }
+  return sortedKeys(mapNode);
+}
+
 // Returns a priority for top-level language YAML keys.
 // Lower number = comes first. Keys not in the list get a high number (alphabetical after).
 static int topLevelKeyPriority(const std::string& key) {
@@ -1198,9 +1457,53 @@ static std::vector<std::string> sortedKeysTopLevel(const Node& mapNode) {
   return keys;
 }
 
+// Emit a map in flow style: {key: val, key: val}
+static void dumpFlowMap(const Node& node, std::string& out) {
+  out += "{";
+  auto keys = orderedKeys(node);
+  bool first = true;
+  for (const auto& k : keys) {
+    if (!first) out += ", ";
+    first = false;
+    out += dumpKey(k);
+    out += ": ";
+    const Node& v = node.map.at(k);
+    if (v.isScalar()) {
+      out += dumpScalar(v.scalar);
+    } else if (v.isSeq() && v.flowStyle) {
+      // Nested flow seq inside flow map.
+      out += "[";
+      bool firstItem = true;
+      for (const auto& item : v.seq) {
+        if (!firstItem) out += ", ";
+        firstItem = false;
+        out += dumpScalar(item.scalar);
+      }
+      out += "]";
+    } else {
+      // Shouldn't happen in well-formed flow maps, but be safe.
+      out += dumpScalar(v.isScalar() ? v.scalar : "");
+    }
+  }
+  out += "}";
+}
+
+// Emit a seq in flow style: [val, val, val]
+static void dumpFlowSeq(const Node& node, std::string& out) {
+  out += "[";
+  bool first = true;
+  for (const auto& item : node.seq) {
+    if (!first) out += ", ";
+    first = false;
+    out += dumpScalar(item.scalar);
+  }
+  out += "]";
+}
+
 static void dumpMap(const Node& node, std::string& out, int ind) {
   // Use special ordering for top-level keys (settings before normalization, etc.)
-  auto keys = (ind == 0) ? sortedKeysTopLevel(node) : sortedKeys(node);
+  // Preserve insertion order for non-top-level maps.
+  auto keys = (ind == 0) ? sortedKeysTopLevel(node) : orderedKeys(node);
 
   for (const auto& k : keys) {
     const Node& v = node.map.at(k);
@@ -1214,20 +1517,43 @@ static void dumpMap(const Node& node, std::string& out, int ind) {
       continue;
     }
 
-    // Null / Map / Seq
+    // Flow-style map: emit inline {k: v, ...}
+    if (v.isMap() && v.flowStyle) {
+      out += ": ";
+      dumpFlowMap(v, out);
+      out += "\n";
+      continue;
+    }
+
+    // Flow-style seq: emit inline [v, v, ...]
+    if (v.isSeq() && v.flowStyle) {
+      out += ": ";
+      dumpFlowSeq(v, out);
+      out += "\n";
+      continue;
+    }
+
+    // Null / Map / Seq (block style)
     out += ":\n";
     dumpNode(v, out, ind + 2);
   }
 }
 
 static void dumpSeqItemMapInlineFirstKey(const Node& item, std::string& out, int ind) {
-  // Pick a good first key.
+  // Pick a good first key: prefer insertion order, else "from"/"key".
+  auto keys = orderedKeys(item);
   std::string first;
-  if (item.map.find("from") != item.map.end()) first = "from";
-  else if (item.map.find("key") != item.map.end()) first = "key";
-  else {
-    auto keys = sortedKeys(item);
-    if (!keys.empty()) first = keys[0];
+  if (!keys.empty()) {
+    // Use insertion-order first key if it's a scalar.
+    if (item.map.at(keys[0]).type == Node::Type::Scalar) {
+      first = keys[0];
+    }
+  }
+  // Fallback: prefer "from" or "key" for readability.
+  if (first.empty()) {
+    if (item.map.find("from") != item.map.end()) first = "from";
+    else if (item.map.find("key") != item.map.end()) first = "key";
+    else if (!keys.empty()) first = keys[0];
   }
 
   if (first.empty() || item.map.at(first).type != Node::Type::Scalar) {
@@ -1242,8 +1568,7 @@ static void dumpSeqItemMapInlineFirstKey(const Node& item, std::string& out, int
   out += dumpScalar(item.map.at(first).scalar);
   out += "\n";
 
-  // Remaining keys.
-  auto keys = sortedKeys(item);
+  // Remaining keys in insertion order.
   for (const auto& k : keys) {
     if (k == first) continue;
     const Node& v = item.map.at(k);
@@ -1252,6 +1577,14 @@ static void dumpSeqItemMapInlineFirstKey(const Node& item, std::string& out, int
     if (v.type == Node::Type::Scalar) {
       out += ": ";
       out += dumpScalar(v.scalar);
+      out += "\n";
+    } else if (v.isMap() && v.flowStyle) {
+      out += ": ";
+      dumpFlowMap(v, out);
+      out += "\n";
+    } else if (v.isSeq() && v.flowStyle) {
+      out += ": ";
+      dumpFlowSeq(v, out);
       out += "\n";
     } else {
       out += ":\n";
@@ -1275,6 +1608,11 @@ static void dumpSeq(const Node& node, std::string& out, int ind) {
     if (item.type == Node::Type::Map) {
       if (item.map.empty()) {
         out += " {}\n";
+      } else if (item.flowStyle) {
+        // Emit as inline flow map: - {key: val, key: val}
+        out += " ";
+        dumpFlowMap(item, out);
+        out += "\n";
       } else {
         dumpSeqItemMapInlineFirstKey(item, out, ind);
       }
@@ -1282,8 +1620,14 @@ static void dumpSeq(const Node& node, std::string& out, int ind) {
     }
 
     if (item.type == Node::Type::Seq) {
-      out += "\n";
-      dumpSeq(item, out, ind + 2);
+      if (item.flowStyle) {
+        out += " ";
+        dumpFlowSeq(item, out);
+        out += "\n";
+      } else {
+        out += "\n";
+        dumpSeq(item, out, ind + 2);
+      }
       continue;
     }
 
@@ -1314,13 +1658,298 @@ static void dumpNode(const Node& node, std::string& out, int ind) {
 
 std::string dumpYaml(const Node& root) {
   std::string out;
-  // Friendly header.
   out += "# Edited by tgsbPhonemeEditor (Win32)\n";
-  out += "# Note: YAML comments are not preserved by this editor.\n";
   out += "\n";
 
   dumpNode(root, out, 0);
   return out;
 }
+
+// Serialize a single phoneme node as YAML lines at 4-space indent (under "phonemes:\n  key:\n").
+static std::string dumpSinglePhoneme(const std::string& key, const Node& node) {
+  std::string out;
+  // Phoneme key line at 2-space indent.
+  out += "  ";
+  out += dumpKey(key);
+  out += ":\n";
+  // Fields at 4-space indent.
+  if (node.isMap()) {
+    auto keys = orderedKeys(node);
+    for (const auto& k : keys) {
+      const Node& v = node.map.at(k);
+      out += "    ";
+      out += dumpKey(k);
+      if (v.type == Node::Type::Scalar) {
+        out += ": ";
+        out += dumpScalar(v.scalar);
+        out += "\n";
+      } else if (v.isMap() && v.flowStyle) {
+        out += ": ";
+        dumpFlowMap(v, out);
+        out += "\n";
+      } else if (v.isSeq() && v.flowStyle) {
+        out += ": ";
+        dumpFlowSeq(v, out);
+        out += "\n";
+      } else {
+        out += ":\n";
+        dumpNode(v, out, 6);
+      }
+    }
+  }
+  return out;
+}
+
+// Find the line range [start, end) for a phoneme key within the phonemes: block.
+// The phoneme key is at 2-space indent, its fields at 4+ spaces.
+// Returns false if not found.
+struct PhonemeLineRange {
+  std::string key;         // unquoted phoneme key
+  size_t startLine = 0;    // index of the "  key:" line
+  size_t endLine = 0;      // one past the last line of this phoneme's fields
+};
+
+// Parse the original file to find all phoneme blocks and their line ranges.
+static void findPhonemeRanges(const std::vector<std::string>& lines,
+                              std::vector<PhonemeLineRange>& ranges,
+                              size_t& phonemesBlockStart,
+                              size_t& phonemesBlockEnd) {
+  phonemesBlockStart = 0;
+  phonemesBlockEnd = lines.size();
+
+  // Find "phonemes:" top-level key.
+  size_t pStart = SIZE_MAX;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    const std::string& ln = lines[i];
+    if (ln.size() >= 9 && ln.substr(0, 9) == "phonemes:") {
+      pStart = i;
+      phonemesBlockStart = i;
+      break;
+    }
+  }
+  if (pStart == SIZE_MAX) return;
+
+  // Walk lines after "phonemes:" looking for 2-space-indented keys (phoneme names).
+  PhonemeLineRange cur;
+  bool inPhoneme = false;
+  for (size_t i = pStart + 1; i < lines.size(); ++i) {
+    const std::string& ln = lines[i];
+
+    // A line with no leading space = new top-level key -> end of phonemes block.
+    if (!ln.empty() && ln[0] != ' ' && ln[0] != '#') {
+      phonemesBlockEnd = i;
+      if (inPhoneme) {
+        cur.endLine = i;
+        ranges.push_back(cur);
+      }
+      return;
+    }
+
+    // Check for 2-space-indented key (phoneme name).
+    if (ln.size() >= 3 && ln[0] == ' ' && ln[1] == ' ' && ln[2] != ' ' && ln[2] != '#') {
+      // This is a phoneme key line like "  ɑ:" or "  \"ɑ\":"
+      if (inPhoneme) {
+        cur.endLine = i;
+        ranges.push_back(cur);
+      }
+      // Parse the key (strip quotes, strip trailing ':').
+      std::string rawKey = ln.substr(2);
+      // Trim trailing whitespace.
+      while (!rawKey.empty() && (rawKey.back() == ' ' || rawKey.back() == '\r')) rawKey.pop_back();
+      // Strip trailing colon.
+      if (!rawKey.empty() && rawKey.back() == ':') rawKey.pop_back();
+      // Unquote.
+      if (rawKey.size() >= 2 && rawKey.front() == '"' && rawKey.back() == '"') {
+        rawKey = rawKey.substr(1, rawKey.size() - 2);
+      }
+
+      cur = PhonemeLineRange();
+      cur.key = rawKey;
+      cur.startLine = i;
+      inPhoneme = true;
+    }
+  }
+  // End of file.
+  phonemesBlockEnd = lines.size();
+  if (inPhoneme) {
+    cur.endLine = lines.size();
+    ranges.push_back(cur);
+  }
+}
+
+bool PhonemesYaml::save(std::string& outError) const {
+  if (m_path.empty()) {
+    outError = "No phonemes YAML loaded";
+    return false;
+  }
+
+  // --- Surgical save: read original, patch only modified phonemes ---
+
+  // Read original file.
+  std::vector<std::string> origLines;
+  {
+    std::ifstream fin(m_path, std::ios::binary);
+    if (fin) {
+      std::string line;
+      while (std::getline(fin, line)) {
+        // Strip trailing \r for consistent handling.
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        origLines.push_back(line);
+      }
+    }
+  }
+
+  // If we can't read the original (new file?), fall back to full dump.
+  if (origLines.empty()) {
+    std::ofstream f(m_path, std::ios::binary);
+    if (!f) {
+      outError = "Could not write file: " + m_path;
+      return false;
+    }
+    std::string text = dumpYaml(m_root);
+    f.write(text.data(), static_cast<std::streamsize>(text.size()));
+    return true;
+  }
+
+  // Find phoneme line ranges in the original file.
+  std::vector<PhonemeLineRange> ranges;
+  size_t phonemesBlockStart = 0;
+  size_t phonemesBlockEnd = origLines.size();
+  findPhonemeRanges(origLines, ranges, phonemesBlockStart, phonemesBlockEnd);
+
+  // Build a map of original phoneme key -> range index for fast lookup.
+  std::unordered_map<std::string, size_t> origKeyToRange;
+  for (size_t ri = 0; ri < ranges.size(); ++ri) {
+    origKeyToRange[ranges[ri].key] = ri;
+  }
+
+  // Get the in-memory phonemes map.
+  const Node* phonemesNode = m_root.get("phonemes");
+  if (!phonemesNode || !phonemesNode->isMap()) {
+    outError = "No phonemes map in memory";
+    return false;
+  }
+
+  // Collect in-memory phoneme keys in their original file order,
+  // then append any new keys at the end.
+  std::vector<std::string> orderedPhonemeKeys;
+  std::unordered_set<std::string> seenKeys;
+  for (const auto& r : ranges) {
+    if (phonemesNode->map.find(r.key) != phonemesNode->map.end()) {
+      orderedPhonemeKeys.push_back(r.key);
+      seenKeys.insert(r.key);
+    }
+    // If a key was deleted from memory, we simply skip it.
+  }
+  // Append new phonemes that weren't in the original file.
+  for (const auto& kv : phonemesNode->map) {
+    if (seenKeys.find(kv.first) == seenKeys.end()) {
+      orderedPhonemeKeys.push_back(kv.first);
+    }
+  }
+
+  // Build the output.
+  std::string output;
+
+  // 1. Everything before the phonemes block (comments, etc.) — verbatim.
+  for (size_t i = 0; i <= phonemesBlockStart; ++i) {
+    output += origLines[i];
+    output += "\n";
+  }
+
+  // 2. Each phoneme: either original lines (if unchanged) or re-serialized.
+  for (const auto& pkey : orderedPhonemeKeys) {
+    const Node& memNode = phonemesNode->map.at(pkey);
+    std::string serialized = dumpSinglePhoneme(pkey, memNode);
+
+    auto origIt = origKeyToRange.find(pkey);
+    if (origIt != origKeyToRange.end()) {
+      // This phoneme existed in the original file.
+      const PhonemeLineRange& range = ranges[origIt->second];
+      // Reconstruct original lines for comparison.
+      std::string origBlock;
+      for (size_t i = range.startLine; i < range.endLine; ++i) {
+        // Skip pure comment/blank lines for comparison purposes,
+        // but include them in the original block output.
+        origBlock += origLines[i];
+        origBlock += "\n";
+      }
+
+      // Compare stripped versions (ignore trailing whitespace differences).
+      // If the data is the same, keep original (preserves comments, spacing).
+      // Simple comparison: strip all lines and compare key-value content.
+      bool changed = false;
+
+      // Quick comparison: serialize from memory and compare text.
+      // This won't match if original had comments or different formatting,
+      // so we do a data-level comparison instead.
+      // Parse both blocks' key-value data and compare.
+      // Simplest approach: if the serialized phoneme differs from the
+      // stripped original, it was modified.
+      // For robustness, compare the in-memory Node to a freshly-parsed
+      // version of the original block.
+      // But that's complex.  Instead, use a simpler heuristic:
+      // serialize the in-memory node and compare to original text
+      // with comments stripped.  If they match, keep original.
+
+      // Strip comments and blank lines from original for comparison.
+      std::string origStripped;
+      for (size_t i = range.startLine; i < range.endLine; ++i) {
+        const std::string& ln = origLines[i];
+        std::string trimmed = ln;
+        // Trim trailing whitespace.
+        while (!trimmed.empty() && (trimmed.back() == ' ' || trimmed.back() == '\r')) trimmed.pop_back();
+        // Skip pure comment lines and blank lines.
+        size_t firstNonSpace = trimmed.find_first_not_of(' ');
+        if (firstNonSpace == std::string::npos) continue;
+        if (trimmed[firstNonSpace] == '#') continue;
+        // Strip inline comments for comparison.
+        origStripped += trimmed;
+        origStripped += "\n";
+      }
+
+      // Strip trailing whitespace from serialized too.
+      std::string serStripped;
+      for (size_t i = 0; i < serialized.size(); ++i) {
+        serStripped += serialized[i];
+      }
+      // Normalize: remove trailing newline for comparison.
+      while (!origStripped.empty() && origStripped.back() == '\n') origStripped.pop_back();
+      while (!serStripped.empty() && serStripped.back() == '\n') serStripped.pop_back();
+
+      changed = (origStripped != serStripped);
+
+      if (!changed) {
+        // Keep original lines verbatim (with comments, spacing, etc.).
+        for (size_t i = range.startLine; i < range.endLine; ++i) {
+          output += origLines[i];
+          output += "\n";
+        }
+      } else {
+        // Output re-serialized phoneme (comments within this block are lost).
+        output += serialized;
+      }
+    } else {
+      // New phoneme — serialize from scratch.
+      output += serialized;
+    }
+  }
+
+  // 3. Everything after the phonemes block — verbatim.
+  for (size_t i = phonemesBlockEnd; i < origLines.size(); ++i) {
+    output += origLines[i];
+    output += "\n";
+  }
+
+  // Write the output.
+  std::ofstream fout(m_path, std::ios::binary);
+  if (!fout) {
+    outError = "Could not write file: " + m_path;
+    return false;
+  }
+  fout.write(output.data(), static_cast<std::streamsize>(output.size()));
+  return true;
+}
+
 
 } // namespace tgsb_editor

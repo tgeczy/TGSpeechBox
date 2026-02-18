@@ -1,0 +1,99 @@
+name: Build Linux releases
+
+on:
+  push:
+    tags:
+      - 'v-*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            cross: ""
+            pkg: ""
+          - arch: aarch64
+            cross: "aarch64-linux-gnu-"
+            pkg: "g++-aarch64-linux-gnu"
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross-compiler
+        if: matrix.pkg != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.pkg }}
+
+      - name: Build shared libraries + tgsbRender
+        run: make -f Makefile.linux CROSS_COMPILE=${{ matrix.cross }}
+
+      - name: Build static tgsbRender
+        run: make -f Makefile.linux CROSS_COMPILE=${{ matrix.cross }} STATIC=1
+
+      - name: Strip binaries
+        run: |
+          ${{ matrix.cross }}strip build/libtgspeechbox.so
+          ${{ matrix.cross }}strip build/libtgsbFrontend.so
+          ${{ matrix.cross }}strip build/tgsbRender
+
+      - name: Assemble release folder
+        run: |
+          DIST="tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}"
+          mkdir -p "$DIST/bin" "$DIST/lib" "$DIST/share/tgspeechbox"
+
+          # Binaries
+          cp build/libtgspeechbox.so "$DIST/lib/"
+          cp build/libtgsbFrontend.so "$DIST/lib/"
+          cp build/tgsbRender "$DIST/bin/"
+          chmod +x "$DIST/bin/tgsbRender"
+
+          # Wrapper + installer
+          cp tools/linux/tgsp "$DIST/bin/"
+          chmod +x "$DIST/bin/tgsp"
+          cp tools/linux/install.sh "$DIST/"
+          chmod +x "$DIST/install.sh"
+
+          # Packs
+          cp -r packs "$DIST/share/tgspeechbox/packs"
+
+          # Extras (speech-dispatcher config)
+          cp -r extras "$DIST/share/tgspeechbox/extras"
+
+          # README
+          cp README-linux.md "$DIST/"
+
+          # Tar it up
+          tar czf "$DIST.tar.gz" "$DIST"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}
+          path: tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            tgspeechbox-linux-x86_64-${{ github.ref_name }}/tgspeechbox-linux-x86_64-${{ github.ref_name }}.tar.gz
+            tgspeechbox-linux-aarch64-${{ github.ref_name }}/tgspeechbox-linux-aarch64-${{ github.ref_name }}.tar.gz
+          draft: true
+          generate_release_notes: false
+          body: |
+            Linux builds (x86_64 + aarch64) auto-generated from tag ${{ github.ref_name }}.
+
+            Extract and run `./install.sh` to install, or use the `tgsp` wrapper directly.

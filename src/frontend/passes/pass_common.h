@@ -83,9 +83,10 @@ inline Place getPlace(const std::u32string& key) {
     return Place::Alveolar;
   }
 
-  // Palatals / Postalveolars
+  // Palatals / Postalveolars (including tie-bar affricate variants)
   if (key == U"ʃ" || key == U"ʒ" || key == U"tʃ" ||
-      key == U"dʒ" || key == U"j" || key == U"ɲ" ||
+      key == U"dʒ" || key == U"t\u0361ʃ" || key == U"d\u0361ʒ" ||
+      key == U"j" || key == U"ɲ" ||
       key == U"ç" || key == U"ʝ" || key == U"c" ||
       key == U"ɟ" || key == U"ʎ") {
     return Place::Palatal;

@@ -1684,8 +1684,10 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
         // can output a voice bar (low-frequency murmur) instead of true silence.
         // This maintains continuous voicing through the closure while letting
         // formants interpolate naturally (no abrupt formant discontinuity).
+        // Thread parent stop's PhonemeDef so voice bar can read voiceBarAmplitude/F1.
         if (tokenIsVoiced(t)) {
           gap.voicedClosure = true;
+          gap.def = t.def;
         }
 
         outTokens.push_back(gap);

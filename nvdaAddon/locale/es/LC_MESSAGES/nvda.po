@@ -1962,6 +1962,16 @@ msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Coda Stop Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Coda Fricative Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Phrase Final Lengthening Nucleus Scale"
 msgstr ""
 

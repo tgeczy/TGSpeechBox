@@ -370,6 +370,8 @@ class LanguagePack:
     phrase_final_lengthening_nucleus_only_mode: bool = True
     phrase_final_lengthening_nucleus_scale: float = 0.0
     phrase_final_lengthening_coda_scale: float = 0.0
+    phrase_final_lengthening_coda_stop_scale: float = 0.0
+    phrase_final_lengthening_coda_fricative_scale: float = 0.0
     prominence_enabled: bool = False
     prominence_secondary_stress_level: float = 0.6
     prominence_long_vowel_weight: float = 0.5
@@ -787,6 +789,33 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.boundary_smoothing_plosive_spans_phone = gb("boundarySmoothingPlosiveSpansPhone", lp.boundary_smoothing_plosive_spans_phone)
     lp.boundary_smoothing_nasal_f1_instant = gb("boundarySmoothingNasalF1Instant", lp.boundary_smoothing_nasal_f1_instant)
     lp.boundary_smoothing_nasal_f2_f3_spans_phone = gb("boundarySmoothingNasalF2F3SpansPhone", lp.boundary_smoothing_nasal_f2_f3_spans_phone)
+    lp.boundary_smoothing_vowel_to_stop_ms = gn("boundarySmoothingVowelToStopFadeMs", lp.boundary_smoothing_vowel_to_stop_ms)
+    lp.boundary_smoothing_stop_to_vowel_ms = gn("boundarySmoothingStopToVowelFadeMs", lp.boundary_smoothing_stop_to_vowel_ms)
+    lp.boundary_smoothing_vowel_to_fric_ms = gn("boundarySmoothingVowelToFricFadeMs", lp.boundary_smoothing_vowel_to_fric_ms)
+    lp.boundary_smoothing_fric_to_vowel_ms = gn("boundarySmoothingFricToVowelFadeMs", lp.boundary_smoothing_fric_to_vowel_ms)
+    lp.boundary_smoothing_vowel_to_nasal_ms = gn("boundarySmoothingVowelToNasalFadeMs", lp.boundary_smoothing_vowel_to_nasal_ms)
+    lp.boundary_smoothing_nasal_to_vowel_ms = gn("boundarySmoothingNasalToVowelFadeMs", lp.boundary_smoothing_nasal_to_vowel_ms)
+    lp.boundary_smoothing_vowel_to_liquid_ms = gn("boundarySmoothingVowelToLiquidFadeMs", lp.boundary_smoothing_vowel_to_liquid_ms)
+    lp.boundary_smoothing_liquid_to_vowel_ms = gn("boundarySmoothingLiquidToVowelFadeMs", lp.boundary_smoothing_liquid_to_vowel_ms)
+    lp.boundary_smoothing_nasal_to_stop_ms = gn("boundarySmoothingNasalToStopFadeMs", lp.boundary_smoothing_nasal_to_stop_ms)
+    lp.boundary_smoothing_liquid_to_stop_ms = gn("boundarySmoothingLiquidToStopFadeMs", lp.boundary_smoothing_liquid_to_stop_ms)
+    lp.boundary_smoothing_fric_to_stop_ms = gn("boundarySmoothingFricToStopFadeMs", lp.boundary_smoothing_fric_to_stop_ms)
+    lp.boundary_smoothing_stop_to_fric_ms = gn("boundarySmoothingStopToFricFadeMs", lp.boundary_smoothing_stop_to_fric_ms)
+    lp.boundary_smoothing_vowel_to_vowel_ms = gn("boundarySmoothingVowelToVowelFadeMs", lp.boundary_smoothing_vowel_to_vowel_ms)
+    lp.boundary_smoothing_labial_f1_scale = gn("boundarySmoothingLabialF1Scale", lp.boundary_smoothing_labial_f1_scale)
+    lp.boundary_smoothing_labial_f2_scale = gn("boundarySmoothingLabialF2Scale", lp.boundary_smoothing_labial_f2_scale)
+    lp.boundary_smoothing_labial_f3_scale = gn("boundarySmoothingLabialF3Scale", lp.boundary_smoothing_labial_f3_scale)
+    lp.boundary_smoothing_alveolar_f1_scale = gn("boundarySmoothingAlveolarF1Scale", lp.boundary_smoothing_alveolar_f1_scale)
+    lp.boundary_smoothing_alveolar_f2_scale = gn("boundarySmoothingAlveolarF2Scale", lp.boundary_smoothing_alveolar_f2_scale)
+    lp.boundary_smoothing_alveolar_f3_scale = gn("boundarySmoothingAlveolarF3Scale", lp.boundary_smoothing_alveolar_f3_scale)
+    lp.boundary_smoothing_palatal_f1_scale = gn("boundarySmoothingPalatalF1Scale", lp.boundary_smoothing_palatal_f1_scale)
+    lp.boundary_smoothing_palatal_f2_scale = gn("boundarySmoothingPalatalF2Scale", lp.boundary_smoothing_palatal_f2_scale)
+    lp.boundary_smoothing_palatal_f3_scale = gn("boundarySmoothingPalatalF3Scale", lp.boundary_smoothing_palatal_f3_scale)
+    lp.boundary_smoothing_velar_f1_scale = gn("boundarySmoothingVelarF1Scale", lp.boundary_smoothing_velar_f1_scale)
+    lp.boundary_smoothing_velar_f2_scale = gn("boundarySmoothingVelarF2Scale", lp.boundary_smoothing_velar_f2_scale)
+    lp.boundary_smoothing_velar_f3_scale = gn("boundarySmoothingVelarF3Scale", lp.boundary_smoothing_velar_f3_scale)
+    lp.boundary_smoothing_within_syllable_scale = gn("boundarySmoothingWithinSyllableScale", lp.boundary_smoothing_within_syllable_scale)
+    lp.boundary_smoothing_within_syllable_fade_scale = gn("boundarySmoothingWithinSyllableFadeScale", lp.boundary_smoothing_within_syllable_fade_scale)
     lp.trajectory_limit_enabled = gb("trajectoryLimitEnabled", lp.trajectory_limit_enabled)
     lp.trajectory_limit_window_ms = gn("trajectoryLimitWindowMs", lp.trajectory_limit_window_ms)
     lp.trajectory_limit_apply_across_word_boundary = gb("trajectoryLimitApplyAcrossWordBoundary", lp.trajectory_limit_apply_across_word_boundary)
@@ -810,6 +839,8 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.phrase_final_lengthening_nucleus_only_mode = gb("phraseFinalLengtheningNucleusOnlyMode", lp.phrase_final_lengthening_nucleus_only_mode)
     lp.phrase_final_lengthening_nucleus_scale = gn("phraseFinalLengtheningNucleusScale", lp.phrase_final_lengthening_nucleus_scale)
     lp.phrase_final_lengthening_coda_scale = gn("phraseFinalLengtheningCodaScale", lp.phrase_final_lengthening_coda_scale)
+    lp.phrase_final_lengthening_coda_stop_scale = gn("phraseFinalLengtheningCodaStopScale", lp.phrase_final_lengthening_coda_stop_scale)
+    lp.phrase_final_lengthening_coda_fricative_scale = gn("phraseFinalLengtheningCodaFricativeScale", lp.phrase_final_lengthening_coda_fricative_scale)
     lp.prominence_enabled = gb("prominenceEnabled", lp.prominence_enabled)
     lp.prominence_primary_stress_weight = gn("prominencePrimaryStressWeight", lp.prominence_primary_stress_weight)
     lp.prominence_secondary_stress_weight = gn("prominenceSecondaryStressWeight", lp.prominence_secondary_stress_weight)
@@ -943,7 +974,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
             lp.trajectory_limit_apply_mask = mask
 
     # trajectoryLimitMaxHzPerMs flat keys
-    for suffix, fid_name in [("Cf2", "cf2"), ("Cf3", "cf3"), ("Pf2", "pf2"), ("Pf3", "pf3")]:
+    for suffix, fid_name in [("Cf1", "cf1"), ("Cf2", "cf2"), ("Cf3", "cf3"), ("Pf2", "pf2"), ("Pf3", "pf3")]:
         v = s.get(f"trajectoryLimitMaxHzPerMs{suffix}")
         if v is not None:
             try:

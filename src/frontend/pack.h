@@ -127,6 +127,39 @@ struct PhonemeDef {
   double endPf1 = NAN;
   double endPf2 = NAN;
   double endPf3 = NAN;
+
+  // ── Micro-event fields (consumed by frame_emit, NOT by DSP) ────────
+  // These shape amplitude envelopes within a token. The DSP sees the
+  // same parameters it always has — just with time-varying values.
+  // All are optional; omitted fields use flag-gated defaults.
+
+  // Stop burst shaping (only read when kIsStop or kIsAffricate is set):
+  bool hasBurstDurationMs = false;
+  double burstDurationMs = 0.0;      // how long burst energy lasts (ms)
+
+  bool hasBurstDecayRate = false;
+  double burstDecayRate = 0.0;       // 0.0=flat, 1.0=instant decay (default 0.5)
+
+  bool hasBurstSpectralTilt = false;
+  double burstSpectralTilt = 0.0;    // negative=boost pa5/pa6, positive=boost pa3/pa4
+
+  // Voiced stop closure (only read when kIsStop+kIsVoiced):
+  bool hasVoiceBarAmplitude = false;
+  double voiceBarAmplitude = 0.0;    // voicing energy during closure (default 0.3 voiced, 0.0 voiceless)
+
+  bool hasVoiceBarF1 = false;
+  double voiceBarF1 = 0.0;          // F1 during voice bar (default 150 Hz)
+
+  // Aspiration/release shaping (only read when postStopAspiration token):
+  bool hasReleaseSpreadMs = false;
+  double releaseSpreadMs = 0.0;      // how gradually aspiration ramps in after burst (default 4)
+
+  // Fricative envelope (only read when fricationAmplitude > 0):
+  bool hasFricAttackMs = false;
+  double fricAttackMs = 0.0;         // onset ramp time for frication (default 3)
+
+  bool hasFricDecayMs = false;
+  double fricDecayMs = 0.0;          // offset ramp time for frication (default 4)
 };
 
 // In YAML we keep replacements in UTF-8; we convert to UTF-32 during load.
@@ -816,6 +849,8 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool phraseFinalLengtheningNucleusOnlyMode = true;
   double phraseFinalLengtheningNucleusScale = 0.0;  // 0 = use finalSyllableScale
   double phraseFinalLengtheningCodaScale = 0.0;     // 0 = use finalSyllableScale
+  double phraseFinalLengtheningCodaStopScale = 0.0;      // 0 = fall back to codaScale
+  double phraseFinalLengtheningCodaFricativeScale = 0.0;  // 0 = fall back to codaScale
 
   // ── Prominence pass ──
   bool prominenceEnabled = false;

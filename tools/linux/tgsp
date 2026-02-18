@@ -1,0 +1,10 @@
+#!/bin/bash
+# Wrapper script for tgsbRender that sets up library paths
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
+PACK_DIR="$(dirname "$SCRIPT_DIR")/share/tgspeechbox/packs"
+
+export LD_LIBRARY_PATH="$LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+exec "$SCRIPT_DIR/tgsbRender" --packdir "$PACK_DIR" "$@"

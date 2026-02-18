@@ -150,6 +150,7 @@ static bool parseInlineSeq(const std::string& raw, Node& out) {
   if (s.size() < 2 || s.front() != '[' || s.back() != ']') return false;
   Node n;
   n.type = Node::Type::Seq;
+  n.flowStyle = true;
   std::string inner = trim(s.substr(1, s.size() - 2));
   if (inner.empty()) {
     out = std::move(n);
@@ -178,6 +179,82 @@ static bool parseInlineSeq(const std::string& raw, Node& out) {
     Node item;
     parseScalar(cur, item);
     n.seq.push_back(std::move(item));
+  }
+
+  out = std::move(n);
+  return true;
+}
+
+static bool parseInlineFlowMap(const std::string& raw, Node& out) {
+  std::string s = trim(raw);
+  if (s.size() < 2 || s.front() != '{' || s.back() != '}') return false;
+  Node n;
+  n.type = Node::Type::Map;
+  n.flowStyle = true;
+  std::string inner = trim(s.substr(1, s.size() - 2));
+  if (inner.empty()) {
+    out = std::move(n);
+    return true;
+  }
+
+  // Split on commas (respecting quotes), then parse key: value pairs.
+  bool inSingle = false;
+  bool inDouble = false;
+  int braceDepth = 0;
+  int bracketDepth = 0;
+  std::string cur;
+  for (size_t i = 0; i < inner.size(); ++i) {
+    char c = inner[i];
+    if (c == '\'' && !inDouble) inSingle = !inSingle;
+    if (c == '"' && !inSingle) inDouble = !inDouble;
+    if (!inSingle && !inDouble) {
+      if (c == '{') ++braceDepth;
+      if (c == '}') --braceDepth;
+      if (c == '[') ++bracketDepth;
+      if (c == ']') --bracketDepth;
+    }
+    if (c == ',' && !inSingle && !inDouble && braceDepth == 0 && bracketDepth == 0) {
+      // Parse this key-value pair.
+      std::string kv = trim(cur);
+      if (!kv.empty()) {
+        auto colon = kv.find(':');
+        if (colon != std::string::npos) {
+          std::string key = unquoteScalar(trim(kv.substr(0, colon)));
+          std::string val = trim(kv.substr(colon + 1));
+          if (!key.empty()) {
+            Node v;
+            // Try nested inline seq or flow map, else scalar.
+            if (!parseInlineSeq(val, v) && !parseInlineFlowMap(val, v)) {
+              parseScalar(val, v);
+            }
+            n.keyOrder.push_back(key);
+            n.map[std::move(key)] = std::move(v);
+          }
+        }
+      }
+      cur.clear();
+      continue;
+    }
+    cur.push_back(c);
+  }
+  // Last pair (after final comma or the only pair).
+  {
+    std::string kv = trim(cur);
+    if (!kv.empty()) {
+      auto colon = kv.find(':');
+      if (colon != std::string::npos) {
+        std::string key = unquoteScalar(trim(kv.substr(0, colon)));
+        std::string val = trim(kv.substr(colon + 1));
+        if (!key.empty()) {
+          Node v;
+          if (!parseInlineSeq(val, v) && !parseInlineFlowMap(val, v)) {
+            parseScalar(val, v);
+          }
+          n.keyOrder.push_back(key);
+          n.map[std::move(key)] = std::move(v);
+        }
+      }
+    }
   }
 
   out = std::move(n);
@@ -239,9 +316,11 @@ static bool parseMap(const std::vector<Line>& lines, size_t& idx, int indent, No
         }
       }
     } else {
-      // Scalar or inline list.
+      // Scalar, inline list, or inline flow map.
       Node tmp;
       if (parseInlineSeq(val, tmp)) {
+        valueNode = std::move(tmp);
+      } else if (parseInlineFlowMap(val, tmp)) {
         valueNode = std::move(tmp);
       } else {
         parseScalar(val, valueNode);
@@ -249,6 +328,9 @@ static bool parseMap(const std::vector<Line>& lines, size_t& idx, int indent, No
       ++idx;
     }
 
+    if (n.map.find(key) == n.map.end()) {
+      n.keyOrder.push_back(key);
+    }
     n.map[std::move(key)] = std::move(valueNode);
   }
 
@@ -269,9 +351,12 @@ static bool parseSeqItemInlineMap(const std::string& s, Node& outMapNode) {
   Node tmp;
   if (parseInlineSeq(val, tmp)) {
     v = std::move(tmp);
+  } else if (parseInlineFlowMap(val, tmp)) {
+    v = std::move(tmp);
   } else {
     parseScalar(val, v);
   }
+  n.keyOrder.push_back(key);
   n.map[std::move(key)] = std::move(v);
   outMapNode = std::move(n);
   return true;
@@ -305,8 +390,12 @@ static bool parseSeq(const std::vector<Line>& lines, size_t& idx, int indent, No
         Node nested;
         if (!parseBlock(lines, idx, lines[idx].indent, nested, err)) return false;
         if (nested.isMap()) {
-          for (auto& kv : nested.map) {
-            item.map[kv.first] = std::move(kv.second);
+          for (const auto& k : nested.keyOrder) {
+            auto it = nested.map.find(k);
+            if (it != nested.map.end()) {
+              item.keyOrder.push_back(k);
+              item.map[k] = std::move(it->second);
+            }
           }
         }
       }
