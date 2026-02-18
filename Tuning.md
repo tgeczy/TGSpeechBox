@@ -1305,15 +1305,15 @@ settings:
 
 **Within-syllable gentling:** When two adjacent tokens share the same `syllableIndex`, their transition is within a single articulatory gesture. `withinSyllableScale` multiplies the per-place transScale values (clamped to 1.0 — transitions get slower, not faster), and `withinSyllableFadeScale` multiplies the fade duration. The defaults (1.5 / 1.3) give within-syllable transitions noticeably gentler smoothing without turning cross-syllable boundaries to mush.
 
-Flat-key equivalents (for the boolean/scale settings only):
+All settings have flat-key equivalents. You can use either the nested `boundarySmoothing:` block or flat camelCase keys — the engine reads both (nested block takes priority if both are present).
 
-- `boundarySmoothingEnabled`
-- `boundarySmoothingF1Scale`, `boundarySmoothingF2Scale`, `boundarySmoothingF3Scale`
-- `boundarySmoothingPlosiveSpansPhone`
-- `boundarySmoothingNasalF1Instant`
-- `boundarySmoothingNasalF2F3SpansPhone`
+Flat-key naming convention: `boundarySmoothing` + field name in PascalCase. Examples:
 
-**Note:** The per-boundary fade times, per-place transition scales, and within-syllable scales are only available via the nested `boundarySmoothing:` block — there are no flat-key equivalents for these.
+- `boundarySmoothingEnabled`, `boundarySmoothingF1Scale`, `boundarySmoothingF2Scale`, `boundarySmoothingF3Scale`
+- `boundarySmoothingPlosiveSpansPhone`, `boundarySmoothingNasalF1Instant`, `boundarySmoothingNasalF2F3SpansPhone`
+- `boundarySmoothingVowelToStopFadeMs`, `boundarySmoothingStopToVowelFadeMs`, ... (all 13 fade times)
+- `boundarySmoothingLabialF1Scale`, `boundarySmoothingLabialF2Scale`, ... (all 12 place scales)
+- `boundarySmoothingWithinSyllableScale`, `boundarySmoothingWithinSyllableFadeScale`
 
 #### Transition coverage
 
@@ -1372,6 +1372,12 @@ settings:
     liquidRateScale: 1.5
 ```
 
+Flat-key equivalents (for use without the nested block):
+
+- `trajectoryLimitEnabled`, `trajectoryLimitWindowMs`, `trajectoryLimitApplyAcrossWordBoundary`, `trajectoryLimitLiquidRateScale`
+- `trajectoryLimitApplyTo` — comma-separated field names: `"cf1, cf2, cf3, pf2, pf3"` (brackets optional)
+- `trajectoryLimitMaxHzPerMsCf2`, `trajectoryLimitMaxHzPerMsCf3`, `trajectoryLimitMaxHzPerMsPf2`, `trajectoryLimitMaxHzPerMsPf3`
+
 Tuning notes:
 - Smaller `maxHzPerMs` = smoother transitions (but too small can blur consonant identity).
 - Larger `windowMs` = the limiter has more room to soften big jumps (try 30–40ms if you want fewer "corners").
@@ -1404,8 +1410,17 @@ settings:
     # (/s/, /d/, /z/) the lengthening they need.
     # Both default to 0.0 (disabled — uses finalSyllableScale for all).
     nucleusScale: 1.0    # vowel stays near natural length
-    codaScale: 1.4       # coda consonants get the stretch
+    codaScale: 1.10      # generic coda fallback (nasals, liquids)
+
+    # Class-aware coda scaling (falls back to codaScale when 0.0).
+    # Stops/affricates benefit from extra duration — the burst needs
+    # room for perceptual clarity.  Fricatives already carry strong
+    # noise energy; stretching them just makes them hissy.
+    codaStopScale: 1.30       # stops + affricates
+    codaFricativeScale: 1.0   # fricatives — no stretch
 ```
+
+Flat-key equivalents: `phraseFinalLengtheningCodaStopScale`, `phraseFinalLengtheningCodaFricativeScale`.
 
 ### Microprosody
 
@@ -1425,6 +1440,7 @@ Microprosody adds small F0 perturbations around consonant→vowel boundaries and
   # Phase 1: onset (backward-looking)
   microprosodyVoicelessF0RaiseEnabled: true
   microprosodyVoicelessF0RaiseHz: 15
+  microprosodyVoicelessF0RaiseEndHz: 8    # optional: separate value for vowel end (0 = same as RaiseHz)
   microprosodyVoicedF0LowerEnabled: true
   microprosodyVoicedF0LowerHz: 8
   microprosodyVoicedFricativeLowerScale: 0.6   # fricatives lower less than stops
