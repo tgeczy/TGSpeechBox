@@ -278,7 +278,12 @@ void emitFrames(
         if (t.def->hasBurstDecayRate) decayRate = t.def->burstDecayRate;
         if (t.def->hasBurstSpectralTilt) spectralTilt = t.def->burstSpectralTilt;
 
-        if (burstMs < t.durationMs) {
+        // Clamp burst to 75% of token duration so it always fires,
+        // even at high speech rates. Preserves place differentiation.
+        double maxBurst = t.durationMs * 0.75;
+        if (burstMs > maxBurst) burstMs = maxBurst;
+
+        {
           // Pitch interpolation: slice the token's pitch ramp proportionally
           const double startPitch = base[vp];
           const double pitchDelta = base[evp] - startPitch;
@@ -342,7 +347,6 @@ void emitFrames(
           prevTokenWasStop = true;
           continue;
         }
-        // else: burst fills whole token, fall through to normal emission
       }
     }
 
@@ -857,7 +861,11 @@ void emitFramesEx(
         if (t.def->hasBurstDecayRate) decayRate = t.def->burstDecayRate;
         if (t.def->hasBurstSpectralTilt) spectralTilt = t.def->burstSpectralTilt;
 
-        if (burstMs < t.durationMs) {
+        // Clamp burst to 75% of token duration so it always fires
+        double maxBurst = t.durationMs * 0.75;
+        if (burstMs > maxBurst) burstMs = maxBurst;
+
+        {
           // Pitch interpolation across 2 micro-frames
           const double startPitch = base[vp];
           const double pitchDelta = base[evp] - startPitch;
