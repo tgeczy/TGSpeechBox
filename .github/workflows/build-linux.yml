@@ -34,6 +34,12 @@ jobs:
       - name: Build static tgsbRender
         run: make -f Makefile.linux CROSS_COMPILE=${{ matrix.cross }} STATIC=1
 
+      - name: Strip binaries
+        run: |
+          ${{ matrix.cross }}strip build/libtgspeechbox.so
+          ${{ matrix.cross }}strip build/libtgsbFrontend.so
+          ${{ matrix.cross }}strip build/tgsbRender
+
       - name: Assemble release folder
         run: |
           DIST="tgspeechbox-linux-${{ matrix.arch }}"
