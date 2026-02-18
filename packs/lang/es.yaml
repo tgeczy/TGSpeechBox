@@ -55,7 +55,7 @@ settings:
     enabled: false
   lengthContrast:
     enabled: false
-  positionalAllophones:
+  allophoneRules:
     enabled: false
     glottalReinforcement:
       enabled: false
@@ -286,51 +286,6 @@ phonemes:
     pf1: 400
     pf2: 1800
     pf3: 2570
-    pf4: 3300
-    pf5: 3750
-    pf6: 4900
-    voiceAmplitude: 0.9
-  U:
-    _isLiquid: false
-    _isNasal: false
-    _isStop: false
-    _isVoiced: true
-    _isVowel: true
-    aspirationAmplitude: 0
-    caNP: 0
-    cb1: 88
-    cb2: 75
-    cb3: 60
-    cb4: 250
-    cb5: 200
-    cb6: 1000
-    cbN0: 100
-    cbNP: 100
-    cf1: 405
-    cf2: 900
-    cf3: 2420
-    cf4: 3300
-    cf5: 3750
-    cf6: 4900
-    cfN0: 250
-    cfNP: 200
-    fricationAmplitude: 0
-    pa1: 0
-    pa2: 0
-    pa3: 0
-    pa4: 0
-    pa5: 0
-    pa6: 0
-    parallelBypass: 0
-    pb1: 80
-    pb2: 100
-    pb3: 80
-    pb4: 250
-    pb5: 200
-    pb6: 1000
-    pf1: 450
-    pf2: 1100
-    pf3: 2350
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -603,9 +558,9 @@ phonemes:
     pb4: 500
     pb5: 1000
     pb6: 1800
-    pf1: 640
-    pf2: 2000
-    pf3: 1100
+    pf1: 550
+    pf2: 1200
+    pf3: 1500
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -794,7 +749,7 @@ phonemes:
     _isLiquid: false
     _isNasal: false
     _isStop: true
-    _isVoiced: false
+    _isVoiced: true
     _isVowel: false
     aspirationAmplitude: 0
     caNP: 0
@@ -828,13 +783,13 @@ phonemes:
     pb4: 350
     pb5: 500
     pb6: 1500
-    pf1: 200
-    pf2: 1600
-    pf3: 2600
+    pf1: 170
+    pf2: 1450
+    pf3: 2250
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 1.0
+    voiceAmplitude: 0.9
   j:
     _isLiquid: false
     _isNasal: false
@@ -886,12 +841,14 @@ normalization:
   classes:
     # Let's define vowels for furter pronounciation exceptions.
     VOWELS:
-      - ˈ
       - a
       - e
       - i
       - o
       - u
+    # This is needed to smoot wors like 'convencer', which are phonetically transcribed into /m/ and /b/ coda.
+    SMOOTB:
+      - m
   replacements:
     # Palatal nasal: some tables emit ñ as nʲ (or n͡ʲ). Map it to /ɲ/ so it doesn't collapse to plain /n/.
     - from: "n͡ʲ"
@@ -906,7 +863,12 @@ normalization:
     # If a voice uses the affricate ɟʝ, collapse it to ʝ to avoid an overly "hard" onset.
     - from: "ɟʝ"
       to:   "ʝ"
-
+    # Smoot /b/ to /β/ in the following cases: before m, and when it is located at the end, example: "velocidad", to avoid strange glitches.
+    - from: "b"
+      to:   "β"
+      when:
+        beforeClass: SMOOTB
+        atWordEnd: true
     # Separate β, ð+ɾ or other clusters (like "habrá" or "madre") so they don't blend together.
     # Insert a micro-schwa to give each consonant space.
     - from: "βɾ"
