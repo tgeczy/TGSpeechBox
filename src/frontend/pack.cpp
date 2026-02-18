@@ -200,6 +200,40 @@ static bool loadPhonemes(const fs::path& packsRoot, PackSet& out, std::string& o
         continue;
       }
 
+      // Micro-event burst shaping fields (top-level, not frame fields)
+      if (fieldName == "burstDurationMs") {
+        double v; if (val.asNumber(v)) { def.hasBurstDurationMs = true; def.burstDurationMs = v; }
+        continue;
+      }
+      if (fieldName == "burstDecayRate") {
+        double v; if (val.asNumber(v)) { def.hasBurstDecayRate = true; def.burstDecayRate = v; }
+        continue;
+      }
+      if (fieldName == "burstSpectralTilt") {
+        double v; if (val.asNumber(v)) { def.hasBurstSpectralTilt = true; def.burstSpectralTilt = v; }
+        continue;
+      }
+      if (fieldName == "voiceBarAmplitude") {
+        double v; if (val.asNumber(v)) { def.hasVoiceBarAmplitude = true; def.voiceBarAmplitude = v; }
+        continue;
+      }
+      if (fieldName == "voiceBarF1") {
+        double v; if (val.asNumber(v)) { def.hasVoiceBarF1 = true; def.voiceBarF1 = v; }
+        continue;
+      }
+      if (fieldName == "releaseSpreadMs") {
+        double v; if (val.asNumber(v)) { def.hasReleaseSpreadMs = true; def.releaseSpreadMs = v; }
+        continue;
+      }
+      if (fieldName == "fricAttackMs") {
+        double v; if (val.asNumber(v)) { def.hasFricAttackMs = true; def.fricAttackMs = v; }
+        continue;
+      }
+      if (fieldName == "fricDecayMs") {
+        double v; if (val.asNumber(v)) { def.hasFricDecayMs = true; def.fricDecayMs = v; }
+        continue;
+      }
+
       FieldId id;
       if (!parseFieldId(fieldName, id)) {
         continue;
@@ -1528,6 +1562,40 @@ static bool mergeLanguageFile(const fs::path& path, PackSet& out, std::string& o
                 def.endPf3 = fxVal;
               }
             }
+            continue;
+          }
+
+          // Micro-event burst shaping fields (top-level, not frame fields)
+          if (fieldName == "burstDurationMs") {
+            double v; if (val.asNumber(v)) { def.hasBurstDurationMs = true; def.burstDurationMs = v; }
+            continue;
+          }
+          if (fieldName == "burstDecayRate") {
+            double v; if (val.asNumber(v)) { def.hasBurstDecayRate = true; def.burstDecayRate = v; }
+            continue;
+          }
+          if (fieldName == "burstSpectralTilt") {
+            double v; if (val.asNumber(v)) { def.hasBurstSpectralTilt = true; def.burstSpectralTilt = v; }
+            continue;
+          }
+          if (fieldName == "voiceBarAmplitude") {
+            double v; if (val.asNumber(v)) { def.hasVoiceBarAmplitude = true; def.voiceBarAmplitude = v; }
+            continue;
+          }
+          if (fieldName == "voiceBarF1") {
+            double v; if (val.asNumber(v)) { def.hasVoiceBarF1 = true; def.voiceBarF1 = v; }
+            continue;
+          }
+          if (fieldName == "releaseSpreadMs") {
+            double v; if (val.asNumber(v)) { def.hasReleaseSpreadMs = true; def.releaseSpreadMs = v; }
+            continue;
+          }
+          if (fieldName == "fricAttackMs") {
+            double v; if (val.asNumber(v)) { def.hasFricAttackMs = true; def.fricAttackMs = v; }
+            continue;
+          }
+          if (fieldName == "fricDecayMs") {
+            double v; if (val.asNumber(v)) { def.hasFricDecayMs = true; def.fricDecayMs = v; }
             continue;
           }
 
