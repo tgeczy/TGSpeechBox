@@ -1432,6 +1432,7 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   l_es:
+    # The /l/ sound for Spanish. Keeping the tongue in a central way and not attaching it to the teeth or shrinking the lips, unlike the "l" alone.
     _isLiquid: true
     _isNasal: false
     _isStop: false
@@ -1982,7 +1983,7 @@ phonemes:
     pf6: 5250
     voiceAmplitude: 0
   s_es:
-    # This tuned phoneme tries to provide more noise brightness, but it may need future adjustments. Maybe equalization / high / low pass filters, or something else.
+    # This tuned phoneme tries to provide more noise brightness, but it may need future adjustments. Maybe equalization / high / low pass filters, or some extra DSP tasks.
     # The goal is, the tongue should stick to the palate to achieve this brightness.
     _isLiquid: false
     _isNasal: false
