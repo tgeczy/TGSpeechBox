@@ -646,8 +646,14 @@ void emitFramesEx(
         nvspFrontend_Frame vbFrame;
         std::memcpy(&vbFrame, vb, sizeof(vbFrame));
 
-        nvspFrontend_FrameEx vbFrameEx = frameExDefaults;
-        vbFrameEx.transAmplitudeMode = 1.0;  // source change: equal-power crossfade
+        nvspFrontend_FrameEx vbFrameEx = trajectoryState->hasPrevFrameEx
+            ? trajectoryState->prevFrameEx
+            : frameExDefaults;
+        vbFrameEx.transAmplitudeMode = 1.0;  // equal-power crossfade
+        // Keep Fujisaki model running (don't reset IIR state) but don't re-fire commands.
+        vbFrameEx.fujisakiPhraseAmp = 0.0;
+        vbFrameEx.fujisakiAccentAmp = 0.0;
+        vbFrameEx.fujisakiReset = 0.0;
         cb(userData, &vbFrame, &vbFrameEx, t.durationMs, vbFadeMs, userIndexBase);
       } else {
         cb(userData, nullptr, nullptr, t.durationMs, vbFadeMs, userIndexBase);
@@ -752,6 +758,10 @@ void emitFramesEx(
     frameEx.fujisakiAccentAmp = t.fujisakiAccentAmp;
     frameEx.fujisakiAccentDur = lang.fujisakiAccentDur;  // 0 = DSP default
     frameEx.fujisakiAccentLen = lang.fujisakiAccentLen;  // 0 = DSP default
+
+    // Save frameEx for voice bar emission (keeps Fujisaki model alive during closures).
+    trajectoryState->prevFrameEx = frameEx;
+    trajectoryState->hasPrevFrameEx = true;
 
     // Handle trill modulation (simplified version - emits micro-frames)
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {

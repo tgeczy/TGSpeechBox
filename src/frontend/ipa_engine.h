@@ -40,6 +40,11 @@ struct TrajectoryState {
   double prevBase[kFrameFieldCount] = {};
   bool hasPrevBase = false;
 
+  // Previous FrameEx for voice bar emission (keeps Fujisaki model alive).
+  // Without this, voice bar sends fujisakiEnabled=0 → DSP resets IIR state.
+  nvspFrontend_FrameEx prevFrameEx = {};
+  bool hasPrevFrameEx = false;
+
   void reset() {
     prevCf2 = 0.0;
     prevCf3 = 0.0;
@@ -50,6 +55,7 @@ struct TrajectoryState {
     prevVoiceAmp = 0.0;
     prevFricAmp = 0.0;
     hasPrevBase = false;
+    hasPrevFrameEx = false;
   }
 };
 
