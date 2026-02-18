@@ -42,7 +42,7 @@ jobs:
 
       - name: Assemble release folder
         run: |
-          DIST="tgspeechbox-linux-${{ matrix.arch }}"
+          DIST="tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}"
           mkdir -p "$DIST/bin" "$DIST/lib" "$DIST/share/tgspeechbox"
 
           # Binaries
@@ -72,8 +72,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tgspeechbox-linux-${{ matrix.arch }}
-          path: tgspeechbox-linux-${{ matrix.arch }}.tar.gz
+          name: tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}
+          path: tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}.tar.gz
 
   release:
     needs: build
