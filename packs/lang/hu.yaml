@@ -111,7 +111,6 @@ settings:
   # === TRAJECTORY LIMITING ===
   # Prevents jarring formant jumps across segment boundaries.
   # Slightly relaxed from previous (cf2: 22→24) to let consonants stay distinct.
-  boundarySmoothingEnabled: true
   trajectoryLimit:
     enabled: true
     applyTo: [cf1, cf2, cf3, pf2, pf3]
