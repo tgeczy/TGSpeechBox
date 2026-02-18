@@ -651,11 +651,13 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
       }
       if (mask != 0) lp.trajectoryLimitApplyMask = mask;
     }
-    double valCf2 = 0.0, valCf3 = 0.0, valPf2 = 0.0, valPf3 = 0.0;
+    double valCf1 = 0.0, valCf2 = 0.0, valCf3 = 0.0, valPf2 = 0.0, valPf3 = 0.0;
+    getNum("trajectoryLimitMaxHzPerMsCf1", valCf1);
     getNum("trajectoryLimitMaxHzPerMsCf2", valCf2);
     getNum("trajectoryLimitMaxHzPerMsCf3", valCf3);
     getNum("trajectoryLimitMaxHzPerMsPf2", valPf2);
     getNum("trajectoryLimitMaxHzPerMsPf3", valPf3);
+    if (valCf1 > 0.0) lp.trajectoryLimitMaxHzPerMs[static_cast<size_t>(FieldId::cf1)] = valCf1;
     if (valCf2 > 0.0) lp.trajectoryLimitMaxHzPerMs[static_cast<size_t>(FieldId::cf2)] = valCf2;
     if (valCf3 > 0.0) lp.trajectoryLimitMaxHzPerMs[static_cast<size_t>(FieldId::cf3)] = valCf3;
     if (valPf2 > 0.0) lp.trajectoryLimitMaxHzPerMs[static_cast<size_t>(FieldId::pf2)] = valPf2;

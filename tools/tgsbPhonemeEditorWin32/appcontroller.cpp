@@ -909,6 +909,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "trajectoryLimitApplyTo",
     "trajectoryLimitEnabled",
     "trajectoryLimitLiquidRateScale",
+    "trajectoryLimitMaxHzPerMsCf1",
     "trajectoryLimitMaxHzPerMsCf2",
     "trajectoryLimitMaxHzPerMsCf3",
     "trajectoryLimitMaxHzPerMsPf2",

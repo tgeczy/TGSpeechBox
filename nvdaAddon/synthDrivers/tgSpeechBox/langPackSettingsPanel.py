@@ -292,37 +292,56 @@ def _getPanelClass():
             # Source of truth: LangPack struct in pack.h + nested block
             # parsing in pack.cpp. Alphabetized for the combo box.
             _extraKeys = [
+                # ============================================================
+                # Nested block settings (dot notation).
+                # These are the preferred format -- the phoneme editor and NVDA
+                # driver both write nested YAML blocks for these settings.
+                # ============================================================
+
                 # --- Allophone rules ---
                 "allophoneRules.enabled",
-                "allophoneRulesEnabled",
-                # --- Boundary smoothing (flat keys) ---
-                "boundarySmoothingFricToStopMs",
-                "boundarySmoothingFricToVowelMs",
-                "boundarySmoothingLiquidToStopMs",
-                "boundarySmoothingLiquidToVowelMs",
-                "boundarySmoothingNasalF1Instant",
-                "boundarySmoothingNasalF2F3SpansPhone",
-                "boundarySmoothingNasalToStopMs",
-                "boundarySmoothingNasalToVowelMs",
-                "boundarySmoothingPlosiveSpansPhone",
-                "boundarySmoothingStopToFricMs",
-                "boundarySmoothingStopToVowelMs",
-                "boundarySmoothingVowelToFricMs",
-                "boundarySmoothingVowelToLiquidMs",
-                "boundarySmoothingVowelToNasalMs",
-                "boundarySmoothingVowelToStopMs",
-                "boundarySmoothingVowelToVowelMs",
-                # --- Boundary smoothing (nested block) ---
+
+                # --- Boundary smoothing ---
                 "boundarySmoothing.enabled",
                 "boundarySmoothing.f1Scale",
                 "boundarySmoothing.f2Scale",
                 "boundarySmoothing.f3Scale",
-                # --- Clause-final ---
-                "clauseFinalFadeMs",
-                # --- Cluster blend (nested block) ---
+                "boundarySmoothing.fricToStopFadeMs",
+                "boundarySmoothing.fricToVowelFadeMs",
+                "boundarySmoothing.liquidToStopFadeMs",
+                "boundarySmoothing.liquidToVowelFadeMs",
+                "boundarySmoothing.nasalF1Instant",
+                "boundarySmoothing.nasalF2F3SpansPhone",
+                "boundarySmoothing.nasalToStopFadeMs",
+                "boundarySmoothing.nasalToVowelFadeMs",
+                "boundarySmoothing.plosiveSpansPhone",
+                "boundarySmoothing.stopToFricFadeMs",
+                "boundarySmoothing.stopToVowelFadeMs",
+                "boundarySmoothing.vowelToFricFadeMs",
+                "boundarySmoothing.vowelToLiquidFadeMs",
+                "boundarySmoothing.vowelToNasalFadeMs",
+                "boundarySmoothing.vowelToStopFadeMs",
+                "boundarySmoothing.vowelToVowelFadeMs",
+                "boundarySmoothing.alveolarF1Scale",
+                "boundarySmoothing.alveolarF2Scale",
+                "boundarySmoothing.alveolarF3Scale",
+                "boundarySmoothing.labialF1Scale",
+                "boundarySmoothing.labialF2Scale",
+                "boundarySmoothing.labialF3Scale",
+                "boundarySmoothing.palatalF1Scale",
+                "boundarySmoothing.palatalF2Scale",
+                "boundarySmoothing.palatalF3Scale",
+                "boundarySmoothing.velarF1Scale",
+                "boundarySmoothing.velarF2Scale",
+                "boundarySmoothing.velarF3Scale",
+                "boundarySmoothing.withinSyllableFadeScale",
+                "boundarySmoothing.withinSyllableScale",
+
+                # --- Cluster blend ---
                 "clusterBlend.defaultPairScale",
                 "clusterBlend.enabled",
                 "clusterBlend.f1Scale",
+                "clusterBlend.forwardDriftStrength",
                 "clusterBlend.fricToFricScale",
                 "clusterBlend.fricToStopScale",
                 "clusterBlend.homorganicScale",
@@ -334,22 +353,8 @@ def _getPanelClass():
                 "clusterBlend.stopToStopScale",
                 "clusterBlend.strength",
                 "clusterBlend.wordBoundaryScale",
-                # --- Cluster blend (flat keys) ---
-                "clusterBlendDefaultPairScale",
-                "clusterBlendEnabled",
-                "clusterBlendF1Scale",
-                "clusterBlendFricToFricScale",
-                "clusterBlendFricToStopScale",
-                "clusterBlendHomorganicScale",
-                "clusterBlendLiquidToFricScale",
-                "clusterBlendLiquidToStopScale",
-                "clusterBlendNasalToFricScale",
-                "clusterBlendNasalToStopScale",
-                "clusterBlendStopToFricScale",
-                "clusterBlendStopToStopScale",
-                "clusterBlendStrength",
-                "clusterBlendWordBoundaryScale",
-                # --- Cluster timing (nested block) ---
+
+                # --- Cluster timing ---
                 "clusterTiming.affricateInClusterScale",
                 "clusterTiming.enabled",
                 "clusterTiming.fricBeforeFricScale",
@@ -359,6 +364,96 @@ def _getPanelClass():
                 "clusterTiming.tripleClusterMiddleScale",
                 "clusterTiming.wordFinalObstruentScale",
                 "clusterTiming.wordMedialConsonantScale",
+
+                # --- Length contrast ---
+                "lengthContrast.enabled",
+                "lengthContrast.geminateClosureScale",
+                "lengthContrast.geminateReleaseScale",
+                "lengthContrast.longVowelFloor",
+                "lengthContrast.preGeminateVowelScale",
+                "lengthContrast.shortVowelCeiling",
+
+                # --- Liquid dynamics ---
+                "liquidDynamics.enabled",
+                "liquidDynamics.labialGlideTransition.enabled",
+                "liquidDynamics.labialGlideTransition.startF1",
+                "liquidDynamics.labialGlideTransition.startF2",
+                "liquidDynamics.labialGlideTransition.transitionPct",
+                "liquidDynamics.lateralOnglide.durationPct",
+                "liquidDynamics.lateralOnglide.f1Delta",
+                "liquidDynamics.lateralOnglide.f2Delta",
+                "liquidDynamics.rhoticF3Dip.dipDurationPct",
+                "liquidDynamics.rhoticF3Dip.enabled",
+                "liquidDynamics.rhoticF3Dip.f3Minimum",
+
+                # --- Positional allophones ---
+                "positionalAllophones.enabled",
+
+                # --- Prominence ---
+                "prominence.amplitudeBoostDb",
+                "prominence.amplitudeReductionDb",
+                "prominence.durationProminentFloorMs",
+                "prominence.durationReducedCeiling",
+                "prominence.enabled",
+                "prominence.longVowelMode",
+                "prominence.longVowelWeight",
+                "prominence.pitchFromProminence",
+                "prominence.primaryStressWeight",
+                "prominence.secondaryStressLevel",
+                "prominence.secondaryStressWeight",
+                "prominence.wordFinalReduction",
+                "prominence.wordInitialBoost",
+
+                # --- Rate compensation ---
+                "rateCompensation.clusterMaxRatioShift",
+                "rateCompensation.clusterProportionGuard",
+                "rateCompensation.enabled",
+                "rateCompensation.floorSpeedScale",
+                "rateCompensation.minimumDurations.affricateMs",
+                "rateCompensation.minimumDurations.fricativeMs",
+                "rateCompensation.minimumDurations.liquidMs",
+                "rateCompensation.minimumDurations.nasalMs",
+                "rateCompensation.minimumDurations.semivowelMs",
+                "rateCompensation.minimumDurations.stopMs",
+                "rateCompensation.minimumDurations.tapMs",
+                "rateCompensation.minimumDurations.trillMs",
+                "rateCompensation.minimumDurations.voicedConsonantMs",
+                "rateCompensation.minimumDurations.vowelMs",
+                "rateCompensation.schwaReduction.enabled",
+                "rateCompensation.schwaReduction.scale",
+                "rateCompensation.schwaReduction.threshold",
+                "rateCompensation.wordFinalBonusMs",
+
+                # --- Special coarticulation ---
+                "specialCoarticulation.enabled",
+                "specialCoarticulation.maxDeltaHz",
+
+                # --- Syllable duration ---
+                "syllableDuration.codaScale",
+                "syllableDuration.enabled",
+                "syllableDuration.onsetScale",
+                "syllableDuration.unstressedOpenNucleusScale",
+
+                # --- Trajectory limit ---
+                "trajectoryLimit.applyAcrossWordBoundary",
+                "trajectoryLimit.applyTo",
+                "trajectoryLimit.enabled",
+                "trajectoryLimit.liquidRateScale",
+                "trajectoryLimit.maxHzPerMs.cf1",
+                "trajectoryLimit.maxHzPerMs.cf2",
+                "trajectoryLimit.maxHzPerMs.cf3",
+                "trajectoryLimit.maxHzPerMs.pf2",
+                "trajectoryLimit.maxHzPerMs.pf3",
+                "trajectoryLimit.windowMs",
+
+                # ============================================================
+                # Flat-only settings (no nested block equivalent).
+                # These are written as direct keys under settings:.
+                # ============================================================
+
+                # --- Clause-final ---
+                "clauseFinalFadeMs",
+
                 # --- Coarticulation ---
                 "coarticulationAdjacencyMaxConsonants",
                 "coarticulationAlveolarBackVowelStrengthBoost",
@@ -367,6 +462,7 @@ def _getPanelClass():
                 "coarticulationAspirationBlendEnd",
                 "coarticulationAspirationBlendStart",
                 "coarticulationBackVowelF2Threshold",
+                "coarticulationCrossSyllableScale",
                 "coarticulationEnabled",
                 "coarticulationF1Scale",
                 "coarticulationF2Scale",
@@ -386,18 +482,32 @@ def _getPanelClass():
                 "coarticulationVelarPinchThreshold",
                 "coarticulationVelarScale",
                 "coarticulationWordInitialFadeScale",
+
                 # --- Defaults ---
                 "defaultFadeMs",
+                "defaultGlottalOpenQuotient",
+                "defaultOutputGain",
+                "defaultPreFormantGain",
+                "defaultVibratoPitchOffset",
+                "defaultVibratoSpeed",
+                "defaultVoiceTurbulenceAmplitude",
                 "defaultVowelDurationMs",
+
+                # --- Diphthong auto-tie ---
+                "autoDiphthongOffglideToSemivowel",
+                "autoTieDiphthongs",
+
                 # --- English-specific ---
                 "englishLongUKey",
                 "englishLongUShortenEnabled",
                 "englishLongUWordFinalScale",
+
                 # --- Fujisaki pitch model ---
                 "fujisakiAccentDur",
                 "fujisakiAccentLen",
                 "fujisakiAccentMode",
                 "fujisakiDeclinationMax",
+                "fujisakiDeclinationPostFloor",
                 "fujisakiDeclinationRate",
                 "fujisakiDeclinationScale",
                 "fujisakiPhraseAmp",
@@ -405,30 +515,20 @@ def _getPanelClass():
                 "fujisakiPhraseLen",
                 "fujisakiPrimaryAccentAmp",
                 "fujisakiSecondaryAccentAmp",
+
+                # --- Hungarian / language-specific ---
+                "applyLengthenedScaleToVowelsOnly",
+                "huShortAVowelEnabled",
+                "huShortAVowelKey",
+                "huShortAVowelScale",
+                "lengthenedScale",
+                "lengthenedScaleHu",
+                "lengthenedVowelFinalCodaScale",
+
                 # --- Legacy pitch ---
                 "legacyPitchInflectionScale",
                 "legacyPitchMode",
-                # --- Length contrast (nested block) ---
-                "lengthContrast.enabled",
-                "lengthContrast.geminateClosureScale",
-                "lengthContrast.geminateReleaseScale",
-                "lengthContrast.longVowelFloor",
-                "lengthContrast.preGeminateVowelScale",
-                "lengthContrast.shortVowelCeiling",
-                "lengthenedScale",
-                "lengthenedVowelFinalCodaScale",
-                # --- Liquid dynamics (nested block) ---
-                "liquidDynamics.enabled",
-                "liquidDynamics.labialGlideTransition.enabled",
-                "liquidDynamics.labialGlideTransition.startF1",
-                "liquidDynamics.labialGlideTransition.startF2",
-                "liquidDynamics.labialGlideTransition.transitionPct",
-                "liquidDynamics.lateralOnglide.durationPct",
-                "liquidDynamics.lateralOnglide.f1Delta",
-                "liquidDynamics.lateralOnglide.f2Delta",
-                "liquidDynamics.rhoticF3Dip.dipDurationPct",
-                "liquidDynamics.rhoticF3Dip.enabled",
-                "liquidDynamics.rhoticF3Dip.f3Minimum",
+
                 # --- Microprosody ---
                 "microprosodyEnabled",
                 "microprosodyFollowingF0Enabled",
@@ -450,10 +550,13 @@ def _getPanelClass():
                 "microprosodyVoicelessF0RaiseEnabled",
                 "microprosodyVoicelessF0RaiseEndHz",
                 "microprosodyVoicelessF0RaiseHz",
+
                 # --- Nasalization ---
                 "nasalizationAnticipatoryAmplitude",
                 "nasalizationAnticipatoryBlend",
                 "nasalizationAnticipatoryEnabled",
+                "nasalMinDurationMs",
+
                 # --- Phrase-final lengthening ---
                 "phraseFinalLengtheningCodaFricativeScale",
                 "phraseFinalLengtheningCodaScale",
@@ -465,68 +568,19 @@ def _getPanelClass():
                 "phraseFinalLengtheningPenultimateSyllableScale",
                 "phraseFinalLengtheningQuestionScale",
                 "phraseFinalLengtheningStatementScale",
-                # --- Prominence (nested block) ---
-                "prominence.amplitudeBoostDb",
-                "prominence.amplitudeReductionDb",
-                "prominence.durationProminentFloorMs",
-                "prominence.durationReducedCeiling",
-                "prominence.enabled",
-                "prominence.longVowelMode",
-                "prominence.longVowelWeight",
-                "prominence.pitchFromProminence",
-                "prominence.primaryStressWeight",
-                "prominence.secondaryStressLevel",
-                "prominence.secondaryStressWeight",
-                "prominence.wordFinalReduction",
-                "prominence.wordInitialBoost",
-                # --- Prominence (flat keys) ---
-                "prominenceAmplitudeBoostDb",
-                "prominenceAmplitudeReductionDb",
-                "prominenceDurationProminentFloorMs",
-                "prominenceDurationReducedCeiling",
-                "prominenceEnabled",
-                "prominenceLongVowelMode",
-                "prominenceLongVowelWeight",
-                "prominencePitchFromProminence",
-                "prominencePrimaryStressWeight",
-                "prominenceSecondaryStressLevel",
-                "prominenceSecondaryStressWeight",
-                "prominenceWordFinalReduction",
-                "prominenceWordInitialBoost",
+
                 # --- Post-stop aspiration ---
                 "postStopAspirationDurationMs",
                 "postStopAspirationEnabled",
                 "postStopAspirationPhoneme",
-                # --- Stress timing ---
-                "primaryStressDiv",
-                "secondaryStressDiv",
-                # --- Nasal floor ---
-                "nasalMinDurationMs",
-                # --- Rate compensation ---
-                "rateCompAffricateFloorMs",
-                "rateCompClusterMaxRatioShift",
-                "rateCompClusterProportionGuard",
-                "rateCompEnabled",
-                "rateCompFloorSpeedScale",
-                "rateCompFricativeFloorMs",
-                "rateCompLiquidFloorMs",
-                "rateCompNasalFloorMs",
-                "rateCompSchwaReductionEnabled",
-                "rateCompSchwaScale",
-                "rateCompSchwaThreshold",
-                "rateCompSemivowelFloorMs",
-                "rateCompStopFloorMs",
-                "rateCompTapFloorMs",
-                "rateCompTrillFloorMs",
-                "rateCompVoicedConsonantFloorMs",
-                "rateCompVowelFloorMs",
-                "rateCompWordFinalBonusMs",
+
                 # --- Segment boundary ---
                 "segmentBoundaryFadeMs",
                 "segmentBoundaryGapMs",
                 "segmentBoundarySkipVowelToLiquid",
                 "segmentBoundarySkipVowelToVowel",
                 "semivowelOffglideScale",
+
                 # --- Single-word tuning ---
                 "singleWordClauseTypeOverride",
                 "singleWordClauseTypeOverrideCommaOnly",
@@ -534,44 +588,28 @@ def _getPanelClass():
                 "singleWordFinalHoldMs",
                 "singleWordFinalLiquidHoldScale",
                 "singleWordTuningEnabled",
-                # --- Special coarticulation (nested block) ---
-                "specialCoarticulation.enabled",
-                "specialCoarticulation.maxDeltaHz",
+
                 # --- Spelling / misc ---
                 "spellingDiphthongMode",
                 "stopClosureAfterNasalsEnabled",
                 "stopClosureClusterFadeMs",
                 "stopClosureClusterGapMs",
+                "stopClosureClusterGapsEnabled",
                 "stopClosureMode",
                 "stopClosureVowelFadeMs",
                 "stopClosureVowelGapMs",
+                "stopClosureWordBoundaryClusterFadeMs",
+                "stopClosureWordBoundaryClusterGapMs",
                 "stressedVowelHiatusFadeMs",
                 "stressedVowelHiatusGapMs",
                 "stripAllophoneDigits",
-                # --- Trajectory limit (nested block) ---
-                "trajectoryLimit.applyAcrossWordBoundary",
-                "trajectoryLimit.applyTo",
-                "trajectoryLimit.enabled",
-                "trajectoryLimit.liquidRateScale",
-                "trajectoryLimit.maxHzPerMs.cf2",
-                "trajectoryLimit.maxHzPerMs.cf3",
-                "trajectoryLimit.maxHzPerMs.pf2",
-                "trajectoryLimit.maxHzPerMs.pf3",
-                "trajectoryLimit.windowMs",
-                # --- Trill ---
-                "trillModulationFadeMs",
-                "trillModulationMs",
+                "stripHyphen",
+
+                # --- Stress timing ---
+                "primaryStressDiv",
+                "secondaryStressDiv",
+
                 # --- Timing defaults ---
-                "voicedConsonantDurationMs",
-                "voicelessFricativeDurationMs",
-                "vowelBeforeLiquidDurationMs",
-                "vowelBeforeNasalDurationMs",
-                # --- Word-final schwa ---
-                "wordFinalSchwaMinDurationMs",
-                "wordFinalSchwaReductionEnabled",
-                "wordFinalSchwaScale",
-                # --- Keys below were added in bulk to sync with pack.cpp ---
-                # Timing defaults (flat)
                 "affricateDurationMs",
                 "fadeAfterLiquidMs",
                 "liquidFadeMs",
@@ -581,131 +619,28 @@ def _getPanelClass():
                 "tiedFromVowelFadeMs",
                 "tiedVowelDurationMs",
                 "trillFallbackDurationMs",
-                # Boundary smoothing — place-of-articulation scales (nested)
-                "boundarySmoothing.alveolarF1Scale",
-                "boundarySmoothing.alveolarF2Scale",
-                "boundarySmoothing.alveolarF3Scale",
-                "boundarySmoothing.labialF1Scale",
-                "boundarySmoothing.labialF2Scale",
-                "boundarySmoothing.labialF3Scale",
-                "boundarySmoothing.palatalF1Scale",
-                "boundarySmoothing.palatalF2Scale",
-                "boundarySmoothing.palatalF3Scale",
-                "boundarySmoothing.velarF1Scale",
-                "boundarySmoothing.velarF2Scale",
-                "boundarySmoothing.velarF3Scale",
-                "boundarySmoothing.withinSyllableFadeScale",
-                "boundarySmoothing.withinSyllableScale",
-                # Boundary smoothing — nested fade times
-                "boundarySmoothing.fricToStopFadeMs",
-                "boundarySmoothing.fricToVowelFadeMs",
-                "boundarySmoothing.liquidToStopFadeMs",
-                "boundarySmoothing.liquidToVowelFadeMs",
-                "boundarySmoothing.nasalF1Instant",
-                "boundarySmoothing.nasalF2F3SpansPhone",
-                "boundarySmoothing.nasalToStopFadeMs",
-                "boundarySmoothing.nasalToVowelFadeMs",
-                "boundarySmoothing.plosiveSpansPhone",
-                "boundarySmoothing.stopToFricFadeMs",
-                "boundarySmoothing.stopToVowelFadeMs",
-                "boundarySmoothing.vowelToFricFadeMs",
-                "boundarySmoothing.vowelToLiquidFadeMs",
-                "boundarySmoothing.vowelToNasalFadeMs",
-                "boundarySmoothing.vowelToStopFadeMs",
-                "boundarySmoothing.vowelToVowelFadeMs",
-                # Boundary smoothing — flat keys missing previously
-                "boundarySmoothingEnabled",
-                "boundarySmoothingF1Scale",
-                "boundarySmoothingF2Scale",
-                "boundarySmoothingF3Scale",
-                # Cluster blend — forward drift
-                "clusterBlend.forwardDriftStrength",
-                "clusterBlendForwardDriftStrength",
-                # Cluster timing — flat keys
-                "clusterTimingAffricateInClusterScale",
-                "clusterTimingEnabled",
-                "clusterTimingFricBeforeFricScale",
-                "clusterTimingFricBeforeStopScale",
-                "clusterTimingStopBeforeFricScale",
-                "clusterTimingStopBeforeStopScale",
-                "clusterTimingTripleClusterMiddleScale",
-                "clusterTimingWordFinalObstruentScale",
-                "clusterTimingWordMedialConsonantScale",
-                # Coarticulation — missing flat key
-                "coarticulationCrossSyllableScale",
-                # Defaults (voice/output)
-                "defaultGlottalOpenQuotient",
-                "defaultOutputGain",
-                "defaultPreFormantGain",
-                "defaultVibratoPitchOffset",
-                "defaultVibratoSpeed",
-                "defaultVoiceTurbulenceAmplitude",
-                # Diphthong auto-tie
-                "autoDiphthongOffglideToSemivowel",
-                "autoTieDiphthongs",
-                # Fujisaki — missing
-                "fujisakiDeclinationPostFloor",
-                # Hungarian / language-specific
-                "applyLengthenedScaleToVowelsOnly",
-                "huShortAVowelEnabled",
-                "huShortAVowelKey",
-                "huShortAVowelScale",
-                "lengthenedScaleHu",
-                # Length contrast — flat keys
-                "lengthContrastEnabled",
-                "lengthContrastGeminateClosureScale",
-                "lengthContrastGeminateReleaseScale",
-                "lengthContrastLongVowelFloorMs",
-                "lengthContrastPreGeminateVowelScale",
-                "lengthContrastShortVowelCeilingMs",
-                # Liquid dynamics — flat keys
-                "liquidDynamicsEnabled",
-                "liquidDynamicsLabialGlideStartF1",
-                "liquidDynamicsLabialGlideStartF2",
-                "liquidDynamicsLabialGlideTransitionEnabled",
-                "liquidDynamicsLabialGlideTransitionPct",
-                "liquidDynamicsLateralOnglideDurationPct",
-                "liquidDynamicsLateralOnglideF1Delta",
-                "liquidDynamicsLateralOnglideF2Delta",
-                "liquidDynamicsRhoticF3DipDurationPct",
-                "liquidDynamicsRhoticF3DipEnabled",
-                "liquidDynamicsRhoticF3Minimum",
-                # Positional allophones
-                "positionalAllophones.enabled",
-                # Special coarticulation — flat keys
-                "specialCoarticMaxDeltaHz",
-                "specialCoarticulationEnabled",
-                # Stop closure — word boundary
-                "stopClosureClusterGapsEnabled",
-                "stopClosureWordBoundaryClusterFadeMs",
-                "stopClosureWordBoundaryClusterGapMs",
-                # Syllable duration (nested + flat)
-                "syllableDuration.codaScale",
-                "syllableDuration.enabled",
-                "syllableDuration.onsetScale",
-                "syllableDuration.unstressedOpenNucleusScale",
-                "syllableDurationCodaScale",
-                "syllableDurationEnabled",
-                "syllableDurationOnsetScale",
-                "syllableDurationUnstressedOpenNucleusScale",
-                # Tonal / text processing
-                "stripHyphen",
+                "voicedConsonantDurationMs",
+                "voicelessFricativeDurationMs",
+                "vowelBeforeLiquidDurationMs",
+                "vowelBeforeNasalDurationMs",
+
+                # --- Tonal / text processing ---
                 "tonal",
                 "toneContoursAbsolute",
                 "toneContoursMode",
                 "toneDigitsEnabled",
-                # Trajectory limit — flat keys
-                "trajectoryLimitApplyAcrossWordBoundary",
-                "trajectoryLimitApplyTo",
-                "trajectoryLimitEnabled",
-                "trajectoryLimitLiquidRateScale",
-                "trajectoryLimitMaxHzPerMsCf2",
-                "trajectoryLimitMaxHzPerMsCf3",
-                "trajectoryLimitMaxHzPerMsPf2",
-                "trajectoryLimitMaxHzPerMsPf3",
-                "trajectoryLimitWindowMs",
-                # Voice profile
+
+                # --- Trill ---
+                "trillModulationFadeMs",
+                "trillModulationMs",
+
+                # --- Voice profile ---
                 "voiceProfileName",
+
+                # --- Word-final schwa ---
+                "wordFinalSchwaMinDurationMs",
+                "wordFinalSchwaReductionEnabled",
+                "wordFinalSchwaScale",
             ]
             for k in _extraKeys:
                 if k not in self._knownKeys:

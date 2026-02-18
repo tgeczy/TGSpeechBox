@@ -974,7 +974,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
             lp.trajectory_limit_apply_mask = mask
 
     # trajectoryLimitMaxHzPerMs flat keys
-    for suffix, fid_name in [("Cf2", "cf2"), ("Cf3", "cf3"), ("Pf2", "pf2"), ("Pf3", "pf3")]:
+    for suffix, fid_name in [("Cf1", "cf1"), ("Cf2", "cf2"), ("Cf3", "cf3"), ("Pf2", "pf2"), ("Pf3", "pf3")]:
         v = s.get(f"trajectoryLimitMaxHzPerMs{suffix}")
         if v is not None:
             try:
