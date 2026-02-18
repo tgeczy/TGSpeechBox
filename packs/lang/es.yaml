@@ -35,7 +35,7 @@ settings:
 
 # Spanish pure vowels - monophthongs without English-style diphthongization.
 # These override the base phonemes.yaml values for Spanish.
-  spellingDiphthongMode: monophthong
+  spellingDiphthongMode: none
   stopClosureAfterNasalsEnabled: false
   segmentBoundarySkipVowelToLiquid: false
   postStopAspirationEnabled: false
@@ -73,6 +73,14 @@ normalization:
       - i
       - o
       - u
+    # We need to define stressed vowels to fix minor espeak pronounciation mistakes in Spanish.
+    STRESSED:
+      - "ˈa"
+      - "ˈe"
+      - "ˈi"
+      - "ˈo"
+      - "ˈu"
+
     # This is needed to smoot wors like 'convencer', which are phonetically transcribed into /m/ and /b/ coda.
     SMOOTB:
       - m
@@ -96,8 +104,8 @@ normalization:
     - from: d
       to: d_es
     # A softed g approximant. It is neutral, dialect independent, but this may change in the future.
-    - from: ɣ
-      to: "ɣ_es"
+    - from: "ɣ"
+      to: ɣ_es
     # More clear diphthong transition for /j/.
     - from: j
       to: j_es
@@ -172,7 +180,7 @@ normalization:
     - from: "u"
       to: "w"
       when:
-        beforeClass: VOWELS
+        beforeClass: STRESSED
     # G approximant. To improve clarity, let's convert into non-aproximant g at the start, example: muy grande.
     - from: "ɣ"
       to: "ɡ"
