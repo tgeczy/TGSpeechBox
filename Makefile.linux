@@ -57,6 +57,7 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/prosody.cpp \
 	$(PASSESDIR)/rate_compensation.cpp \
 	$(PASSESDIR)/special_coartic.cpp \
+	$(PASSESDIR)/syllable_marking.cpp \
 	$(PASSESDIR)/trajectory_limit.cpp
 
 # tgsbRender sources
@@ -197,13 +198,17 @@ $(BUILDDIR)/rate_compensation.o: $(PASSESDIR)/rate_compensation.cpp
 $(BUILDDIR)/special_coartic.o: $(PASSESDIR)/special_coartic.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
+$(BUILDDIR)/syllable_marking.o: $(PASSESDIR)/syllable_marking.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
 $(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
-clean:
-	rm -rf $(BUILDDIR)
 $(BUILDDIR)/pitch_fujisaki.o: $(PASSESDIR)/pitch_fujisaki.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/prominence.o: $(PASSESDIR)/prominence.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+clean:
+	rm -rf $(BUILDDIR)
