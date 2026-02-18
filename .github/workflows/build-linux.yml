@@ -89,8 +89,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            tgspeechbox-linux-x86_64/tgspeechbox-linux-x86_64.tar.gz
-            tgspeechbox-linux-aarch64/tgspeechbox-linux-aarch64.tar.gz
+            tgspeechbox-linux-x86_64-${{ github.ref_name }}/tgspeechbox-linux-x86_64-${{ github.ref_name }}.tar.gz
+            tgspeechbox-linux-aarch64-${{ github.ref_name }}/tgspeechbox-linux-aarch64-${{ github.ref_name }}.tar.gz
           draft: true
           generate_release_notes: false
           body: |
