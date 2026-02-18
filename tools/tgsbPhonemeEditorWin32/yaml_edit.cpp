@@ -146,18 +146,191 @@ bool LanguageYaml::load(const std::string& path, std::string& outError) {
   return true;
 }
 
+// Forward declarations for surgical language save.
+static void dumpNode(const Node& node, std::string& out, int ind);
+static std::string dumpKey(const std::string& s);
+
+// Serialize a single top-level key and its value (for comparison).
+static std::string dumpSingleTopLevelKey(const std::string& key, const Node& value) {
+  std::string out;
+  out += dumpKey(key) + ":";
+  if (value.isScalar()) {
+    out += " " + value.scalar + "\n";
+  } else {
+    out += "\n";
+    dumpNode(value, out, 2);
+  }
+  return out;
+}
+
+// Find top-level key line ranges in original file text.
+struct TopLevelRange {
+  std::string key;
+  size_t startLine = 0;  // first line of this key's block (the "key:" line)
+  size_t endLine = 0;    // one past the last line before the next top-level key
+};
+
+static void findTopLevelRanges(const std::vector<std::string>& lines,
+                               std::vector<TopLevelRange>& ranges,
+                               size_t& headerEnd) {
+  headerEnd = 0;
+  // Find top-level keys: lines starting with a non-space, non-comment char containing ':'.
+  for (size_t i = 0; i < lines.size(); ++i) {
+    const std::string& ln = lines[i];
+    if (ln.empty()) continue;
+    if (ln[0] == ' ' || ln[0] == '#' || ln[0] == '\r') continue;
+    auto colon = ln.find(':');
+    if (colon == std::string::npos) continue;
+
+    TopLevelRange r;
+    r.key = ln.substr(0, colon);
+    r.startLine = i;
+
+    // Close previous range.
+    if (!ranges.empty()) {
+      ranges.back().endLine = i;
+    } else {
+      headerEnd = i;  // everything before first key is the header
+    }
+    ranges.push_back(r);
+  }
+  // Close last range.
+  if (!ranges.empty()) {
+    ranges.back().endLine = lines.size();
+  }
+}
+
+// Strip comments and blank lines from a block of text for data comparison.
+static std::string stripForComparison(const std::vector<std::string>& lines,
+                                      size_t start, size_t end) {
+  std::string out;
+  for (size_t i = start; i < end; ++i) {
+    std::string ln = lines[i];
+    // Trim trailing whitespace.
+    while (!ln.empty() && (ln.back() == ' ' || ln.back() == '\r')) ln.pop_back();
+    // Skip pure blank lines.
+    size_t firstNonSpace = ln.find_first_not_of(' ');
+    if (firstNonSpace == std::string::npos) continue;
+    // Skip pure comment lines.
+    if (ln[firstNonSpace] == '#') continue;
+    // Strip inline comments (but be careful with quoted strings).
+    // Simple approach: find " #" (space-hash) outside quotes.
+    size_t hashPos = ln.find(" #", firstNonSpace);
+    if (hashPos != std::string::npos) {
+      ln = ln.substr(0, hashPos);
+      while (!ln.empty() && ln.back() == ' ') ln.pop_back();
+    }
+    out += ln;
+    out += "\n";
+  }
+  // Trim trailing newlines.
+  while (!out.empty() && out.back() == '\n') out.pop_back();
+  return out;
+}
+
 bool LanguageYaml::save(std::string& outError) const {
   if (m_path.empty()) {
     outError = "No language YAML loaded";
     return false;
   }
-  std::ofstream f(m_path, std::ios::binary);
-  if (!f) {
+
+  // --- Surgical save: read original, patch only modified top-level sections ---
+
+  // Read original file.
+  std::vector<std::string> origLines;
+  {
+    std::ifstream fin(m_path, std::ios::binary);
+    if (fin) {
+      std::string line;
+      while (std::getline(fin, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        origLines.push_back(line);
+      }
+    }
+  }
+
+  // If we can't read the original (new file?), fall back to full dump.
+  if (origLines.empty()) {
+    std::ofstream f(m_path, std::ios::binary);
+    if (!f) {
+      outError = "Could not write file: " + m_path;
+      return false;
+    }
+    std::string text = dumpYaml(m_root);
+    f.write(text.data(), static_cast<std::streamsize>(text.size()));
+    return true;
+  }
+
+  // Find top-level key ranges in original.
+  std::vector<TopLevelRange> ranges;
+  size_t headerEnd = 0;
+  findTopLevelRanges(origLines, ranges, headerEnd);
+
+  // Build output.
+  std::string output;
+
+  // 1. File header (comments/blanks before first top-level key) — verbatim.
+  for (size_t i = 0; i < headerEnd; ++i) {
+    output += origLines[i];
+    output += "\n";
+  }
+
+  // Build a set of keys we've output to detect new keys.
+  std::unordered_set<std::string> outputKeys;
+
+  // 2. Each top-level section: compare and keep original or re-serialize.
+  for (const auto& range : ranges) {
+    outputKeys.insert(range.key);
+    const Node* memNode = m_root.get(range.key);
+
+    if (!memNode) {
+      // Key was deleted from memory — skip it.
+      continue;
+    }
+
+    // Serialize in-memory version for comparison.
+    std::string serialized = dumpSingleTopLevelKey(range.key, *memNode);
+
+    // Strip both for comparison (ignore comments, trailing whitespace).
+    std::string origStripped = stripForComparison(origLines, range.startLine, range.endLine);
+    std::string serStripped = serialized;
+    while (!serStripped.empty() && serStripped.back() == '\n') serStripped.pop_back();
+
+    if (origStripped == serStripped) {
+      // Unchanged — keep original verbatim (preserves comments, spacing).
+      for (size_t i = range.startLine; i < range.endLine; ++i) {
+        output += origLines[i];
+        output += "\n";
+      }
+    } else {
+      // Changed — output re-serialized version.
+      output += serialized;
+    }
+  }
+
+  // 3. Append any new top-level keys that weren't in the original file.
+  if (m_root.isMap()) {
+    auto keys = m_root.keyOrder.empty()
+        ? std::vector<std::string>() : m_root.keyOrder;
+    if (keys.empty()) {
+      for (const auto& kv : m_root.map) keys.push_back(kv.first);
+    }
+    for (const auto& k : keys) {
+      if (outputKeys.find(k) != outputKeys.end()) continue;
+      const Node* n = m_root.get(k);
+      if (n) {
+        output += dumpSingleTopLevelKey(k, *n);
+      }
+    }
+  }
+
+  // Write output.
+  std::ofstream fout(m_path, std::ios::binary);
+  if (!fout) {
     outError = "Could not write file: " + m_path;
     return false;
   }
-  std::string text = dumpYaml(m_root);
-  f.write(text.data(), static_cast<std::streamsize>(text.size()));
+  fout.write(output.data(), static_cast<std::streamsize>(output.size()));
   return true;
 }
 
@@ -656,6 +829,21 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
     if (sc->isMap() && sc->get("rules")) savedSpecialCoartic = *sc;
   }
 
+  // Bug 5 fix: Save original key ordering (up to 2 levels deep) so that
+  // round-tripping through the editor preserves YAML file order.
+  auto origTopOrder = s->keyOrder;
+  std::unordered_map<std::string, std::vector<std::string>> origNestedOrder;
+  for (const auto& kv : s->map) {
+    if (kv.second.isMap() && !kv.second.keyOrder.empty()) {
+      origNestedOrder[kv.first] = kv.second.keyOrder;
+      for (const auto& kv2 : kv.second.map) {
+        if (kv2.second.isMap() && !kv2.second.keyOrder.empty()) {
+          origNestedOrder[kv.first + "/" + kv2.first] = kv2.second.keyOrder;
+        }
+      }
+    }
+  }
+
   s->map.clear();
   s->keyOrder.clear();
   s->seq.clear();
@@ -727,6 +915,32 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
     Node& sc = s->map["specialCoarticulation"];
     if (const Node* rules = savedSpecialCoartic.get("rules")) {
       mapSet(sc, "rules", *rules);
+    }
+  }
+
+  // Bug 5 fix: Restore original key ordering.  Keys that existed before
+  // the clear appear in their original positions; new keys are appended.
+  auto reorder = [](Node& node, const std::vector<std::string>& orig) {
+    if (orig.empty() || node.keyOrder.empty()) return;
+    std::unordered_set<std::string> remaining(node.keyOrder.begin(), node.keyOrder.end());
+    std::vector<std::string> result;
+    for (const auto& k : orig) {
+      if (remaining.erase(k)) result.push_back(k);
+    }
+    for (const auto& k : node.keyOrder) {
+      if (remaining.count(k)) result.push_back(k);
+    }
+    node.keyOrder = std::move(result);
+  };
+  reorder(*s, origTopOrder);
+  for (auto& kv : s->map) {
+    if (!kv.second.isMap()) continue;
+    auto it = origNestedOrder.find(kv.first);
+    if (it != origNestedOrder.end()) reorder(kv.second, it->second);
+    for (auto& kv2 : kv.second.map) {
+      if (!kv2.second.isMap()) continue;
+      auto it2 = origNestedOrder.find(kv.first + "/" + kv2.first);
+      if (it2 != origNestedOrder.end()) reorder(kv2.second, it2->second);
     }
   }
 }
