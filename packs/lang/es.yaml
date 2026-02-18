@@ -80,97 +80,97 @@ normalization:
     # Custom phoneme tune replacements.
     # Make vowels more central:
     - from: a
-      to:   a_es
+      to: a_es
     # Regular e:
     - from: e
-      to:   e_es
+      to: e_es
     # Openned e. It is already tuned in phonemes.yaml.
     # Todo: a way to consider a kind of sorted replacements. We replace e to e_es, but now ɛ to e.
     - from: "ɛ"
-      to:   e
+      to: e
     - from: o
-      to:   o_es
+      to: o_es
     - from: u
-      to:   u_es
+      to: u_es
     # A slightly softened and less noisy /d/.
     - from: d
-      to:   d_es
+      to: d_es
     # A softed g approximant. It is neutral, dialect independent, but this may change in the future.
     - from: ɣ
-      to:   "ɣ_es"
+      to: "ɣ_es"
     # More clear diphthong transition for /j/.
     - from: j
-      to:   j_es
+      to: j_es
     # In Spanish, ɪ is a semivowel, part of the glides.
     - from: "ɪ"
-      to:   "ɪ_es"
+      to: "ɪ_es"
     # Yeísmo (neutral):
     - from: "ʎ"
-      to:   "ʎ_es"
+      to: "ʎ_es"
     # Proper sound for l:
     - from: l
-      to:   l_es
+      to: l_es
     # More reflection of nasals:
     - from: m
-      to:   m_es
+      to: m_es
     - from: n
-      to:   n_es
+      to: n_es
     # Castilian sound for /x/.
     - from: x
-      to:   x_es
+      to: x_es
     # A temporal workaround to get a /s/ sound with more brightness:
     - from: s
-      to:   s_es
+      to: s_es
     # Make ch more clear:
     - from: "t͡ʃ"
-      to:   "t͡ʃ_es"
+      to: "t͡ʃ_es"
     # Pronounciation-level normalization rules:
     # Palatal nasal: some tables emit ñ as nʲ (or n͡ʲ). Map it to /ɲ/ so it doesn't collapse to plain /n/.
     - from: "n͡ʲ"
-      to:   "ɲ"
+      to: "ɲ"
     - from: "nʲ"
-      to:   "ɲ"
+      to: "ɲ"
     - from: "ɲʲ"
-      to:   "ɲ"
+      to: "ɲ"
 
     # eSpeak Spanish often emits "ʝ" for initial <y>/<ll> (e.g. "yo").
     # We have a dedicated ʝ phoneme; keep it.
     # If a voice uses the affricate ɟʝ, collapse it to ʝ to avoid an overly "hard" onset.
     - from: "ɟʝ"
-      to:   "ʝ"
+      to: "ʝ"
     # Smoot /b/ to /β/ in the following cases: before m, and when it is located at the end, example: "velocidad", to avoid strange glitches.
     - from: "b"
-      to:   "β"
+      to: "β"
       when:
         beforeClass: SMOOTB
         atWordEnd: true
     # Separate β, ð+ɾ or other clusters (like "habrá" or "madre") so they don't blend together.
     # Insert a micro-schwa to give each consonant space.
     - from: "βɾ"
-      to:   "βᵊɾ"
+      to: "βᵊɾ"
     - from: "ðɾ"
-      to:   "ðᵊɾ"
+      to: "ðᵊɾ"
     - from: "ɡɾ"
-      to:   "ɡᵊɾ"
+      to: "ɡᵊɾ"
     - from: "ɣɾ"
-      to:   "ɣᵊɾ"
+      to: "ɣᵊɾ"
     - from: "kɾ"
-      to:   "kᵊɾ"
+      to: "kᵊɾ"
     - from: "pɾ"
-      to:   "pᵊɾ"
+      to: "pᵊɾ"
     # Mark the proper "r" also in vowels, for example "para".
     - from: "ɾ"
-      to:   "ᵊɾ"
+      to: "ᵊɾ"
       when:
         afterClass: VOWELS
     - from: "tɾ"
-      to:   "tᵊɾ"
+      to: "tᵊɾ"
     # Set our own r trill r. The default one lacks naturalness.
     - from: "r"
-      to:   "ɾᵊɾ"
+      to: "ɾᵊɾ"
     # Fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a vowel. That always should be 'w'
     - from: "u"
-      to:   "w"
+      to: "w"
       when:
         beforeClass: VOWELS
     # G approximant. To improve clarity, let's convert into non-aproximant g at the start, example: muy grande.
