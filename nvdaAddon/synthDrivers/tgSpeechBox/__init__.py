@@ -154,6 +154,7 @@ class SynthDriver(SynthDriver):
 
     _supportedSettings = [
         SynthDriver.VoiceSetting(),
+        SynthDriver.LanguageSetting(),
         SynthDriver.RateSetting(),
         SynthDriver.PitchSetting(),
         SynthDriver.InflectionSetting(),
@@ -177,7 +178,6 @@ class SynthDriver(SynthDriver):
             defaultVal=29),
         DriverSetting("pauseMode", _("Pause mode")),
         DriverSetting("sampleRate", _("Sample rate")),
-        DriverSetting("language", _("Language")),
         # Runtime language adjustments (other settings are YAML-only now)
         DriverSetting("stopClosureMode", _("Stop closure mode")),
         DriverSetting("spellingDiphthongMode", _("Spelling diphthong mode")),
