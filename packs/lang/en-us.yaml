@@ -780,10 +780,6 @@ normalization:
       to:   "ʌɹ"
       when:
         atWordEnd: true
-    # American LOT: eSpeak gives /ɑ/ (F2=1330, too fronted/Australian).
-    # Back it to ᵅ (F2=1200) for proper General American LOT quality.
-    - from: "ɑː"
-      to: "ᵅː"
     # Word-final Rt (start, cart, fart):
     - from: "ɑːɹt"
       to:   "ʌɹt"

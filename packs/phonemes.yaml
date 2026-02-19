@@ -976,8 +976,8 @@ phonemes:
     pb5: 800
     pb6: 1500
     pf1: 200
-    pf2: 1800
-    pf3: 2400
+    pf2: 1500
+    pf3: 2100
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -1130,8 +1130,8 @@ phonemes:
     pb5: 1040
     pb6: 2100
     pf1: 300
-    pf2: 1800
-    pf3: 2400
+    pf2: 1500
+    pf3: 2100
     pf4: 3300
     pf5: 3200
     pf6: 4200
@@ -3965,8 +3965,8 @@ phonemes:
     pb5: 800
     pb6: 1500
     pf1: 220
-    pf2: 1800
-    pf3: 2400
+    pf2: 1500
+    pf3: 2100
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -6155,8 +6155,8 @@ phonemes:
     _isVowel: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 71.5
-    cb2: 82.5
+    cb1: 95
+    cb2: 110
     cb3: 105
     cb4: 250
     cb5: 200
