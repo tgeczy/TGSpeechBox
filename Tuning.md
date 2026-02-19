@@ -730,8 +730,22 @@ These define the vowel-independent "anchor" targets the pass pulls toward for co
 settings:
   coarticulationLabialF2Locus: 800
   coarticulationAlveolarF2Locus: 1800
-  coarticulationVelarF2Locus: 2200
+  coarticulationVelarF2Locus: 1200
 ```
+
+#### Context-dependent velar F2 locus (optional)
+
+The velar place of articulation is unusual — the tongue body contact point shifts depending on the neighboring vowel. Before front vowels ("geese", "key"), velars have a high F2 locus. Before back vowels ("go", "cool"), velars have a low F2 locus. Without this split, the phoneme's static `cf2` value dominates and velars sound nearly identical to alveolars before back vowels.
+
+```yaml
+settings:
+  # 0 = disabled (use phoneme cf2 as-is). When set, overrides the
+  # srcF2 fed to the MITalk coarticulation equation.
+  coarticulationVelarF2LocusFront: 1800   # before front vowels (vowel F2 > 1600)
+  coarticulationVelarF2LocusBack: 1100    # before back vowels  (vowel F2 <= 1600)
+```
+
+This gives "go" /ɡoʊ/ a gentle F2 glide (1100→900) while "geese" /ɡiːs/ stays crisp (1800→2200). The threshold between "front" and "back" is currently hardcoded at 1600 Hz (vowel F2).
 
 #### Velar pinch (optional)
 
@@ -1418,19 +1432,29 @@ settings:
     # noise energy; stretching them just makes them hissy.
     codaStopScale: 1.30       # stops + affricates
     codaFricativeScale: 1.0   # fricatives — no stretch
+    codaNasalScale: 1.25      # nasals — gentle sustain
+
+    # Diphthong nuclei are already long (two vowel targets);
+    # giving them the same lengthening as monophthongs makes them
+    # sound drawled.  Set a reduced scale for diphthong nuclei.
+    # 0.0 = fall back to nucleusScale (treat same as monophthong).
+    nucleusDiphthongScale: 1.08
 ```
 
-Flat-key equivalents: `phraseFinalLengtheningCodaStopScale`, `phraseFinalLengtheningCodaFricativeScale`.
+Flat-key equivalents: `phraseFinalLengtheningCodaStopScale`, `phraseFinalLengtheningCodaFricativeScale`, `phraseFinalLengtheningCodaNasalScale`, `phraseFinalLengtheningNucleusDiphthongScale`.
+
+The engine detects diphthongs via the `tiedTo` flag on the nucleus vowel (ties it to its offglide). Monophthongs get `nucleusScale`, diphthongs get `nucleusDiphthongScale`.
 
 ### Microprosody
 
-Microprosody adds small F0 perturbations around consonant→vowel boundaries and models several natural pitch/duration effects. Five independently-gated phases run per vowel:
+Microprosody adds small F0 perturbations around consonant→vowel boundaries and models several natural pitch/duration effects. Six independently-gated phases:
 
 1. **Onset F0** (backward-looking): voiceless C raises vowel start pitch; voiced obstruent lowers it.
 2. **Endpoint F0** (forward-looking): voiceless C after vowel raises end pitch; voiced obstruent lowers it.
 3. **Intrinsic vowel F0**: high vowels (low F1) run slightly higher F0; low vowels (high F1) run lower.
 4. **Pre-voiceless shortening**: vowels before voiceless consonants are shortened (strongest duration cue in English).
-5. **Total perturbation cap**: clamps combined pitch delta so no single vowel shifts more than `maxTotalDeltaHz`.
+5. **Voiceless coda lengthening**: voiceless consonants after voiced segments get lengthened. This is the complement to Phase 4 — when the vowel shrinks before a voiceless coda, the consonant grows to preserve syllable weight (Cho & Ladefoged 1999).
+6. **Total perturbation cap**: clamps combined pitch delta so no single vowel shifts more than `maxTotalDeltaHz`.
 
 ```yaml
   # All fields are flat keys (no nested block).
@@ -1462,7 +1486,11 @@ Microprosody adds small F0 perturbations around consonant→vowel boundaries and
   microprosodyPreVoicelessShortenScale: 0.85
   microprosodyPreVoicelessMinMs: 25
 
-  # Phase 5: total perturbation cap (0 = no cap)
+  # Phase 5: voiceless coda lengthening
+  microprosodyVoicelessCodaLengthenEnabled: true
+  microprosodyVoicelessCodaLengthenScale: 1.20   # 20% longer
+
+  # Phase 6: total perturbation cap (0 = no cap)
   microprosodyMaxTotalDeltaHz: 0
 ```
 
@@ -1719,6 +1747,49 @@ Some entries include:
 - `cfN0`, `cfNP`, `cbN0`, `cbNP`, `caNP`
 
 These relate to nasal resonance and coupling. We currently treat nasality conservatively; if you don't know what to do, clone from an existing nasal vowel/consonant entry.
+
+#### Micro-event frame emission fields
+
+These phoneme-level fields control the fine structure of stop bursts, fricative envelopes, and voiced closures. They live in `packs/phonemes.yaml` alongside the formant data. All default to 0.0 (engine uses built-in defaults when unset).
+
+**Stop burst shaping:**
+- `burstDurationMs` (number): Length of the burst noise in milliseconds. Longer bursts give velars their characteristic "compact" quality. Typical values: alveolar 5-7 ms, velar 10-12 ms.
+- `burstDecayRate` (number, 0.0-1.0): How quickly burst energy decays. 0.0 = flat (no decay), 1.0 = instant cutoff. Velars use ~0.4 (slow decay), alveolars ~0.5.
+- `burstSpectralTilt` (number): Tilts the burst spectrum. Negative values boost high-frequency energy (brighter burst). Used on velars (-0.15) for the characteristic "compact spectrum" sound. This works by modifying parallel amplitudes pa3-pa6 directly in the burst micro-frame.
+
+**Voiced closure (voice bar):**
+- `voiceBarAmplitude` (number, 0.0-1.0): Voicing level during stop closure. Higher values give a stronger murmur before the burst. Typical: 0.3 for voiced stops. Set to 0 for voiceless stops.
+- `voiceBarF1` (number, Hz): F1 frequency during closure. Low values (120-180 Hz) give the characteristic "muffled" voice bar sound.
+
+**Fricative envelope:**
+- `fricAttackMs` (number): Onset ramp time for frication noise. Controls how quickly friction builds. Typical: 3 ms. Skipped in post-stop clusters (/ks/, /ts/) where the stop burst leads directly into frication.
+- `fricDecayMs` (number): Offset ramp time for frication noise. Controls how gradually friction fades. Typical: 4 ms. Skipped for affricates where frication sustains through the release.
+
+**Release and timing:**
+- `releaseSpreadMs` (number): Duration of aspiration ramp-in after stop release (for tokens marked as post-stop aspiration). Typical: 4 ms.
+- `durationScale` (number, default 1.0): Per-phoneme duration multiplier applied to the class-default duration for stops, affricates, and their closures. Values > 1.0 make the phoneme longer. Example: velars /k/,/ɡ/ use 1.3 (larger oral cavity needs more closure time), labials /p/,/b/ use 1.1, alveolars default to 1.0.
+
+**Example:**
+```yaml
+phonemes:
+  k:
+    _isStop: true
+    burstDurationMs: 11
+    burstDecayRate: 0.4
+    burstSpectralTilt: -0.15
+    durationScale: 1.3
+    voiceBarAmplitude: 0     # voiceless — no voice bar
+    voiceBarF1: 150
+  g:
+    _isStop: true
+    _isVoiced: true
+    burstDurationMs: 11
+    burstDecayRate: 0.4
+    burstSpectralTilt: -0.15
+    durationScale: 1.3
+    voiceBarAmplitude: 0.3   # voiced — audible murmur
+    voiceBarF1: 150
+```
 
 ### Practical tuning tips (fast wins)
 "This vowel sounds too much like another vowel"
