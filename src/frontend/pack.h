@@ -634,6 +634,8 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double coarticulationAlveolarF2Locus = 1800.0;
   // Velar F2 locus is typically mid (contextualized further by velar pinch).
   double coarticulationVelarF2Locus = 1200.0;
+  double coarticulationVelarF2LocusFront = 0.0;  // 0 = use phoneme cf2
+  double coarticulationVelarF2LocusBack = 0.0;   // 0 = use phoneme cf2
 
   // MITalk-style locus interpolation weight (k).
   // locus = src + k * (trg - src)

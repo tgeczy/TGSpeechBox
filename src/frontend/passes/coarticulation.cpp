@@ -321,8 +321,19 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
 
     // Consonant "src" formants.
     const double srcF1 = getConsonantSrcFormant(*leftCons, FieldId::cf1, FieldId::pf1, getLocusF1(leftPlace));
-    const double srcF2 = getConsonantSrcFormant(*leftCons, FieldId::cf2, FieldId::pf2, getLocusF2(leftPlace, lang));
+    double srcF2 = getConsonantSrcFormant(*leftCons, FieldId::cf2, FieldId::pf2, getLocusF2(leftPlace, lang));
     const double srcF3 = getConsonantSrcFormant(*leftCons, FieldId::cf3, FieldId::pf3, getLocusF3(leftPlace, lang));
+
+    // Velar locus is context-dependent: high before front vowels ("geese"),
+    // low before back vowels ("go").  Without this, the phoneme's cf2=1800
+    // always wins and velars sound identical to alveolars before back vowels.
+    if (leftPlace == Place::Velar) {
+      if (vF2 > 1600.0 && lang.coarticulationVelarF2LocusFront > 0.0) {
+        srcF2 = lang.coarticulationVelarF2LocusFront;
+      } else if (vF2 <= 1600.0 && lang.coarticulationVelarF2LocusBack > 0.0) {
+        srcF2 = lang.coarticulationVelarF2LocusBack;
+      }
+    }
 
     // MITalk locus targets.
     const double k = std::clamp(lang.coarticulationMitalkK, 0.0, 1.0);

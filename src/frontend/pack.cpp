@@ -559,6 +559,8 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationLabialF2Locus", lp.coarticulationLabialF2Locus);
   getNum("coarticulationAlveolarF2Locus", lp.coarticulationAlveolarF2Locus);
   getNum("coarticulationVelarF2Locus", lp.coarticulationVelarF2Locus);
+  getNum("coarticulationVelarF2LocusFront", lp.coarticulationVelarF2LocusFront);
+  getNum("coarticulationVelarF2LocusBack", lp.coarticulationVelarF2LocusBack);
   getNum("coarticulationMitalkK", lp.coarticulationMitalkK);
   getNum("coarticulationF1Scale", lp.coarticulationF1Scale);
   getNum("coarticulationF2Scale", lp.coarticulationF2Scale);

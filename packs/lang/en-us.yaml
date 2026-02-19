@@ -67,6 +67,11 @@ settings:
   # Right-side (coda) coarticulation: vowel endpoints transition toward
   # following consonant's locus. Crucial for /n/ vs /ŋ/ and all coda place cues.
   coarticulationRightSideScale: 0.7
+  # Velar locus splits by vowel context. Before back vowels (/oʊ/, /uː/, /ɑ/),
+  # velars start low — tongue body pulling away from soft palate creates a
+  # natural glide. Before front vowels, velars stay high.
+  coarticulationVelarF2LocusFront: 1800
+  coarticulationVelarF2LocusBack: 1100
   phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
   phraseFinalLengtheningFinalSyllableScale: 1.05
@@ -422,13 +427,12 @@ settings:
         cumulative: false
         unstressedScale: 0.5
 
-      # 4. Velar nasal anticipation (F2)  — vowels before /ŋ/ get F2
-      #    raised toward velar territory.  This is the main cue that
-      #    separates "ban" from "bang" — the vowel tells the listener
-      #    a velar is coming before the nasal murmur even starts.
-      #    /ŋ/ F2=1800 vs /n/ F2=1550: we push the vowel toward /ŋ/.
-      - name: pre-velar-nasal-f2-raise
-        triggers: ["ŋ"]
+      # 4. Pre-velar F2 raise — vowels before any velar (/ŋ/, /k/, /ɡ/)
+      #    get F2 raised toward velar territory.  This is the main cue
+      #    that separates "food" from "foog" and "ban" from "bang" —
+      #    the vowel signals a velar is coming.
+      - name: pre-velar-f2-raise
+        triggers: ["ŋ", "k", "ɡ", "g"]
         vowelFilter: all
         formant: f2
         deltaHz: 80
@@ -436,13 +440,12 @@ settings:
         cumulative: false
         unstressedScale: 0.7
 
-      # 5. Velar nasal anticipation (F3)  — the velar pinch.
-      #    F2 and F3 converge before velars.  Rule 4 raises F2,
+      # 5. Pre-velar F3 lower — the velar pinch.  Rule 4 raises F2,
       #    this one lowers F3.  Together they create the characteristic
-      #    convergence that makes "bang" sound unmistakably velar.
-      #    /ŋ/ F3=2400 vs /n/ F3=2740: pull F3 down toward /ŋ/.
-      - name: pre-velar-nasal-f3-lower
-        triggers: ["ŋ"]
+      #    F2/F3 convergence that marks velar place in the preceding
+      #    vowel — works for "bang", "back", and "bag" alike.
+      - name: pre-velar-f3-lower
+        triggers: ["ŋ", "k", "ɡ", "g"]
         vowelFilter: all
         formant: f3
         deltaHz: -100
