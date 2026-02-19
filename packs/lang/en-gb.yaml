@@ -327,15 +327,16 @@ normalization:
     #
     # Important: leave the remaining 'a' alone (TRAP) so words like "app", "application"
     # don't drift to an "ah" quality.
+    # ᵅ is the UK RP PALM/START vowel (F2=1200, properly back "ah").
     - from: "a"
-      to: "ɑː"
+      to: "ᵅː"
       when:
         beforeClass: BATH_FOLLOW
 
     # Safety: if 'æ' shows up (from other normalizers), treat it as TRAP 'a' unless it
     # is in the BATH environment.
     - from: "æ"
-      to: "ɑː"
+      to: "ᵅː"
       when:
         beforeClass: BATH_FOLLOW
     - from: "æ"

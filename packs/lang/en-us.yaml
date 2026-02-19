@@ -64,13 +64,26 @@ settings:
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 0
+  # Right-side (coda) coarticulation: vowel endpoints transition toward
+  # following consonant's locus. Crucial for /n/ vs /ŋ/ and all coda place cues.
+  coarticulationRightSideScale: 0.7
+  # Velar locus splits by vowel context. Before back vowels (/oʊ/, /uː/, /ɑ/),
+  # velars start low — tongue body pulling away from soft palate creates a
+  # natural glide. Before front vowels, velars stay high.
+  coarticulationVelarF2LocusFront: 1800
+  coarticulationVelarF2LocusBack: 1100
   phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
-  phraseFinalLengtheningFinalSyllableScale: 1.10
-  phraseFinalLengtheningNucleusScale: 1.0
+  phraseFinalLengtheningFinalSyllableScale: 1.05
+  # Monophthongs ("top", "list", "fox") get more room to lengthen.
+  # Diphthongs ("eight", "same", "I") are already long, gentle boost only.
+  phraseFinalLengtheningNucleusScale: 1.22
+  phraseFinalLengtheningNucleusDiphthongScale: 1.08
   phraseFinalLengtheningCodaScale: 1.10
-  phraseFinalLengtheningCodaStopScale: 1.30
-  phraseFinalLengtheningCodaFricativeScale: 1.0
+  phraseFinalLengtheningCodaStopScale: 1.0
+  phraseFinalLengtheningCodaFricativeScale: 1.15
+  # Phrase-final nasal sustain: nasals linger at clause boundaries.
+  phraseFinalLengtheningCodaNasalScale: 1.25
   phraseFinalLengtheningPenultimateSyllableScale: 1.08
   phraseFinalLengtheningStatementScale: 1.0
   phraseFinalLengtheningQuestionScale: 0.85
@@ -93,9 +106,17 @@ settings:
   microprosodyIntrinsicF0LowDropHz: 2.0
 
   # Pre-voiceless shortening: "bat" vowel shorter than "bad" vowel.
+  # MacinTalk: 55% before voiceless stops, 80% before fricatives.
+  # Klatt (1976): vowels 60-70% as long before voiceless vs voiced.
+  # 0.80 is a moderate compromise (was 0.92, barely perceptible).
   microprosodyPreVoicelessShortenEnabled: true
-  microprosodyPreVoicelessShortenScale: 0.92
+  microprosodyPreVoicelessShortenScale: 0.80
   microprosodyPreVoicelessMinMs: 35.0
+
+  # Voiceless coda lengthening: complement to pre-voiceless shortening.
+  # When a vowel shrinks before a voiceless consonant, the consonant grows for consistency.
+  microprosodyVoicelessCodaLengthenEnabled: true
+  microprosodyVoicelessCodaLengthenScale: 1.20
 
   # Safety cap: total F0 perturbation per vowel can't exceed this.
   microprosodyMaxTotalDeltaHz: 10.0
@@ -114,9 +135,11 @@ settings:
     wordInitialBoost: 0.05
     wordFinalReduction: 0.05
 
-    # Duration: prominent syllables hold steady, unstressed ones can shrink
+    # Duration: prominent syllables hold steady, unstressed ones can shrink.
+    # MacinTalk: word-medial unstressed at 55%, others at 70%.
+    # 0.85 is conservative but gives more rhythmic contrast than 0.92.
     durationProminentFloorMs: 55
-    durationReducedCeiling: 0.92
+    durationReducedCeiling: 0.85
 
     # Amplitude: subtle contour shaping
     amplitudeBoostDb: 0.3
@@ -360,7 +383,7 @@ settings:
   # ------------------------------------------------------------------
   # Special coarticulation: YAML-driven Hz deltas on vowels adjacent
   # to specific consonants.  Runs *after* the locus coarticulation pass,
-  # so these deltas stack on top of the DECTalk-style formant ramps.
+  # so these deltas stack on top of formant ramps.
   # ------------------------------------------------------------------
   specialCoarticulation:
     enabled: true
@@ -403,6 +426,32 @@ settings:
         side: both
         cumulative: false
         unstressedScale: 0.5
+
+      # 4. Pre-velar F2 raise — vowels before any velar (/ŋ/, /k/, /ɡ/)
+      #    get F2 raised toward velar territory.  This is the main cue
+      #    that separates "food" from "foog" and "ban" from "bang" —
+      #    the vowel signals a velar is coming.
+      - name: pre-velar-f2-raise
+        triggers: ["ŋ", "k", "ɡ", "g"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: 80
+        side: right
+        cumulative: false
+        unstressedScale: 0.7
+
+      # 5. Pre-velar F3 lower — the velar pinch.  Rule 4 raises F2,
+      #    this one lowers F3.  Together they create the characteristic
+      #    F2/F3 convergence that marks velar place in the preceding
+      #    vowel — works for "bang", "back", and "bag" alike.
+      - name: pre-velar-f3-lower
+        triggers: ["ŋ", "k", "ɡ", "g"]
+        vowelFilter: all
+        formant: f3
+        deltaHz: -100
+        side: right
+        cumulative: false
+        unstressedScale: 0.7
 
   # ------------------------------------------------------------------
   # Cluster timing: shorten consonants in clusters so "adjust",
@@ -624,24 +673,25 @@ normalization:
     # GOAT words like "no", "go", "so" need care:
     # - Full oʊ sounds like "oww" (too much W)
     # - Bare o sounds clipped/Minnesota
-    # Solution: lengthen the vowel without the offglide for a smooth sustained sound.
+    # Solution: drop the offglide; phrase-final lengthening provides sustain.
+    # No length mark — it stacks with prominence + phrase-final = too drawn out.
     - from: "nˈoʊ"
-      to:   "nˈoː"
+      to:   "nˈo"
     - from: "nˈo͡ʊ"
-      to:   "nˈoː"
+      to:   "nˈo"
     - from: "ɡˈoʊ"
-      to:   "ɡˈoː"
+      to:   "ɡˈo"
     - from: "ɡˈo͡ʊ"
-      to:   "ɡˈoː"
+      to:   "ɡˈo"
     - from: "sˈoʊ"
-      to:   "sˈoː"
+      to:   "sˈo"
     - from: "sˈo͡ʊ"
-      to:   "sˈoː"
+      to:   "sˈo"
     # Standalone letter "O"
     - from: "ˈoʊ"
-      to:   "ˈoː"
+      to:   "ˈo"
     - from: "ˈo͡ʊ"
-      to:   "ˈoː"
+      to:   "ˈo"
 
 
     # Treat GOAT (oʊ) as vowel+glide so it doesn't split into two vowel beats.
@@ -730,10 +780,6 @@ normalization:
       to:   "ʌɹ"
       when:
         atWordEnd: true
-    # American LOT: eSpeak gives /ɑ/ (F2=1330, too fronted/Australian).
-    # Back it to ᵅ (F2=1200) for proper General American LOT quality.
-    - from: "ɑː"
-      to: "ᵅː"
     # Word-final Rt (start, cart, fart):
     - from: "ɑːɹt"
       to:   "ʌɹt"

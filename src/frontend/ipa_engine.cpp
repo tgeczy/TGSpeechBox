@@ -374,6 +374,18 @@ static std::u32string chooseReplacementTarget(const PackSet& pack, const std::ve
 static void applyRules(std::u32string& text, const PackSet& pack, const std::vector<ReplacementRule>& rules) {
   const bool textHasTie = (text.find(U'͡') != std::u32string::npos) || (text.find(U'͜') != std::u32string::npos);
 
+  // Track positions produced by earlier replacements so subsequent rules
+  // don't match inside them.  Prevents cascade corruption where e.g.
+  // "a→a_es" followed by "e→e_es" would mangle the "e" inside "a_es".
+  //
+  // Key insight: cascade corruption only happens when a replacement is
+  // LONGER than the matched text — that's when new character positions
+  // appear that weren't in the original.  Same-length (or shorter)
+  // replacements just swap characters in-place, so no new matchable
+  // substrings are created and intentional chaining is safe
+  // (e.g. u→ᵾ then ᵾ→ᵿ, or uː→ᵾː then ᵾ→ᵿ).
+  std::vector<bool> prot(text.size(), false);
+
   for (const auto& rule : rules) {
     if (rule.from.empty()) continue;
 
@@ -409,9 +421,19 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
     std::u32string out;
     out.reserve(text.size());
+    std::vector<bool> outProt;
+    outProt.reserve(text.size());
 
     size_t i = 0;
     while (i < text.size()) {
+      // Skip positions that were produced by a previous rule's replacement.
+      if (prot[i]) {
+        out.push_back(text[i]);
+        outProt.push_back(true);
+        ++i;
+        continue;
+      }
+
       bool matched = false;
       size_t matchLen = 0; // number of codepoints consumed from text
 
@@ -425,6 +447,13 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
         if (matchAtLooseTie(text, i, rule.from, consumed)) {
           matched = true;
           matchLen = consumed;
+        }
+      }
+
+      // Reject match if any position in the match range is protected.
+      if (matched && matchLen > 1) {
+        for (size_t p = i + 1; p < i + matchLen; ++p) {
+          if (prot[p]) { matched = false; break; }
         }
       }
 
@@ -461,16 +490,26 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
         if (ok) {
           out.append(to);
+          // Only protect replacement output when it is LONGER than the
+          // matched text.  Longer replacements introduce new character
+          // positions that could cause cascade corruption (a→a_es then
+          // e→e_es).  Same-length or shorter replacements just swap
+          // characters in-place — no new substrings are created, so
+          // intentional chaining remains safe (u→ᵾ then ᵾ→ᵿ).
+          const bool shouldProtect = (to.size() > matchLen);
+          for (size_t p = 0; p < to.size(); ++p) outProt.push_back(shouldProtect);
           i = matchEnd;
           continue;
         }
       }
 
       out.push_back(text[i]);
+      outProt.push_back(false);
       ++i;
     }
 
     text.swap(out);
+    prot.swap(outProt);
   }
 }
 
@@ -495,6 +534,12 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
 
   // Normalize tie bar variants early so pack rules can match reliably.
   replaceAll(t, U"͜", U"͡");
+
+  // eSpeak pause/separator underscores — strip BEFORE any replacement rules
+  // so that both preReplacements and replacements can safely output phoneme
+  // keys containing underscores (e.g. ɣ_es, a_es).
+  replaceAll(t, U"_:", U" ");
+  replaceAll(t, U"_", U" ");
 
   // 1) Pack pre-replacements (lets you preserve info before we strip chars like '-').
   applyRules(t, pack, pack.lang.preReplacements);
@@ -523,10 +568,6 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
     from.push_back(c);
     replaceAll(t, from, U"");
   }
-
-  // Pause/separators.
-  replaceAll(t, U"_:", U" ");
-  replaceAll(t, U"_", U" ");
 
   if (pack.lang.stripHyphen) {
     replaceAll(t, U"-", U"");
@@ -699,13 +740,14 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       dur = lang.stressedVowelHiatusGapMs / baseSpeed;
       fade = lang.stressedVowelHiatusFadeMs / baseSpeed;
     } else if (t.preStopGap) {
+      double closureScale = (t.def && t.def->hasDurationScale) ? t.def->durationScale : 1.0;
+
       if (t.clusterGap) {
-        double baseDur = lang.stopClosureClusterGapMs;
+        double baseDur = lang.stopClosureClusterGapMs * closureScale;
         double baseFade = lang.stopClosureClusterFadeMs;
 
-        // Optional: allow a larger cluster gap at word boundaries.
         if (t.wordStart && lang.stopClosureWordBoundaryClusterGapMs > 0.0) {
-          baseDur = lang.stopClosureWordBoundaryClusterGapMs;
+          baseDur = lang.stopClosureWordBoundaryClusterGapMs * closureScale;
         }
         if (t.wordStart && lang.stopClosureWordBoundaryClusterFadeMs > 0.0) {
           baseFade = lang.stopClosureWordBoundaryClusterFadeMs;
@@ -714,7 +756,7 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
         dur = baseDur / curSpeed;
         fade = baseFade / curSpeed;
       } else {
-        dur = lang.stopClosureVowelGapMs / curSpeed;
+        dur = lang.stopClosureVowelGapMs * closureScale / curSpeed;
         fade = lang.stopClosureVowelFadeMs / curSpeed;
       }
     } else if (t.postStopAspiration) {
@@ -730,10 +772,13 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       }
       fade = 0.001;
     } else if (tokenIsStop(t)) {
-      dur = std::min(lang.stopDurationMs / curSpeed, lang.stopDurationMs);
+      double scale = (t.def && t.def->hasDurationScale) ? t.def->durationScale : 1.0;
+      dur = std::min(lang.stopDurationMs * scale / curSpeed,
+                     lang.stopDurationMs * scale);
       fade = 0.001;
     } else if (tokenIsAfricate(t)) {
-      dur = lang.affricateDurationMs / curSpeed;
+      double scale = (t.def && t.def->hasDurationScale) ? t.def->durationScale : 1.0;
+      dur = lang.affricateDurationMs * scale / curSpeed;
       fade = 0.001;
     } else if (!tokenIsVoiced(t)) {
       dur = lang.voicelessFricativeDurationMs / curSpeed;
@@ -1685,9 +1730,9 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
         // This maintains continuous voicing through the closure while letting
         // formants interpolate naturally (no abrupt formant discontinuity).
         // Thread parent stop's PhonemeDef so voice bar can read voiceBarAmplitude/F1.
+        gap.def = t.def;  // Always thread parent def for place-aware closure timing
         if (tokenIsVoiced(t)) {
           gap.voicedClosure = true;
-          gap.def = t.def;
         }
 
         outTokens.push_back(gap);

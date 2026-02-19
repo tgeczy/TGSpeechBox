@@ -160,6 +160,12 @@ struct PhonemeDef {
 
   bool hasFricDecayMs = false;
   double fricDecayMs = 0.0;          // offset ramp time for frication (default 4)
+
+  // Duration scaling — multiplier on the class-default duration.
+  // A velar stop with durationScale=1.3 and stopDurationMs=6.0 gets 7.8ms.
+  // Default 1.0 (no change). Consumed by ipa_engine timing, not frame_emit.
+  double durationScale = 1.0;
+  bool hasDurationScale = false;
 };
 
 // In YAML we keep replacements in UTF-8; we convert to UTF-32 during load.
@@ -628,6 +634,8 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double coarticulationAlveolarF2Locus = 1800.0;
   // Velar F2 locus is typically mid (contextualized further by velar pinch).
   double coarticulationVelarF2Locus = 1200.0;
+  double coarticulationVelarF2LocusFront = 0.0;  // 0 = use phoneme cf2
+  double coarticulationVelarF2LocusBack = 0.0;   // 0 = use phoneme cf2
 
   // MITalk-style locus interpolation weight (k).
   // locus = src + k * (trg - src)
@@ -848,9 +856,11 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double phraseFinalLengtheningQuestionScale = 0.9;
   bool phraseFinalLengtheningNucleusOnlyMode = true;
   double phraseFinalLengtheningNucleusScale = 0.0;  // 0 = use finalSyllableScale
+  double phraseFinalLengtheningNucleusDiphthongScale = 0.0;  // 0 = use NucleusScale
   double phraseFinalLengtheningCodaScale = 0.0;     // 0 = use finalSyllableScale
   double phraseFinalLengtheningCodaStopScale = 0.0;      // 0 = fall back to codaScale
   double phraseFinalLengtheningCodaFricativeScale = 0.0;  // 0 = fall back to codaScale
+  double phraseFinalLengtheningCodaNasalScale = 0.0;      // 0 = fall back to codaScale
 
   // ── Prominence pass ──
   bool prominenceEnabled = false;
@@ -907,6 +917,11 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool microprosodyPreVoicelessShortenEnabled = true;
   double microprosodyPreVoicelessShortenScale = 0.85;  // 85% of normal
   double microprosodyPreVoicelessMinMs = 25.0;         // matches rate comp floor
+
+  // Voiceless coda lengthening: complement to pre-voiceless shortening.
+  // Voiceless consonants after voiced segments grow to compensate.
+  bool microprosodyVoicelessCodaLengthenEnabled = false;
+  double microprosodyVoicelessCodaLengthenScale = 1.20;
   double microprosodyMaxTotalDeltaHz = 0.0;            // 0 = no cap
 
   // ── Rate compensation ──

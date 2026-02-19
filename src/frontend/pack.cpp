@@ -233,6 +233,10 @@ static bool loadPhonemes(const fs::path& packsRoot, PackSet& out, std::string& o
         double v; if (val.asNumber(v)) { def.hasFricDecayMs = true; def.fricDecayMs = v; }
         continue;
       }
+      if (fieldName == "durationScale") {
+        double v; if (val.asNumber(v)) { def.hasDurationScale = true; def.durationScale = v; }
+        continue;
+      }
 
       FieldId id;
       if (!parseFieldId(fieldName, id)) {
@@ -555,6 +559,8 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationLabialF2Locus", lp.coarticulationLabialF2Locus);
   getNum("coarticulationAlveolarF2Locus", lp.coarticulationAlveolarF2Locus);
   getNum("coarticulationVelarF2Locus", lp.coarticulationVelarF2Locus);
+  getNum("coarticulationVelarF2LocusFront", lp.coarticulationVelarF2LocusFront);
+  getNum("coarticulationVelarF2LocusBack", lp.coarticulationVelarF2LocusBack);
   getNum("coarticulationMitalkK", lp.coarticulationMitalkK);
   getNum("coarticulationF1Scale", lp.coarticulationF1Scale);
   getNum("coarticulationF2Scale", lp.coarticulationF2Scale);
@@ -719,9 +725,11 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("phraseFinalLengtheningQuestionScale", lp.phraseFinalLengtheningQuestionScale);
   getBool("phraseFinalLengtheningNucleusOnlyMode", lp.phraseFinalLengtheningNucleusOnlyMode);
   getNum("phraseFinalLengtheningNucleusScale", lp.phraseFinalLengtheningNucleusScale);
+  getNum("phraseFinalLengtheningNucleusDiphthongScale", lp.phraseFinalLengtheningNucleusDiphthongScale);
   getNum("phraseFinalLengtheningCodaScale", lp.phraseFinalLengtheningCodaScale);
   getNum("phraseFinalLengtheningCodaStopScale", lp.phraseFinalLengtheningCodaStopScale);
   getNum("phraseFinalLengtheningCodaFricativeScale", lp.phraseFinalLengtheningCodaFricativeScale);
+  getNum("phraseFinalLengtheningCodaNasalScale", lp.phraseFinalLengtheningCodaNasalScale);
 
   // ── Prominence pass (nested block + flat-key fallbacks) ──
   if (const yaml_min::Node* pr = settings.get("prominence"); pr && pr->isMap()) {
@@ -773,6 +781,8 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getBool("microprosodyPreVoicelessShortenEnabled", lp.microprosodyPreVoicelessShortenEnabled);
   getNum("microprosodyPreVoicelessShortenScale", lp.microprosodyPreVoicelessShortenScale);
   getNum("microprosodyPreVoicelessMinMs", lp.microprosodyPreVoicelessMinMs);
+  getBool("microprosodyVoicelessCodaLengthenEnabled", lp.microprosodyVoicelessCodaLengthenEnabled);
+  getNum("microprosodyVoicelessCodaLengthenScale", lp.microprosodyVoicelessCodaLengthenScale);
   getNum("microprosodyMaxTotalDeltaHz", lp.microprosodyMaxTotalDeltaHz);
 
   getNum("nasalMinDurationMs", lp.nasalMinDurationMs);
@@ -1596,6 +1606,10 @@ static bool mergeLanguageFile(const fs::path& path, PackSet& out, std::string& o
           }
           if (fieldName == "fricDecayMs") {
             double v; if (val.asNumber(v)) { def.hasFricDecayMs = true; def.fricDecayMs = v; }
+            continue;
+          }
+          if (fieldName == "durationScale") {
+            double v; if (val.asNumber(v)) { def.hasDurationScale = true; def.durationScale = v; }
             continue;
           }
 

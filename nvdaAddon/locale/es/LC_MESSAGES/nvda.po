@@ -1287,6 +1287,16 @@ msgstr "Coarticulación Locus F2 Velar"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus Front"
+msgstr "Coarticulación Locus F2 Velar Frontal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus Back"
+msgstr "Coarticulación Locus F2 Velar Posterior"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Coarticulation Velar Pinch Enabled"
 msgstr "Coarticulación Compresión Velar Habilitada"
 
@@ -1747,6 +1757,16 @@ msgstr "Microprosodia Escala de Acortamiento Pre-Sorda"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless Coda Lengthen Enabled"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Microprosody Voiceless Coda Lengthen Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Microprosody Voiced Fricative Lower Scale"
 msgstr "Microprosodia Escala de Reducción Fricativa Sonora"
 
@@ -1972,7 +1992,17 @@ msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Coda Nasal Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Phrase Final Lengthening Nucleus Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Nucleus Diphthong Scale"
 msgstr ""
 
 #. Setting key display name
