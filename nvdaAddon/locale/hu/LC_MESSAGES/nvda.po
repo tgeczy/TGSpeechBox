@@ -1956,6 +1956,11 @@ msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Phrase Final Lengthening Nucleus Diphthong Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Rate Comp Affricate Floor (ms)"
 msgstr ""
 

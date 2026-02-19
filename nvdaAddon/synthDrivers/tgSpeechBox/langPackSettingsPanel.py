@@ -564,6 +564,7 @@ def _getPanelClass():
                 "phraseFinalLengtheningEnabled",
                 "phraseFinalLengtheningFinalSyllableScale",
                 "phraseFinalLengtheningNucleusOnlyMode",
+                "phraseFinalLengtheningNucleusDiphthongScale",
                 "phraseFinalLengtheningNucleusScale",
                 "phraseFinalLengtheningPenultimateSyllableScale",
                 "phraseFinalLengtheningQuestionScale",

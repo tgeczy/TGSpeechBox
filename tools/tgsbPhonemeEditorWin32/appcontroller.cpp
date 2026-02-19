@@ -831,6 +831,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "phraseFinalLengtheningEnabled",
     "phraseFinalLengtheningFinalSyllableScale",
     "phraseFinalLengtheningNucleusOnlyMode",
+    "phraseFinalLengtheningNucleusDiphthongScale",
     "phraseFinalLengtheningNucleusScale",
     "phraseFinalLengtheningPenultimateSyllableScale",
     "phraseFinalLengtheningQuestionScale",

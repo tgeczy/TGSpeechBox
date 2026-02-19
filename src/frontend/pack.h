@@ -854,6 +854,7 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double phraseFinalLengtheningQuestionScale = 0.9;
   bool phraseFinalLengtheningNucleusOnlyMode = true;
   double phraseFinalLengtheningNucleusScale = 0.0;  // 0 = use finalSyllableScale
+  double phraseFinalLengtheningNucleusDiphthongScale = 0.0;  // 0 = use NucleusScale
   double phraseFinalLengtheningCodaScale = 0.0;     // 0 = use finalSyllableScale
   double phraseFinalLengtheningCodaStopScale = 0.0;      // 0 = fall back to codaScale
   double phraseFinalLengtheningCodaFricativeScale = 0.0;  // 0 = fall back to codaScale

@@ -723,6 +723,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("phraseFinalLengtheningQuestionScale", lp.phraseFinalLengtheningQuestionScale);
   getBool("phraseFinalLengtheningNucleusOnlyMode", lp.phraseFinalLengtheningNucleusOnlyMode);
   getNum("phraseFinalLengtheningNucleusScale", lp.phraseFinalLengtheningNucleusScale);
+  getNum("phraseFinalLengtheningNucleusDiphthongScale", lp.phraseFinalLengtheningNucleusDiphthongScale);
   getNum("phraseFinalLengtheningCodaScale", lp.phraseFinalLengtheningCodaScale);
   getNum("phraseFinalLengtheningCodaStopScale", lp.phraseFinalLengtheningCodaStopScale);
   getNum("phraseFinalLengtheningCodaFricativeScale", lp.phraseFinalLengtheningCodaFricativeScale);

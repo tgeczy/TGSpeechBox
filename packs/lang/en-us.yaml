@@ -66,11 +66,14 @@ settings:
   coarticulationAdjacencyMaxConsonants: 0
   phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
-  phraseFinalLengtheningFinalSyllableScale: 1.10
-  phraseFinalLengtheningNucleusScale: 1.0
+  phraseFinalLengtheningFinalSyllableScale: 1.05
+  # Monophthongs ("top", "list", "fox") get more room to lengthen.
+  # Diphthongs ("eight", "same", "I") are already long, gentle boost only.
+  phraseFinalLengtheningNucleusScale: 1.22
+  phraseFinalLengtheningNucleusDiphthongScale: 1.08
   phraseFinalLengtheningCodaScale: 1.10
-  phraseFinalLengtheningCodaStopScale: 1.30
-  phraseFinalLengtheningCodaFricativeScale: 1.0
+  phraseFinalLengtheningCodaStopScale: 1.0
+  phraseFinalLengtheningCodaFricativeScale: 1.15
   phraseFinalLengtheningPenultimateSyllableScale: 1.08
   phraseFinalLengtheningStatementScale: 1.0
   phraseFinalLengtheningQuestionScale: 0.85
@@ -93,8 +96,10 @@ settings:
   microprosodyIntrinsicF0LowDropHz: 2.0
 
   # Pre-voiceless shortening: "bat" vowel shorter than "bad" vowel.
+  # Klatt (1976): vowels 60-70% as long before voiceless vs voiced.
+  # 0.80 is a moderate compromise (was 0.92, barely perceptible).
   microprosodyPreVoicelessShortenEnabled: true
-  microprosodyPreVoicelessShortenScale: 0.92
+  microprosodyPreVoicelessShortenScale: 0.80
   microprosodyPreVoicelessMinMs: 35.0
 
   # Safety cap: total F0 perturbation per vowel can't exceed this.
@@ -114,9 +119,10 @@ settings:
     wordInitialBoost: 0.05
     wordFinalReduction: 0.05
 
-    # Duration: prominent syllables hold steady, unstressed ones can shrink
+    # Duration: prominent syllables hold steady, unstressed ones can shrink.
+    # 0.85 is conservative but gives more rhythmic contrast than 0.92.
     durationProminentFloorMs: 55
-    durationReducedCeiling: 0.92
+    durationReducedCeiling: 0.85
 
     # Amplitude: subtle contour shaping
     amplitudeBoostDb: 0.3
@@ -624,24 +630,25 @@ normalization:
     # GOAT words like "no", "go", "so" need care:
     # - Full oʊ sounds like "oww" (too much W)
     # - Bare o sounds clipped/Minnesota
-    # Solution: lengthen the vowel without the offglide for a smooth sustained sound.
+    # Solution: drop the offglide; phrase-final lengthening provides sustain.
+    # No length mark — it stacks with prominence + phrase-final = too drawn out.
     - from: "nˈoʊ"
-      to:   "nˈoː"
+      to:   "nˈo"
     - from: "nˈo͡ʊ"
-      to:   "nˈoː"
+      to:   "nˈo"
     - from: "ɡˈoʊ"
-      to:   "ɡˈoː"
+      to:   "ɡˈo"
     - from: "ɡˈo͡ʊ"
-      to:   "ɡˈoː"
+      to:   "ɡˈo"
     - from: "sˈoʊ"
-      to:   "sˈoː"
+      to:   "sˈo"
     - from: "sˈo͡ʊ"
-      to:   "sˈoː"
+      to:   "sˈo"
     # Standalone letter "O"
     - from: "ˈoʊ"
-      to:   "ˈoː"
+      to:   "ˈo"
     - from: "ˈo͡ʊ"
-      to:   "ˈoː"
+      to:   "ˈo"
 
 
     # Treat GOAT (oʊ) as vowel+glide so it doesn't split into two vowel beats.

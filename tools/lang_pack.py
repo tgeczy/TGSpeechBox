@@ -369,6 +369,7 @@ class LanguagePack:
     phrase_final_lengthening_question_scale: float = 0.9
     phrase_final_lengthening_nucleus_only_mode: bool = True
     phrase_final_lengthening_nucleus_scale: float = 0.0
+    phrase_final_lengthening_nucleus_diphthong_scale: float = 0.0
     phrase_final_lengthening_coda_scale: float = 0.0
     phrase_final_lengthening_coda_stop_scale: float = 0.0
     phrase_final_lengthening_coda_fricative_scale: float = 0.0
@@ -838,6 +839,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.phrase_final_lengthening_question_scale = gn("phraseFinalLengtheningQuestionScale", lp.phrase_final_lengthening_question_scale)
     lp.phrase_final_lengthening_nucleus_only_mode = gb("phraseFinalLengtheningNucleusOnlyMode", lp.phrase_final_lengthening_nucleus_only_mode)
     lp.phrase_final_lengthening_nucleus_scale = gn("phraseFinalLengtheningNucleusScale", lp.phrase_final_lengthening_nucleus_scale)
+    lp.phrase_final_lengthening_nucleus_diphthong_scale = gn("phraseFinalLengtheningNucleusDiphthongScale", lp.phrase_final_lengthening_nucleus_diphthong_scale)
     lp.phrase_final_lengthening_coda_scale = gn("phraseFinalLengtheningCodaScale", lp.phrase_final_lengthening_coda_scale)
     lp.phrase_final_lengthening_coda_stop_scale = gn("phraseFinalLengtheningCodaStopScale", lp.phrase_final_lengthening_coda_stop_scale)
     lp.phrase_final_lengthening_coda_fricative_scale = gn("phraseFinalLengtheningCodaFricativeScale", lp.phrase_final_lengthening_coda_fricative_scale)
