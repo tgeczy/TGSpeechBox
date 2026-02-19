@@ -374,6 +374,11 @@ static std::u32string chooseReplacementTarget(const PackSet& pack, const std::ve
 static void applyRules(std::u32string& text, const PackSet& pack, const std::vector<ReplacementRule>& rules) {
   const bool textHasTie = (text.find(U'͡') != std::u32string::npos) || (text.find(U'͜') != std::u32string::npos);
 
+  // Track positions produced by earlier replacements so subsequent rules
+  // don't match inside them.  Prevents cascade corruption where e.g.
+  // "a→a_es" followed by "e→e_es" would mangle the "e" inside "a_es".
+  std::vector<bool> prot(text.size(), false);
+
   for (const auto& rule : rules) {
     if (rule.from.empty()) continue;
 
@@ -409,9 +414,19 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
     std::u32string out;
     out.reserve(text.size());
+    std::vector<bool> outProt;
+    outProt.reserve(text.size());
 
     size_t i = 0;
     while (i < text.size()) {
+      // Skip positions that were produced by a previous rule's replacement.
+      if (prot[i]) {
+        out.push_back(text[i]);
+        outProt.push_back(true);
+        ++i;
+        continue;
+      }
+
       bool matched = false;
       size_t matchLen = 0; // number of codepoints consumed from text
 
@@ -425,6 +440,13 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
         if (matchAtLooseTie(text, i, rule.from, consumed)) {
           matched = true;
           matchLen = consumed;
+        }
+      }
+
+      // Reject match if any position in the match range is protected.
+      if (matched && matchLen > 1) {
+        for (size_t p = i + 1; p < i + matchLen; ++p) {
+          if (prot[p]) { matched = false; break; }
         }
       }
 
@@ -461,16 +483,20 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
         if (ok) {
           out.append(to);
+          // Mark replacement output as protected from subsequent rules.
+          for (size_t p = 0; p < to.size(); ++p) outProt.push_back(true);
           i = matchEnd;
           continue;
         }
       }
 
       out.push_back(text[i]);
+      outProt.push_back(false);
       ++i;
     }
 
     text.swap(out);
+    prot.swap(outProt);
   }
 }
 
