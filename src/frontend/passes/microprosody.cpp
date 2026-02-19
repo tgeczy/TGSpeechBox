@@ -3,11 +3,12 @@ TGSpeechBox — Microprosody pass (F0 perturbations + pre-voiceless shortening).
 Copyright 2025-2026 Tamas Geczy.
 Licensed under the MIT License. See LICENSE for details.
 
-Five independently-gated effects per vowel:
+Six independently-gated effects:
   Phase 1: Onset F0 — backward-looking (voiceless raise / voiced lower)
   Phase 2: Endpoint F0 — forward-looking (voiceless raise / voiced lower)
   Phase 3: Intrinsic vowel F0 (high vowels higher, low vowels lower)
-  Phase 4: Pre-voiceless shortening (duration)
+  Phase 4: Pre-voiceless shortening — vowel duration shrinks before voiceless C
+  Phase 5: Voiceless coda lengthening — voiceless C grows after voiced segment
 */
 
 #include "microprosody.h"
@@ -158,6 +159,33 @@ bool runMicroprosody(PassContext& ctx, std::vector<Token>& tokens, std::string& 
       if (isVoicelessConsonant(*next)) {
         v.durationMs *= lang.microprosodyPreVoicelessShortenScale;
         v.durationMs = std::max(v.durationMs, lang.microprosodyPreVoicelessMinMs);
+      }
+    }
+  }
+
+  // ── Phase 5: Voiceless coda lengthening (duration, not pitch) ──
+  // Complement to Phase 4: when vowels shorten before voiceless consonants,
+  // the voiceless consonants grow to keep syllable weight constant.
+  // Cho & Ladefoged (1999): voiceless codas lengthen after voiced segments.
+  if (lang.microprosodyVoicelessCodaLengthenEnabled) {
+    for (size_t i = 1; i < tokens.size(); ++i) {
+      Token& t = tokens[i];
+      if (isSilenceOrMissing(t)) continue;
+      if (!isVoicelessConsonant(t)) continue;
+
+      // Look back: was the previous non-silence token voiced?
+      const Token* prev = nullptr;
+      for (int j = static_cast<int>(i) - 1; j >= 0; --j) {
+        if (!tokens[static_cast<size_t>(j)].silence && tokens[static_cast<size_t>(j)].def) {
+          prev = &tokens[static_cast<size_t>(j)];
+          break;
+        }
+      }
+      if (!prev) continue;
+
+      // Previous must be voiced (vowel, voiced consonant, nasal, liquid).
+      if ((prev->def->flags & kIsVoiced) || (prev->def->flags & kIsVowel)) {
+        t.durationMs *= lang.microprosodyVoicelessCodaLengthenScale;
       }
     }
   }

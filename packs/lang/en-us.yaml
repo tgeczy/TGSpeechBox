@@ -64,6 +64,9 @@ settings:
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 0
+  # Right-side (coda) coarticulation: vowel endpoints transition toward
+  # following consonant's locus. Crucial for /n/ vs /ŋ/ and all coda place cues.
+  coarticulationRightSideScale: 0.7
   phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
   phraseFinalLengtheningFinalSyllableScale: 1.05
@@ -74,6 +77,8 @@ settings:
   phraseFinalLengtheningCodaScale: 1.10
   phraseFinalLengtheningCodaStopScale: 1.0
   phraseFinalLengtheningCodaFricativeScale: 1.15
+  # Phrase-final nasal sustain: nasals linger at clause boundaries.
+  phraseFinalLengtheningCodaNasalScale: 1.25
   phraseFinalLengtheningPenultimateSyllableScale: 1.08
   phraseFinalLengtheningStatementScale: 1.0
   phraseFinalLengtheningQuestionScale: 0.85
@@ -96,11 +101,17 @@ settings:
   microprosodyIntrinsicF0LowDropHz: 2.0
 
   # Pre-voiceless shortening: "bat" vowel shorter than "bad" vowel.
+  # MacinTalk: 55% before voiceless stops, 80% before fricatives.
   # Klatt (1976): vowels 60-70% as long before voiceless vs voiced.
   # 0.80 is a moderate compromise (was 0.92, barely perceptible).
   microprosodyPreVoicelessShortenEnabled: true
   microprosodyPreVoicelessShortenScale: 0.80
   microprosodyPreVoicelessMinMs: 35.0
+
+  # Voiceless coda lengthening: complement to pre-voiceless shortening.
+  # When a vowel shrinks before a voiceless consonant, the consonant grows for consistency.
+  microprosodyVoicelessCodaLengthenEnabled: true
+  microprosodyVoicelessCodaLengthenScale: 1.20
 
   # Safety cap: total F0 perturbation per vowel can't exceed this.
   microprosodyMaxTotalDeltaHz: 10.0
@@ -120,6 +131,7 @@ settings:
     wordFinalReduction: 0.05
 
     # Duration: prominent syllables hold steady, unstressed ones can shrink.
+    # MacinTalk: word-medial unstressed at 55%, others at 70%.
     # 0.85 is conservative but gives more rhythmic contrast than 0.92.
     durationProminentFloorMs: 55
     durationReducedCeiling: 0.85
@@ -366,7 +378,7 @@ settings:
   # ------------------------------------------------------------------
   # Special coarticulation: YAML-driven Hz deltas on vowels adjacent
   # to specific consonants.  Runs *after* the locus coarticulation pass,
-  # so these deltas stack on top of the DECTalk-style formant ramps.
+  # so these deltas stack on top of formant ramps.
   # ------------------------------------------------------------------
   specialCoarticulation:
     enabled: true
@@ -409,6 +421,34 @@ settings:
         side: both
         cumulative: false
         unstressedScale: 0.5
+
+      # 4. Velar nasal anticipation (F2)  — vowels before /ŋ/ get F2
+      #    raised toward velar territory.  This is the main cue that
+      #    separates "ban" from "bang" — the vowel tells the listener
+      #    a velar is coming before the nasal murmur even starts.
+      #    /ŋ/ F2=1800 vs /n/ F2=1550: we push the vowel toward /ŋ/.
+      - name: pre-velar-nasal-f2-raise
+        triggers: ["ŋ"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: 80
+        side: right
+        cumulative: false
+        unstressedScale: 0.7
+
+      # 5. Velar nasal anticipation (F3)  — the velar pinch.
+      #    F2 and F3 converge before velars.  Rule 4 raises F2,
+      #    this one lowers F3.  Together they create the characteristic
+      #    convergence that makes "bang" sound unmistakably velar.
+      #    /ŋ/ F3=2400 vs /n/ F3=2740: pull F3 down toward /ŋ/.
+      - name: pre-velar-nasal-f3-lower
+        triggers: ["ŋ"]
+        vowelFilter: all
+        formant: f3
+        deltaHz: -100
+        side: right
+        cumulative: false
+        unstressedScale: 0.7
 
   # ------------------------------------------------------------------
   # Cluster timing: shorten consonants in clusters so "adjust",

@@ -543,6 +543,8 @@ def _getPanelClass():
                 "microprosodyMinVowelMs",
                 "microprosodyPreVoicelessMinMs",
                 "microprosodyPreVoicelessShortenEnabled",
+                "microprosodyVoicelessCodaLengthenEnabled",
+                "microprosodyVoicelessCodaLengthenScale",
                 "microprosodyPreVoicelessShortenScale",
                 "microprosodyVoicedF0LowerEnabled",
                 "microprosodyVoicedF0LowerHz",
@@ -559,6 +561,7 @@ def _getPanelClass():
 
                 # --- Phrase-final lengthening ---
                 "phraseFinalLengtheningCodaFricativeScale",
+                "phraseFinalLengtheningCodaNasalScale",
                 "phraseFinalLengtheningCodaScale",
                 "phraseFinalLengtheningCodaStopScale",
                 "phraseFinalLengtheningEnabled",

@@ -858,6 +858,7 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double phraseFinalLengtheningCodaScale = 0.0;     // 0 = use finalSyllableScale
   double phraseFinalLengtheningCodaStopScale = 0.0;      // 0 = fall back to codaScale
   double phraseFinalLengtheningCodaFricativeScale = 0.0;  // 0 = fall back to codaScale
+  double phraseFinalLengtheningCodaNasalScale = 0.0;      // 0 = fall back to codaScale
 
   // ── Prominence pass ──
   bool prominenceEnabled = false;
@@ -914,6 +915,11 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool microprosodyPreVoicelessShortenEnabled = true;
   double microprosodyPreVoicelessShortenScale = 0.85;  // 85% of normal
   double microprosodyPreVoicelessMinMs = 25.0;         // matches rate comp floor
+
+  // Voiceless coda lengthening: complement to pre-voiceless shortening.
+  // Voiceless consonants after voiced segments grow to compensate.
+  bool microprosodyVoicelessCodaLengthenEnabled = false;
+  double microprosodyVoicelessCodaLengthenScale = 1.20;
   double microprosodyMaxTotalDeltaHz = 0.0;            // 0 = no cap
 
   // ── Rate compensation ──

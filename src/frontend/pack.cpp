@@ -727,6 +727,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("phraseFinalLengtheningCodaScale", lp.phraseFinalLengtheningCodaScale);
   getNum("phraseFinalLengtheningCodaStopScale", lp.phraseFinalLengtheningCodaStopScale);
   getNum("phraseFinalLengtheningCodaFricativeScale", lp.phraseFinalLengtheningCodaFricativeScale);
+  getNum("phraseFinalLengtheningCodaNasalScale", lp.phraseFinalLengtheningCodaNasalScale);
 
   // ── Prominence pass (nested block + flat-key fallbacks) ──
   if (const yaml_min::Node* pr = settings.get("prominence"); pr && pr->isMap()) {
@@ -778,6 +779,8 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getBool("microprosodyPreVoicelessShortenEnabled", lp.microprosodyPreVoicelessShortenEnabled);
   getNum("microprosodyPreVoicelessShortenScale", lp.microprosodyPreVoicelessShortenScale);
   getNum("microprosodyPreVoicelessMinMs", lp.microprosodyPreVoicelessMinMs);
+  getBool("microprosodyVoicelessCodaLengthenEnabled", lp.microprosodyVoicelessCodaLengthenEnabled);
+  getNum("microprosodyVoicelessCodaLengthenScale", lp.microprosodyVoicelessCodaLengthenScale);
   getNum("microprosodyMaxTotalDeltaHz", lp.microprosodyMaxTotalDeltaHz);
 
   getNum("nasalMinDurationMs", lp.nasalMinDurationMs);

@@ -373,6 +373,7 @@ class LanguagePack:
     phrase_final_lengthening_coda_scale: float = 0.0
     phrase_final_lengthening_coda_stop_scale: float = 0.0
     phrase_final_lengthening_coda_fricative_scale: float = 0.0
+    phrase_final_lengthening_coda_nasal_scale: float = 0.0
     prominence_enabled: bool = False
     prominence_secondary_stress_level: float = 0.6
     prominence_long_vowel_weight: float = 0.5
@@ -405,6 +406,8 @@ class LanguagePack:
     microprosody_pre_voiceless_shorten_enabled: bool = True
     microprosody_pre_voiceless_shorten_scale: float = 0.85
     microprosody_pre_voiceless_min_ms: float = 25.0
+    microprosody_voiceless_coda_lengthen_enabled: bool = False
+    microprosody_voiceless_coda_lengthen_scale: float = 1.20
     microprosody_max_total_delta_hz: float = 0.0
     rate_comp_enabled: bool = False
     rate_comp_vowel_floor_ms: float = 25.0
@@ -843,6 +846,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.phrase_final_lengthening_coda_scale = gn("phraseFinalLengtheningCodaScale", lp.phrase_final_lengthening_coda_scale)
     lp.phrase_final_lengthening_coda_stop_scale = gn("phraseFinalLengtheningCodaStopScale", lp.phrase_final_lengthening_coda_stop_scale)
     lp.phrase_final_lengthening_coda_fricative_scale = gn("phraseFinalLengtheningCodaFricativeScale", lp.phrase_final_lengthening_coda_fricative_scale)
+    lp.phrase_final_lengthening_coda_nasal_scale = gn("phraseFinalLengtheningCodaNasalScale", lp.phrase_final_lengthening_coda_nasal_scale)
     lp.prominence_enabled = gb("prominenceEnabled", lp.prominence_enabled)
     lp.prominence_primary_stress_weight = gn("prominencePrimaryStressWeight", lp.prominence_primary_stress_weight)
     lp.prominence_secondary_stress_weight = gn("prominenceSecondaryStressWeight", lp.prominence_secondary_stress_weight)
@@ -875,6 +879,8 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.microprosody_pre_voiceless_shorten_enabled = gb("microprosodyPreVoicelessShortenEnabled", lp.microprosody_pre_voiceless_shorten_enabled)
     lp.microprosody_pre_voiceless_shorten_scale = gn("microprosodyPreVoicelessShortenScale", lp.microprosody_pre_voiceless_shorten_scale)
     lp.microprosody_pre_voiceless_min_ms = gn("microprosodyPreVoicelessMinMs", lp.microprosody_pre_voiceless_min_ms)
+    lp.microprosody_voiceless_coda_lengthen_enabled = gb("microprosodyVoicelessCodaLengthenEnabled", lp.microprosody_voiceless_coda_lengthen_enabled)
+    lp.microprosody_voiceless_coda_lengthen_scale = gn("microprosodyVoicelessCodaLengthenScale", lp.microprosody_voiceless_coda_lengthen_scale)
     lp.microprosody_max_total_delta_hz = gn("microprosodyMaxTotalDeltaHz", lp.microprosody_max_total_delta_hz)
     lp.nasal_min_duration_ms = gn("nasalMinDurationMs", lp.nasal_min_duration_ms)
     lp.rate_comp_enabled = gb("rateCompEnabled", lp.rate_comp_enabled)
