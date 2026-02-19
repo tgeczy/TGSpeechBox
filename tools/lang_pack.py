@@ -267,6 +267,8 @@ class LanguagePack:
     coarticulation_labial_f2_locus: float = 800.0
     coarticulation_alveolar_f2_locus: float = 1800.0
     coarticulation_velar_f2_locus: float = 1200.0
+    coarticulation_velar_f2_locus_front: float = 0.0
+    coarticulation_velar_f2_locus_back: float = 0.0
     coarticulation_mitalk_k: float = 0.42
     coarticulation_f1_scale: float = 0.6
     coarticulation_f2_scale: float = 1.0
@@ -741,6 +743,8 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.coarticulation_labial_f2_locus = gn("coarticulationLabialF2Locus", lp.coarticulation_labial_f2_locus)
     lp.coarticulation_alveolar_f2_locus = gn("coarticulationAlveolarF2Locus", lp.coarticulation_alveolar_f2_locus)
     lp.coarticulation_velar_f2_locus = gn("coarticulationVelarF2Locus", lp.coarticulation_velar_f2_locus)
+    lp.coarticulation_velar_f2_locus_front = gn("coarticulationVelarF2LocusFront", lp.coarticulation_velar_f2_locus_front)
+    lp.coarticulation_velar_f2_locus_back = gn("coarticulationVelarF2LocusBack", lp.coarticulation_velar_f2_locus_back)
     lp.coarticulation_mitalk_k = gn("coarticulationMitalkK", lp.coarticulation_mitalk_k)
     lp.coarticulation_f1_scale = gn("coarticulationF1Scale", lp.coarticulation_f1_scale)
     lp.coarticulation_f2_scale = gn("coarticulationF2Scale", lp.coarticulation_f2_scale)

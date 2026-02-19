@@ -476,6 +476,8 @@ def _getPanelClass():
                 "coarticulationStrength",
                 "coarticulationTransitionExtent",
                 "coarticulationVelarF2Locus",
+                "coarticulationVelarF2LocusFront",
+                "coarticulationVelarF2LocusBack",
                 "coarticulationVelarPinchEnabled",
                 "coarticulationVelarPinchF2Scale",
                 "coarticulationVelarPinchF3",

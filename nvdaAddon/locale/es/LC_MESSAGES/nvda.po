@@ -1287,6 +1287,16 @@ msgstr "Coarticulación Locus F2 Velar"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus Front"
+msgstr "Coarticulación Locus F2 Velar Frontal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus Back"
+msgstr "Coarticulación Locus F2 Velar Posterior"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Coarticulation Velar Pinch Enabled"
 msgstr "Coarticulación Compresión Velar Habilitada"
 

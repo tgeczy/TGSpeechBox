@@ -1266,6 +1266,16 @@ msgstr "Koartikuláció Velar F2 lókusz"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus Front"
+msgstr "Koartikuláció Velar F2 lókusz elöl"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coarticulation Velar F2 Locus Back"
+msgstr "Koartikuláció Velar F2 lókusz hátul"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Coarticulation Velar Pinch Enabled"
 msgstr "Koartikuláció Veláris szűkítés engedélyezve"
 

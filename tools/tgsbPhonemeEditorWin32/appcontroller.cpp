@@ -748,6 +748,8 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "coarticulationPalatalScale",
     "coarticulationStrength",
     "coarticulationVelarF2Locus",
+    "coarticulationVelarF2LocusFront",
+    "coarticulationVelarF2LocusBack",
     "coarticulationVelarPinchEnabled",
     "coarticulationVelarPinchF2Scale",
     "coarticulationVelarPinchF3",
