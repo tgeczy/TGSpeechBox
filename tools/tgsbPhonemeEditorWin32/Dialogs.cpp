@@ -78,6 +78,17 @@ static std::wstring paramHintW(const std::string& key) {
   if (key == "_isAfricate") return L"affricate timing";
   if (key == "_copyAdjacent") return L"copy adjacent formants";
 
+  // Micro-event fields
+  if (key == "burstDurationMs") return L"burst length (ms)";
+  if (key == "burstDecayRate") return L"burst decay (0\u20131)";
+  if (key == "burstSpectralTilt") return L"burst tilt (neg=bright)";
+  if (key == "voiceBarAmplitude") return L"closure voicing level";
+  if (key == "voiceBarF1") return L"closure F1 (Hz)";
+  if (key == "releaseSpreadMs") return L"aspiration ramp-in (ms)";
+  if (key == "fricAttackMs") return L"frication onset (ms)";
+  if (key == "fricDecayMs") return L"frication offset (ms)";
+  if (key == "durationScale") return L"duration multiplier";
+
   return L"";
 }
 
@@ -786,7 +797,17 @@ static const std::vector<std::string>& getStandardPhonemeTypeFlags() {
     "frameEx.endCf3",
     "frameEx.endPf1",
     "frameEx.endPf2",
-    "frameEx.endPf3"
+    "frameEx.endPf3",
+    // Micro-event shaping (stop burst, voice bar, fricative envelope, release)
+    "burstDurationMs",
+    "burstDecayRate",
+    "burstSpectralTilt",
+    "voiceBarAmplitude",
+    "voiceBarF1",
+    "releaseSpreadMs",
+    "fricAttackMs",
+    "fricDecayMs",
+    "durationScale"
   };
   return flags;
 }
