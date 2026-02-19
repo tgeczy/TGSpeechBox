@@ -4367,7 +4367,7 @@ phonemes:
     cf4: 3300
     cf5: 3750
     cf6: 4900
-    cfN0: 450
+    cfN0: 2000
     cfNP: 216
     fricationAmplitude: 0
     pa1: 0
@@ -4413,7 +4413,7 @@ phonemes:
     cf4: 3300
     cf5: 3750
     cf6: 4900
-    cfN0: 450
+    cfN0: 2000
     cfNP: 216
     fricationAmplitude: 0
     pa1: 0
