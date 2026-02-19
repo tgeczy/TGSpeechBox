@@ -377,6 +377,13 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
   // Track positions produced by earlier replacements so subsequent rules
   // don't match inside them.  Prevents cascade corruption where e.g.
   // "a→a_es" followed by "e→e_es" would mangle the "e" inside "a_es".
+  //
+  // Key insight: cascade corruption only happens when a replacement is
+  // LONGER than the matched text — that's when new character positions
+  // appear that weren't in the original.  Same-length (or shorter)
+  // replacements just swap characters in-place, so no new matchable
+  // substrings are created and intentional chaining is safe
+  // (e.g. u→ᵾ then ᵾ→ᵿ, or uː→ᵾː then ᵾ→ᵿ).
   std::vector<bool> prot(text.size(), false);
 
   for (const auto& rule : rules) {
@@ -483,8 +490,14 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
         if (ok) {
           out.append(to);
-          // Mark replacement output as protected from subsequent rules.
-          for (size_t p = 0; p < to.size(); ++p) outProt.push_back(true);
+          // Only protect replacement output when it is LONGER than the
+          // matched text.  Longer replacements introduce new character
+          // positions that could cause cascade corruption (a→a_es then
+          // e→e_es).  Same-length or shorter replacements just swap
+          // characters in-place — no new substrings are created, so
+          // intentional chaining remains safe (u→ᵾ then ᵾ→ᵿ).
+          const bool shouldProtect = (to.size() > matchLen);
+          for (size_t p = 0; p < to.size(); ++p) outProt.push_back(shouldProtect);
           i = matchEnd;
           continue;
         }
