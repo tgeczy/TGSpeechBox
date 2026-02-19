@@ -8,7 +8,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 // Compile-time enable/disable. When enabled, logging can still be turned off at
 // runtime via DebugLog::SetEnabled(false).
-#define ENABLE_DEBUG_LOG 1
+#define ENABLE_DEBUG_LOG 0
 
 #include <windows.h>
 
