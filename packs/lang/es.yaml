@@ -73,13 +73,6 @@ normalization:
       - i
       - o
       - u
-    # We need to define stressed vowels to fix minor espeak pronounciation mistakes in Spanish.
-    STRESSED:
-      - "ˈa"
-      - "ˈe"
-      - "ˈi"
-      - "ˈo"
-      - "ˈu"
 
     # This is needed to smoot wors like 'convencer', which are phonetically transcribed into /m/ and /b/ coda.
     SMOOTB:
@@ -99,13 +92,18 @@ normalization:
     - from: "ɟʝ"
       to: "ʝ"
     # Specific replacements
-    # Smoot /b/ to /β/ in the following cases: before m, and when it is located at the end, example: "velocidad", to avoid strange glitches.
+    # Smoot /b/ to /β/ in the following cases: before m, and when it is located at the end to avoid strange glitches.
     - from: b
       to: "β"
       when:
-        beforeClass: SMOOTB
+        afterClass: SMOOTB
     - from: b
       to: "β"
+      when:
+        atWordEnd: true
+    # Also smooting /d/ in words like 'velocidad':
+    - from: d
+      to: "ð"
       when:
         atWordEnd: true
     # G approximant. To improve clarity, let's convert into non-aproximant g at the start, example: muy grande.
@@ -118,11 +116,11 @@ normalization:
       to: "ᵊɾ"
       when:
         afterClass: VOWELS
-    # Fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a vowel. That always should be 'w'
-    - from: u
-      to: w
+    # Fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a stressed vowel. That always should be 'w', diphthong.
+    - from: "uˈ"
+      to: "wˈ"
       when:
-        beforeClass: STRESSED
+        beforeClass: VOWELS
     # Separate β, ð+ɾ or other clusters (like "habrá" or "madre") so they don't blend together.
     # Insert a micro-schwa to give each consonant space.
     - from: "βɾ"
