@@ -496,6 +496,12 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
   // Normalize tie bar variants early so pack rules can match reliably.
   replaceAll(t, U"͜", U"͡");
 
+  // eSpeak pause/separator underscores — strip BEFORE any replacement rules
+  // so that both preReplacements and replacements can safely output phoneme
+  // keys containing underscores (e.g. ɣ_es, a_es).
+  replaceAll(t, U"_:", U" ");
+  replaceAll(t, U"_", U" ");
+
   // 1) Pack pre-replacements (lets you preserve info before we strip chars like '-').
   applyRules(t, pack, pack.lang.preReplacements);
 
@@ -523,10 +529,6 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
     from.push_back(c);
     replaceAll(t, from, U"");
   }
-
-  // Pause/separators.
-  replaceAll(t, U"_:", U" ");
-  replaceAll(t, U"_", U" ");
 
   if (pack.lang.stripHyphen) {
     replaceAll(t, U"-", U"");
