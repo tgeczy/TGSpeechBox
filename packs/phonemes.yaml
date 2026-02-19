@@ -503,6 +503,11 @@ phonemes:
     _isNasal: false
     _isStop: true
     _isVoiced: true
+    burstDurationMs: 5
+    burstDecayRate: 0.6
+    durationScale: 1.1
+    voiceBarAmplitude: 0.3
+    voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
     caNP: 0
@@ -592,10 +597,15 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0
   d:
+    # Voiced alveolar stop
     _isLiquid: false
     _isNasal: false
     _isStop: true
     _isVoiced: true
+    burstDurationMs: 7
+    burstDecayRate: 0.5
+    voiceBarAmplitude: 0.3
+    voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
     caNP: 0
@@ -775,12 +785,20 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "d͡ʒ":
+    # Voiced postalveolar affricate
+    # voiceAmplitude lowered from 0.9 so frication cuts through
     _isAfricate: true
     _isLiquid: false
     _isNasal: false
     _isStop: false
     _isVoiced: true
     _isVowel: false
+    burstDurationMs: 9
+    burstDecayRate: 0.45
+    burstSpectralTilt: -0.1
+    durationScale: 1.15
+    voiceBarAmplitude: 0.25
+    voiceBarF1: 150
     aspirationAmplitude: 0
     caNP: 0
     cb1: 77
@@ -819,7 +837,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.9
+    voiceAmplitude: 0.65
   e:
     _isLiquid: false
     _isNasal: false
@@ -918,6 +936,12 @@ phonemes:
     _isNasal: false
     _isStop: true
     _isVoiced: true
+    burstDurationMs: 11
+    burstDecayRate: 0.4
+    burstSpectralTilt: -0.15
+    durationScale: 1.3
+    voiceBarAmplitude: 0.3
+    voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
     caNP: 0
@@ -1067,6 +1091,10 @@ phonemes:
     _isLiquid: false
     _isNasal: false
     _isStop: true
+    burstDurationMs: 11
+    burstDecayRate: 0.4
+    burstSpectralTilt: -0.15
+    durationScale: 1.3
     _isVoiced: false
     _isVowel: false
     aspirationAmplitude: 0.25
@@ -1384,11 +1412,15 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   p:
+    # Labial stop
     _isLiquid: false
     _isNasal: false
     _isStop: true
     _isVoiced: false
     _isVowel: false
+    burstDurationMs: 5
+    burstDecayRate: 0.6
+    durationScale: 1.1
     aspirationAmplitude: 0.40
     caNP: 0
     cb1: 300
@@ -1522,10 +1554,12 @@ phonemes:
     pf6: 5250
     voiceAmplitude: 0
   t:
-    # Alveolar stop - increased fricationAmplitude for sharper burst
+    # Alveolar stop
     _isLiquid: false
     _isNasal: false
     _isStop: true
+    burstDurationMs: 7
+    burstDecayRate: 0.5
     _isVoiced: false
     _isVowel: false
     aspirationAmplitude: 0.40
@@ -1751,12 +1785,17 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0
   "t͡ʃ":
+    # Voiceless postalveolar affricate
     _isAfricate: true
     _isLiquid: false
     _isNasal: false
     _isStop: false
     _isVoiced: false
     _isVowel: false
+    burstDurationMs: 9
+    burstDecayRate: 0.45
+    burstSpectralTilt: -0.1
+    durationScale: 1.15
     aspirationAmplitude: 0
     caNP: 0
     cb1: 220
@@ -3886,6 +3925,11 @@ phonemes:
     _isLiquid: false
     _isNasal: false
     _isStop: true
+    burstDurationMs: 11
+    burstDecayRate: 0.4
+    burstSpectralTilt: -0.15
+    voiceBarAmplitude: 0.3
+    voiceBarF1: 150
     _isVoiced: true
     _isVowel: false
     aspirationAmplitude: 0

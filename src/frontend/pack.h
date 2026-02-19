@@ -160,6 +160,12 @@ struct PhonemeDef {
 
   bool hasFricDecayMs = false;
   double fricDecayMs = 0.0;          // offset ramp time for frication (default 4)
+
+  // Duration scaling — multiplier on the class-default duration.
+  // A velar stop with durationScale=1.3 and stopDurationMs=6.0 gets 7.8ms.
+  // Default 1.0 (no change). Consumed by ipa_engine timing, not frame_emit.
+  double durationScale = 1.0;
+  bool hasDurationScale = false;
 };
 
 // In YAML we keep replacements in UTF-8; we convert to UTF-32 during load.

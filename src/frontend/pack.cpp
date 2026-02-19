@@ -233,6 +233,10 @@ static bool loadPhonemes(const fs::path& packsRoot, PackSet& out, std::string& o
         double v; if (val.asNumber(v)) { def.hasFricDecayMs = true; def.fricDecayMs = v; }
         continue;
       }
+      if (fieldName == "durationScale") {
+        double v; if (val.asNumber(v)) { def.hasDurationScale = true; def.durationScale = v; }
+        continue;
+      }
 
       FieldId id;
       if (!parseFieldId(fieldName, id)) {
@@ -1596,6 +1600,10 @@ static bool mergeLanguageFile(const fs::path& path, PackSet& out, std::string& o
           }
           if (fieldName == "fricDecayMs") {
             double v; if (val.asNumber(v)) { def.hasFricDecayMs = true; def.fricDecayMs = v; }
+            continue;
+          }
+          if (fieldName == "durationScale") {
+            double v; if (val.asNumber(v)) { def.hasDurationScale = true; def.durationScale = v; }
             continue;
           }
 

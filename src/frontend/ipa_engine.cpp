@@ -699,13 +699,14 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       dur = lang.stressedVowelHiatusGapMs / baseSpeed;
       fade = lang.stressedVowelHiatusFadeMs / baseSpeed;
     } else if (t.preStopGap) {
+      double closureScale = (t.def && t.def->hasDurationScale) ? t.def->durationScale : 1.0;
+
       if (t.clusterGap) {
-        double baseDur = lang.stopClosureClusterGapMs;
+        double baseDur = lang.stopClosureClusterGapMs * closureScale;
         double baseFade = lang.stopClosureClusterFadeMs;
 
-        // Optional: allow a larger cluster gap at word boundaries.
         if (t.wordStart && lang.stopClosureWordBoundaryClusterGapMs > 0.0) {
-          baseDur = lang.stopClosureWordBoundaryClusterGapMs;
+          baseDur = lang.stopClosureWordBoundaryClusterGapMs * closureScale;
         }
         if (t.wordStart && lang.stopClosureWordBoundaryClusterFadeMs > 0.0) {
           baseFade = lang.stopClosureWordBoundaryClusterFadeMs;
@@ -714,7 +715,7 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
         dur = baseDur / curSpeed;
         fade = baseFade / curSpeed;
       } else {
-        dur = lang.stopClosureVowelGapMs / curSpeed;
+        dur = lang.stopClosureVowelGapMs * closureScale / curSpeed;
         fade = lang.stopClosureVowelFadeMs / curSpeed;
       }
     } else if (t.postStopAspiration) {
@@ -730,10 +731,13 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       }
       fade = 0.001;
     } else if (tokenIsStop(t)) {
-      dur = std::min(lang.stopDurationMs / curSpeed, lang.stopDurationMs);
+      double scale = (t.def && t.def->hasDurationScale) ? t.def->durationScale : 1.0;
+      dur = std::min(lang.stopDurationMs * scale / curSpeed,
+                     lang.stopDurationMs * scale);
       fade = 0.001;
     } else if (tokenIsAfricate(t)) {
-      dur = lang.affricateDurationMs / curSpeed;
+      double scale = (t.def && t.def->hasDurationScale) ? t.def->durationScale : 1.0;
+      dur = lang.affricateDurationMs * scale / curSpeed;
       fade = 0.001;
     } else if (!tokenIsVoiced(t)) {
       dur = lang.voicelessFricativeDurationMs / curSpeed;
@@ -1685,9 +1689,9 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
         // This maintains continuous voicing through the closure while letting
         // formants interpolate naturally (no abrupt formant discontinuity).
         // Thread parent stop's PhonemeDef so voice bar can read voiceBarAmplitude/F1.
+        gap.def = t.def;  // Always thread parent def for place-aware closure timing
         if (tokenIsVoiced(t)) {
           gap.voicedClosure = true;
-          gap.def = t.def;
         }
 
         outTokens.push_back(gap);
