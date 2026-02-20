@@ -50,6 +50,26 @@ normalization:
       - d͡ʒ
 
   replacements:
+    # --- BR vowel/consonant fixes (moved from pt.yaml in v2.97) ---
+    # These are Brazilian-specific and were incorrectly in the shared pack.
+
+    # Brazilian R: eSpeak pt-br emits "x" for coda R (barra, porta).
+    # Map to /h/ for the typical Rio/São Paulo realization.
+    - from: "x"
+      to: "h"
+
+    # Brazilian /ʊ/ in words like "topo" — map to plain /u/.
+    - from: "ʊ"
+      to: "u"
+
+    # Brazilian open-o shift: ɔ → ɒ (rounder, more back).
+    - from: "ɔ"
+      to: "ɒ"
+
+    # Brazilian mid-o: o → ɔ (more open than European).
+    - from: "o"
+      to: "ɔ"
+
     # eSpeak pt-br emits "y" for the raised final "e" (roughly like [i~ɪ]).
     # But after nasal "ã" it behaves like a glide (mãe, pães).
     - from: "ãy"
@@ -79,10 +99,6 @@ normalization:
     # This makes words like "ninho", "senhor" sound more natural.
     - from: "ɲ"
       to: "ɲj"
-
-    # Voiced x variant (used for BR Portuguese rules)
-    - from: "x"
-      to: "X"
 
     # Insert a non-syllabic schwa-like separator before the tap in consonant+R clusters
     # (bra, tra, cra, fra, ...). This improves intelligibility without creating a full extra syllable.

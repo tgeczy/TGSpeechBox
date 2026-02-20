@@ -111,21 +111,6 @@ normalization:
       - ɾ
 
   replacements:
-    # Fixes "barra" word.
-    - from: "x"
-      to: "h"
-
-    # Fixes "topo" word
-    - from: "ʊ"
-      to: "u"
-
-    # O fixes
-    - from: "ɔ"
-      to: "ɒ"
-
-    - from: "o"
-      to: "ɔ"
-
     # --- Nasal vowels ---
     # eSpeak pt (--ipa) often emits combining-tilde vowels (e.g. ɐ̃).
     # Convert them to NVSP's precomposed nasal vowels when available.
