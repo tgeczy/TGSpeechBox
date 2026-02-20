@@ -63,6 +63,14 @@ except Exception:
 # public _espeak API to enumerate voices via getVoiceList(), find the one whose
 # packed language list matches, then call setVoiceByName() with the full
 # identifier (e.g. "gmw/en-US").
+#
+# IMPORTANT: ctypes c_char_p truncates at the first NUL byte, so our parser
+# only sees the PRIMARY language tag in eSpeak's packed language list.
+# Secondary tags (e.g. "es-mx" inside the es-419 voice) are invisible.
+# Map our pack tags to eSpeak's canonical primary tags here.
+_ESPEAK_PRIMARY_TAG = {
+    "es-mx": "es-419",
+}
 
 def _espeakSetVoiceDirect(langTag: str) -> bool:
     """Set eSpeak voice using _espeak public API with accurate language matching.
@@ -77,6 +85,9 @@ def _espeakSetVoiceDirect(langTag: str) -> bool:
         return False
 
     tag = langTag.lower().replace("_", "-")
+    # ctypes c_char_p truncates at the first NUL, so we only see each voice's
+    # primary language tag.  Map our pack tags to eSpeak's primary tags.
+    tag = _ESPEAK_PRIMARY_TAG.get(tag, tag)
     base = tag.split("-")[0] if "-" in tag else ""
 
     exactId = None
