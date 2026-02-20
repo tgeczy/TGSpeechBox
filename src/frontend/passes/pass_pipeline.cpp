@@ -15,6 +15,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "rate_compensation.h"
 #include "liquid_dynamics.h"
 #include "length_contrast.h"
+#include "diphthong_collapse.h"
 #include "boundary_smoothing.h"
 #include "trajectory_limit.h"
 #include "cluster_timing.h"
@@ -40,6 +41,7 @@ const PassDesc kPasses[] = {
     {"rate_compensation", PassStage::PostTiming, &passes::runRateCompensation},
     {"liquid_dynamics", PassStage::PostTiming, &passes::runLiquidDynamics},
     {"length_contrast", PassStage::PostTiming, &passes::runLengthContrast},
+    {"diphthong_collapse", PassStage::PostTiming, &passes::runDiphthongCollapse},
 
     {"boundary_smoothing", PassStage::PostTiming, &passes::runBoundarySmoothing},
     {"trajectory_limit", PassStage::PostTiming, &passes::runTrajectoryLimit},

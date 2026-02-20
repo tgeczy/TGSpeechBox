@@ -867,6 +867,13 @@ getNum("lengthContrastGeminateClosureScale", lp.lengthContrastGeminateClosureSca
 getNum("lengthContrastGeminateReleaseScale", lp.lengthContrastGeminateReleaseScale);
 getNum("lengthContrastPreGeminateVowelScale", lp.lengthContrastPreGeminateVowelScale);
 
+// Diphthong collapse
+getBool("diphthongCollapseEnabled", lp.diphthongCollapseEnabled);
+getNum("diphthongAmplitudeDipFactor", lp.diphthongAmplitudeDipFactor);
+getNum("diphthongMicroFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
+getNum("diphthongDurationFloorMs", lp.diphthongDurationFloorMs);
+getNum("diphthongOnsetHoldExponent", lp.diphthongOnsetHoldExponent);
+
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
   getBoolFrom(*bs, "enabled", lp.boundarySmoothingEnabled);
@@ -989,6 +996,14 @@ if (const yaml_min::Node* lc = settings.get("lengthContrast"); lc && lc->isMap()
   getNumFrom(*lc, "geminateClosureScale", lp.lengthContrastGeminateClosureScale);
   getNumFrom(*lc, "geminateReleaseScale", lp.lengthContrastGeminateReleaseScale);
   getNumFrom(*lc, "preGeminateVowelScale", lp.lengthContrastPreGeminateVowelScale);
+}
+
+if (const yaml_min::Node* dc = settings.get("diphthongCollapse"); dc && dc->isMap()) {
+  getBoolFrom(*dc, "enabled", lp.diphthongCollapseEnabled);
+  getNumFrom(*dc, "amplitudeDipFactor", lp.diphthongAmplitudeDipFactor);
+  getNumFrom(*dc, "microFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
+  getNumFrom(*dc, "durationFloorMs", lp.diphthongDurationFloorMs);
+  getNumFrom(*dc, "onsetHoldExponent", lp.diphthongOnsetHoldExponent);
 }
 
 // Data-driven allophone rules (replaces old positionalAllophones: block).

@@ -11,6 +11,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include "ipa_engine.h"
 #include "passes/pass_common.h"
+#include "../utils.h"
 
 #include <cstring>
 #include <cmath>
@@ -141,6 +142,81 @@ void emitFrames(
     // Save full base for voice bar emission on the next voiced closure.
     std::memcpy(trajectoryState->prevBase, base, sizeof(base));
     trajectoryState->hasPrevBase = true;
+
+    // DIPHTHONG GLIDE (legacy path -- no FrameEx, no endCf guidance)
+    if (t.isDiphthongGlide && t.durationMs > 0.0) {
+      const double totalDur = t.durationMs;
+      const double intervalMs = pack.lang.diphthongMicroFrameIntervalMs;
+      int N = (intervalMs > 0.0)
+            ? std::max(3, std::min(10, static_cast<int>(totalDur / intervalMs)))
+            : 3;
+
+      const double startCf1 = base[static_cast<int>(FieldId::cf1)];
+      const double startCf2 = base[static_cast<int>(FieldId::cf2)];
+      const double startCf3 = base[static_cast<int>(FieldId::cf3)];
+      const double startPf1 = base[static_cast<int>(FieldId::pf1)];
+      const double startPf2 = base[static_cast<int>(FieldId::pf2)];
+      const double startPf3 = base[static_cast<int>(FieldId::pf3)];
+
+      // End targets: use token-level endCf (set by diphthong_collapse pass).
+      const double endCf1 = t.hasEndCf1 ? t.endCf1 : startCf1;
+      const double endCf2 = t.hasEndCf2 ? t.endCf2 : startCf2;
+      const double endCf3 = t.hasEndCf3 ? t.endCf3 : startCf3;
+      const double endPf1V = t.hasEndPf1 ? t.endPf1 : endCf1;
+      const double endPf2V = t.hasEndPf2 ? t.endPf2 : endCf2;
+      const double endPf3V = t.hasEndPf3 ? t.endPf3 : endCf3;
+
+      const double startPitch = base[vp];
+      const double endPitch = base[evp];
+      const double pitchDelta = endPitch - startPitch;
+      const double dipFactor = pack.lang.diphthongAmplitudeDipFactor;
+      const double onsetHold = pack.lang.diphthongOnsetHoldExponent;
+      const double segDur = totalDur / N;
+
+      for (int seg = 0; seg < N; ++seg) {
+        double frac = (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0;
+        if (onsetHold > 1.0) frac = pow(frac, onsetHold);
+        double s = cosineSmooth(frac);
+
+        double mf[kFrameFieldCount];
+        std::memcpy(mf, base, sizeof(mf));
+
+        mf[static_cast<int>(FieldId::cf1)] = calculateFreqAtFadePosition(startCf1, endCf1, s);
+        mf[static_cast<int>(FieldId::cf2)] = calculateFreqAtFadePosition(startCf2, endCf2, s);
+        mf[static_cast<int>(FieldId::cf3)] = calculateFreqAtFadePosition(startCf3, endCf3, s);
+        mf[static_cast<int>(FieldId::pf1)] = calculateFreqAtFadePosition(startPf1, endPf1V, s);
+        mf[static_cast<int>(FieldId::pf2)] = calculateFreqAtFadePosition(startPf2, endPf2V, s);
+        mf[static_cast<int>(FieldId::pf3)] = calculateFreqAtFadePosition(startPf3, endPf3V, s);
+
+        double t0 = (N > 1) ? (static_cast<double>(seg) / N) : 0.0;
+        double t1 = (N > 1) ? (static_cast<double>(seg + 1) / N) : 1.0;
+        mf[vp]  = startPitch + pitchDelta * t0;
+        mf[evp] = startPitch + pitchDelta * t1;
+
+        if (dipFactor > 0.0) {
+          double ampScale = 1.0 - dipFactor * sin(M_PI * frac);
+          mf[va] *= ampScale;
+        }
+
+        nvspFrontend_Frame frame;
+        std::memcpy(&frame, mf, sizeof(frame));
+
+        double fadeIn = (seg == 0) ? t.fadeMs : segDur;
+        if (fadeIn > segDur) fadeIn = segDur;
+
+        cb(userData, &frame, segDur, fadeIn, userIndexBase);
+      }
+
+      trajectoryState->prevCf2 = calculateFreqAtFadePosition(startCf2, endCf2, 1.0);
+      trajectoryState->prevCf3 = calculateFreqAtFadePosition(startCf3, endCf3, 1.0);
+      trajectoryState->prevPf2 = calculateFreqAtFadePosition(startPf2, endPf2V, 1.0);
+      trajectoryState->prevPf3 = calculateFreqAtFadePosition(startPf3, endPf3V, 1.0);
+      trajectoryState->prevVoiceAmp = base[va];
+      trajectoryState->prevFricAmp = base[fa];
+      trajectoryState->hasPrevFrame = true;
+      trajectoryState->prevWasNasal = false;
+      continue;
+    }
 
     // Optional trill modulation (only when `_isTrill` is true for the phoneme).
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {
@@ -715,11 +791,14 @@ void emitFramesEx(
                      (t.def && t.def->hasEndCf2) ? t.def->endCf2 : NAN;
     frameEx.endCf3 = t.hasEndCf3 ? t.endCf3 : 
                      (t.def && t.def->hasEndCf3) ? t.def->endCf3 : NAN;
-    frameEx.endPf1 = t.hasEndCf1 ? t.endCf1 :  // Parallel uses same as cascade for coart
+    frameEx.endPf1 = t.hasEndPf1 ? t.endPf1 :   // Token-level parallel (diphthong/nasal)
+                     t.hasEndCf1 ? t.endCf1 :    // Fall back to cascade (coarticulation)
                      (t.def && t.def->hasEndPf1) ? t.def->endPf1 : NAN;
-    frameEx.endPf2 = t.hasEndCf2 ? t.endCf2 :
+    frameEx.endPf2 = t.hasEndPf2 ? t.endPf2 :
+                     t.hasEndCf2 ? t.endCf2 :
                      (t.def && t.def->hasEndPf2) ? t.def->endPf2 : NAN;
-    frameEx.endPf3 = t.hasEndCf3 ? t.endCf3 :
+    frameEx.endPf3 = t.hasEndPf3 ? t.endPf3 :
+                     t.hasEndCf3 ? t.endCf3 :
                      (t.def && t.def->hasEndPf3) ? t.def->endPf3 : NAN;
 
     // Per-parameter transition speed scales (set by boundary_smoothing pass).
@@ -762,6 +841,151 @@ void emitFramesEx(
     // Save frameEx for voice bar emission (keeps Fujisaki model alive during closures).
     trajectoryState->prevFrameEx = frameEx;
     trajectoryState->hasPrevFrameEx = true;
+
+    // ============================================
+    // DIPHTHONG GLIDE MICRO-FRAME EMISSION
+    // ============================================
+    // Collapsed diphthongs emit N cosine-smoothed micro-frames that sweep
+    // formants from onset targets (token's base field[]) to offset targets
+    // (endCf1/2/3).  Each micro-frame's endCf/endPf points to the NEXT
+    // frame's formant values, so the DSP's per-sample exponential smoothing
+    // glides between nearby waypoints.  This avoids:
+    //   - phasing (audio crossfade between distant formant configs)
+    //   - bandwidth smearing (sweeping across full range kills resonator Q)
+    // The last micro-frame gets endCf=NAN (hold at offset target).
+    if (t.isDiphthongGlide && t.durationMs > 0.0) {
+      const double totalDur = t.durationMs;
+
+      // Number of micro-frames scales with duration.
+      // Minimum 3: with N=2, onset hold pow() and cosineSmooth() are
+      // identity functions (0^x=0, 1^x=1) — no shaping, just endpoints.
+      const double intervalMs = lang.diphthongMicroFrameIntervalMs;
+      int N = (intervalMs > 0.0)
+            ? std::max(3, std::min(10, static_cast<int>(totalDur / intervalMs)))
+            : 3;
+
+      // Start and end formant targets (Hz).
+      const double startCf1 = base[static_cast<int>(FieldId::cf1)];
+      const double startCf2 = base[static_cast<int>(FieldId::cf2)];
+      const double startCf3 = base[static_cast<int>(FieldId::cf3)];
+      const double startPf1 = base[static_cast<int>(FieldId::pf1)];
+      const double startPf2 = base[static_cast<int>(FieldId::pf2)];
+      const double startPf3 = base[static_cast<int>(FieldId::pf3)];
+
+      const double endCascF1 = nvsp_isnan(frameEx.endCf1) ? startCf1 : frameEx.endCf1;
+      const double endCascF2 = nvsp_isnan(frameEx.endCf2) ? startCf2 : frameEx.endCf2;
+      const double endCascF3 = nvsp_isnan(frameEx.endCf3) ? startCf3 : frameEx.endCf3;
+
+      const double endParF1 = (t.hasEndPf1 && !nvsp_isnan(frameEx.endPf1))
+                              ? frameEx.endPf1 : endCascF1;
+      const double endParF2 = (t.hasEndPf2 && !nvsp_isnan(frameEx.endPf2))
+                              ? frameEx.endPf2 : endCascF2;
+      const double endParF3 = (t.hasEndPf3 && !nvsp_isnan(frameEx.endPf3))
+                              ? frameEx.endPf3 : endCascF3;
+
+      const double startPitch = base[vp];
+      const double endPitch = base[evp];
+      const double pitchDelta = endPitch - startPitch;
+      const double dipFactor = lang.diphthongAmplitudeDipFactor;
+      const double onsetHold = lang.diphthongOnsetHoldExponent;
+      const double segDur = totalDur / N;
+
+      // Pre-compute all N waypoints so each frame can reference the next.
+      // 6 formants per waypoint: cf1,cf2,cf3,pf1,pf2,pf3
+      static constexpr int kMaxFrames = 10;
+      double wpCf1[kMaxFrames], wpCf2[kMaxFrames], wpCf3[kMaxFrames];
+      double wpPf1[kMaxFrames], wpPf2[kMaxFrames], wpPf3[kMaxFrames];
+
+      for (int seg = 0; seg < N; ++seg) {
+        double frac = (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0;
+        if (onsetHold > 1.0) frac = pow(frac, onsetHold);
+        double s = cosineSmooth(frac);
+
+        wpCf1[seg] = calculateFreqAtFadePosition(startCf1, endCascF1, s);
+        wpCf2[seg] = calculateFreqAtFadePosition(startCf2, endCascF2, s);
+        wpCf3[seg] = calculateFreqAtFadePosition(startCf3, endCascF3, s);
+        wpPf1[seg] = calculateFreqAtFadePosition(startPf1, endParF1, s);
+        wpPf2[seg] = calculateFreqAtFadePosition(startPf2, endParF2, s);
+        wpPf3[seg] = calculateFreqAtFadePosition(startPf3, endParF3, s);
+      }
+
+      // Emit micro-frames with endCf pointing to the next waypoint.
+      for (int seg = 0; seg < N; ++seg) {
+        double mf[kFrameFieldCount];
+        std::memcpy(mf, base, sizeof(mf));
+
+        mf[static_cast<int>(FieldId::cf1)] = wpCf1[seg];
+        mf[static_cast<int>(FieldId::cf2)] = wpCf2[seg];
+        mf[static_cast<int>(FieldId::cf3)] = wpCf3[seg];
+        mf[static_cast<int>(FieldId::pf1)] = wpPf1[seg];
+        mf[static_cast<int>(FieldId::pf2)] = wpPf2[seg];
+        mf[static_cast<int>(FieldId::pf3)] = wpPf3[seg];
+
+        // Pitch: linear ramp sliced proportionally
+        double t0 = (N > 1) ? (static_cast<double>(seg) / N) : 0.0;
+        double t1 = (N > 1) ? (static_cast<double>(seg + 1) / N) : 1.0;
+        mf[vp]  = startPitch + pitchDelta * t0;
+        mf[evp] = startPitch + pitchDelta * t1;
+
+        // Slight amplitude dip at midpoint (articulatory gesture)
+        double frac = (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0;
+        if (dipFactor > 0.0) {
+          double ampScale = 1.0 - dipFactor * sin(M_PI * frac);
+          mf[va] *= ampScale;
+        }
+
+        nvspFrontend_Frame frame;
+        std::memcpy(&frame, mf, sizeof(frame));
+
+        // FrameEx: endCf/endPf point to the NEXT waypoint so DSP sweeps
+        // smoothly between nearby targets.  Last frame gets NAN (hold).
+        nvspFrontend_FrameEx mfEx = frameEx;
+        if (seg < N - 1) {
+          mfEx.endCf1 = wpCf1[seg + 1];
+          mfEx.endCf2 = wpCf2[seg + 1];
+          mfEx.endCf3 = wpCf3[seg + 1];
+          mfEx.endPf1 = wpPf1[seg + 1];
+          mfEx.endPf2 = wpPf2[seg + 1];
+          mfEx.endPf3 = wpPf3[seg + 1];
+        } else {
+          // Last micro-frame: hold at offset target, no further sweep.
+          mfEx.endCf1 = NAN;
+          mfEx.endCf2 = NAN;
+          mfEx.endCf3 = NAN;
+          mfEx.endPf1 = NAN;
+          mfEx.endPf2 = NAN;
+          mfEx.endPf3 = NAN;
+        }
+
+        // Fade: first micro-frame uses token's entry fade, rest use segDur.
+        double fadeIn = (seg == 0) ? t.fadeMs : segDur;
+        if (fadeIn > segDur) fadeIn = segDur;
+
+        // Don't re-fire Fujisaki commands on internal micro-frames.
+        if (seg > 0) {
+          mfEx.fujisakiPhraseAmp = 0.0;
+          mfEx.fujisakiAccentAmp = 0.0;
+          mfEx.fujisakiReset = 0.0;
+        }
+
+        cb(userData, &frame, &mfEx, segDur, fadeIn, userIndexBase);
+        hadPrevFrame = true;
+      }
+
+      // Update trajectory state with the final micro-frame's values
+      // so the next token's trajectory limiting sees the offset formants.
+      trajectoryState->prevCf2 = wpCf2[N - 1];
+      trajectoryState->prevCf3 = wpCf3[N - 1];
+      trajectoryState->prevPf2 = wpPf2[N - 1];
+      trajectoryState->prevPf3 = wpPf3[N - 1];
+      trajectoryState->prevVoiceAmp = base[va];
+      trajectoryState->prevFricAmp = base[fa];
+      trajectoryState->hasPrevFrame = true;
+      trajectoryState->prevWasNasal = false;
+
+      prevTokenWasStop = false;
+      continue;
+    }
 
     // Handle trill modulation (simplified version - emits micro-frames)
     if (trillEnabled && tokenIsTrill(t) && t.durationMs > 0.0) {

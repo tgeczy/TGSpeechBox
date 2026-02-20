@@ -104,6 +104,18 @@ struct Token {
   double endCf2 = 0.0;
   double endCf3 = 0.0;
 
+  // Diphthong glide flag (set by diphthong_collapse pass).
+  // When true, frame_emit emits cosine-smoothed micro-frames instead of
+  // a single steady-state frame.  Start formants are in field[cf1/2/3]
+  // and end targets are in endCf1/2/3 (set by the collapse pass).
+  bool isDiphthongGlide = false;
+
+  // End targets for parallel formants (mirrors existing endCf pattern).
+  // Needed for nasal diphthongs (Portuguese ão/ãe) where the parallel path
+  // diverges from cascade.  Falls back to endCf values when unset.
+  bool hasEndPf1 = false, hasEndPf2 = false, hasEndPf3 = false;
+  double endPf1 = 0.0, endPf2 = 0.0, endPf3 = 0.0;
+
   // Per-parameter transition speed scales (carried to FrameEx).
   // 0.0 = no override.  See speechPlayer_frameEx_t for semantics.
   double transF1Scale = 0.0;

@@ -155,7 +155,10 @@ bool runMicroprosody(PassContext& ctx, std::vector<Token>& tokens, std::string& 
     v.field[epIdx] = std::max(20.0, endP);
 
     // ── Phase 4: Pre-voiceless shortening (duration, not pitch) ──
-    if (next && lang.microprosodyPreVoicelessShortenEnabled) {
+    // Skip diphthong glides: the merged token carries the entire formant
+    // trajectory and needs its full duration.  Shortening squishes the glide
+    // into too few micro-frames, making it inaudible before voiceless stops.
+    if (next && lang.microprosodyPreVoicelessShortenEnabled && !v.isDiphthongGlide) {
       if (isVoicelessConsonant(*next)) {
         v.durationMs *= lang.microprosodyPreVoicelessShortenScale;
         v.durationMs = std::max(v.durationMs, lang.microprosodyPreVoicelessMinMs);

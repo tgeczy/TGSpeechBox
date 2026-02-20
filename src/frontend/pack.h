@@ -579,6 +579,13 @@ double lengthContrastGeminateClosureScale = 1.8;
 double lengthContrastGeminateReleaseScale = 0.9;
 double lengthContrastPreGeminateVowelScale = 0.85;
 
+  // Diphthong collapse (PostTiming pass, runs after length_contrast).
+  bool diphthongCollapseEnabled = true;
+  double diphthongAmplitudeDipFactor = 0.03;        // 0.97x at midpoint
+  double diphthongMicroFrameIntervalMs = 12.0;      // max(3, dur/interval) capped at 10
+  double diphthongDurationFloorMs = 50.0;            // rate_comp minimum for merged diphthongs
+  double diphthongOnsetHoldExponent = 1.4;           // pow(frac, exp): >1 = linger at onset
+
   double lengthenedScaleHu = 1.3;
   bool applyLengthenedScaleToVowelsOnly = true;
 
