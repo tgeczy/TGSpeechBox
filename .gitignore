@@ -8,5 +8,8 @@ vowelcharts/
 *.pyo
 build/
 build-x64/
-.claude
+build-x86/
+.claude/
+briefing.md
+nvdaAddon/synthDrivers/tgSpeechBox/speechPlayer.py
 tools/gen_nvda_api_ref.py

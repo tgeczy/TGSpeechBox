@@ -36,6 +36,7 @@ public:
   HWND lblLanguage = nullptr;
   HWND lblLangPhonemes = nullptr;
   HWND lblMappings = nullptr;
+  HWND lblSkip = nullptr;
 
   HWND lblText = nullptr;
   HWND lblIpaOut = nullptr;
@@ -53,6 +54,10 @@ public:
   HWND btnAddMap = nullptr;
   HWND btnEditMap = nullptr;
   HWND btnRemoveMap = nullptr;
+  HWND listSkip = nullptr;
+  HWND btnAddSkip = nullptr;
+  HWND btnRemoveSkip = nullptr;
+
   HWND btnLangEdit = nullptr;
   HWND btnLangPlay = nullptr;
   HWND btnLangSettings = nullptr;
@@ -78,6 +83,7 @@ public:
   tgsb_editor::PhonemesYaml phonemes;
   tgsb_editor::LanguageYaml language;
   std::vector<tgsb_editor::ReplacementRule> repls;
+  std::vector<tgsb_editor::SkipRule> skipRepls;
   std::vector<std::string> classNames;
 
   std::vector<std::string> phonemeKeys;
