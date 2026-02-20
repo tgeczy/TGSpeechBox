@@ -1471,6 +1471,21 @@ static void mergeNormalization(LanguagePack& lp, const yaml_min::Node& norm) {
     bool b;
     if (stripHyphen->asBool(b)) lp.stripHyphen = b;
   }
+
+  // skipReplacements: child packs can remove inherited rules by (from, to) match.
+  const yaml_min::Node* skip = norm.get("skipReplacements");
+  if (skip && skip->isSeq()) {
+    for (const auto& item : skip->seq) {
+      if (!item.isMap()) continue;
+      const yaml_min::Node* fromN = item.get("from");
+      const yaml_min::Node* toN = item.get("to");
+      if (!fromN || !fromN->isScalar()) continue;
+      LanguagePack::SkipRule sr;
+      sr.from = utf8ToU32(fromN->scalar);
+      if (toN && toN->isScalar()) sr.to = utf8ToU32(toN->scalar);
+      lp.skipReplacements.push_back(std::move(sr));
+    }
+  }
 }
 
 static bool mergeLanguageFile(const fs::path& path, PackSet& out, std::string& outError) {
@@ -1728,6 +1743,25 @@ bool loadPackSet(
         return false;
       }
     }
+  }
+
+  // Apply skipReplacements: remove inherited rules that child packs opted out of.
+  if (!out.lang.skipReplacements.empty()) {
+    auto matchesSkip = [&](const ReplacementRule& rule) {
+      for (const auto& sr : out.lang.skipReplacements) {
+        if (rule.from != sr.from) continue;
+        // If skip specifies a 'to', match it against the rule's first candidate.
+        if (!sr.to.empty()) {
+          if (rule.to.empty() || rule.to[0] != sr.to) continue;
+        }
+        return true;
+      }
+      return false;
+    };
+    auto& repl = out.lang.replacements;
+    repl.erase(std::remove_if(repl.begin(), repl.end(), matchesSkip), repl.end());
+    auto& pre = out.lang.preReplacements;
+    pre.erase(std::remove_if(pre.begin(), pre.end(), matchesSkip), pre.end());
   }
 
   // Auto-migrate old stressDiv values into prominence weights when prominence

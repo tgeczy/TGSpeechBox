@@ -1006,6 +1006,11 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   std::vector<ReplacementRule> replacements;
   std::unordered_map<std::string, std::vector<std::u32string>> classes;
 
+  // Rules that child packs want removed from the inherited replacement list.
+  // Matched by (from, first-to) pair after the full chain is merged.
+  struct SkipRule { std::u32string from; std::u32string to; };
+  std::vector<SkipRule> skipReplacements;
+
   // Transforms applied to phoneme field values after correction.
   std::vector<TransformRule> transforms;
 
