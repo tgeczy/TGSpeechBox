@@ -158,7 +158,7 @@ return clampDouble(a, 0.0, 0.9999);
         //
         // Additive mode: the derivative is ADDED to flow, not crossfaded.
         // This preserves all bass warmth while layering in upper presence.
-        // Baseline at tilt=0: flow + 0.15*derivative.
+        // Baseline at tilt=0: flow + 0.30*derivative (at 16 kHz+).
         //
         // Negative tilt (brightening): ramp boost toward 1.0.
         // Full derivative adds ~+6 dB/oct on top of flow — bright AND warm.
@@ -166,7 +166,13 @@ return clampDouble(a, 0.0, 0.9999);
         // Positive tilt (darkening): fade boost toward zero.
         // Pure flow at -12 dB/oct — very dark, no presence.
 
-        const double kBaseRadiationMix = 0.15;
+        // Scale mix by sample rate: at low SR, fewer harmonics exist above F2,
+        // so derivative energy crowds near Nyquist and sounds swirly/airy.
+        // 16 kHz+ gets full 0.30.  11025 Hz gets ~0.21 (close to old crossfade).
+        const double kBaseRadiationMixMax = 0.30;
+        const double kRadiationMixSrRef = 16000.0;
+        const double kBaseRadiationMix = kBaseRadiationMixMax
+            * std::min(1.0, (double)sampleRate / kRadiationMixSrRef);
 
         if (tl < 0.0) {
             // Brighten: ramp boost from baseline to 1.0 over 10 dB.
@@ -867,6 +873,14 @@ public:
         // The limiter catches any peaks from the summed signal.
 
         double srcDeriv = dFlow * radiationDerivGain;
+
+        // Soft-limit the derivative to tame glottal closure transients.
+        // Steady-state harmonics (small dFlow) pass through linearly — they
+        // carry the +6 dB/oct spectral tilt we want for presence.
+        // Closure spikes (large dFlow) get squashed by tanh — prevents
+        // additive radiation from amplifying glottal sharpness.
+        const double kDerivSaturation = 0.6;
+        srcDeriv = kDerivSaturation * tanh(srcDeriv / kDerivSaturation);
 
         // Energy compensation: adding derivative increases total energy.
         // Scale down gently so negative tilt brightens without pumping volume.
