@@ -659,6 +659,50 @@ replacements:
 
 **Note:** Stress markers (`ˈ`, `ˌ`) are treated as transparent for all class checks. This lets rules match segment clusters like `rˈa` the same way they match `ra`.
 
+### skipReplacements
+
+Child language packs inherit all `replacements` and `preReplacements` from their parent. Sometimes a child pack needs to suppress a specific inherited rule rather than override it. `skipReplacements` is a list of `{from, to}` pairs that are removed from the merged rule set after inheritance is resolved.
+
+```yaml
+normalization:
+  skipReplacements:
+    - from: s
+      to: s_es        # remove this specific rule from the parent
+    - from: x
+      to: x_es        # remove this one too
+    - from: ɣ         # no 'to' — removes ALL rules with this 'from'
+```
+
+**When to use it:**
+
+A parent pack (e.g. `es.yaml`) defines shared rules that remap base phonemes to language-tagged variants (`s → s_es`, `x → x_es`). A child dialect (e.g. `es-mx.yaml`) may have its own allophone for `/s/` — `s_mx` — and needs the parent's `s → s_es` rule gone before it adds its own `s → s_mx` rule.
+
+Without `skipReplacements`, you'd have to duplicate the entire parent rule set and edit it, which defeats inheritance.
+
+**Matching:**
+
+- If `to` is specified: removes rules where both `from` and the first `to` candidate match.
+- If `to` is omitted: removes all inherited rules with that `from`, regardless of target.
+
+**Order of operations:**
+
+`skipReplacements` is applied after the full inheritance chain is merged, so it sees the complete inherited rule list before any of the child's own rules are applied. The child's own `replacements` are added afterward and are never affected.
+
+**Real example — es-mx.yaml:**
+
+```yaml
+normalization:
+  skipReplacements:
+    - from: x
+      to: x_es        # Mexican /x/ is softer — base x already sounds right
+    - from: s
+      to: s_es        # Mexican /s/ is laminal, not apical — s_mx handles it
+
+  replacements:
+    - from: s
+      to: s_mx        # laminal Mexican sibilant
+```
+
 ### transforms
 Rules that match phonemes by properties (`isVowel`, `isStop`, etc.) and then modify fields:
 - `set`: set field values
