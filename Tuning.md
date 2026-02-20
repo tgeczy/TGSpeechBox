@@ -1665,7 +1665,7 @@ settings:
   diphthongCollapse:
     enabled: true
     durationFloorMs: 60         # minimum ms for merged token (prevents crush at high rate)
-    microFrameIntervalMs: 12    # target interval between waypoints (lower = smoother)
+    microFrameIntervalMs: 6     # target interval between waypoints (lower = smoother)
     onsetHoldExponent: 1.4      # >1.0 lingers at onset before sweeping (pow(frac, exp))
     amplitudeDipFactor: 0.03    # midpoint amplitude dip (sin curve, 0 = none)
 ```
@@ -1676,7 +1676,7 @@ settings:
 |---------|---------|--------------|
 | `enabled` | `true` | Master switch for the pass |
 | `durationFloorMs` | `50.0` | Minimum duration for the merged diphthong token. Prevents the glide from being crushed at high speech rates. This floor is enforced inside the collapse pass itself (not in rate compensation). |
-| `microFrameIntervalMs` | `12.0` | Target interval between micro-frame waypoints. Lower values produce more frames and smoother glides but cost more CPU. The frame count is clamped to 3–10. |
+| `microFrameIntervalMs` | `6.0` | Target interval between micro-frame waypoints. Lower values produce more frames and smoother glides but cost more CPU. The frame count is clamped to 3–10. |
 | `onsetHoldExponent` | `1.4` | Exponent applied to the interpolation fraction before cosine smoothing: `pow(frac, exp)`. Values > 1.0 make the glide linger at the onset target before sweeping toward the offset. Audible range is roughly 0.1–2.0. |
 | `amplitudeDipFactor` | `0.03` | Controls a small amplitude dip at the midpoint of the glide (via `sin(pi * frac)`). Mimics the natural slight weakening at the transition between vowel qualities. Set to 0 to disable. |
 
