@@ -12,8 +12,6 @@ normalization:
   skipReplacements:
     - from: x
       to: x_es
-    - from: s
-      to: s_es
 
   preReplacements:
     # Mexican yeísmo: espeak es-419 emits "jj" for intervocalic ll
