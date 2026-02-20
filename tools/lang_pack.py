@@ -258,7 +258,7 @@ class LanguagePack:
     length_contrast_pre_geminate_vowel_scale: float = 0.85
     diphthong_collapse_enabled: bool = True
     diphthong_amplitude_dip_factor: float = 0.03
-    diphthong_micro_frame_interval_ms: float = 12.0
+    diphthong_micro_frame_interval_ms: float = 6.0
     diphthong_duration_floor_ms: float = 50.0
     diphthong_onset_hold_exponent: float = 1.4
     lengthened_scale_hu: float = 1.3
