@@ -38,6 +38,7 @@ namespace fs = std::filesystem;
 using tgsb_editor::Node;
 using tgsb_editor::ReplacementRule;
 using tgsb_editor::ReplacementWhen;
+using tgsb_editor::SkipRule;
 using tgsb_editor::TgsbRuntime;
 
 static constexpr int kSampleRate = 22050;
@@ -322,9 +323,21 @@ static void populateLanguagePhonemesList(AppController& app) {
   EnsureListViewHasSelection(app.listLangPhonemes);
 }
 
+static void populateSkipList(AppController& app) {
+  lvClear(app.listSkip);
+  int row = 0;
+  for (const auto& sr : app.skipRepls) {
+    std::wstring toW = sr.to.empty() ? L"(any)" : utf8ToWide(sr.to);
+    lvAddRow2(app.listSkip, row, utf8ToWide(sr.from), toW);
+    row++;
+  }
+  EnsureListViewHasSelection(app.listSkip);
+}
+
 static void refreshLanguageDerivedLists(AppController& app) {
   app.usedPhonemeKeys = extractUsedPhonemes(app, app.repls);
   populateMappingsList(app);
+  populateSkipList(app);
   populateLanguagePhonemesList(app);
 }
 
@@ -444,6 +457,7 @@ static bool loadLanguage(AppController& app, const std::wstring& langPath) {
   }
 
   app.repls = app.language.replacements();
+  app.skipRepls = app.language.skipReplacements();
   app.classNames = app.language.classNamesSorted();
   app.languageDirty = false;
 
@@ -662,6 +676,40 @@ static void onRemoveSelectedMapping(AppController& app) {
   app.language.setReplacements(app.repls);
   app.languageDirty = true;
   refreshLanguageDerivedLists(app);
+}
+
+// -------------------------
+// Skip rule handlers
+// -------------------------
+static void onAddSkipRule(AppController& app) {
+  if (!app.language.isLoaded()) return;
+
+  // Reuse the mapping dialog — From/To fields are all we need; 'when' is ignored.
+  AddMappingDialogState st;
+  st.classNames = app.classNames;
+  st.language = &app.language;
+  ShowAddMappingDialog(app.hInst, app.wnd, st);
+  if (!st.ok) return;
+
+  SkipRule sr;
+  sr.from = st.rule.from;
+  sr.to = st.rule.to;
+  app.skipRepls.push_back(std::move(sr));
+  app.language.setSkipReplacements(app.skipRepls);
+  app.languageDirty = true;
+  populateSkipList(app);
+}
+
+static void onRemoveSelectedSkipRule(AppController& app) {
+  int sel = lvSelectedIndex(app.listSkip);
+  if (sel < 0 || sel >= static_cast<int>(app.skipRepls.size())) {
+    msgBox(app.wnd, L"Select a skip rule first.", L"TGSB Phoneme Editor", MB_ICONINFORMATION);
+    return;
+  }
+  app.skipRepls.erase(app.skipRepls.begin() + sel);
+  app.language.setSkipReplacements(app.skipRepls);
+  app.languageDirty = true;
+  populateSkipList(app);
 }
 
 // -------------------------
@@ -1224,6 +1272,7 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
         repls.push_back(newRule);
         app.language.setReplacements(repls);
         app.repls = app.language.replacements();
+        app.skipRepls = app.language.skipReplacements();
         app.languageDirty = true;
       }
 
@@ -1297,6 +1346,7 @@ static void onSaveLanguage(AppController& app) {
     msgBox(app.wnd, L"Warning: Failed to reload language YAML after save:\n" + utf8ToWide(err), L"TGSB Phoneme Editor", MB_ICONWARNING);
   } else {
     app.repls = app.language.replacements();
+    app.skipRepls = app.language.skipReplacements();
     app.classNames = app.language.classNamesSorted();
     refreshLanguageDerivedLists(app);
 
@@ -1424,6 +1474,7 @@ static void onReloadLanguage(AppController& app) {
   }
 
   app.repls = app.language.replacements();
+  app.skipRepls = app.language.skipReplacements();
   app.classNames = app.language.classNamesSorted();
   app.languageDirty = false;
   refreshLanguageDerivedLists(app);
@@ -1718,15 +1769,30 @@ void AppController::layout(int w, int h) {
   int mapBtnH = btnRowH;
   int mapBtnAreaH = mapBtnH + margin;
 
+  // Split the normalization area: mappings (~60%), skip rules (~40%).
+  int normAvail = topH - mapY - (mapBtnAreaH * 2) - labelH - labelGap - margin;
+  int mapListH = (normAvail * 6) / 10;
+  int skipListH = normAvail - mapListH;
+
   MoveWindow(app.lblMappings, xR, mapY, rightW, labelH, TRUE);
   mapY += labelH + labelGap;
-  MoveWindow(app.listMappings, xR, mapY, rightW, topH - mapY - mapBtnAreaH + margin, TRUE);
+  MoveWindow(app.listMappings, xR, mapY, rightW, mapListH, TRUE);
+  mapY += mapListH + margin;
 
-  int mapBtnY = topH - mapBtnH + margin;
   int mapBtnW = (rightW - margin * 2) / 3;
-  MoveWindow(app.btnAddMap, xR, mapBtnY, mapBtnW, mapBtnH, TRUE);
-  MoveWindow(app.btnEditMap, xR + mapBtnW + margin, mapBtnY, mapBtnW, mapBtnH, TRUE);
-  MoveWindow(app.btnRemoveMap, xR + (mapBtnW + margin) * 2, mapBtnY, mapBtnW, mapBtnH, TRUE);
+  MoveWindow(app.btnAddMap, xR, mapY, mapBtnW, mapBtnH, TRUE);
+  MoveWindow(app.btnEditMap, xR + mapBtnW + margin, mapY, mapBtnW, mapBtnH, TRUE);
+  MoveWindow(app.btnRemoveMap, xR + (mapBtnW + margin) * 2, mapY, mapBtnW, mapBtnH, TRUE);
+  mapY += mapBtnH + margin;
+
+  MoveWindow(app.lblSkip, xR, mapY, rightW, labelH, TRUE);
+  mapY += labelH + labelGap;
+  MoveWindow(app.listSkip, xR, mapY, rightW, skipListH, TRUE);
+  mapY += skipListH + margin;
+
+  int skipBtnW = (rightW - margin) / 2;
+  MoveWindow(app.btnAddSkip, xR, mapY, skipBtnW, mapBtnH, TRUE);
+  MoveWindow(app.btnRemoveSkip, xR + skipBtnW + margin, mapY, skipBtnW, mapBtnH, TRUE);
 
   // Bottom panel
   int bottomY = topH + margin * 2;
@@ -1823,6 +1889,20 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
                                    0, 0, 120, 24, hWnd, (HMENU)IDC_BTN_EDIT_MAPPING, app.hInst, nullptr);
       app.btnRemoveMap = CreateWindowW(L"BUTTON", L"&Remove mapping", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                      0, 0, 130, 24, hWnd, (HMENU)IDC_BTN_REMOVE_MAPPING, app.hInst, nullptr);
+
+      app.lblSkip = CreateWindowW(L"STATIC", L"Skip inherited rules:", WS_CHILD | WS_VISIBLE,
+                                  0, 0, 160, 18, hWnd, nullptr, app.hInst, nullptr);
+      app.listSkip = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"Skip inherited rules", WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL,
+                                     0, 0, 100, 100, hWnd, (HMENU)IDC_LIST_SKIP_RULES, app.hInst, nullptr);
+      installAccessibleNameForListView(app.listSkip, L"Skip inherited rules");
+      ListView_SetExtendedListViewStyle(app.listSkip, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+      lvAddColumn(app.listSkip, 0, L"From", 120);
+      lvAddColumn(app.listSkip, 1, L"To (blank=any)", 130);
+
+      app.btnAddSkip = CreateWindowW(L"BUTTON", L"Add &skip rule...", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                                     0, 0, 130, 24, hWnd, (HMENU)IDC_BTN_ADD_SKIP_RULE, app.hInst, nullptr);
+      app.btnRemoveSkip = CreateWindowW(L"BUTTON", L"Remo&ve skip rule", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                                        0, 0, 130, 24, hWnd, (HMENU)IDC_BTN_REMOVE_SKIP_RULE, app.hInst, nullptr);
 
       app.lblText = CreateWindowW(L"STATIC", L"Input text:", WS_CHILD | WS_VISIBLE,
                                  0, 0, 100, 18, hWnd, nullptr, app.hInst, nullptr);
@@ -2282,6 +2362,12 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
           return 0;
         case IDC_BTN_REMOVE_MAPPING:
           onRemoveSelectedMapping(app);
+          return 0;
+        case IDC_BTN_ADD_SKIP_RULE:
+          onAddSkipRule(app);
+          return 0;
+        case IDC_BTN_REMOVE_SKIP_RULE:
+          onRemoveSelectedSkipRule(app);
           return 0;
         case IDC_BTN_CONVERT_IPA:
           onConvertIpa(app);

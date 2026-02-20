@@ -61,6 +61,10 @@ Licensed under the MIT License. See LICENSE for details.
 #define IDC_BTN_LANG_PLAY_PHONEME 1108
 #define IDC_BTN_LANG_SETTINGS    1109
 
+#define IDC_LIST_SKIP_RULES      1110
+#define IDC_BTN_ADD_SKIP_RULE    1111
+#define IDC_BTN_REMOVE_SKIP_RULE 1112
+
 #define IDC_EDIT_TEXT             1201
 #define IDC_CHK_INPUT_IS_IPA      1202
 #define IDC_BTN_CONVERT_IPA       1203

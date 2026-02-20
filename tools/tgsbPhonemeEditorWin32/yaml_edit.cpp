@@ -469,6 +469,59 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
   }
 }
 
+std::vector<SkipRule> LanguageYaml::skipReplacements() const {
+  std::vector<SkipRule> out;
+  const Node* norm = m_root.get("normalization");
+  if (!norm || !norm->isMap()) return out;
+  const Node* skip = norm->get("skipReplacements");
+  if (!skip || !skip->isSeq()) return out;
+  for (const auto& item : skip->seq) {
+    if (!item.isMap()) continue;
+    const Node* fromN = item.get("from");
+    if (!fromN || !fromN->isScalar()) continue;
+    SkipRule sr;
+    sr.from = fromN->scalar;
+    const Node* toN = item.get("to");
+    if (toN && toN->isScalar()) sr.to = toN->scalar;
+    out.push_back(std::move(sr));
+  }
+  return out;
+}
+
+void LanguageYaml::setSkipReplacements(const std::vector<SkipRule>& rules) {
+  if (m_root.type != Node::Type::Map) {
+    m_root.type = Node::Type::Map;
+    m_root.map.clear();
+    m_root.keyOrder.clear();
+    m_root.seq.clear();
+    m_root.scalar.clear();
+  }
+  Node* norm = getNestedMap(m_root, "normalization");
+  if (rules.empty()) {
+    norm->map.erase("skipReplacements");
+    auto& ko = norm->keyOrder;
+    ko.erase(std::remove(ko.begin(), ko.end(), "skipReplacements"), ko.end());
+    return;
+  }
+  Node* skip = getNestedSeq(*norm, "skipReplacements");
+  skip->seq.clear();
+  for (const auto& sr : rules) {
+    Node item;
+    item.type = Node::Type::Map;
+    Node fromN;
+    fromN.type = Node::Type::Scalar;
+    fromN.scalar = sr.from;
+    mapSet(item, "from", std::move(fromN));
+    if (!sr.to.empty()) {
+      Node toN;
+      toN.type = Node::Type::Scalar;
+      toN.scalar = sr.to;
+      mapSet(item, "to", std::move(toN));
+    }
+    skip->seq.push_back(std::move(item));
+  }
+}
+
 std::vector<std::string> LanguageYaml::classNamesSorted() const {
   std::vector<std::string> out;
   const Node* norm = m_root.get("normalization");

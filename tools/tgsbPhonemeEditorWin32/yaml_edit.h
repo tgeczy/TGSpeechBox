@@ -37,6 +37,12 @@ struct ReplacementRule {
   ReplacementWhen when;
 };
 
+// A (from, optional-to) pair used by child packs to suppress inherited rules.
+struct SkipRule {
+  std::string from;
+  std::string to; // empty means "skip all rules with this 'from'"
+};
+
 // Allophone rule entry for editor round-trip.
 // Vectors of IPA keys are stored as UTF-8 strings (not u32string).
 struct AllophoneRuleEntry {
@@ -125,6 +131,9 @@ public:
 
   std::vector<ReplacementRule> replacements() const;
   void setReplacements(const std::vector<ReplacementRule>& rules);
+
+  std::vector<SkipRule> skipReplacements() const;
+  void setSkipReplacements(const std::vector<SkipRule>& rules);
 
   std::vector<std::string> classNamesSorted() const;
 
