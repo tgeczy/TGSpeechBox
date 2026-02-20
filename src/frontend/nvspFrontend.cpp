@@ -498,21 +498,24 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
 
   std::lock_guard<std::mutex> lock(h->mu);
 
-  // Initialize with defaults
-  outTone->voicingPeakPos = 0.0;
-  outTone->voicedPreEmphA = 0.0;
-  outTone->voicedPreEmphMix = 0.0;
-  outTone->highShelfGainDb = 0.0;
-  outTone->highShelfFcHz = 0.0;
-  outTone->highShelfQ = 0.0;
+  // Initialize with the same defaults as SPEECHPLAYER_VOICINGTONE_DEFAULTS
+  // so that voice profiles only need to override fields they explicitly set.
+  // Previously these were zeroed, which meant any profile with a partial
+  // voicingTone: block would disable high-shelf EQ, pre-emphasis, etc.
+  outTone->voicingPeakPos = 0.91;
+  outTone->voicedPreEmphA = 0.92;
+  outTone->voicedPreEmphMix = 0.35;
+  outTone->highShelfGainDb = 4.0;
+  outTone->highShelfFcHz = 2000.0;
+  outTone->highShelfQ = 0.7;
   outTone->voicedTiltDbPerOct = 0.0;
   outTone->noiseGlottalModDepth = 0.0;
   outTone->pitchSyncF1DeltaHz = 0.0;
   outTone->pitchSyncB1DeltaHz = 0.0;
-  outTone->speedQuotient = 2.0;  // neutral default
+  outTone->speedQuotient = 2.0;
   outTone->aspirationTiltDbPerOct = 0.0;
-  outTone->cascadeBwScale = 1.0; // neutral default
-  outTone->tremorDepth = 0.0;    // no tremor by default
+  outTone->cascadeBwScale = 0.9;
+  outTone->tremorDepth = 0.0;
 
   // Check if we have a voice profile with voicing tone
   const std::string& profileName = h->pack.lang.voiceProfileName;
