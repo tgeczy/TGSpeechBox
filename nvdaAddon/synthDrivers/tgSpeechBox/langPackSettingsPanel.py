@@ -365,6 +365,13 @@ def _getPanelClass():
                 "clusterTiming.wordFinalObstruentScale",
                 "clusterTiming.wordMedialConsonantScale",
 
+                # --- Diphthong collapse ---
+                "diphthongCollapse.amplitudeDipFactor",
+                "diphthongCollapse.durationFloorMs",
+                "diphthongCollapse.enabled",
+                "diphthongCollapse.microFrameIntervalMs",
+                "diphthongCollapse.onsetHoldExponent",
+
                 # --- Length contrast ---
                 "lengthContrast.enabled",
                 "lengthContrast.geminateClosureScale",
@@ -664,6 +671,7 @@ def _getPanelClass():
                     "fujisakiPrimaryAccentAmp",
                     "legacyPitchInflectionScale",
                     "legacyPitchMode",
+                    "diphthongCollapse.enabled",
                     "lengthContrast.enabled",
                     "liquidDynamics.enabled",
                     "microprosodyEnabled",

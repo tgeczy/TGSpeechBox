@@ -256,6 +256,11 @@ class LanguagePack:
     length_contrast_geminate_closure_scale: float = 1.8
     length_contrast_geminate_release_scale: float = 0.9
     length_contrast_pre_geminate_vowel_scale: float = 0.85
+    diphthong_collapse_enabled: bool = True
+    diphthong_amplitude_dip_factor: float = 0.03
+    diphthong_micro_frame_interval_ms: float = 12.0
+    diphthong_duration_floor_ms: float = 50.0
+    diphthong_onset_hold_exponent: float = 1.4
     lengthened_scale_hu: float = 1.3
     apply_lengthened_scale_to_vowels_only: bool = True
     lengthened_vowel_final_coda_scale: float = 1.0
@@ -918,6 +923,11 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.length_contrast_geminate_closure_scale = gn("lengthContrastGeminateClosureScale", lp.length_contrast_geminate_closure_scale)
     lp.length_contrast_geminate_release_scale = gn("lengthContrastGeminateReleaseScale", lp.length_contrast_geminate_release_scale)
     lp.length_contrast_pre_geminate_vowel_scale = gn("lengthContrastPreGeminateVowelScale", lp.length_contrast_pre_geminate_vowel_scale)
+    lp.diphthong_collapse_enabled = gb("diphthongCollapseEnabled", lp.diphthong_collapse_enabled)
+    lp.diphthong_amplitude_dip_factor = gn("diphthongAmplitudeDipFactor", lp.diphthong_amplitude_dip_factor)
+    lp.diphthong_micro_frame_interval_ms = gn("diphthongMicroFrameIntervalMs", lp.diphthong_micro_frame_interval_ms)
+    lp.diphthong_duration_floor_ms = gn("diphthongDurationFloorMs", lp.diphthong_duration_floor_ms)
+    lp.diphthong_onset_hold_exponent = gn("diphthongOnsetHoldExponent", lp.diphthong_onset_hold_exponent)
     lp.hu_short_a_vowel_enabled = gb("huShortAVowelEnabled", lp.hu_short_a_vowel_enabled)
     lp.hu_short_a_vowel_scale = gn("huShortAVowelScale", lp.hu_short_a_vowel_scale)
     lp.english_long_u_shorten_enabled = gb("englishLongUShortenEnabled", lp.english_long_u_shorten_enabled)
@@ -986,7 +996,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
             lp.trajectory_limit_apply_mask = mask
 
     # trajectoryLimitMaxHzPerMs flat keys
-    for suffix, fid_name in [("Cf1", "cf1"), ("Cf2", "cf2"), ("Cf3", "cf3"), ("Pf2", "pf2"), ("Pf3", "pf3")]:
+    for suffix, fid_name in [("Cf2", "cf2"), ("Cf3", "cf3"), ("Pf2", "pf2"), ("Pf3", "pf3")]:
         v = s.get(f"trajectoryLimitMaxHzPerMs{suffix}")
         if v is not None:
             try:
@@ -1116,6 +1126,14 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.length_contrast_geminate_closure_scale = _gn_from(_lc, "geminateClosureScale", lp.length_contrast_geminate_closure_scale)
         lp.length_contrast_geminate_release_scale = _gn_from(_lc, "geminateReleaseScale", lp.length_contrast_geminate_release_scale)
         lp.length_contrast_pre_geminate_vowel_scale = _gn_from(_lc, "preGeminateVowelScale", lp.length_contrast_pre_geminate_vowel_scale)
+
+    if "diphthongCollapse" in s and isinstance(s["diphthongCollapse"], dict):
+        _dc = s["diphthongCollapse"]
+        lp.diphthong_collapse_enabled = _gb_from(_dc, "enabled", lp.diphthong_collapse_enabled)
+        lp.diphthong_amplitude_dip_factor = _gn_from(_dc, "amplitudeDipFactor", lp.diphthong_amplitude_dip_factor)
+        lp.diphthong_micro_frame_interval_ms = _gn_from(_dc, "microFrameIntervalMs", lp.diphthong_micro_frame_interval_ms)
+        lp.diphthong_duration_floor_ms = _gn_from(_dc, "durationFloorMs", lp.diphthong_duration_floor_ms)
+        lp.diphthong_onset_hold_exponent = _gn_from(_dc, "onsetHoldExponent", lp.diphthong_onset_hold_exponent)
 
     if "allophoneRules" in s and isinstance(s["allophoneRules"], dict):
         _ar = s["allophoneRules"]

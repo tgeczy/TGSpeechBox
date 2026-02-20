@@ -1451,6 +1451,56 @@ msgstr "Örökölt hangmagasság mód"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Enabled"
+msgstr "Kettőshangzó összevonás Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Amplitude Dip Factor"
+msgstr "Kettőshangzó összevonás Amplitúdó merülési tényező"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Duration Floor (ms)"
+msgstr "Kettőshangzó összevonás Időtartam alsó határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Micro Frame Interval (ms)"
+msgstr "Kettőshangzó összevonás Mikrokeret időköz (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Onset Hold Exponent"
+msgstr "Kettőshangzó összevonás Indulás tartási kitevő"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Enabled"
+msgstr "Kettőshangzó összevonás: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Amplitude Dip Factor"
+msgstr "Kettőshangzó összevonás: Amplitúdó merülési tényező"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Duration Floor (ms)"
+msgstr "Kettőshangzó összevonás: Időtartam alsó határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Micro Frame Interval (ms)"
+msgstr "Kettőshangzó összevonás: Mikrokeret időköz (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Hold Exponent"
+msgstr "Kettőshangzó összevonás: Indulás tartási kitevő"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Length Contrast Enabled"
 msgstr "Hosszúsági kontraszt Engedélyezve"
 

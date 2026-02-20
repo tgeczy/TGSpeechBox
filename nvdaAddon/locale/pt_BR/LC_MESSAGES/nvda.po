@@ -1451,6 +1451,56 @@ msgstr "Modo de Tom Legado"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Enabled"
+msgstr "Colapso de Ditongo Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Amplitude Dip Factor"
+msgstr "Colapso de Ditongo Fator de Queda de Amplitude"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Duration Floor (ms)"
+msgstr "Colapso de Ditongo Piso de Duração (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Micro Frame Interval (ms)"
+msgstr "Colapso de Ditongo Intervalo de Micro Quadro (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Onset Hold Exponent"
+msgstr "Colapso de Ditongo Expoente de Retenção de Início"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Enabled"
+msgstr "Colapso de Ditongo: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Amplitude Dip Factor"
+msgstr "Colapso de Ditongo: Fator de Queda de Amplitude"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Duration Floor (ms)"
+msgstr "Colapso de Ditongo: Piso de Duração (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Micro Frame Interval (ms)"
+msgstr "Colapso de Ditongo: Intervalo de Micro Quadro (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Hold Exponent"
+msgstr "Colapso de Ditongo: Expoente de Retenção de Início"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Length Contrast Enabled"
 msgstr "Contraste de Comprimento Habilitado"
 
