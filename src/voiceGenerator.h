@@ -156,28 +156,29 @@ return clampDouble(a, 0.0, 0.9999);
 
         // RADIATION MIX — models lip radiation (+6 dB/oct differentiator).
         //
-        // Baseline at tilt=0: ~0.10 derivative blended with flow.
-        // Pure flow is -12 dB/oct; adding 10% derivative restores some of
-        // the natural lip radiation characteristic, giving ~-6 dB/oct net.
+        // Additive mode: the derivative is ADDED to flow, not crossfaded.
+        // This preserves all bass warmth while layering in upper presence.
+        // Baseline at tilt=0: flow + 0.15*derivative.
         //
-        // Negative tilt (brightening): ramp from baseline toward full
-        // derivative (mix=1.0).  Flow has no highs to boost, so we need
-        // the derivative's spectral content.
+        // Negative tilt (brightening): ramp boost toward 1.0.
+        // Full derivative adds ~+6 dB/oct on top of flow — bright AND warm.
         //
-        // Positive tilt (darkening): fade baseline toward zero.  Dark/
-        // breathy voices have incomplete glottal closure — less of the
-        // sharp closure event that creates the derivative.
+        // Positive tilt (darkening): fade boost toward zero.
+        // Pure flow at -12 dB/oct — very dark, no presence.
 
         const double kBaseRadiationMix = 0.15;
 
         if (tl < 0.0) {
-            // Brighten: ramp from baseline to 1.0 over 10 dB
+            // Brighten: ramp boost from baseline to 1.0 over 10 dB.
+            // With additive mode, this adds presence WITHOUT subtracting warmth.
+            // At tilt=-10: flow + 1.0*deriv (very bright, still warm).
             double bright = -tl / 10.0;  // 0..1 over -10..-20 dB range
             radiationMix = clampDouble(
                 kBaseRadiationMix + bright * (1.0 - kBaseRadiationMix),
                 kBaseRadiationMix, 1.0);
         } else {
-            // Darken: fade baseline to 0 over 12 dB
+            // Darken: fade boost to 0 over 12 dB.
+            // At tilt=+12: pure flow, no derivative = very dark.
             radiationMix = clampDouble(
                 kBaseRadiationMix * (1.0 - tl / 12.0),
                 0.0, kBaseRadiationMix);
@@ -850,17 +851,28 @@ public:
         lastFlow = flow;
 
         // ------------------------------------------------------------
-        // Radiation Characteristic (Gain Corrected):
+        // Radiation Characteristic (Additive):
         // ------------------------------------------------------------
-        // dFlow (Derivative) is naturally tiny. It needs gain to match flow.
-        // Flow (Integral) is naturally loud. It DOES NOT need gain.
+        // Real lip radiation adds +6 dB/oct to the source — it doesn't
+        // subtract low frequencies.  The old crossfade replaced flow
+        // energy with derivative energy, making brightness and warmth
+        // a zero-sum game.  Additive mode keeps ALL the flow (warmth)
+        // and layers derivative energy (presence) on top.
+        //
+        // radiationMix now controls how much derivative is ADDED:
+        //   0.0  = pure flow (-12 dB/oct, very dark)
+        //   0.3  = gentle presence (natural conversational speech)
+        //   0.5  = clear presence (broadcast speech)
+        //   1.0  = full derivative added (very bright, still warm)
+        // The limiter catches any peaks from the summed signal.
 
         double srcDeriv = dFlow * radiationDerivGain;
-        // srcFlow is just flow.
 
-        // At Tilt 0: Mix is 0.0 -> voicedSrc = flow. (WARM/FAT, no clipping)
-        // At Tilt -20: Mix is 1.0 -> voicedSrc = srcDeriv. (BRIGHT/BUZZY)
-        double voicedSrc = (1.0 - radiationMix) * flow + (radiationMix * srcDeriv);
+        // Energy compensation: adding derivative increases total energy.
+        // Scale down gently so negative tilt brightens without pumping volume.
+        // At mix=0.15: divisor=1.075 (barely audible).
+        // At mix=1.0:  divisor=1.5 (keeps full-bright from clipping).
+        double voicedSrc = (flow + radiationMix * srcDeriv) / (1.0 + radiationMix * 0.5);
 
         // Voiced-only pre-emphasis
         double pre = voicedSrc - (voicedPreEmphA * lastVoicedSrc);
