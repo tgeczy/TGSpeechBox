@@ -162,7 +162,7 @@ settings:
     enabled: true
     durationFloorMs: 60
     onsetHoldExponent: 1.7
-    microFrameIntervalMs: 12
+    microFrameIntervalMs: 6
   lengthContrast:
     enabled: false
   allophoneRules:

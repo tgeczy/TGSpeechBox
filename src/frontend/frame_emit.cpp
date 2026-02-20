@@ -921,7 +921,7 @@ void emitFramesEx(
         mf[static_cast<int>(FieldId::pf2)] = wpPf2[seg];
         mf[static_cast<int>(FieldId::pf3)] = wpPf3[seg];
 
-        // Pitch: linear ramp sliced proportionally
+        // Pitch: linear ramp sliced proportionally.
         double t0 = (N > 1) ? (static_cast<double>(seg) / N) : 0.0;
         double t1 = (N > 1) ? (static_cast<double>(seg + 1) / N) : 1.0;
         mf[vp]  = startPitch + pitchDelta * t0;
