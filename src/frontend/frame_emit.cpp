@@ -146,7 +146,12 @@ void emitFrames(
     // DIPHTHONG GLIDE (legacy path -- no FrameEx, no endCf guidance)
     if (t.isDiphthongGlide && t.durationMs > 0.0) {
       const double totalDur = t.durationMs;
-      const double intervalMs = pack.lang.diphthongMicroFrameIntervalMs;
+      double intervalMs = pack.lang.diphthongMicroFrameIntervalMs;
+      const double pitch0Leg = base[vp];
+      if (pitch0Leg > 100.0) {
+        intervalMs *= (100.0 / pitch0Leg);
+        if (intervalMs < 3.0) intervalMs = 3.0;
+      }
       int N = (intervalMs > 0.0)
             ? std::max(3, std::min(10, static_cast<int>(totalDur / intervalMs)))
             : 3;
@@ -859,7 +864,14 @@ void emitFramesEx(
       // Number of micro-frames scales with duration.
       // Minimum 3: with N=2, onset hold pow() and cosineSmooth() are
       // identity functions (0^x=0, 1^x=1) — no shaping, just endpoints.
-      const double intervalMs = lang.diphthongMicroFrameIntervalMs;
+      // At higher pitch, fewer harmonics per formant bandwidth makes
+      // crossfade phasing more audible — tighten the interval.
+      double intervalMs = lang.diphthongMicroFrameIntervalMs;
+      const double pitch0 = base[vp];
+      if (pitch0 > 100.0) {
+        intervalMs *= (100.0 / pitch0);
+        if (intervalMs < 3.0) intervalMs = 3.0;
+      }
       int N = (intervalMs > 0.0)
             ? std::max(3, std::min(10, static_cast<int>(totalDur / intervalMs)))
             : 3;
