@@ -573,78 +573,9 @@ void emitFrames(
     nvspFrontend_Frame frame;
     std::memcpy(&frame, base, sizeof(frame));
 
-    // ============================================
-    // TRAJECTORY LIMITING
-    // ============================================
-    // Limit how fast formant frequencies can change to reduce harsh transitions.
-    // Skip semivowels, liquids, and nasals - they need sharp formant transitions.
-    // Also skip when the PREVIOUS frame was a nasal: nasal place perception
-    // depends on F2 transitions in adjacent vowels, so clamping the vowel
-    // after a nasal destroys the place cue (e.g. "nyolc" → "nyölc").
+    // Trajectory limiting is handled by the trajectory_limit pass (fade-based,
+    // Trans-F aware).  We only track state needed by micro-event emission here.
     const bool isNasal = t.def && ((t.def->flags & kIsNasal) != 0);
-    const bool skipTrajectoryLimit = (t.def && (
-        (t.def->flags & kIsSemivowel) != 0 ||
-        (t.def->flags & kIsLiquid) != 0 ||
-        (t.def->flags & kIsNasal) != 0
-    )) || trajectoryState->prevWasNasal;
-    if (lang.trajectoryLimitEnabled && trajectoryState->hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
-      const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
-      const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
-      const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);
-      const size_t idx_pf3 = static_cast<size_t>(FieldId::pf3);
-      double maxDelta, delta;
-
-      // Use a duration floor so high speech rates don't starve formant transitions.
-      // At speed 1.0, tokens are ~60ms so 40ms never activates. At high speed,
-      // tokens shrink to ~15ms, preventing formants from reaching their targets.
-      const double effectiveDur = std::max(t.durationMs, 40.0);
-      
-      // cf2 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf2)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_cf2] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf2] * effectiveDur;
-          delta = frame.cf2 - trajectoryState->prevCf2;
-          if (delta > maxDelta) frame.cf2 = trajectoryState->prevCf2 + maxDelta;
-          else if (delta < -maxDelta) frame.cf2 = trajectoryState->prevCf2 - maxDelta;
-        }
-      }
-      
-      // cf3 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf3)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_cf3] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf3] * effectiveDur;
-          delta = frame.cf3 - trajectoryState->prevCf3;
-          if (delta > maxDelta) frame.cf3 = trajectoryState->prevCf3 + maxDelta;
-          else if (delta < -maxDelta) frame.cf3 = trajectoryState->prevCf3 - maxDelta;
-        }
-      }
-      
-      // pf2 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf2)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_pf2] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf2] * effectiveDur;
-          delta = frame.pf2 - trajectoryState->prevPf2;
-          if (delta > maxDelta) frame.pf2 = trajectoryState->prevPf2 + maxDelta;
-          else if (delta < -maxDelta) frame.pf2 = trajectoryState->prevPf2 - maxDelta;
-        }
-      }
-      
-      // pf3 limiting
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf3)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_pf3] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf3] * effectiveDur;
-          delta = frame.pf3 - trajectoryState->prevPf3;
-          if (delta > maxDelta) frame.pf3 = trajectoryState->prevPf3 + maxDelta;
-          else if (delta < -maxDelta) frame.pf3 = trajectoryState->prevPf3 - maxDelta;
-        }
-      }
-    }
-    
-    // Update previous frame values for next iteration
-    trajectoryState->prevCf2 = frame.cf2;
-    trajectoryState->prevCf3 = frame.cf3;
-    trajectoryState->prevPf2 = frame.pf2;
-    trajectoryState->prevPf3 = frame.pf3;
     trajectoryState->prevVoiceAmp = base[va];
     trajectoryState->prevFricAmp = base[fa];
     trajectoryState->hasPrevFrame = true;
@@ -1302,64 +1233,9 @@ void emitFramesEx(
     nvspFrontend_Frame frame;
     std::memcpy(&frame, base, sizeof(frame));
 
-    // Trajectory limiting (same as emitFrames)
+    // Trajectory limiting is handled by the trajectory_limit pass (fade-based,
+    // Trans-F aware).  We only track state needed by micro-event emission here.
     const bool isNasal = t.def && ((t.def->flags & kIsNasal) != 0);
-    const bool skipTrajectoryLimit = (t.def && (
-        (t.def->flags & kIsSemivowel) != 0 ||
-        (t.def->flags & kIsLiquid) != 0 ||
-        (t.def->flags & kIsNasal) != 0
-    )) || trajectoryState->prevWasNasal;
-    if (lang.trajectoryLimitEnabled && trajectoryState->hasPrevFrame && t.durationMs > 0.0 && !skipTrajectoryLimit) {
-      const size_t idx_cf2 = static_cast<size_t>(FieldId::cf2);
-      const size_t idx_cf3 = static_cast<size_t>(FieldId::cf3);
-      const size_t idx_pf2 = static_cast<size_t>(FieldId::pf2);
-      const size_t idx_pf3 = static_cast<size_t>(FieldId::pf3);
-      double maxDelta, delta;
-
-      const double effectiveDur = std::max(t.durationMs, 40.0);
-      
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf2)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_cf2] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf2] * effectiveDur;
-          delta = frame.cf2 - trajectoryState->prevCf2;
-          if (delta > maxDelta) frame.cf2 = trajectoryState->prevCf2 + maxDelta;
-          else if (delta < -maxDelta) frame.cf2 = trajectoryState->prevCf2 - maxDelta;
-        }
-      }
-      
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_cf3)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_cf3] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_cf3] * effectiveDur;
-          delta = frame.cf3 - trajectoryState->prevCf3;
-          if (delta > maxDelta) frame.cf3 = trajectoryState->prevCf3 + maxDelta;
-          else if (delta < -maxDelta) frame.cf3 = trajectoryState->prevCf3 - maxDelta;
-        }
-      }
-      
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf2)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_pf2] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf2] * effectiveDur;
-          delta = frame.pf2 - trajectoryState->prevPf2;
-          if (delta > maxDelta) frame.pf2 = trajectoryState->prevPf2 + maxDelta;
-          else if (delta < -maxDelta) frame.pf2 = trajectoryState->prevPf2 - maxDelta;
-        }
-      }
-      
-      if ((lang.trajectoryLimitApplyMask & (1ULL << idx_pf3)) != 0) {
-        if (lang.trajectoryLimitMaxHzPerMs[idx_pf3] > 0.0) {
-          maxDelta = lang.trajectoryLimitMaxHzPerMs[idx_pf3] * effectiveDur;
-          delta = frame.pf3 - trajectoryState->prevPf3;
-          if (delta > maxDelta) frame.pf3 = trajectoryState->prevPf3 + maxDelta;
-          else if (delta < -maxDelta) frame.pf3 = trajectoryState->prevPf3 - maxDelta;
-        }
-      }
-    }
-    
-    // Update previous frame values
-    trajectoryState->prevCf2 = frame.cf2;
-    trajectoryState->prevCf3 = frame.cf3;
-    trajectoryState->prevPf2 = frame.pf2;
-    trajectoryState->prevPf3 = frame.pf3;
     trajectoryState->prevVoiceAmp = base[va];
     trajectoryState->prevFricAmp = base[fa];
     trajectoryState->hasPrevFrame = true;

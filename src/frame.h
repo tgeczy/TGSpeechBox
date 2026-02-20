@@ -118,7 +118,7 @@ typedef struct {
 	 *
 	 * 0.0 = linear crossfade (legacy default — works fine when both frames
 	 *        have similar total energy, e.g. vowel→vowel)
-	 * 0.0 = equal-power crossfade (sin/cos curves — maintains constant
+	 * 1.0 = equal-power crossfade (sin/cos curves — maintains constant
 	 *        total energy across source transitions like voiced→voiceless)
 	 *
 	 * The frontend sets this based on whether the transition involves a
@@ -155,7 +155,7 @@ static const speechPlayer_frameEx_t speechPlayer_frameEx_defaults = {
 	0.0,  // transF2Scale: no override
 	0.0,  // transF3Scale: no override
 	0.0,  // transNasalScale: no override
-	1.0   // transAmplitudeMode: linear (legacy)
+	0.0   // transAmplitudeMode: linear (legacy)
 };
 
 const int speechPlayer_frameEx_numParams=sizeof(speechPlayer_frameEx_t)/sizeof(double);

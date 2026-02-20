@@ -713,8 +713,8 @@ double lengthContrastPreGeminateVowelScale = 0.85;
 
   // Cluster blend — C→C articulatory anticipation (formant ramping).
   //
-  // Sets endCf targets on the first consonant of a CC pair so its formants
-  // begin moving toward the second consonant's place of articulation.
+  // Tints the second consonant's (C2) start formants toward the first (C1),
+  // then sets endCf on C2 back to canonical so the DSP ramps to true target.
   // Complements cluster_timing (duration) and boundary_smoothing (fade speed).
   bool   clusterBlendEnabled = false;
   double clusterBlendStrength = 0.35;           // Master blend fraction (0–1)

@@ -17,10 +17,10 @@ Licensed under the MIT License. See LICENSE for details.
 //   before /k/ the velar pinch tightens and nasal amplitude starts fading.
 //
 // Mechanism:
-//   Set endCf1/2/3 on the first consonant (C1) to interpolate partway toward
-//   the second consonant's (C2) formant values.  The DSP already ramps from
-//   start→end within a single frame — we're just providing the end targets
-//   that weren't there before.
+//   Tint C2's start formants partway toward C1 (so the burst onset carries
+//   a spectral trace of the preceding place), then set endCf on C2 back to
+//   its canonical values so the DSP ramps from the tinted start to the true
+//   target within the frame.
 //
 // Complements:
 //   cluster_timing  → adjusts HOW LONG each consonant is
@@ -90,42 +90,8 @@ static inline bool isStopLike(const Token& t) {
   return isStop(t) || isAffricate(t);
 }
 
-// ── Place of articulation ───────────────────────────────────────────────
-
-enum class Place {
-  Unknown,
-  Labial,
-  Alveolar,
-  Palatal,
-  Velar,
-};
-
-static Place getPlace(const std::u32string& key) {
-  if (key == U"p" || key == U"b" || key == U"m" ||
-      key == U"f" || key == U"v" || key == U"w" ||
-      key == U"ʍ" || key == U"ɸ" || key == U"β")
-    return Place::Labial;
-
-  if (key == U"t" || key == U"d" || key == U"n" ||
-      key == U"s" || key == U"z" || key == U"l" ||
-      key == U"r" || key == U"ɹ" || key == U"ɾ" ||
-      key == U"θ" || key == U"ð" || key == U"ɬ" ||
-      key == U"ɮ" || key == U"ɻ" || key == U"ɖ" ||
-      key == U"ʈ" || key == U"ɳ" || key == U"ɽ")
-    return Place::Alveolar;
-
-  if (key == U"ʃ" || key == U"ʒ" || key == U"tʃ" || key == U"t͡ʃ" ||
-      key == U"dʒ" || key == U"d͡ʒ" || key == U"j" || key == U"ɲ" ||
-      key == U"ç" || key == U"ʝ" || key == U"c" ||
-      key == U"ɟ" || key == U"ʎ")
-    return Place::Palatal;
-
-  if (key == U"k" || key == U"g" || key == U"ŋ" ||
-      key == U"x" || key == U"ɣ" || key == U"ɰ")
-    return Place::Velar;
-
-  return Place::Unknown;
-}
+// Place enum + getPlace() live in pass_common.h (shared with coarticulation
+// and boundary smoothing).  We use them directly via cluster_blend.h.
 
 // ── Consonant manner class (for per-class blend strength) ───────────────
 

@@ -13,10 +13,10 @@ namespace nvsp_frontend::passes {
 
 // Cluster blend — C→C articulatory anticipation.
 //
-// Sets endCf targets on the first consonant of a cluster so its formants
-// ramp toward the second consonant's place of articulation.  This creates
-// gestural overlap: e.g. /n/ before /k/ starts moving toward velar territory
-// before the velar burst arrives.
+// Tints C2's start formants toward C1 and sets endCf on C2 back to canonical,
+// so the DSP ramps from the tinted start to the true target.  This creates
+// gestural overlap: e.g. /k/ after /n/ begins with a velar-nasal spectral
+// trace that fades into the canonical /k/ burst.
 //
 // Complements cluster_timing (duration) and boundary_smoothing (fade speed)
 // by adding spectral anticipation to consonant clusters.
