@@ -1,33 +1,29 @@
 # Spanish (Mexico) (es-mx)
-# Inherits from: default.yaml -> es.yaml
+# Inherits from: default.yaml -> es.yaml -> es-mx.yaml
+#
+# es.yaml provides: all shared Spanish settings, classes (VOWELS, SMOOTB),
+# and normalization rules (phoneme remaps, cluster separations, lenition).
+# This file adds Mexican-specific overrides.
 
-settings: {}
-settings:
-  spellingDiphthongMode: none
-  stopClosureAfterNasalsEnabled: false
-  segmentBoundarySkipVowelToLiquid: false
-  postStopAspirationEnabled: false
-  coarticulationEnabled: false
-  coarticulationFadeIntoConsonants: false
-  coarticulationVelarPinchEnabled: false
-  coarticulationGraduated: false
-  coarticulationAdjacencyMaxConsonants: 2
-  phraseFinalLengtheningEnabled: false
-  phraseFinalLengtheningNucleusOnlyMode: false
-  microprosodyEnabled: false
-  microprosodyVoicelessF0RaiseEnabled: false
-  microprosodyVoicedF0LowerEnabled: false
-  rateReductionEnabled: false
-  nasalizationAnticipatoryEnabled: false
-  liquidDynamics:
-    enabled: false
-  lengthContrast:
-    enabled: false
-  allophoneRules:
-    enabled: false
-  boundarySmoothing:
-    enabled: false
-  trajectoryLimit:
-    enabled: false
-    applyAcrossWordBoundary: false
-  stopClosureMode: always
+normalization:
+  # Skip Castilian-specific rules inherited from es.yaml.
+  # Mexican /x/ is softer — the base x phoneme already sounds right.
+  # Mexican /s/ is laminal, not apical — s_mx provides the right character.
+  skipReplacements:
+    - from: x
+      to: x_es
+    - from: s
+      to: s_es
+
+  preReplacements:
+    # Mexican yeísmo: espeak es-419 emits "jj" for intervocalic ll
+    # (e.g. calle → kˈajje, pollo → pˈojjo).
+    # Collapse to single palatal fricative before es.yaml's j → j_es fires,
+    # otherwise the doubled j produces two separate beats.
+    - from: "jj"
+      to: "ʝ"
+
+  replacements:
+    # Mexican laminal /s/ — brighter and more diffuse than Castilian apical.
+    - from: s
+      to: s_mx

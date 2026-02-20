@@ -2061,6 +2061,54 @@ phonemes:
     pf5: 3750
     pf6: 5250
     voiceAmplitude: 0
+  s_mx:
+    # Mexican laminal /s/ — tongue blade produces a brighter, more diffuse
+    # sibilant than Castilian apical s_es. Energy spread across F5+F6 rather
+    # than concentrated at F5. Slightly higher spectral center.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: false
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 220
+    cb2: 60
+    cb3: 150
+    cb4: 350
+    cb5: 500
+    cb6: 1500
+    cbN0: 100
+    cbNP: 100
+    cf1: 320
+    cf2: 1390
+    cf3: 2530
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.9
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0.15
+    pa5: 0.35
+    pa6: 0.65
+    parallelBypass: 0
+    pb1: 200
+    pb2: 80
+    pb3: 200
+    pb4: 350
+    pb5: 500
+    pb6: 1815
+    pf1: 320
+    pf2: 1390
+    pf3: 2530
+    pf4: 3300
+    pf5: 3850
+    pf6: 5250
+    voiceAmplitude: 0
   t:
     # Alveolar stop
     _isLiquid: false
