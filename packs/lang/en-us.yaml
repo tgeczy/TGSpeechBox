@@ -161,7 +161,7 @@ settings:
   diphthongCollapse:
     enabled: true
     durationFloorMs: 60
-    onsetHoldExponent: 1.4
+    onsetHoldExponent: 1.7
     microFrameIntervalMs: 12
   lengthContrast:
     enabled: false
