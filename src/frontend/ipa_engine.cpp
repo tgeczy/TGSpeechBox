@@ -1835,7 +1835,7 @@ static void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
     if (prevReal >= 0) {
       Token& prev = tokens[prevReal];
 
-      const bool prevVowelLike = tokenIsVowel(prev) || tokenIsSemivowel(prev);
+      const bool prevVowelLike = tokenIsVowel(prev);  // onset must be a vowel, not a semivowel
       const bool curVowelLike = tokenIsVowel(cur) || tokenIsSemivowel(cur);
 
       // Only consider within-syllable vowel-like sequences.

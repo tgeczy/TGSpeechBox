@@ -51,6 +51,7 @@ settings:
   englishLongUKey: "ᵿ"
 
   spellingDiphthongMode: monophthong
+  autoTieDiphthongs: true
 
   # Shorten semivowel offglides (e.g. /w/ in "why" /waɪ/, /j/ in "yes" /jɛs/).
   # Keeps glide-like segments quick and natural-sounding.
@@ -609,20 +610,9 @@ normalization:
     - from: "a͡ʊ"
       to:   "ɑ͡ʊ"
 
-    # Inject tie bars for FACE, GOAT, and CHOICE diphthongs.
-    # eSpeak outputs bare vowel pairs (eɪ, oʊ, ɔɪ) without tie bars.
-    # The tie bar tells the tokenizer to set tiedTo/tiedFrom flags, which
-    # the diphthong collapse pass uses to merge them into a single token
-    # with cosine-smoothed formant micro-frames.
-    # PRICE/MOUTH already get tie bars from the ɑ͡ɪ/ɑ͡ʊ rules above.
-    # NOTE: autoTieDiphthongs is intentionally OFF — it falsely ties
-    # semivowel+vowel pairs like w+ɪ in "quick", "with", "which".
-    - from: "eɪ"
-      to:   "e͡ɪ"
-    - from: "oʊ"
-      to:   "o͡ʊ"
-    - from: "ɔɪ"
-      to:   "ɔ͡ɪ"
+    # FACE/GOAT/CHOICE diphthongs: autoTieDiphthongs handles tying now.
+    # The onset-must-be-vowel fix prevents false ties on w+ɪ (quick/with).
+    # PRICE/MOUTH still get explicit tie bars from the ɑ͡ɪ/ɑ͡ʊ rules above.
 
     # FORCE vowels: The vowel before R gets swallowed too quickly.
     # Some consonants (f, m, b, d, st, word-initial) cause extra shortening.
