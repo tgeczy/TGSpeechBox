@@ -52,6 +52,7 @@ settings:
 
   spellingDiphthongMode: monophthong
   autoTieDiphthongs: true
+  autoDiphthongOffglideToSemivowel: false
 
   # Shorten semivowel offglides (e.g. /w/ in "why" /waɪ/, /j/ in "yes" /jɛs/).
   # Keeps glide-like segments quick and natural-sounding.
