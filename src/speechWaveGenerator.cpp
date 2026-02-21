@@ -21,8 +21,6 @@ Licensed under the MIT License. See LICENSE for details.
 #include "resonator.h"
 #include "formantGenerator.h"
 
-using namespace std;
-
 // ============================================================================
 // Source-tract coupling strength
 // ============================================================================
