@@ -195,6 +195,16 @@ msgstr "Fujisaki"
 
 #. Combo box choice
 #: synthDrivers/tgspeechbox/__init__.py
+msgid "Impulse"
+msgstr "Impulso"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Klatt"
+msgstr "Klatt"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
 msgid "Classic"
 msgstr "Clásico"
 
@@ -1444,6 +1454,116 @@ msgstr "Fujisaki Amplitud de Acento Primario"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Secondary Accent Amp"
 msgstr "Fujisaki Amplitud de Acento Secundario"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Assertiveness"
+msgstr "Impulso Asertividad"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Continuation Rise (Hz)"
+msgstr "Impulso Subida de Continuación (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Declination Hz Per Sec"
+msgstr "Impulso Declinación Hz Por Seg"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse First Stress Boost (Hz)"
+msgstr "Impulso Refuerzo del Primer Acento (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Fourth Stress Boost (Hz)"
+msgstr "Impulso Refuerzo del Cuarto Acento (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Question Reduction"
+msgstr "Impulso Reducción en Preguntas"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Question Rise (Hz)"
+msgstr "Impulso Subida en Preguntas (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Second Stress Boost (Hz)"
+msgstr "Impulso Refuerzo del Segundo Acento (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Smooth Alpha"
+msgstr "Impulso Alfa de Suavizado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Terminal Fall (Hz)"
+msgstr "Impulso Caída Final (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Third Stress Boost (Hz)"
+msgstr "Impulso Refuerzo del Tercer Acento (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Continuation Rise (Hz)"
+msgstr "Klatt Subida de Continuación (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Declination Hz Per Sec"
+msgstr "Klatt Declinación Hz Por Seg"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Final Fall Below Base (Hz)"
+msgstr "Klatt Caída Final Bajo Base (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Glottal Lower (Hz)"
+msgstr "Klatt Descenso Glotal (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Hat Rise (Hz)"
+msgstr "Klatt Subida del Sombrero (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Question Rise (Hz)"
+msgstr "Klatt Subida en Preguntas (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Smooth Alpha"
+msgstr "Klatt Alfa de Suavizado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress1 (Hz)"
+msgstr "Klatt Acento1 (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress2 (Hz)"
+msgstr "Klatt Acento2 (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress3 (Hz)"
+msgstr "Klatt Acento3 (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress4 (Hz)"
+msgstr "Klatt Acento4 (Hz)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

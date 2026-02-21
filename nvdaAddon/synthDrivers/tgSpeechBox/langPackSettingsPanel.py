@@ -525,6 +525,32 @@ def _getPanelClass():
                 "fujisakiPrimaryAccentAmp",
                 "fujisakiSecondaryAccentAmp",
 
+                # --- Impulse pitch model ---
+                "impulseAssertiveness",
+                "impulseContinuationRiseHz",
+                "impulseDeclinationHzPerSec",
+                "impulseFirstStressBoostHz",
+                "impulseFourthStressBoostHz",
+                "impulseQuestionReduction",
+                "impulseQuestionRiseHz",
+                "impulseSecondStressBoostHz",
+                "impulseSmoothAlpha",
+                "impulseTerminalFallHz",
+                "impulseThirdStressBoostHz",
+
+                # --- Klatt hat-pattern pitch model ---
+                "klattContinuationRiseHz",
+                "klattDeclinationHzPerSec",
+                "klattFinalFallBelowBaseHz",
+                "klattGlottalLowerHz",
+                "klattHatRiseHz",
+                "klattQuestionRiseHz",
+                "klattSmoothAlpha",
+                "klattStress1Hz",
+                "klattStress2Hz",
+                "klattStress3Hz",
+                "klattStress4Hz",
+
                 # --- Hungarian / language-specific ---
                 "applyLengthenedScaleToVowelsOnly",
                 "huShortAVowelEnabled",

@@ -184,6 +184,16 @@ msgstr "Fujisaki"
 
 #. Combo box choice
 #: synthDrivers/tgspeechbox/__init__.py
+msgid "Impulse"
+msgstr "Impulzus"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Klatt"
+msgstr "Klatt"
+
+#. Combo box choice
+#: synthDrivers/tgspeechbox/__init__.py
 msgid "Classic"
 msgstr "Klasszikus"
 
@@ -1423,6 +1433,116 @@ msgstr "Fujisaki Elsődleges hangsúly amplitúdó"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Secondary Accent Amp"
 msgstr "Fujisaki Másodlagos hangsúly amplitúdó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Assertiveness"
+msgstr "Impulzus Magabiztosság"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Continuation Rise (Hz)"
+msgstr "Impulzus Folytatási emelkedés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Declination Hz Per Sec"
+msgstr "Impulzus Deklináció Hz/mp"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse First Stress Boost (Hz)"
+msgstr "Impulzus Első hangsúly erősítés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Fourth Stress Boost (Hz)"
+msgstr "Impulzus Negyedik hangsúly erősítés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Question Reduction"
+msgstr "Impulzus Kérdő csökkentés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Question Rise (Hz)"
+msgstr "Impulzus Kérdő emelkedés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Second Stress Boost (Hz)"
+msgstr "Impulzus Második hangsúly erősítés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Smooth Alpha"
+msgstr "Impulzus Simítási alfa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Terminal Fall (Hz)"
+msgstr "Impulzus Végső esés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Third Stress Boost (Hz)"
+msgstr "Impulzus Harmadik hangsúly erősítés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Continuation Rise (Hz)"
+msgstr "Klatt Folytatási emelkedés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Declination Hz Per Sec"
+msgstr "Klatt Deklináció Hz/mp"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Final Fall Below Base (Hz)"
+msgstr "Klatt Végső esés alap alatt (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Glottal Lower (Hz)"
+msgstr "Klatt Glottális süllyedés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Hat Rise (Hz)"
+msgstr "Klatt Kalap emelkedés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Question Rise (Hz)"
+msgstr "Klatt Kérdő emelkedés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Smooth Alpha"
+msgstr "Klatt Simítási alfa"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress1 (Hz)"
+msgstr "Klatt Hangsúly1 (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress2 (Hz)"
+msgstr "Klatt Hangsúly2 (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress3 (Hz)"
+msgstr "Klatt Hangsúly3 (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Stress4 (Hz)"
+msgstr "Klatt Hangsúly4 (Hz)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
