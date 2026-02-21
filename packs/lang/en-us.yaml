@@ -141,6 +141,7 @@ settings:
     # MacinTalk: word-medial unstressed at 55%, others at 70%.
     # 0.85 is conservative but gives more rhythmic contrast than 0.92.
     durationProminentFloorMs: 55
+    durationPrimaryFloorMs: 95
     durationReducedCeiling: 0.85
 
     # Amplitude: subtle contour shaping

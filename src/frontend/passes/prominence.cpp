@@ -180,6 +180,44 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
     t.prominence = std::max(0.0, std::min(1.0, score));
   }
 
+  // ── Pass 1b: Monosyllable prominence floor ──
+  //
+  // Content monosyllables ("box", "cat", "top") are always prominent
+  // in English even when eSpeak omits the stress mark. Without this,
+  // they score 0.0 and hit the reducedCeiling penalty, making them
+  // sound clipped and sharp.
+  //
+  // Heuristic: if a word contains exactly one vowel and that vowel's
+  // prominence is below secondaryLevel, boost it to secondaryLevel.
+  // This prevents reduction without over-promoting — the vowel gets
+  // secondary-stress treatment (adequate duration) rather than primary.
+
+  const double monoFloor = secondaryLevel;  // 0.6 by default
+
+  for (size_t w = 0; w < words.size(); ++w) {
+    const size_t wStart = words[w].start;
+    const size_t wEnd   = (w + 1 < words.size()) ? words[w + 1].start : tokens.size();
+
+    // Count vowels and find the single vowel if monosyllabic.
+    int vowelCount = 0;
+    int monoVowelIdx = -1;
+    for (size_t i = wStart; i < wEnd; ++i) {
+      if (isSilenceOrMissing(tokens[i])) continue;
+      if (tokens[i].tiedFrom) continue;  // don't count diphthong offglides
+      if (isVowel(tokens[i])) {
+        vowelCount++;
+        monoVowelIdx = static_cast<int>(i);
+      }
+    }
+
+    if (vowelCount == 1 && monoVowelIdx >= 0) {
+      Token& v = tokens[monoVowelIdx];
+      if (v.prominence >= 0.0 && v.prominence < monoFloor) {
+        v.prominence = monoFloor;
+      }
+    }
+  }
+
   // ── Pass 2: Duration realization ──
   //
   // Threshold-based vowel duration scaling:
@@ -188,9 +226,10 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
   //   prominence <  0.3 → unstressed       → apply reducedCeiling
   //   prominence >= 0.4 → apply floor (safety net)
 
-  const double floorMs     = lang.prominenceDurationProminentFloorMs;
-  const double reducedCeil = lang.prominenceDurationReducedCeiling;
-  const double speed       = ctx.speed;
+  const double floorMs        = lang.prominenceDurationProminentFloorMs;
+  const double primaryFloorMs = lang.prominenceDurationPrimaryFloorMs;
+  const double reducedCeil    = lang.prominenceDurationReducedCeiling;
+  const double speed          = ctx.speed;
 
   for (Token& t : tokens) {
     if (isSilenceOrMissing(t) || !isVowel(t)) continue;
@@ -204,6 +243,14 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
       t.durationMs *= primaryW;
     } else if (t.prominence >= 0.4) {
       t.durationMs *= secondaryW;
+    }
+
+    // Primary stress floor — prevents short monophthongs like /ɒ/ in
+    // "box" from sounding clipped. Skips diphthong nuclei (tiedTo) since
+    // they already have the offglide adding perceived duration.
+    if (t.prominence >= 0.9 && primaryFloorMs > 0.0 && !t.tiedTo) {
+      double effectivePFloor = primaryFloorMs / speed;
+      t.durationMs = std::max(t.durationMs, effectivePFloor);
     }
 
     // Safety floor for prominent vowels

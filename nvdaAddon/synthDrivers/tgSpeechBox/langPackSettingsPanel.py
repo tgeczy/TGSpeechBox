@@ -399,6 +399,7 @@ def _getPanelClass():
                 # --- Prominence ---
                 "prominence.amplitudeBoostDb",
                 "prominence.amplitudeReductionDb",
+                "prominence.durationPrimaryFloorMs",
                 "prominence.durationProminentFloorMs",
                 "prominence.durationReducedCeiling",
                 "prominence.enabled",

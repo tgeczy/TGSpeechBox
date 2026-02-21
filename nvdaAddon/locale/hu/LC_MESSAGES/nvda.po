@@ -2001,6 +2001,11 @@ msgstr "Prominencia Amplitúdó csökkentés (dB)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Duration Primary Floor (ms)"
+msgstr "Prominencia Időtartam elsődleges alsó határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence Duration Prominent Floor (ms)"
 msgstr "Prominencia Időtartam kiemelkedő alsó határ (ms)"
 
@@ -2063,6 +2068,11 @@ msgstr "Prominencia: Amplitúdó erősítés (dB)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence: Amplitude Reduction (dB)"
 msgstr "Prominencia: Amplitúdó csökkentés (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Duration Primary Floor (ms)"
+msgstr "Prominencia: Időtartam elsődleges alsó határ (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

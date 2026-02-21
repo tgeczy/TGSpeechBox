@@ -768,6 +768,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getNumFrom(*pr, "wordInitialBoost", lp.prominenceWordInitialBoost);
     getNumFrom(*pr, "wordFinalReduction", lp.prominenceWordFinalReduction);
     getNumFrom(*pr, "durationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
+    getNumFrom(*pr, "durationPrimaryFloorMs", lp.prominenceDurationPrimaryFloorMs);
     getNumFrom(*pr, "durationReducedCeiling", lp.prominenceDurationReducedCeiling);
     getNumFrom(*pr, "amplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
     getNumFrom(*pr, "amplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
@@ -783,6 +784,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("prominenceWordInitialBoost", lp.prominenceWordInitialBoost);
   getNum("prominenceWordFinalReduction", lp.prominenceWordFinalReduction);
   getNum("prominenceDurationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
+  getNum("prominenceDurationPrimaryFloorMs", lp.prominenceDurationPrimaryFloorMs);
   getNum("prominenceDurationReducedCeiling", lp.prominenceDurationReducedCeiling);
   getNum("prominenceAmplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
   getNum("prominenceAmplitudeReductionDb", lp.prominenceAmplitudeReductionDb);

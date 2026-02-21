@@ -917,6 +917,7 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
 
   // Realization: duration safety nets
   double prominenceDurationProminentFloorMs = 0.0;
+  double prominenceDurationPrimaryFloorMs = 0.0;  // Floor for primary-stressed vowels only
   double prominenceDurationReducedCeiling = 1.0;
 
   // Realization: amplitude

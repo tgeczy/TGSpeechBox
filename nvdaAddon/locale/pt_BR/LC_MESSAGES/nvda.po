@@ -2001,6 +2001,11 @@ msgstr "Proeminência Redução de Amplitude (dB)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Duration Primary Floor (ms)"
+msgstr "Proeminência Piso de Duração Primária (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence Duration Prominent Floor (ms)"
 msgstr "Proeminência Piso de Duração Proeminente (ms)"
 
@@ -2063,6 +2068,11 @@ msgstr "Proeminência: Reforço de Amplitude (dB)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence: Amplitude Reduction (dB)"
 msgstr "Proeminência: Redução de Amplitude (dB)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Duration Primary Floor (ms)"
+msgstr "Proeminência: Piso de Duração Primária (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
