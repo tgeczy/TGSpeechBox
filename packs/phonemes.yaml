@@ -1881,6 +1881,7 @@ phonemes:
     _isVowel: false
     burstDurationMs: 5
     burstDecayRate: 0.6
+    burstSpectralTilt: 0.0
     durationScale: 1.1
     aspirationAmplitude: 0.40
     caNP: 0
@@ -1901,12 +1902,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.75
-    pa1: 0.25
-    pa2: 0.30
-    pa3: 0.25
-    pa4: 0.20
-    pa5: 0.10
-    pa6: 0.08
+    pa1: 0.30
+    pa2: 0.35
+    pa3: 0.20
+    pa4: 0.08
+    pa5: 0.04
+    pa6: 0.02
     parallelBypass: 0.08
     pb1: 280
     pb2: 140
@@ -2116,6 +2117,7 @@ phonemes:
     _isStop: true
     burstDurationMs: 7
     burstDecayRate: 0.5
+    burstSpectralTilt: 0.15
     _isVoiced: false
     _isVowel: false
     aspirationAmplitude: 0.40
@@ -2137,12 +2139,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.92
-    pa1: 0.12
-    pa2: 0.50
-    pa3: 0.40
-    pa4: 0.10
-    pa5: 0
-    pa6: 0.40
+    pa1: 0.06
+    pa2: 0.30
+    pa3: 0.35
+    pa4: 0.25
+    pa5: 0.16
+    pa6: 0.15
     parallelBypass: 0
     pb1: 280
     pb2: 110
