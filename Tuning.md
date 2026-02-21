@@ -508,11 +508,13 @@ These values control the base duration of each phoneme type (ms at speed=1.0). T
 
 ### Pitch model selection
 
-The frontend supports three pitch models, selected via `legacyPitchMode`:
+The frontend supports five pitch models, selected via `legacyPitchMode`:
 
-- `legacyPitchMode: "espeak_style"` (default) — Table-based intonation model (same contours as `ipa.py`).
-- `legacyPitchMode: "legacy"` — Older time-based pitch curves ported from the ee80f4d-era `ipa.py`.
+- `legacyPitchMode: "espeak_style"` (default) — Table-based intonation using ToBI-style regions (pre-head, head, nucleus, tail). The utterance is divided by stressed syllables, and each region gets a linear pitch path from `IntonationClause` parameters. The head section uses stepped pitch that cycles through `headSteps`, giving a characteristic eSpeak-like cadence.
+- `legacyPitchMode: "legacy"` — Time-based pitch curves ported from the ee80f4d-era `ipa.py`. Gentle declination across the clause with stress accents on vowel nuclei. Produces a predictable "classic" screen reader prosody, especially at higher rates.
 - `legacyPitchMode: "fujisaki_style"` — Fujisaki pitch model with exponential declination and accent peaks. This provides Eloquence-like intonation with smooth phrase-level pitch fall, stressed syllable peaks, and clause-final pitch shaping.
+- `legacyPitchMode: "impulse_style"` — Additive impulse pitch model. Linear declination baseline with count-based stress peaks that diminish across the utterance (first stress gets the largest boost, subsequent stresses progressively smaller). Terminal gestures shape the final vowel by clause type. A two-pole IIR smoothing filter removes discontinuities, producing warm rounded pitch bumps.
+- `legacyPitchMode: "klatt_style"` — Klatt 1987 hat-pattern intonation model. A three-state machine (BEFORE_HAT / ON_HAT / AFTER_HAT): pitch starts at a declining baseline, rises sharply on the first primary-stressed syllable, sustains a raised plateau with diminishing per-stress peaks, then falls back below baseline on the final stressed syllable. Statements get glottal lowering on the final vowel; questions rise instead of falling. Single-pole IIR smoothing.
 
 Additional pitch settings:
 
@@ -562,6 +564,68 @@ settings:
 ```
 
 *Note: The Fujisaki pitch model implementation was developed with assistance from Rommix, whose extensive testing and feedback on timing parameters helped shape the final behavior.*
+
+#### Impulse pitch model settings
+
+When `legacyPitchMode: "impulse_style"` is enabled, these settings control the intonation:
+
+**Declination:**
+- `impulseDeclinationHzPerSec` (number, default `12.0`): Linear pitch fall rate in Hz per second. Higher values = steeper declination across the utterance.
+
+**Stress peaks (count-based diminishing boosts):**
+- `impulseFirstStressBoostHz` (number, default `20.0`): Pitch boost (Hz) on the first primary-stressed vowel.
+- `impulseSecondStressBoostHz` (number, default `9.0`): Boost on the second stressed vowel.
+- `impulseThirdStressBoostHz` (number, default `6.0`): Boost on the third stressed vowel.
+- `impulseFourthStressBoostHz` (number, default `4.0`): Boost on all subsequent stressed vowels.
+- `impulseQuestionReduction` (number, default `0.5`): Multiplier applied to stress peaks in questions (flattens peaks to leave room for the terminal rise).
+
+**Terminal gestures (applied to the last vowel in the final word):**
+- `impulseTerminalFallHz` (number, default `20.0`): Pitch drop for declarative/exclamatory endings.
+- `impulseQuestionRiseHz` (number, default `25.0`): Pitch rise for questions.
+- `impulseContinuationRiseHz` (number, default `12.0`): Pitch rise for commas/continuations.
+- `impulseAssertiveness` (number, default `1.0`): Multiplier on the terminal fall. Values > 1 make statements sound more emphatic.
+
+**Smoothing:**
+- `impulseSmoothAlpha` (number, default `0.3`): IIR low-pass filter coefficient (0..1). Lower = smoother contour with more rounded bumps; higher = more responsive to individual stress peaks. Applied in two consecutive forward passes for a second-order effect.
+
+Example configuration:
+```yaml
+settings:
+  legacyPitchMode: "impulse_style"
+  impulseDeclinationHzPerSec: 12.0
+  impulseFirstStressBoostHz: 20.0
+  impulseSmoothAlpha: 0.3
+```
+
+#### Klatt hat-pattern pitch model settings
+
+When `legacyPitchMode: "klatt_style"` is enabled, these settings control the intonation:
+
+**Hat rise and stress peaks:**
+- `klattHatRiseHz` (number, default `30.0`): Pitch step-up (Hz) when entering the hat plateau on the first primary-stressed vowel. Scaled by inflection.
+- `klattStress1Hz` (number, default `28.0`): Additive pitch peak on the 1st stressed vowel on the plateau.
+- `klattStress2Hz` (number, default `16.0`): Peak on the 2nd stressed vowel.
+- `klattStress3Hz` (number, default `13.0`): Peak on the 3rd stressed vowel.
+- `klattStress4Hz` (number, default `11.0`): Peak on all subsequent stressed vowels.
+
+**Declination and terminal gestures:**
+- `klattDeclinationHzPerSec` (number, default `10.0`): Linear baseline declination rate.
+- `klattFinalFallBelowBaseHz` (number, default `21.0`): How far below baseline the pitch drops on the hat fall for statements/exclamations.
+- `klattQuestionRiseHz` (number, default `35.0`): Pitch rise on the last stressed vowel for questions (instead of a fall).
+- `klattContinuationRiseHz` (number, default `15.0`): Pitch rise for commas/continuations.
+- `klattGlottalLowerHz` (number, default `15.0`): Additional pitch drop on the very last vowel for statements/exclamations. Simulates glottal lowering at utterance end.
+
+**Smoothing:**
+- `klattSmoothAlpha` (number, default `0.4`): Single-pole IIR smoothing coefficient (0..1). Lower = smoother transitions between hat states; higher = more abrupt transitions.
+
+Example configuration:
+```yaml
+settings:
+  legacyPitchMode: "klatt_style"
+  klattHatRiseHz: 30.0
+  klattFinalFallBelowBaseHz: 21.0
+  klattSmoothAlpha: 0.4
+```
 
 ### Tonal language support
 - `tonal` (bool, default `false`): Enables tone parsing / tone contours.
