@@ -218,6 +218,47 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
     }
   }
 
+  // ── Pass 1c: Full-vowel protection ──
+  //
+  // In English, full vowels (not schwa/reduced-ɪ) are almost never
+  // truly unstressed. When eSpeak omits secondary stress on compound
+  // word second elements ("Firefox", "laptop", "desktop"), the full
+  // vowel should not be reduced. Boost it to a minimum floor so it
+  // avoids the reducedCeiling penalty and gets the duration floor.
+
+  const double fullVowelFloor = lang.prominenceFullVowelFloor;
+  if (fullVowelFloor > 0.0) {
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      Token& t = tokens[i];
+      if (isSilenceOrMissing(t) || !isVowel(t)) continue;
+      if (t.tiedFrom) continue;
+      if (t.prominence < 0.0) continue;
+      if (t.prominence >= fullVowelFloor) continue;
+
+      // Reduced vowels that genuinely deserve low prominence.
+      // Everything NOT in this list is considered "full" and gets
+      // the floor applied.
+      bool isReduced = false;
+      if (t.baseChar != 0) {
+        switch (t.baseChar) {
+          case U'\u0259':  // ə  schwa
+          case U'\u0250':  // ɐ  near-open central
+          case U'\u1D4A':  // ᵊ  modifier schwa
+          case U'\u0268':  // ɨ  barred-i
+          case U'\u1D7B':  // ᵻ  barred-ɪ
+            isReduced = true;
+            break;
+          default:
+            break;
+        }
+      }
+
+      if (!isReduced) {
+        t.prominence = fullVowelFloor;
+      }
+    }
+  }
+
   // ── Pass 2: Duration realization ──
   //
   // Threshold-based vowel duration scaling:

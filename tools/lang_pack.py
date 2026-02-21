@@ -392,6 +392,7 @@ class LanguagePack:
     prominence_duration_prominent_floor_ms: float = 0.0
     prominence_duration_primary_floor_ms: float = 0.0
     prominence_duration_reduced_ceiling: float = 1.0
+    prominence_full_vowel_floor: float = 0.0
     prominence_amplitude_boost_db: float = 0.0
     prominence_amplitude_reduction_db: float = 0.0
     prominence_pitch_from_prominence: bool = False
@@ -868,6 +869,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.prominence_duration_prominent_floor_ms = gn("prominenceDurationProminentFloorMs", lp.prominence_duration_prominent_floor_ms)
     lp.prominence_duration_primary_floor_ms = gn("prominenceDurationPrimaryFloorMs", lp.prominence_duration_primary_floor_ms)
     lp.prominence_duration_reduced_ceiling = gn("prominenceDurationReducedCeiling", lp.prominence_duration_reduced_ceiling)
+    lp.prominence_full_vowel_floor = gn("prominenceFullVowelFloor", lp.prominence_full_vowel_floor)
     lp.prominence_amplitude_boost_db = gn("prominenceAmplitudeBoostDb", lp.prominence_amplitude_boost_db)
     lp.prominence_amplitude_reduction_db = gn("prominenceAmplitudeReductionDb", lp.prominence_amplitude_reduction_db)
     lp.prominence_pitch_from_prominence = gb("prominencePitchFromProminence", lp.prominence_pitch_from_prominence)
@@ -1023,6 +1025,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.prominence_duration_prominent_floor_ms = _gn_from(_pr, "durationProminentFloorMs", lp.prominence_duration_prominent_floor_ms)
         lp.prominence_duration_primary_floor_ms = _gn_from(_pr, "durationPrimaryFloorMs", lp.prominence_duration_primary_floor_ms)
         lp.prominence_duration_reduced_ceiling = _gn_from(_pr, "durationReducedCeiling", lp.prominence_duration_reduced_ceiling)
+        lp.prominence_full_vowel_floor = _gn_from(_pr, "fullVowelFloor", lp.prominence_full_vowel_floor)
         lp.prominence_amplitude_boost_db = _gn_from(_pr, "amplitudeBoostDb", lp.prominence_amplitude_boost_db)
         lp.prominence_amplitude_reduction_db = _gn_from(_pr, "amplitudeReductionDb", lp.prominence_amplitude_reduction_db)
         lp.prominence_pitch_from_prominence = _gb_from(_pr, "pitchFromProminence", lp.prominence_pitch_from_prominence)

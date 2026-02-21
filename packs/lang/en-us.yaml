@@ -145,6 +145,12 @@ settings:
     durationPrimaryFloorMs: 95
     durationReducedCeiling: 0.85
 
+    # Full-vowel protection: non-schwa vowels with 0 prominence get
+    # boosted to this floor. Prevents compound word second elements
+    # (firefox, laptop, desktop) from being reduced like schwas.
+    # At 0.4 they escape reducedCeiling and get the prominent floor.
+    fullVowelFloor: 0.4
+
     # Amplitude: subtle contour shaping
     amplitudeBoostDb: 0.3
     amplitudeReductionDb: 0.0

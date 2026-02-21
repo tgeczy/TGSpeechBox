@@ -403,6 +403,7 @@ def _getPanelClass():
                 "prominence.durationProminentFloorMs",
                 "prominence.durationReducedCeiling",
                 "prominence.enabled",
+                "prominence.fullVowelFloor",
                 "prominence.longVowelMode",
                 "prominence.longVowelWeight",
                 "prominence.pitchFromProminence",

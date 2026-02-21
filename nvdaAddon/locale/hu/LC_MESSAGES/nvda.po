@@ -2021,6 +2021,11 @@ msgstr "Prominencia Engedélyezve"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Full Vowel Floor"
+msgstr "Prominencia Teljes magánhangzó alsó határ"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence Long Vowel Mode"
 msgstr "Prominencia Hosszú magánhangzó mód"
 
@@ -2088,6 +2093,11 @@ msgstr "Prominencia: Időtartam redukált felső határ"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence: Enabled"
 msgstr "Prominencia: Engedélyezve"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Full Vowel Floor"
+msgstr "Prominencia: Teljes magánhangzó alsó határ"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

@@ -920,6 +920,9 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double prominenceDurationPrimaryFloorMs = 0.0;  // Floor for primary-stressed vowels only
   double prominenceDurationReducedCeiling = 1.0;
 
+  // Full-vowel protection: boost non-schwa vowels that score 0.0
+  double prominenceFullVowelFloor = 0.0;  // 0 = disabled; recommended: 0.4
+
   // Realization: amplitude
   double prominenceAmplitudeBoostDb = 0.0;
   double prominenceAmplitudeReductionDb = 0.0;

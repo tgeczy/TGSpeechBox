@@ -2021,6 +2021,11 @@ msgstr "Proeminência Habilitado"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Full Vowel Floor"
+msgstr "Proeminência Piso de Vogal Plena"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence Long Vowel Mode"
 msgstr "Proeminência Modo de Vogal Longa"
 
@@ -2088,6 +2093,11 @@ msgstr "Proeminência: Teto de Duração Reduzida"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence: Enabled"
 msgstr "Proeminência: Habilitado"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Full Vowel Floor"
+msgstr "Proeminência: Piso de Vogal Plena"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
