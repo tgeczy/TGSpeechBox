@@ -481,6 +481,32 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("fujisakiDeclinationMax", lp.fujisakiDeclinationMax);
   getNum("fujisakiDeclinationPostFloor", lp.fujisakiDeclinationPostFloor);
 
+  // Impulse pitch model parameters (used when legacyPitchMode = "impulse_style")
+  getNum("impulseDeclinationHzPerSec", lp.impulseDeclinationHzPerSec);
+  getNum("impulseFirstStressBoostHz", lp.impulseFirstStressBoostHz);
+  getNum("impulseSecondStressBoostHz", lp.impulseSecondStressBoostHz);
+  getNum("impulseThirdStressBoostHz", lp.impulseThirdStressBoostHz);
+  getNum("impulseFourthStressBoostHz", lp.impulseFourthStressBoostHz);
+  getNum("impulseQuestionReduction", lp.impulseQuestionReduction);
+  getNum("impulseTerminalFallHz", lp.impulseTerminalFallHz);
+  getNum("impulseContinuationRiseHz", lp.impulseContinuationRiseHz);
+  getNum("impulseQuestionRiseHz", lp.impulseQuestionRiseHz);
+  getNum("impulseAssertiveness", lp.impulseAssertiveness);
+  getNum("impulseSmoothAlpha", lp.impulseSmoothAlpha);
+
+  // Klatt hat-pattern pitch model parameters (used when legacyPitchMode = "klatt_style")
+  getNum("klattHatRiseHz", lp.klattHatRiseHz);
+  getNum("klattStress1Hz", lp.klattStress1Hz);
+  getNum("klattStress2Hz", lp.klattStress2Hz);
+  getNum("klattStress3Hz", lp.klattStress3Hz);
+  getNum("klattStress4Hz", lp.klattStress4Hz);
+  getNum("klattDeclinationHzPerSec", lp.klattDeclinationHzPerSec);
+  getNum("klattFinalFallBelowBaseHz", lp.klattFinalFallBelowBaseHz);
+  getNum("klattQuestionRiseHz", lp.klattQuestionRiseHz);
+  getNum("klattContinuationRiseHz", lp.klattContinuationRiseHz);
+  getNum("klattGlottalLowerHz", lp.klattGlottalLowerHz);
+  getNum("klattSmoothAlpha", lp.klattSmoothAlpha);
+
   getBool("postStopAspirationEnabled", lp.postStopAspirationEnabled);
   {
     const yaml_min::Node* n = settings.get("postStopAspirationPhoneme");

@@ -399,6 +399,36 @@ struct LanguagePack {
   double fujisakiDeclinationMax = 1.25;
   double fujisakiDeclinationPostFloor = 0.15;
 
+  // Impulse pitch model parameters (legacyPitchMode = "impulse_style").
+  // Linear declination + count-based stress impulses + boundary terminal
+  // gestures + two-pole lowpass smoothing.  Inspired by Wintalker.
+  double impulseDeclinationHzPerSec = 12.0;
+  double impulseFirstStressBoostHz = 20.0;
+  double impulseSecondStressBoostHz = 9.0;
+  double impulseThirdStressBoostHz = 6.0;
+  double impulseFourthStressBoostHz = 4.0;
+  double impulseQuestionReduction = 0.5;
+  double impulseTerminalFallHz = 20.0;
+  double impulseContinuationRiseHz = 12.0;
+  double impulseQuestionRiseHz = 25.0;
+  double impulseAssertiveness = 1.0;
+  double impulseSmoothAlpha = 0.3;
+
+  // Klatt hat-pattern pitch model parameters (legacyPitchMode = "klatt_style").
+  // Hat rise/plateau/fall, phrase-position stress table, glottal lowering.
+  // Inspired by Klatt 1987 hat-pattern intonation model.
+  double klattHatRiseHz = 30.0;
+  double klattStress1Hz = 28.0;
+  double klattStress2Hz = 16.0;
+  double klattStress3Hz = 13.0;
+  double klattStress4Hz = 11.0;
+  double klattDeclinationHzPerSec = 10.0;
+  double klattFinalFallBelowBaseHz = 21.0;
+  double klattQuestionRiseHz = 35.0;
+  double klattContinuationRiseHz = 15.0;
+  double klattGlottalLowerHz = 15.0;
+  double klattSmoothAlpha = 0.4;
+
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";
 

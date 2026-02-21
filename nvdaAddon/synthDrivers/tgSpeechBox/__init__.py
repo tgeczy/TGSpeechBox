@@ -974,6 +974,8 @@ class SynthDriver(SynthDriver):
         (
             ("espeak_style", VoiceInfo("espeak_style", _("eSpeak style"))),
             ("fujisaki_style", VoiceInfo("fujisaki_style", _("Fujisaki"))),
+            ("impulse_style", VoiceInfo("impulse_style", _("Impulse"))),
+            ("klatt_style", VoiceInfo("klatt_style", _("Klatt"))),
             ("legacy", VoiceInfo("legacy", _("Classic"))),
         )
     )
@@ -1102,7 +1104,7 @@ class SynthDriver(SynthDriver):
             if val in ("false", "False", "0"):
                 return "espeak_style"  # Old "false" meant espeak style
             # Check if it's a valid new-style value
-            if val in ("espeak_style", "fujisaki_style", "legacy"):
+            if val in self._LEGACY_PITCH_MODES:
                 return val
             # Unknown value, return default
             return "espeak_style"

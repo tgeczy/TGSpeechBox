@@ -53,7 +53,11 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/microprosody.cpp \
 	$(PASSESDIR)/nasalization.cpp \
 	$(PASSESDIR)/pass_pipeline.cpp \
+	$(PASSESDIR)/pitch_espeak.cpp \
 	$(PASSESDIR)/pitch_fujisaki.cpp \
+	$(PASSESDIR)/pitch_impulse.cpp \
+	$(PASSESDIR)/pitch_klatt.cpp \
+	$(PASSESDIR)/pitch_legacy.cpp \
 	$(PASSESDIR)/prominence.cpp \
 	$(PASSESDIR)/prosody.cpp \
 	$(PASSESDIR)/rate_compensation.cpp \
@@ -208,7 +212,19 @@ $(BUILDDIR)/syllable_marking.o: $(PASSESDIR)/syllable_marking.cpp
 $(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
+$(BUILDDIR)/pitch_espeak.o: $(PASSESDIR)/pitch_espeak.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
 $(BUILDDIR)/pitch_fujisaki.o: $(PASSESDIR)/pitch_fujisaki.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/pitch_impulse.o: $(PASSESDIR)/pitch_impulse.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/pitch_klatt.o: $(PASSESDIR)/pitch_klatt.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/pitch_legacy.o: $(PASSESDIR)/pitch_legacy.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/prominence.o: $(PASSESDIR)/prominence.cpp
