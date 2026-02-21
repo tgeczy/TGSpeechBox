@@ -1224,6 +1224,7 @@ def _getPanelClass():
             sqSlider = getattr(synth, "_curSpeedQuotient", 50)
             aspTiltSlider = getattr(synth, "_curAspirationTilt", 50)
             bwSlider = getattr(synth, "_curCascadeBwScale", 50)
+            tremorSlider = getattr(synth, "_curVoiceTremor", 0)
             creakSlider = getattr(synth, "_curFrameExCreakiness", 0)
             breathSlider = getattr(synth, "_curFrameExBreathiness", 0)
             jitterSlider = getattr(synth, "_curFrameExJitter", 0)
@@ -1248,6 +1249,10 @@ def _getPanelClass():
                 cascadeBwScale = 1.0 + ((bwSlider - 50.0) / 50.0) * 0.4
             cascadeBwScale = max(0.4, min(1.4, cascadeBwScale))
 
+            # Tremor depth (0-100 -> 0.0-0.4, clamped to 0.0-0.5)
+            tremorDepth = (tremorSlider / 100.0) * 0.4
+            tremorDepth = max(0.0, min(0.5, tremorDepth))
+
             # Convert FrameEx sliders to DSP values
             creakiness = creakSlider / 100.0
             breathiness = breathSlider / 100.0
@@ -1265,7 +1270,8 @@ def _getPanelClass():
                 "  pitchSyncB1DeltaHz: {:.1f}\n"
                 "  speedQuotient: {:.2f}\n"
                 "  aspirationTiltDbPerOct: {:.2f}\n\n"
-                "  cascadeBwScale: {:.2f}\n\n"
+                "  cascadeBwScale: {:.2f}\n"
+                "  tremorDepth: {:.2f}\n\n"
                 "FrameEx:\n"
                 "  creakiness: {:.2f}\n"
                 "  breathiness: {:.2f}\n"
@@ -1276,7 +1282,7 @@ def _getPanelClass():
             ).format(
                 profileName,
                 tiltDbPerOct, noiseModDepth, f1DeltaHz, b1DeltaHz, speedQuotient, aspTiltDbPerOct,
-                cascadeBwScale,
+                cascadeBwScale, tremorDepth,
                 creakiness, breathiness, jitter, shimmer, sharpness,
             )
 
@@ -1302,6 +1308,7 @@ def _getPanelClass():
                     speedQuotient=speedQuotient,
                     aspirationTiltDbPerOct=aspTiltDbPerOct,
                     cascadeBwScale=cascadeBwScale,
+                    tremorDepth=tremorDepth,
                     creakiness=creakiness,
                     breathiness=breathiness,
                     jitter=jitter,
