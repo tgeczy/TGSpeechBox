@@ -579,6 +579,8 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Frontend rule passes (token-level)
   getBool("coarticulationEnabled", lp.coarticulationEnabled);
   getNum("coarticulationStrength", lp.coarticulationStrength);
+  getNum("highRateThreshold", lp.highRateThreshold);
+  getNum("highRateCoarticulationFloor", lp.highRateCoarticulationFloor);
   getNum("coarticulationWordInitialFadeScale", lp.coarticulationWordInitialFadeScale);
   getBool("coarticulationGraduated", lp.coarticulationGraduated);
   getNum("coarticulationAdjacencyMaxConsonants", lp.coarticulationAdjacencyMaxConsonants);
@@ -679,6 +681,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Syllable-aware transition controls
   getNum("boundarySmoothingWithinSyllableScale", lp.boundarySmoothingWithinSyllableScale);
   getNum("boundarySmoothingWithinSyllableFadeScale", lp.boundarySmoothingWithinSyllableFadeScale);
+  getNum("boundarySmoothingHighRateFadeRatioFloor", lp.boundarySmoothingHighRateFadeRatioFloor);
 
   // Trajectory limiting (optional)
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
@@ -944,6 +947,9 @@ if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMa
   // Syllable-aware transition controls.
   getNumFrom(*bs, "withinSyllableScale", lp.boundarySmoothingWithinSyllableScale);
   getNumFrom(*bs, "withinSyllableFadeScale", lp.boundarySmoothingWithinSyllableFadeScale);
+
+  // Rate-adaptive fade ratio floor.
+  getNumFrom(*bs, "highRateFadeRatioFloor", lp.boundarySmoothingHighRateFadeRatioFloor);
 }
 
 if (const yaml_min::Node* ss = settings.get("syllableStructure"); ss && ss->isMap()) {

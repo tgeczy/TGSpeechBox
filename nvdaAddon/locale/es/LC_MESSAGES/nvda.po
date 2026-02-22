@@ -812,6 +812,11 @@ msgstr "Suavizado de Límites: F3 Escala"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: High Rate Fade Ratio Floor"
+msgstr "Suavizado de Límites: Piso de Relación de Fundido a Alta Velocidad"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Boundary Smoothing: Fric To Stop Fade (ms)"
 msgstr "Suavizado de Límites: Fundido de Fricativa a Oclusiva (ms)"
 
@@ -1454,6 +1459,16 @@ msgstr "Fujisaki Amplitud de Acento Primario"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Secondary Accent Amp"
 msgstr "Fujisaki Amplitud de Acento Secundario"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "High Rate Coarticulation Floor"
+msgstr "Piso de Coarticulación a Alta Velocidad"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "High Rate Threshold"
+msgstr "Umbral de Alta Velocidad"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

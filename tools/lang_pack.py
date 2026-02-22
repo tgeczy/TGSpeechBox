@@ -289,6 +289,8 @@ class LanguagePack:
     coarticulation_velar_pinch_f2_scale: float = 0.9
     coarticulation_velar_pinch_f3: float = 2400.0
     coarticulation_cross_syllable_scale: float = 0.70
+    high_rate_threshold: float = 2.0
+    high_rate_coarticulation_floor: float = 0.35
     special_coarticulation_enabled: bool = False
     special_coartic_max_delta_hz: float = 400.0
     cluster_timing_enabled: bool = False
@@ -337,6 +339,7 @@ class LanguagePack:
     boundary_smoothing_velar_f3_scale: float = 0.60
     boundary_smoothing_within_syllable_scale: float = 1.5
     boundary_smoothing_within_syllable_fade_scale: float = 1.3
+    boundary_smoothing_high_rate_fade_ratio_floor: float = 0.40
     boundary_smoothing_vowel_to_stop_ms: float = 22.0
     boundary_smoothing_stop_to_vowel_ms: float = 20.0
     boundary_smoothing_vowel_to_fric_ms: float = 18.0
@@ -767,6 +770,8 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.coarticulation_velar_pinch_f2_scale = gn("coarticulationVelarPinchF2Scale", lp.coarticulation_velar_pinch_f2_scale)
     lp.coarticulation_velar_pinch_f3 = gn("coarticulationVelarPinchF3", lp.coarticulation_velar_pinch_f3)
     lp.coarticulation_cross_syllable_scale = gn("coarticulationCrossSyllableScale", lp.coarticulation_cross_syllable_scale)
+    lp.high_rate_threshold = gn("highRateThreshold", lp.high_rate_threshold)
+    lp.high_rate_coarticulation_floor = gn("highRateCoarticulationFloor", lp.high_rate_coarticulation_floor)
     lp.special_coarticulation_enabled = gb("specialCoarticulationEnabled", lp.special_coarticulation_enabled)
     lp.special_coartic_max_delta_hz = gn("specialCoarticMaxDeltaHz", lp.special_coartic_max_delta_hz)
     lp.cluster_timing_enabled = gb("clusterTimingEnabled", lp.cluster_timing_enabled)
@@ -831,6 +836,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.boundary_smoothing_velar_f3_scale = gn("boundarySmoothingVelarF3Scale", lp.boundary_smoothing_velar_f3_scale)
     lp.boundary_smoothing_within_syllable_scale = gn("boundarySmoothingWithinSyllableScale", lp.boundary_smoothing_within_syllable_scale)
     lp.boundary_smoothing_within_syllable_fade_scale = gn("boundarySmoothingWithinSyllableFadeScale", lp.boundary_smoothing_within_syllable_fade_scale)
+    lp.boundary_smoothing_high_rate_fade_ratio_floor = gn("boundarySmoothingHighRateFadeRatioFloor", lp.boundary_smoothing_high_rate_fade_ratio_floor)
     lp.trajectory_limit_enabled = gb("trajectoryLimitEnabled", lp.trajectory_limit_enabled)
     lp.trajectory_limit_window_ms = gn("trajectoryLimitWindowMs", lp.trajectory_limit_window_ms)
     lp.trajectory_limit_apply_across_word_boundary = gb("trajectoryLimitApplyAcrossWordBoundary", lp.trajectory_limit_apply_across_word_boundary)
@@ -1091,6 +1097,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.boundary_smoothing_velar_f3_scale = _gn_from(_bs, "velarF3Scale", lp.boundary_smoothing_velar_f3_scale)
         lp.boundary_smoothing_within_syllable_scale = _gn_from(_bs, "withinSyllableScale", lp.boundary_smoothing_within_syllable_scale)
         lp.boundary_smoothing_within_syllable_fade_scale = _gn_from(_bs, "withinSyllableFadeScale", lp.boundary_smoothing_within_syllable_fade_scale)
+        lp.boundary_smoothing_high_rate_fade_ratio_floor = _gn_from(_bs, "highRateFadeRatioFloor", lp.boundary_smoothing_high_rate_fade_ratio_floor)
 
     if "syllableStructure" in s and isinstance(s["syllableStructure"], dict):
         _ss = s["syllableStructure"]

@@ -336,6 +336,7 @@ def _getPanelClass():
                 "boundarySmoothing.velarF3Scale",
                 "boundarySmoothing.withinSyllableFadeScale",
                 "boundarySmoothing.withinSyllableScale",
+                "boundarySmoothing.highRateFadeRatioFloor",
 
                 # --- Cluster blend ---
                 "clusterBlend.defaultPairScale",
@@ -526,6 +527,10 @@ def _getPanelClass():
                 "fujisakiPhraseLen",
                 "fujisakiPrimaryAccentAmp",
                 "fujisakiSecondaryAccentAmp",
+
+                # --- High-rate intelligibility ---
+                "highRateCoarticulationFloor",
+                "highRateThreshold",
 
                 # --- Impulse pitch model ---
                 "impulseAssertiveness",

@@ -133,10 +133,16 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
   const double s2f = lang.boundarySmoothingStopToFricMs / fadeSpeed;
   const double v2v = lang.boundarySmoothingVowelToVowelMs / fadeSpeed;
 
-  // Maximum fade as fraction of token duration (preserve steady-state).
-  // 0.75 allows short phones to be mostly transition (they have no
-  // meaningful steady-state anyway) while still reserving 25% hold.
-  constexpr double kMaxFadeRatio = 0.75;
+  // Rate-adaptive fade ratio: at high speeds, reserve more steady-state time.
+  double maxFadeRatio = 0.75;  // baseline (was kMaxFadeRatio)
+  const double hrThreshold = lang.highRateThreshold;
+  if (hrThreshold > 0.0 && sp > hrThreshold) {
+    const double ceiling = hrThreshold * 2.5;
+    const double t = std::clamp(
+        (sp - hrThreshold) / (ceiling - hrThreshold), 0.0, 1.0);
+    const double floor = std::clamp(lang.boundarySmoothingHighRateFadeRatioFloor, 0.1, 0.75);
+    maxFadeRatio = 0.75 - t * (0.75 - floor);
+  }
 
   // Minimum fade floor (ms).  Prevents the ratio cap from creating
   // near-discontinuities on very short sentence-final phones.
@@ -262,7 +268,7 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
         !voicingFlip && !curAspirationDominant) {
       // Cap fade to fraction of duration to preserve steady-state.
       if (cur.durationMs > 0.0) {
-        const double maxFade = cur.durationMs * kMaxFadeRatio;
+        const double maxFade = cur.durationMs * maxFadeRatio;
         targetFade = std::min(targetFade, maxFade);
         if (targetFade < kMinFadeMs) {
           targetFade = std::min(kMinFadeMs, cur.durationMs);

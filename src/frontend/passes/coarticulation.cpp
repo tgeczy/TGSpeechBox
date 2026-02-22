@@ -236,6 +236,18 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
   const double strength = std::clamp(lang.coarticulationStrength, 0.0, 1.0);
   if (strength <= 0.0) return true;
 
+  // Rate-adaptive attenuation: at high speeds, reduce coarticulation so
+  // resonators spend more time at canonical vowel targets.
+  double rateScale = 1.0;
+  const double hrThreshold = lang.highRateThreshold;
+  if (hrThreshold > 0.0 && ctx.speed > hrThreshold) {
+    const double ceiling = hrThreshold * 2.5;
+    const double t = std::clamp(
+        (ctx.speed - hrThreshold) / (ceiling - hrThreshold), 0.0, 1.0);
+    rateScale = 1.0 - t * (1.0 - std::clamp(lang.highRateCoarticulationFloor, 0.0, 1.0));
+  }
+  const double rateAdjustedStrength = strength * rateScale;
+
   for (size_t i = 0; i < tokens.size(); ++i) {
     Token& t = tokens[i];
     if (t.silence) continue;
@@ -250,7 +262,7 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
           const Token& next = tokens[j];
           if (next.silence) continue;
           if (isVowelLike(next)) {
-            applyVelarPinch(t, next, lang, strength);
+            applyVelarPinch(t, next, lang, rateAdjustedStrength);
           }
           break;
         }
@@ -297,7 +309,7 @@ bool runCoarticulation(PassContext& ctx, std::vector<Token>& tokens, std::string
     if (!leftCons || leftPlace == Place::Unknown) continue;
     
     // Apply graduated strength falloff if enabled (clusters / non-adjacent triggers).
-    double effectiveStrength = strength;
+    double effectiveStrength = rateAdjustedStrength;
     if (lang.coarticulationGraduated && consonantDistance > 0) {
       const int maxCons = std::max(1, (int)std::round(lang.coarticulationAdjacencyMaxConsonants));
       const double df = std::pow(0.6, std::min(consonantDistance, maxCons));

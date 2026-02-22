@@ -791,6 +791,11 @@ msgstr "Határsimítás: F3 skála"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Boundary Smoothing: High Rate Fade Ratio Floor"
+msgstr "Határsimítás: Magas sebesség átfedési arány padló"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Boundary Smoothing: Fric To Stop Fade (ms)"
 msgstr "Határsimítás: Réshangról zárhangra elhalkulás (ms)"
 
@@ -1433,6 +1438,16 @@ msgstr "Fujisaki Elsődleges hangsúly amplitúdó"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Secondary Accent Amp"
 msgstr "Fujisaki Másodlagos hangsúly amplitúdó"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "High Rate Coarticulation Floor"
+msgstr "Magas sebesség koartikuláció padló"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "High Rate Threshold"
+msgstr "Magas sebesség küszöb"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

@@ -650,6 +650,12 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Defaults are conservative.
   bool coarticulationEnabled = true;
   double coarticulationStrength = 0.25;          // 0..1
+
+  // Shared high-rate intelligibility threshold
+  double highRateThreshold = 2.0;
+
+  // Coarticulation rate scaling floor
+  double highRateCoarticulationFloor = 0.35;
   double coarticulationWordInitialFadeScale = 1.0;
 
   // If true, scale coarticulation strength down when the nearest vowel is not
@@ -839,6 +845,9 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   bool boundarySmoothingPlosiveSpansPhone = true;    // formants ramp across entire plosive
   bool boundarySmoothingNasalF1Instant = true;       // F1 jumps instantly in nasals
   bool boundarySmoothingNasalF2F3SpansPhone = true;  // F2/F3 ramp across entire nasal
+
+  // Rate-adaptive fade ratio floor (used with shared highRateThreshold)
+  double boundarySmoothingHighRateFadeRatioFloor = 0.40;
 
   // Trajectory limiting (optional).
   //

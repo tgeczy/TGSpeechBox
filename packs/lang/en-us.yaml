@@ -75,6 +75,16 @@ settings:
   # natural glide. Before front vowels, velars stay high.
   coarticulationVelarF2LocusFront: 1800
   coarticulationVelarF2LocusBack: 1100
+
+  # Speed above which high-rate intelligibility adjustments activate.
+  # Shared by coarticulation attenuation and fade ratio tightening.
+  highRateThreshold: 2.0
+
+  # Rate-adaptive coarticulation: minimum strength multiplier at extreme speed.
+  # At speeds above highRateThreshold, coarticulation weakens toward this floor
+  # so resonators spend more time at canonical vowel targets.
+  highRateCoarticulationFloor: 0.35
+
   phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
   phraseFinalLengtheningFinalSyllableScale: 1.05
@@ -344,6 +354,11 @@ settings:
     fricToStopFadeMs: 10
     stopToFricFadeMs: 15
     vowelToVowelFadeMs: 20
+
+    # Rate-adaptive fade ratio: minimum fade-to-duration ratio at extreme speed.
+    # At speeds above highRateThreshold, the fade cap tightens toward this floor
+    # to preserve more steady-state time for resonator settling.
+    highRateFadeRatioFloor: 0.40
 
     # ── Per-place transition speeds ──
     #
