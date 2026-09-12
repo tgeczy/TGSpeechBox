@@ -981,8 +981,18 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   // (Android, iOS, Speech Dispatcher) get correct character names.
   if (!h->pack.letterDict.empty()) {
     auto u32 = utf8ToU32(input);
-    if (u32.size() == 1) {
-      auto it = h->pack.letterDict.find(input);
+    // A lone letter may arrive wrapped in punctuation or whitespace --
+    // "r?", "¿r", "ó." -- when a line or a typed sequence is a single
+    // letter next to a symbol (#122: Greg's "r" and "ó" next to
+    // punctuation). Trim the edges to find the core codepoint; the
+    // trimmed edges are kept around the spoken name so the punctuation
+    // still shapes the prosody.
+    std::size_t b = 0, e = u32.size();
+    while (b < e && isPunctOrSpaceCodepoint(u32[b])) ++b;
+    while (e > b && isPunctOrSpaceCodepoint(u32[e - 1])) --e;
+    if (e - b == 1) {
+      const char32_t core = u32[b];
+      auto it = h->pack.letterDict.find(u32ToUtf8(std::u32string(1, core)));
       if (it == h->pack.letterDict.end()) {
         // Case-fold retry (#122): dictionaries are authored in lowercase
         // ("á" -> "a acentuada"), but character navigation and typed-
@@ -990,13 +1000,14 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
         // folded on its side; every other platform reaches the dict only
         // through here, so "Á" / "R" silently missed on SAPI, Android,
         // iOS and Linux.
-        const char32_t lower = foldCodepointLower(u32[0]);
-        if (lower != u32[0]) {
+        const char32_t lower = foldCodepointLower(core);
+        if (lower != core) {
           it = h->pack.letterDict.find(u32ToUtf8(std::u32string(1, lower)));
         }
       }
       if (it != h->pack.letterDict.end()) {
-        const std::string& desc = it->second;
+        const std::string desc = u32ToUtf8(u32.substr(0, b)) + it->second
+                               + u32ToUtf8(u32.substr(e));
         char* out = static_cast<char*>(std::malloc(desc.size() + 1));
         if (out) std::memcpy(out, desc.c_str(), desc.size() + 1);
         return out;

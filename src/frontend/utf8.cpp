@@ -302,6 +302,18 @@ char32_t foldCodepointLower(char32_t c) {
   return c;
 }
 
+bool isPunctOrSpaceCodepoint(char32_t c) {
+  if (c <= 0x20 || c == 0x7F) return true;                              // space/control
+  if ((c >= 0x21 && c <= 0x2F) || (c >= 0x3A && c <= 0x40) ||
+      (c >= 0x5B && c <= 0x60) || (c >= 0x7B && c <= 0x7E)) return true;  // ASCII punct
+  if (c == 0xA0 || c == 0xA1 || c == 0xA7 || c == 0xAB || c == 0xB7 ||
+      c == 0xBB || c == 0xBF) return true;                               // nbsp, inverted marks, guillemets
+  if (c >= 0x2000 && c <= 0x206F) return true;                          // General Punctuation
+  if (c >= 0x3000 && c <= 0x303F) return true;                          // CJK symbols/punct
+  if (c >= 0xFF01 && c <= 0xFF0F) return true;                          // fullwidth punct
+  return false;
+}
+
 std::string normalizeText(const std::string& s) {
   return normalizeNFKC(stripInvisible(s));
 }

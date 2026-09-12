@@ -37,6 +37,16 @@ del _frameFieldNames
 # ---------------------------------------------------------------------------
 _letterNameCache: dict[str, dict[str, str]] = {}  # langTag -> {char -> spokenName}
 
+# Characters that may wrap a lone letter without making it a word: whitespace
+# plus ASCII and common Unicode punctuation. Mirrors the frontend's
+# isPunctOrSpaceCodepoint so both lookup sites agree on what "a lone letter" is.
+_LETTER_EDGE_CHARS = (
+    " \t\r\n\u00a0"
+    "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+    "\u00a1\u00a7\u00ab\u00b7\u00bb\u00bf"
+    "\u2013\u2014\u2018\u2019\u201c\u201d\u2026\u3001\u3002"
+)
+
 
 def _loadLetterNames(packsDir: str, langTag: str) -> dict[str, str]:
     """Load letter names TSV for a language.  Returns empty dict if not found."""
@@ -280,7 +290,7 @@ class SpeechPipelineMixin:
                     s = chunk.rstrip()
                     # Strip trailing closing quotes/brackets so ." and ?"
                     # expose the actual punctuation mark for clause detection.
-                    s_stripped = s.rstrip(')\]"\u2019\u201D\'')
+                    s_stripped = s.rstrip(')]"\u2019\u201D\'')
                     if s_stripped.endswith("..."):
                         punctToken = "..."
                         # Frontend only reads 1 byte; treat ellipsis as '.' for prosody.
@@ -297,22 +307,26 @@ class SpeechPipelineMixin:
                     # a lone character and we have a letter-name override for
                     # this language, replace it with the spoken name before
                     # eSpeak phonemization.  e.g. Spanish ó → "o acentuada".
-                    stripped = chunk.strip()
-                    if len(stripped) <= 3:
-                        log.debug("TGSpeechBox: short chunk=%r len=%d lang=%r packs=%r",
-                                  stripped, len(stripped),
+                    # A lone letter may sit next to punctuation ("r?", "¿r",
+                    # "ó." -- #122): trim symbol/whitespace edges to find
+                    # the core character and keep the edges around the name.
+                    core = chunk.strip(_LETTER_EDGE_CHARS)
+                    if len(core) <= 3:
+                        log.debug("TGSpeechBox: short chunk=%r core=%r lang=%r packs=%r",
+                                  chunk, core,
                                   getattr(self, "_frontendLangTag", "?"),
                                   getattr(self, "_packsDir", "?"))
-                    if len(stripped) == 1:
+                    if len(core) == 1:
                         langTag = getattr(self, "_frontendLangTag", "") or ""
                         packsDir = getattr(self, "_packsDir", "") or ""
                         if packsDir and langTag:
                             letterNames = _loadLetterNames(packsDir, langTag)
-                            replacement = letterNames.get(stripped) or letterNames.get(stripped.lower())
+                            replacement = letterNames.get(core) or letterNames.get(core.lower())
                             log.debug("TGSpeechBox: letter lookup char=%r found=%r (dict has %d entries)",
-                                      stripped, replacement, len(letterNames))
+                                      core, replacement, len(letterNames))
                             if replacement:
-                                chunk = replacement
+                                lead = len(chunk) - len(chunk.lstrip(_LETTER_EDGE_CHARS))
+                                chunk = chunk[:lead] + replacement + chunk[lead + 1:]
 
                     # Pre-eSpeak text normalization: compound splitting, date ordinals, etc.
                     chunk = self._frontend.prepareText(chunk)

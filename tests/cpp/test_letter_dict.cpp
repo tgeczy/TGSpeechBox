@@ -62,3 +62,16 @@ TEST_CASE("letter dict: codepoint fold covers every shipped alphabet") {
     CHECK(foldCodepointLower(U'á') == U'á');  // already lower
     CHECK(foldCodepointLower(U'7') == U'7');
 }
+
+TEST_CASE_FIXTURE(tgsb_test::HandleFixture,
+                  "letter dict: a lone letter keeps its surrounding punctuation (#122)") {
+    // Lines / typed sequences like "r?" or "ó." are a letter next to a
+    // symbol -- the name is substituted and the punctuation survives.
+    CHECK(prepare(handle, "ó.") == "o acentuada.");
+    CHECK(prepare(handle, "¿ñ?") == "¿eñe?");
+    CHECK(prepare(handle, " R ") == " ere ");
+    CHECK(prepare(handle, "r?") == "ere?");
+    // Not a lone letter: two letters, or nothing but punctuation.
+    CHECK(prepare(handle, "rr?").find("ere") == std::string::npos);
+    CHECK(prepare(handle, "...").find("acentuada") == std::string::npos);
+}

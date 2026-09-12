@@ -26,6 +26,12 @@ std::string u32ToUtf8(std::u32string_view s);
 // uppercase letter in a covered block. Turkish dotted İ maps to plain i.
 char32_t foldCodepointLower(char32_t c);
 
+// True for whitespace/control and common punctuation (ASCII, Latin-1
+// inverted marks/guillemets/middle dot/section, General Punctuation, CJK
+// symbols, fullwidth forms). Used to find a lone letter wrapped in symbols
+// ("r?", "¿r", "ó.") for letter-name lookup.
+bool isPunctOrSpaceCodepoint(char32_t c);
+
 // Lowercase ASCII and convert '_' -> '-' (for language tags).
 std::string normalizeLangTag(std::string_view tag);
 
