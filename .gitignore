@@ -73,3 +73,6 @@ AuthKey_*.p8
 /build-*/
 /tools/evv_crossover/
 /tools/szc_bug_analysis/*/
+/tools/szc_bug_analysis/*.wav
+/tools/szc_bug_analysis/*.png
+/tools/szc_bug_analysis/*.mp3
