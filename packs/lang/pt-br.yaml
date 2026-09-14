@@ -83,6 +83,13 @@ normalization:
     - from: "iˌãᴜ"
       to:   "iːˌãᴜ"
 
+    # -ão / -am nasal diphthong (#123, Edu — native-validated 11/12 blind):
+    # the shared pt rules render eSpeak's ɐ̃ʊ̃ as ã + ᴜ, and ᴜ is a full
+    # nasal vowel, so "pão" came out as two vowels ("aão"). A real
+    # offglide closes the diphthong; ã→Ã below then gives the BR nasal.
+    - from: "ãᴜ"
+      to: "ãw"
+
     # eSpeak pt-br often uses "æ" for word-final unstressed "a" (casa, feira).
     # Map it to a central a-like vowel so it doesn't sound like English "cat".
     - from: "æ"
