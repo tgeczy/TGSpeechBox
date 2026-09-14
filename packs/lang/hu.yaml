@@ -357,6 +357,10 @@ settings:
     - "t"     # accusative
 
 normalization:
+  classes:
+    # Raw eSpeak vowel symbols (pre-replacement stage, before the hu vowel mappings)
+    HU_V: ["a", "ɑ", "ɒ", "ɐ", "e", "ɛ", "ə", "i", "ɪ", "o", "ɔ", "ø", "œ", "u", "ʊ", "y", "ʏ", "ː"]
+    HU_V_STRESS: ["a", "ɑ", "ɒ", "ɐ", "e", "ɛ", "ə", "i", "ɪ", "o", "ɔ", "ø", "œ", "u", "ʊ", "y", "ʏ", "ˈ", "ˌ"]
   preReplacements:
     # Word-final palatals keep the softer release: the boosted burst on
     # base ɟ/c is for initial/intervocalic clarity; "nagy"/"vagy" were
@@ -369,6 +373,19 @@ normalization:
       to: "c_wf"
       when:
         atWordEnd: true
+    # Intervocalic gy (2026-09-14 night, Tomi's ears on "fagyi"): a real
+    # closure and a palatal release; word-initial, word-final and geminate
+    # gy keep theirs. Runs before the vowel mappings, on eSpeak's symbols.
+    - from: "ɟ"
+      to: "ɟ_iv"
+      when:
+        afterClass: HU_V
+        beforeClass: HU_V_STRESS
+    - from: "c"
+      to: "c_iv"
+      when:
+        afterClass: HU_V
+        beforeClass: HU_V_STRESS
     # === LONG VOWEL MAPPINGS ===
     # eSpeak outputs generic IPA long vowels (aː, eː, etc.).
     # We remap to Hungarian-specific phoneme keys that have correct
