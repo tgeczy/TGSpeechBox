@@ -1236,16 +1236,18 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   // A segment shorter than amplitudeContourMinMs gets a proportionally
   // smaller fall.  Makeup is added to every contoured segment's level so a
   // language can keep its integrated loudness.  All off by default.
+  // Defaults are the en-us ear-tested shape of 2026-09-14 (five rounds,
+  // blind accept); a language that enables the pass starts from them.
   bool amplitudeContourEnabled = false;
   double amplitudeContourOnsetMs = 20.0;          // glide in from the previous segment
   double amplitudeContourStressedFallDb = 2.0;
-  double amplitudeContourUnstressedFallDb = 4.0;
-  double amplitudeContourUnstressedLevelDb = -3.0;
+  double amplitudeContourUnstressedFallDb = 2.0;
+  double amplitudeContourUnstressedLevelDb = -2.5;
   double amplitudeContourNasalLevelDb = -2.0;     // murmur starts near the vowel...
-  double amplitudeContourNasalFallDb = 8.0;       // ...and decays toward the closure
-  double amplitudeContourGlideLevelDb = -3.0;
+  double amplitudeContourNasalFallDb = 7.0;       // ...and decays toward the closure
+  double amplitudeContourGlideLevelDb = -2.5;
   double amplitudeContourSonorantFallDb = 2.0;    // liquids and semivowels
-  double amplitudeContourVoicedFricLevelDb = -14.0;
+  double amplitudeContourVoicedFricLevelDb = -6.0;   // deeper reads as a dropout before the next word
   double amplitudeContourVoicedAffricateLevelDb = -6.0;  // level only; burst keeps its shape
   double amplitudeContourVoicelessFricLevelDb = -4.0;    // s ʃ f θ h and voiceless affricates; level only
   double amplitudeContourStopLevelDb = -3.0;             // stop bursts/releases (+ their aspiration); level only
@@ -1253,10 +1255,12 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double amplitudeContourMakeupDb = 0.0;
   // Clause shape: level declines linearly by declinationDb from the first
   // voiced segment to the last; the final word sits finalLevelDb lower
-  // still and its stressed vowel falls at least finalFallDb.
-  double amplitudeContourDeclinationDb = 3.0;
-  double amplitudeContourFinalLevelDb = -2.0;
-  double amplitudeContourFinalFallDb = 5.0;
+  // still and its stressed vowel falls at least finalFallDb.  Sized with
+  // the peaks pinned to the stock level; larger values read as a quiet
+  // final word, smaller ones as a pushed-forward one.
+  double amplitudeContourDeclinationDb = 1.5;
+  double amplitudeContourFinalLevelDb = -1.0;
+  double amplitudeContourFinalFallDb = 3.0;
 
   // Microprosody.
   bool microprosodyEnabled = false;

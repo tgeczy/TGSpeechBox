@@ -93,6 +93,36 @@ settings:
   coarticulationEnabled: true
   trajectoryLimitEnabled: true
   microprosodyEnabled: true
+
+  # ── Amplitude contour (b901, DSP v9) ──
+  # Every voiced segment gets its own level, a 20 ms onset slope and a fall,
+  # the way the ETI-Eloquence-lineage reference renders do it: unstressed
+  # vowels a little under the stressed ones and decaying more, nasal murmur
+  # decaying toward the closure, voiced fricatives in a real valley, and
+  # voiceless consonants a touch down so the loudness budget comes from the
+  # bottom of the distribution rather than from lifting the stressed vowels.
+  # Ear-tested 2026-09-14 (five rounds + blind accept).  See Tuning.md.
+  amplitudeContourEnabled: true
+  amplitudeContourOnsetMs: 20
+  amplitudeContourStressedFallDb: 2
+  amplitudeContourUnstressedFallDb: 2
+  amplitudeContourUnstressedLevelDb: -2.5
+  amplitudeContourNasalLevelDb: -2
+  amplitudeContourNasalFallDb: 7
+  amplitudeContourGlideLevelDb: -2.5
+  amplitudeContourSonorantFallDb: 2
+  amplitudeContourVoicedFricLevelDb: -6
+  amplitudeContourVoicedAffricateLevelDb: -6
+  amplitudeContourVoicelessFricLevelDb: -4
+  amplitudeContourStopLevelDb: -3
+  amplitudeContourMinMs: 40
+  amplitudeContourDeclinationDb: 1.5
+  amplitudeContourFinalLevelDb: -1
+  amplitudeContourFinalFallDb: 3
+  # The contour takes ~4.5 dB off the integrated level; this uniform gain
+  # (default 1.5) puts it back at the beta 9 loudness with the peaks within
+  # 1 dB of where they were at 1x, 2x and 3x, and no limiter activity.
+  defaultOutputGain: 2.5
   segmentBoundarySkipVowelToLiquid: false
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false

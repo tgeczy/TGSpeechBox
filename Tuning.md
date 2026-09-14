@@ -1907,25 +1907,28 @@ Gives every voiced segment its own loudness level, an onset slope and a within-s
 Three DSP-side pieces (DSP v9) carry it: a per-class level on the frame's master gain (`outputGain`, so the DSP's voicing-keyed fricative ducks are untouched), an **onset glide** (`amplitudeOnsetMs`: voicing amplitude and master gain glide in from whatever was playing at the boundary, Klatt's piecewise-linear source interpolation — levels stepped at the crossfade read as a compressor pumping), and a **fall** (`endVoiceAmplitude`: the voicing amplitude ramps down across the segment). Runs last in PostTiming, on top of prominence. Stops, taps, trills and voiceless obstruents keep their pack amplitudes and micro-events.
 
 ```yaml
-  amplitudeContourEnabled: true          # default false (off in every shipped pack)
+  amplitudeContourEnabled: true          # default false; on in en-us since b901
   amplitudeContourOnsetMs: 20            # glide in from the previous segment (capped at 40% of the segment)
   amplitudeContourStressedFallDb: 2      # primary-stressed vowel decays this much across itself
-  amplitudeContourUnstressedFallDb: 4    # unstressed vowel fall (secondary stress = the average)
-  amplitudeContourUnstressedLevelDb: -3  # unstressed vowel level re a primary-stressed vowel
+  amplitudeContourUnstressedFallDb: 2    # unstressed vowel fall (secondary stress = the average)
+  amplitudeContourUnstressedLevelDb: -2.5  # unstressed vowel level re a primary-stressed vowel
   amplitudeContourNasalLevelDb: -2       # murmur starts near the vowel...
-  amplitudeContourNasalFallDb: 8         # ...and decays toward the closure
-  amplitudeContourGlideLevelDb: -3       # liquids and semivowels
+  amplitudeContourNasalFallDb: 7         # ...and decays toward the closure
+  amplitudeContourGlideLevelDb: -2.5     # liquids and semivowels
   amplitudeContourSonorantFallDb: 2      # liquid/semivowel fall
-  amplitudeContourVoicedFricLevelDb: -14 # v, ð, z, ʒ: a real valley
+  amplitudeContourVoicedFricLevelDb: -6  # v, ð, z, ʒ: a valley; deeper reads as a dropout before the next word
   amplitudeContourVoicedAffricateLevelDb: -6  # dʒ: level only, the burst keeps its shape
+  amplitudeContourVoicelessFricLevelDb: -4    # s ʃ f θ h, tʃ: level only
+  amplitudeContourStopLevelDb: -3        # stop bursts and their aspiration: level only
   amplitudeContourMinMs: 40              # falls scale down for segments shorter than this (fast rates)
-  amplitudeContourDeclinationDb: 3       # level slopes down across the clause, like F0
-  amplitudeContourFinalLevelDb: -2       # the last word sits lower still...
-  amplitudeContourFinalFallDb: 5         # ...and its stressed vowel falls at least this much
-  amplitudeContourMakeupDb: 0            # added to every contoured segment; prefer a uniform gain
+  amplitudeContourDeclinationDb: 1.5     # level slopes down across the clause, like F0
+  amplitudeContourFinalLevelDb: -1       # the last word sits lower still...
+  amplitudeContourFinalFallDb: 3         # ...and its stressed vowel falls at least this much
+  amplitudeContourMakeupDb: 0            # added to every contoured segment; leave at 0, see below
+  defaultOutputGain: 2.5                 # uniform loudness compensation (see below)
 ```
 
-Levels are dB offsets, falls are dB across the segment. The contour lowers integrated loudness by roughly 3 dB with these values. Do not buy that back by lifting the contoured segments: a per-segment makeup (or a loudness-matching gain) puts every stressed vowel 4–5 dB above where the stock packs had it, and whichever stressed word is loudest reads as "pushed forward" (ear-tested 2026-09-14, the percept migrated from word to word as each was lowered). The budget comes from the bottom of the distribution instead — the voiceless fricative and stop levels above are where the reference render keeps its dynamic range (16% of its speech frames sit below −25 dB re the peak; the stock packs have 3%). A uniform `defaultOutputGain` lift is limited by headroom: the stock packs already peak near −3 dBFS, so about +2 dB is the ceiling before the limiter works; beyond that the voice simply ships a little quieter. Instruments for tuning: 20 ms frame-level percentiles and per-class output levels against a reference render; see `Developers.md` § FrameEx for the DSP fields.
+Levels are dB offsets, falls are dB across the segment. With these values the contour takes about 4.5 dB off the integrated level, and how that is bought back matters more than any single knob. Do not buy it back with `amplitudeContourMakeupDb` or by lowering only the voiced classes: then a loudness-matching gain puts every stressed vowel 4–5 dB above where the stock packs had it, and whichever stressed word is loudest reads as "pushed forward" (ear-tested 2026-09-14; the percept migrated from word to word as each was lowered in turn). The voiceless fricative and stop levels are what make the budget honest: with the bottom of the distribution down too, the candidate's crest factor equals the stock packs' (16 dB), so a uniform `defaultOutputGain` of 2.5 (default 1.5, +4.4 dB) restores the beta 9 loudness with the peaks within 1 dB of where they were at 1x, 2x and 3x and no limiter activity — the stressed vowels land exactly where the stock packs had them, and everything else sits below. The clause shape (declination, final word) was sized under that condition; with lifted peaks it needs to be larger, with pinned peaks larger values make the final word read as too quiet. Instruments for tuning: 20 ms frame-level percentiles and per-class output levels against a reference render; see `Developers.md` § FrameEx for the DSP fields.
 
 ### Microprosody
 
