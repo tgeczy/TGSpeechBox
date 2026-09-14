@@ -20,15 +20,17 @@ settings:
   fujisakiDeclinationPostFloor: 0.08
 
   # === ARATÓ (BRAILAB) INTONATION ===
-  # legacyPitchMode: arato_style selects the BraiLab sentence melodies
-  # (Arató András, 1992, §5.4), measured from the 1991 TALKHUN program on
-  # 2026-09-14. The shape constants (arato*St, semitones) default to the
-  # measured values in pack.h; only the wh-word test is language data.
-  # Arató's rule: a question whose first letters are HO HÁ MI ME KI is a
-  # wh-question (peak on the question word); anything else is yes/no
-  # (rise on the penultimate syllable). Pairs are the unit's first two
-  # phoneme keys after this pack's replacements.
+  # legacyPitchMode: arato_style selects the BraiLab sentence melodies, ported
+  # from the 1991 TALKHUN program itself (Arató András and Vaspöri Teréz;
+  # Arató 1992, §5.4). The contour constants default to the program's own
+  # values in pack.h; only the two word tests below are language data.
+  # Arató's rule: a "?" unit whose first letters are HO HÁ MI ME KI is a
+  # wh-question (peak on the question word); anything else is yes/no (rise on
+  # the penultimate syllable). A "." or "," unit that starts with the article
+  # a/az is spoken lower with a hump on the next word. Both as phoneme keys
+  # after this pack's replacements.
   aratoWhPairs: ["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]
+  aratoArticles: ["ᴒ", "ᴒ z"]
 
   # === STRESS ===
   # Hungarian stress is word-initial and very subtle — mainly pitch, not length.

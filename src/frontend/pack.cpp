@@ -563,23 +563,32 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("klattSmoothAlpha", lp.klattSmoothAlpha);
 
   // Arató (BraiLab) intonation parameters (used when legacyPitchMode = "arato_style")
-  getNum("aratoHumpSt", lp.aratoHumpSt);
-  getNum("aratoBodyEndSt", lp.aratoBodyEndSt);
-  getNum("aratoFinalEndSt", lp.aratoFinalEndSt);
-  getNum("aratoFinalFallMaxMs", lp.aratoFinalFallMaxMs);
-  getNum("aratoQuestionStartSt", lp.aratoQuestionStartSt);
-  getNum("aratoQuestionBodySt", lp.aratoQuestionBodySt);
-  getNum("aratoQuestionPeakSt", lp.aratoQuestionPeakSt);
-  getNum("aratoQuestionEndSt", lp.aratoQuestionEndSt);
-  getNum("aratoLongUnitSyllables", lp.aratoLongUnitSyllables);
-  getNum("aratoLongPreRiseSt", lp.aratoLongPreRiseSt);
-  getNum("aratoWhStartSt", lp.aratoWhStartSt);
-  getNum("aratoWhFirstWordEndSt", lp.aratoWhFirstWordEndSt);
-  getNum("aratoWhMidSt", lp.aratoWhMidSt);
-  getNum("aratoWhEndSt", lp.aratoWhEndSt);
-  getNum("aratoExclStartSt", lp.aratoExclStartSt);
-  getNum("aratoCommaStartSt", lp.aratoCommaStartSt);
-  getNum("aratoCommaEndSt", lp.aratoCommaEndSt);
+  getNum("aratoFramesPerSyllable", lp.aratoFramesPerSyllable);
+  getNum("aratoPitchByteHz", lp.aratoPitchByteHz);
+  getNum("aratoStartArticle", lp.aratoStartArticle);
+  getNum("aratoStartDecl", lp.aratoStartDecl);
+  getNum("aratoStartWh", lp.aratoStartWh);
+  getNum("aratoStartComma", lp.aratoStartComma);
+  getNum("aratoHumpCode", lp.aratoHumpCode);
+  getNum("aratoDeclFallToLastSyll", lp.aratoDeclFallToLastSyll);
+  getNum("aratoDeclFallEnd", lp.aratoDeclFallEnd);
+  getNum("aratoDeclLongFallToLastWord", lp.aratoDeclLongFallToLastWord);
+  getNum("aratoDeclLongFallEnd", lp.aratoDeclLongFallEnd);
+  getNum("aratoDeclOneSyllFall", lp.aratoDeclOneSyllFall);
+  getNum("aratoWhStartFrame", lp.aratoWhStartFrame);
+  getNum("aratoWhOneSyllFall", lp.aratoWhOneSyllFall);
+  getNum("aratoWhTwoSyllFall", lp.aratoWhTwoSyllFall);
+  getNum("aratoWhFall", lp.aratoWhFall);
+  getNum("aratoWhTail", lp.aratoWhTail);
+  getNum("aratoYnCreep", lp.aratoYnCreep);
+  getNum("aratoYnRise", lp.aratoYnRise);
+  getNum("aratoYnFall", lp.aratoYnFall);
+  getNum("aratoYnOneSyllRise1", lp.aratoYnOneSyllRise1);
+  getNum("aratoYnOneSyllRise2", lp.aratoYnOneSyllRise2);
+  getNum("aratoYnTwoSyllRise", lp.aratoYnTwoSyllRise);
+  getNum("aratoYnTwoSyllFall", lp.aratoYnTwoSyllFall);
+  getNum("aratoCommaFall", lp.aratoCommaFall);
+  getNum("aratoCommaRise", lp.aratoCommaRise);
   getNum("aratoInflectionRef", lp.aratoInflectionRef);
   {
     // aratoWhPairs: ["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]
@@ -593,6 +602,12 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
         if (sp == std::string::npos) continue;
         lp.aratoWhPairs.emplace_back(utf8ToU32(s.substr(0, sp)), utf8ToU32(s.substr(sp + 1)));
       }
+    }
+    // aratoArticles: ["ᴒ", "ᴒ z"]  (first-word phoneme keys, space separated)
+    const yaml_min::Node* art = settings.get("aratoArticles");
+    if (art && art->isSeq()) {
+      lp.aratoArticles.clear();
+      for (const auto& el : art->seq) if (el.isScalar()) lp.aratoArticles.push_back(utf8ToU32(el.scalar));
     }
   }
 

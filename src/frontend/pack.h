@@ -539,30 +539,41 @@ struct LanguagePack {
   double klattSmoothAlpha = 0.4;
 
   // Arató (BraiLab) intonation parameters (legacyPitchMode = "arato_style").
-  // Semitones relative to the unit start (the start pitches relative to the
-  // voice's base pitch).  Defaults are the values measured from the 1991
-  // TALKHUN program (see passes/pitch_arato.cpp).
-  double aratoHumpSt = 3.3;              // declarative: first-syllable hump
-  double aratoBodyEndSt = -0.6;          // declarative: where the straight decline ends
-  double aratoFinalEndSt = -7.2;         // declarative: the plunge lands here
-  double aratoFinalFallMaxMs = 700.0;    // cap on the plunge span (ms at speed 1)
-  double aratoQuestionStartSt = 3.3;     // yes/no unit start, re base
-  double aratoQuestionBodySt = 0.3;      // yes/no flat body
-  double aratoQuestionPeakSt = 5.0;      // peak at the end of the penultimate syllable
-  double aratoQuestionEndSt = -2.3;      // fall on the last syllable
-  double aratoLongUnitSyllables = 8.0;   // from this many syllables the body stays flat longer
-  double aratoLongPreRiseSt = 1.5;       // long yes/no: level reached before the penult
-  double aratoWhStartSt = 9.4;           // wh-question unit start, re base
-  double aratoWhFirstWordEndSt = -4.4;   // after the question word
-  double aratoWhMidSt = -7.4;            // at 30 % of the unit
-  double aratoWhEndSt = -13.0;           // end, no plunge
-  double aratoExclStartSt = 9.4;         // exclamation start (same shape as wh)
-  double aratoCommaStartSt = 4.8;        // comma clause start, re base
-  double aratoCommaEndSt = -5.8;         // comma clause end; the next unit resets
-  double aratoInflectionRef = 0.5;       // inflection value at which the shapes are as measured
+  // The 1991 TALKHUN program's own constants (passes/pitch_arato.cpp): start
+  // deltas in the chip's pitch-byte units, contour deltas in pitch-code
+  // units, anchors in 12.8 ms frames.
+  double aratoFramesPerSyllable = 26.0;       // the program's frame density (12.8 ms frames at its tempo)
+  double aratoPitchByteHz = 2.441;            // Hz per pitch-byte unit (10000/4096)
+  double aratoStartArticle = -7.0;            // "." and "," units starting with the article
+  double aratoStartDecl = 4.0;                // plain declaratives
+  double aratoStartWh = 18.0;                 // wh-questions and "!"
+  double aratoStartComma = 4.0;               // comma clauses of two or more words
+  double aratoHumpCode = 12.0;                // +19.5 Hz on the first frame of the 2nd word after an article
+  double aratoDeclFallToLastSyll = -20.0;     // 2-5 syllables: to the last syllable
+  double aratoDeclFallEnd = -28.0;            //                 then to the end
+  double aratoDeclLongFallToLastWord = -18.0; // >=6 syllables: to the last word
+  double aratoDeclLongFallEnd = -24.0;        //                 then to the end
+  double aratoDeclOneSyllFall = -40.0;        // one-syllable declarative
+  double aratoWhStartFrame = 11.0;            // the wh fall starts at this frame
+  double aratoWhOneSyllFall = -15.0;
+  double aratoWhTwoSyllFall = -60.0;
+  double aratoWhFall = -44.0;                 // >=3 syllables: to V[1]+7
+  double aratoWhTail = -20.0;                 //                 then to the end
+  double aratoYnCreep = 10.0;                 // yes/no: over the body to the penultimate vowel +4
+  double aratoYnRise = 19.0;                  //         the 4 frames after it
+  double aratoYnFall = -47.0;                 //         then to the end
+  double aratoYnOneSyllRise1 = 8.0;           // one-syllable yes/no: two 3-frame rises, no fall
+  double aratoYnOneSyllRise2 = 20.0;
+  double aratoYnTwoSyllRise = 22.0;           // two-syllable yes/no: 2 frames up, then down
+  double aratoYnTwoSyllFall = -34.0;
+  double aratoCommaFall = -30.0;              // comma: to the last word
+  double aratoCommaRise = 30.0;               //        then up over the last word (the continuation cue)
+  double aratoInflectionRef = 0.5;            // inflection at which the program's values are reproduced
   // Arató's wh-word test: the unit's first two phoneme keys, e.g. "h o" for
   // hol/hogyan/hová/honnan (his letter pairs HO HÁ MI ME KI).
   std::vector<std::pair<std::u32string, std::u32string>> aratoWhPairs;
+  // The definite article as a first word, as phoneme keys ("ᴒ", "ᴒ z" in hu).
+  std::vector<std::u32string> aratoArticles;
 
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";

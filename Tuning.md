@@ -800,18 +800,21 @@ settings:
 
 #### Arató (BraiLab) intonation settings
 
-When `legacyPitchMode: "arato_style"` is enabled, the contour is a piecewise-linear shape in semitones anchored to the clause's syllables. Every default below was measured from the 1991 TALKHUN program (BraiLab PC, Arató András and Vaspöri Teréz) and is reproduced at the platforms' default inflection (`aratoInflectionRef`, 0.5); the inflection slider scales the whole shape from there.
+When `legacyPitchMode: "arato_style"` is enabled, the pass is a port of the intonation routine of the 1991 TALKHUN program (BraiLab PC, Arató András and Vaspöri Teréz), recovered by disassembly and traced byte-exactly in an emulator. It works in the program's own units: a start-pitch delta per clause type in the chip's pitch-byte units (2.441 Hz each), contour deltas in pitch-code units spread over spans of 12.8 ms frames by the program's own Bresenham ramp, and the Philips PCF8200's geometric pitch-increment table (codes 1..15 = 1.2 .. 45.2 Hz per frame) applied cumulatively. Every default is the program's constant; the inflection slider scales the result from `aratoInflectionRef` (0.5).
 
-- `aratoHumpSt` (3.3), `aratoBodyEndSt` (−0.6), `aratoFinalEndSt` (−7.2), `aratoFinalFallMaxMs` (700): declarative. Hump on the first syllable, straight decline to the body end, plunge across the last two syllables (capped in ms at speed 1).
-- `aratoQuestionStartSt` (3.3), `aratoQuestionBodySt` (0.3), `aratoQuestionPeakSt` (5.0), `aratoQuestionEndSt` (−2.3), `aratoLongUnitSyllables` (8), `aratoLongPreRiseSt` (1.5): yes/no questions. Higher start, flat body, rise across the penultimate syllable, fall on the last; from `aratoLongUnitSyllables` syllables up the body stays flat until 70 % and pre-rises to `aratoLongPreRiseSt` before the penult. One-syllable questions rise-fall inside the syllable.
-- `aratoWhStartSt` (9.4), `aratoWhFirstWordEndSt` (−4.4), `aratoWhMidSt` (−7.4), `aratoWhEndSt` (−13.0), `aratoExclStartSt` (9.4): wh-questions and exclamations start at the peak, shed most of it within the first fifth of the unit, and decline without a plunge.
-- `aratoCommaStartSt` (4.8), `aratoCommaEndSt` (−5.8): comma, semicolon and colon clauses decline without a plunge; the next clause restarts at its own start pitch (Arató's cue for a comma is the reset, not a rise).
-- `aratoWhPairs` (list of `"key key"` strings): a `?` clause whose first two phoneme keys match a pair takes the wh-shape. Hungarian uses Arató's letter pairs HO HÁ MI ME KI as `["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]` (keys as they are after the pack's replacements).
+- Clause types (the program's table): `.` is type 1 when the clause starts with the article (`aratoArticles`), else type 2; `?` takes the wh-melody when the first two phoneme keys match `aratoWhPairs`, else yes/no (a two-syllable yes/no has its own branch); `!` takes the wh-melody; `,` and `;` are comma clauses; `:` is flat.
+- Start pitch: `aratoStartArticle` (−7), `aratoStartDecl` (+4), `aratoStartWh` (+18), `aratoStartComma` (+4); yes/no and flat start at the base pitch. At the default 103 Hz these are 85 / 112 / 146 / 112 Hz.
+- Declaratives: `aratoHumpCode` (12, +19.5 Hz on the first frame of the second word, article clauses only); `aratoDeclFallToLastSyll` (−20) then `aratoDeclFallEnd` (−28) for 2–5 syllables; `aratoDeclLongFallToLastWord` (−18) then `aratoDeclLongFallEnd` (−24) from six syllables; `aratoDeclOneSyllFall` (−40).
+- Wh and exclamation: the fall starts at frame `aratoWhStartFrame` (11); `aratoWhOneSyllFall` (−15), `aratoWhTwoSyllFall` (−60), `aratoWhFall` (−44, to the second vowel +7) then `aratoWhTail` (−20).
+- Yes/no: `aratoYnCreep` (+10 over the body), `aratoYnRise` (+19 in the four frames after the penultimate vowel), `aratoYnFall` (−47); one syllable `aratoYnOneSyllRise1`/`2` (+8, +20, no fall); two syllables `aratoYnTwoSyllRise` (+22) then `aratoYnTwoSyllFall` (−34).
+- Comma: `aratoCommaFall` (−30 to the last word) then `aratoCommaRise` (+30 over the last word, always). The next clause restarts at its own start pitch.
+- `aratoFramesPerSyllable` (26) is the program's frame density: its 12.8 ms frames at its own tempo. The pass sizes its virtual frame as the clause's duration divided by syllables × this value, so the frame count, and therefore the codes, stay the same at every rate and for our faster segments, as in the original where the tempo setting was never read by the intonation code. `aratoPitchByteHz` (2.441) is the chip's Hz per pitch-byte unit.
 
 ```yaml
 settings:
   legacyPitchMode: "arato_style"
   aratoWhPairs: ["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]
+  aratoArticles: ["ᴒ", "ᴒ z"]
 ```
 
 ### Tonal language support

@@ -4,48 +4,62 @@ Copyright 2025-2026 Tamas Geczy.
 Licensed under the MIT License. See LICENSE for details.
 */
 // =============================================================================
-// Arató-style intonation — the BraiLab sentence melodies
+// Arató-style intonation — the BraiLab sentence melodies, as the program did it
 // =============================================================================
 //
 // Reference: Arató András, "A BraiLab beszélő számítógépcsalád" (kandidátusi
 // értekezés, műszaki leírás, Budapest, 1992), §5.4 "Mikrointonáció,
-// intonáció, ének".  The BraiLab PC talker itself is the work of Vaspöri
-// Teréz and Arató András ("BraiLab PC (c) Vaspöri Teréz és Arató András
-// munkája" is the program's own banner).  This pass exists to carry that work
-// forward: the shapes below are not invented, they were measured.
+// intonáció, ének".  The BraiLab PC talker is the work of Vaspöri Teréz and
+// Arató András ("BraiLab PC (c) Vaspöri Teréz és Arató András munkája" is the
+// program's own banner).  This pass exists to carry that work forward.
 //
-// What Arató describes (§5.4): the melody exists so a blind user hears, from
-// the intonation alone, which punctuation mark closes the unit — and hears it
-// even when the unit is cut off early, because the next line was already
-// requested.  The MEA-8000 system had four types (two declarative, two
-// question, imperative = wh-question melody); wh-questions were recognised by
-// the sentence's first letter pairs HO HÁ MI ME KI; yes/no questions were
-// split by length.  The PCF-8200 system added the syllable-count distinction.
+// What it does (Arató §5.4): the melody exists so a blind reader hears, from
+// the intonation alone, which punctuation closes the unit, even when the unit
+// is cut off early because the next line was already requested.  Wh-questions
+// are recognised from the sentence's first letters (HO HÁ MI ME KI), the
+// imperative takes the wh melody, yes/no questions are split by length, and
+// the definite article gets its own treatment.
 //
-// Where the numbers come from: frame captures of the 1991 TALKHUN program
-// running in an emulator (C:\git\Brailab-wrapper\talkhun_emu, 2026-09-14),
-// decoding the PCF8200 stream's start-pitch bytes and per-frame pitch
-// increments into Hz.  Measured, unit start → shape → end:
-//   declarative : 85 Hz, hump to 103 on the first syllable, straight decline
-//                 to 82, plunge to 56 across the last two syllables.
-//   yes/no      : 103 Hz, flat body, rise to 130–140 on the PENULTIMATE
-//                 syllable, fall to ~90 on the last; long questions keep the
-//                 body flat longer and start the rise later.
-//   wh-question : 146 Hz at the start (the question word carries the peak),
-//                 fall to ~113 by the end of the first word, decline to ~70,
-//                 no terminal plunge.  Exclamations use the same shape.
-//   comma clause: 112 Hz, straight decline to ~80; the next unit restarts at
-//                 its own start pitch.  No continuation rise: the reset is
-//                 the cue.
-// Expressed here in semitones relative to each unit's start pitch, and the
-// unit start pitches as semitone offsets from the voice's base pitch (the
-// declarative start).  Every constant is a pack knob (arato*) so a language
-// can re-measure and retune without touching this file.
+// Where the algorithm comes from: the 1991 TALKHUN program itself
+// (TALKHUN0.COM), disassembled and traced in an emulator on 2026-09-14; a
+// re-implementation of the reading reproduces the program's output byte for
+// byte on 32 intonation units covering every branch.  Its pitch codes are
+// not stored in the speech database; one routine writes them per unit,
+// after the diads are concatenated, and the 2000 build (TALKHUN.COM) still
+// carries the same routine with the same constants.  What is ported here:
 //
-// One call = one intonation unit (the platforms split text at punctuation and
-// pass the closing mark as clauseType).  The contour is a list of (time,
-// semitone) knots over the unit's spoken duration, anchored to syllables
-// found from the syllable_marking pass, then sampled per token.
+//   - the unit's start pitch: the user's pitch P plus a per-type delta in
+//     the chip's pitch-byte units (-7, +4, 0, +18 = 85/112/103/146 Hz at
+//     the default P);
+//   - the type table: "." is type 1 when the unit starts with the article
+//     "a"/"az", else type 2; "?" is the wh-melody (type 5) when the first
+//     two phoneme keys match Arató's pairs, else yes/no (type 6, or 7 for
+//     exactly two syllables); "!" is type 5; "," and ";" are type 8; ":" is
+//     flat;
+//   - the two anchor vectors: vowel starts (the syllable count) and word
+//     starts;
+//   - the ramp primitive: a signed total delta in pitch-code units spread
+//     backwards over a span of frames, Bresenham style (dense spans get
+//     floor(rem/N) per frame, sparse spans +/-1 every N/|D| frames), never
+//     overwriting a frame that already carries a code;
+//   - the per-type contours with their 18 constants, the +12 (+19.5 Hz)
+//     hump on the first frame of the second word after an article, and the
+//     fixed-frame anchors (frame 11 for the wh fall, +4/+6/+7 frames);
+//   - the chip's geometric pitch-increment table (Philips PCF8200), applied
+//     cumulatively, one code per 12.8 ms frame.
+//
+// The program never reads its tempo setting: anchors are in frames, so at a
+// faster rate the same codes land on shorter frames and the contour
+// compresses in time with the same pitch deltas.  This port keeps that by
+// sizing its virtual frame from the unit itself (duration over syllables
+// times the program's frames per syllable), so the frame count, and with it
+// every code, is the same at any rate and for our faster segments.  Where a
+// peak or knee falls inside one long vowel, the vowel is split in two so the
+// engine's per-token pitch line can carry it.
+//
+// One call is one intonation unit (the platforms split at punctuation and
+// pass the closing mark as clauseType).  Every constant is an arato* pack
+// setting; the defaults are the program's.
 
 #include "pitch_arato.h"
 #include "pitch_common.h"
@@ -53,45 +67,60 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <string>
 #include <vector>
 
 namespace nvsp_frontend {
 
 namespace {
 
-struct Knot {
-  double timeMs;
-  double semitones;
+// Philips PCF8200 pitch increment per standard frame, Hz, by 5-bit code
+// 0..15; codes 17..31 are the negatives of 15..1, code 16 marks a noise
+// frame.  (The chip's own table; see the datasheet ladder.)
+const double kPiHz[16] = {0.0, 1.2, 2.4, 3.7, 4.9, 6.1, 7.3, 8.5,
+                          9.8, 11.0, 13.4, 15.9, 19.5, 25.6, 34.2, 45.2};
+const int kNoise = 16;
+
+struct Unit {
+  std::vector<int> tokOfFrame;   // token index owning each virtual frame
+  std::vector<int> code;         // 0 = free, 16 = noise, else the placed code (1..15 or 17..31)
+  std::vector<int> V;            // frame index of each vowel start (syllables)
+  std::vector<int> W;            // frame index of each word start; W[0] = 0
+  int n = 0;                     // frame count (buffer end)
 };
 
-struct Syllable {
-  int startIdx = -1;      // first token of the syllable
-  int nucleusIdx = -1;    // first vowel token, -1 if none
-  double startMs = 0.0;   // cumulative spoken time at the syllable start
-  double nucleusEndMs = 0.0;
-  double endMs = 0.0;
-};
+int clampIdx(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-double interpolate(const std::vector<Knot>& knots, double t) {
-  if (knots.empty()) return 0.0;
-  if (t <= knots.front().timeMs) return knots.front().semitones;
-  for (size_t k = 1; k < knots.size(); ++k) {
-    const Knot& a = knots[k - 1];
-    const Knot& b = knots[k];
-    if (t <= b.timeMs) {
-      const double span = b.timeMs - a.timeMs;
-      if (span <= 0.0) return b.semitones;
-      const double f = (t - a.timeMs) / span;
-      return a.semitones + (b.semitones - a.semitones) * f;
+// TALKHUN's ramp: spread a signed delta D (pitch-code units) over frames
+// [start, end) from the end backwards.  All virtual frames are standard
+// length, so the FD weighting collapses to 1.
+void ramp(Unit& u, int start, int end, int D) {
+  start = clampIdx(start, 0, u.n);
+  end = clampIdx(end, 0, u.n);
+  if (D == 0) return;
+  int rem = std::abs(D);
+  int cur = end;
+  auto place = [&](int f, int q) {
+    if (f < 0 || f >= u.n) return;
+    if (u.code[static_cast<size_t>(f)] != 0) return;   // noise frames and the hump are skipped
+    q = std::min(q, 15);
+    rem -= std::min(q, 15);
+    if (rem < 0) rem = 0;
+    u.code[static_cast<size_t>(f)] = (D > 0) ? q : (32 - q);
+  };
+  while (cur > start && rem > 0) {
+    const int N = cur - start;
+    if (rem > N) {
+      const int q = rem / N;
+      place(cur - 1, q);
+      cur -= 1;
+    } else {
+      const int s = std::max(1, N / rem);
+      place(cur - 1, 1);
+      cur -= s;
     }
   }
-  return knots.back().semitones;
-}
-
-// Knot times must be non-decreasing; anchors from short units can cross.
-void addKnot(std::vector<Knot>& knots, double timeMs, double semitones) {
-  if (!knots.empty() && timeMs < knots.back().timeMs) timeMs = knots.back().timeMs;
-  knots.push_back({timeMs, semitones});
 }
 
 }  // namespace
@@ -105,170 +134,276 @@ void applyPitchArato(
     char clauseType) {
   if (tokens.empty()) return;
   const auto& lang = pack.lang;
-  const size_t n = tokens.size();
-  (void)speed;  // durations arrive already rate-scaled; the shape is anchored to syllables
+  const size_t nTok = tokens.size();
 
   // ---------------------------------------------------------------------------
-  // Syllables and the time axis (cumulative spoken duration, silences excluded).
+  // Virtual frames.  The program's anchors are in its own 12.8 ms frames, and
+  // its speech ran at roughly 26 of them per syllable; it never reads its
+  // tempo, so the frame count per unit is what its constants were tuned for.
+  // The frame here is therefore the unit's duration divided by (syllables x
+  // aratoFramesPerSyllable): the count holds at every rate and for our faster
+  // segments, and the offsets (+4, +6, frame 11) keep their meaning.
   // ---------------------------------------------------------------------------
-  std::vector<Syllable> syl;
-  std::vector<double> tokStartMs(n, 0.0);
-  std::vector<double> tokEndMs(n, 0.0);
+  (void)speed;
+  std::vector<double> tokStartMs(nTok, 0.0), tokEndMs(nTok, 0.0);
   double elapsed = 0.0;
-  int firstSpoken = -1;
-  int secondWordStart = -1;
-  for (size_t i = 0; i < n; ++i) {
-    const Token& t = tokens[i];
+  int vowelCount = 0;
+  for (size_t i = 0; i < nTok; ++i) {
     tokStartMs[i] = elapsed;
-    // Every token occupies time, including stop-closure gaps (which the
-    // emitter renders as a voice bar and which must sit on the contour).
-    elapsed += t.durationMs;
+    elapsed += tokens[i].durationMs;
     tokEndMs[i] = elapsed;
-    if (t.silence || !t.def) {
-      if (!syl.empty()) syl.back().endMs = elapsed;
-      continue;
-    }
-    if (firstSpoken < 0) firstSpoken = static_cast<int>(i);
-    else if (secondWordStart < 0 && t.wordStart) secondWordStart = static_cast<int>(i);
-    if (syl.empty() || t.syllableStart) {
-      Syllable s;
-      s.startIdx = static_cast<int>(i);
-      s.startMs = tokStartMs[i];
-      syl.push_back(s);
-    }
-    Syllable& cur = syl.back();
-    if (cur.nucleusIdx < 0 && tokenIsVowel(t)) {
-      cur.nucleusIdx = static_cast<int>(i);
-      cur.nucleusEndMs = elapsed;
-    }
-    cur.endMs = elapsed;
+    if (!tokens[i].silence && tokens[i].def && tokenIsVowel(tokens[i])) ++vowelCount;
   }
   const double T = elapsed;
-  if (firstSpoken < 0 || T <= 0.0) {
-    for (size_t i = 0; i < n; ++i) setPitchFields(tokens[i], basePitch, basePitch);
+  if (T <= 0.0 || vowelCount == 0) {
+    for (size_t i = 0; i < nTok; ++i) setPitchFields(tokens[i], basePitch, basePitch);
     return;
   }
-  // A syllable with no vowel is a stray consonant cluster: fold it into the
-  // previous one so the count matches what a listener hears.
+  const double fps = (lang.aratoFramesPerSyllable > 1.0) ? lang.aratoFramesPerSyllable : 26.0;
+  const double frameMs = std::max(0.25, T / (vowelCount * fps));
+
+  Unit u;
+  u.n = std::max(1, static_cast<int>(std::ceil(T / frameMs)));
+  u.tokOfFrame.assign(static_cast<size_t>(u.n), -1);
+  u.code.assign(static_cast<size_t>(u.n), 0);
   {
-    std::vector<Syllable> folded;
-    for (const Syllable& s : syl) {
-      if (s.nucleusIdx < 0 && !folded.empty()) { folded.back().endMs = s.endMs; continue; }
-      folded.push_back(s);
+    size_t ti = 0;
+    for (int f = 0; f < u.n; ++f) {
+      const double mid = (f + 0.5) * frameMs;
+      while (ti + 1 < nTok && tokEndMs[ti] <= mid) ++ti;
+      u.tokOfFrame[static_cast<size_t>(f)] = static_cast<int>(ti);
+      const Token& t = tokens[ti];
+      // Noise frames (voiceless consonants) carry no pitch code, like the
+      // program's PI=16 frames; voiced tokens and closure gaps are free.
+      const bool noise = (!t.silence && t.def && !pitchTokenIsVoiced(t) && !tokenIsVowel(t));
+      if (noise) u.code[static_cast<size_t>(f)] = kNoise;
     }
-    if (!folded.empty()) syl.swap(folded);
   }
-  const int N = static_cast<int>(syl.size());
+  // Vowel vector and word vector, in frames.
+  int firstSpoken = -1;
+  for (size_t i = 0; i < nTok; ++i) {
+    const Token& t = tokens[i];
+    if (t.silence || !t.def) continue;
+    const int f = clampIdx(static_cast<int>(tokStartMs[i] / frameMs), 0, u.n - 1);
+    if (firstSpoken < 0) { firstSpoken = static_cast<int>(i); u.W.push_back(0); }
+    else if (t.wordStart) u.W.push_back(f);
+    if (tokenIsVowel(t)) u.V.push_back(f);
+  }
+  if (firstSpoken < 0 || u.V.empty()) {
+    for (size_t i = 0; i < nTok; ++i) setPitchFields(tokens[i], basePitch, basePitch);
+    return;
+  }
 
   // ---------------------------------------------------------------------------
-  // Unit type.  Questions: Arató's word-initial pairs pick the wh-melody.
+  // First word's keys (for the article and the wh-word tests).
   // ---------------------------------------------------------------------------
-  enum class Kind { Declarative, YesNo, Wh, Exclamation, Comma };
-  Kind kind = Kind::Declarative;
-  if (clauseType == '?') {
-    kind = Kind::YesNo;
-    // First two spoken phoneme keys of the unit against the pack's pairs.
-    std::u32string k0, k1;
-    int found = 0;
-    for (size_t i = static_cast<size_t>(firstSpoken); i < n && found < 2; ++i) {
+  std::u32string firstWord;
+  std::u32string k0, k1;
+  {
+    int seen = 0;
+    for (size_t i = static_cast<size_t>(firstSpoken); i < nTok; ++i) {
       const Token& t = tokens[i];
       if (t.silence || !t.def) continue;
-      if (found == 0) k0 = t.def->key; else k1 = t.def->key;
-      ++found;
+      if (seen > 0 && t.wordStart) break;
+      if (seen == 0) k0 = t.def->key; else if (seen == 1) k1 = t.def->key;
+      if (seen > 0) firstWord += U' ';
+      firstWord += t.def->key;
+      ++seen;
     }
-    for (const auto& pr : lang.aratoWhPairs) {
-      if (pr.first == k0 && pr.second == k1) { kind = Kind::Wh; break; }
-    }
-  } else if (clauseType == '!') {
-    kind = Kind::Exclamation;
-  } else if (clauseType == ',' || clauseType == ';' || clauseType == ':') {
-    kind = Kind::Comma;
+  }
+  bool articleInitial = false;
+  for (const auto& a : lang.aratoArticles) if (a == firstWord) { articleInitial = true; break; }
+  bool whInitial = false;
+  for (const auto& pr : lang.aratoWhPairs) if (pr.first == k0 && pr.second == k1) { whInitial = true; break; }
+
+  // ---------------------------------------------------------------------------
+  // Type (the program's table) and start pitch.
+  // ---------------------------------------------------------------------------
+  const int syll = static_cast<int>(u.V.size());
+  const int words = static_cast<int>(u.W.size());
+  int type = 2;
+  if (clauseType == '?') type = whInitial ? 5 : (syll == 2 ? 7 : 6);
+  else if (clauseType == '!') type = 5;
+  else if (clauseType == ',' || clauseType == ';') type = 8;
+  else if (clauseType == ':') type = 3;
+  else type = articleInitial ? 1 : 2;
+
+  double startDelta = 0.0;
+  switch (type) {
+    case 1: startDelta = lang.aratoStartArticle; break;
+    case 2: startDelta = lang.aratoStartDecl; break;
+    case 5: startDelta = lang.aratoStartWh; break;
+    case 8: startDelta = (words >= 2) ? (articleInitial ? lang.aratoStartArticle : lang.aratoStartComma) : 0.0; break;
+    default: startDelta = 0.0; break;
   }
 
   // ---------------------------------------------------------------------------
-  // Anchors.
+  // Contours (frames; V = vowel vector, W = word vector, n = buffer end).
   // ---------------------------------------------------------------------------
-  const double nuc1End = syl.front().nucleusEndMs > 0.0 ? syl.front().nucleusEndMs : syl.front().endMs;
-  const double lastStart = syl.back().startMs;
-  const double penultStart = (N >= 2) ? syl[static_cast<size_t>(N - 2)].startMs : 0.0;
-  const double firstWordEnd = (secondWordStart >= 0) ? tokStartMs[static_cast<size_t>(secondWordStart)] : T;
+  const int n = u.n;
+  const int hump = static_cast<int>(lang.aratoHumpCode);
+  auto V = [&](int i) { return u.V[static_cast<size_t>(i < 0 ? syll + i : i)]; };
+  auto W = [&](int i) { return u.W[static_cast<size_t>(i < 0 ? words + i : i)]; };
+  auto setHump = [&]() {
+    if (words >= 2 && hump > 0) {
+      const int f = clampIdx(W(1), 0, n - 1);
+      if (u.code[static_cast<size_t>(f)] == 0) u.code[static_cast<size_t>(f)] = std::min(hump, 15);
+    }
+  };
+  auto declBody = [&](int from, bool longUnit) {
+    // Fall to the last syllable (2-5 syll) or the last word (>=6 syll), then to the end.
+    int mid = longUnit ? W(-1) : V(-1);
+    if (mid <= from) mid = longUnit ? (syll >= 3 ? V(-3) : from + 3) : from + 3;
+    ramp(u, from, mid, longUnit ? static_cast<int>(lang.aratoDeclLongFallToLastWord) : static_cast<int>(lang.aratoDeclFallToLastSyll));
+    ramp(u, mid, n, longUnit ? static_cast<int>(lang.aratoDeclLongFallEnd) : static_cast<int>(lang.aratoDeclFallEnd));
+  };
 
-  // ---------------------------------------------------------------------------
-  // Shape, in semitones relative to the unit start.
-  // ---------------------------------------------------------------------------
-  std::vector<Knot> knots;
-  double startSt = 0.0;
-  switch (kind) {
-    case Kind::Declarative: {
-      // Hump on the first syllable, straight decline, plunge over the last two
-      // syllables (capped so a long final syllable does not plunge for a second).
-      double plungeStart = (N >= 3) ? penultStart : lastStart;
-      const double maxFall = lang.aratoFinalFallMaxMs / std::max(0.05, speed);
-      if (T - plungeStart > maxFall) plungeStart = T - maxFall;
-      addKnot(knots, 0.0, 0.0);
-      addKnot(knots, nuc1End, lang.aratoHumpSt);
-      addKnot(knots, plungeStart, lang.aratoBodyEndSt);
-      addKnot(knots, T, lang.aratoFinalEndSt);
+  switch (type) {
+    case 1: {  // article-initial declarative
+      if (syll >= 2) { setHump(); declBody(V(1) + 4, syll >= 6); }
       break;
     }
-    case Kind::YesNo: {
-      startSt = lang.aratoQuestionStartSt;
-      addKnot(knots, 0.0, 0.0);
-      if (N <= 1) {
-        // One syllable: rise-fall inside it.
-        addKnot(knots, T * 0.5, lang.aratoQuestionPeakSt);
-        addKnot(knots, T, lang.aratoQuestionEndSt);
-      } else {
-        const bool longUnit = (N >= lang.aratoLongUnitSyllables);
-        if (longUnit) {
-          // Long question: flat body, then a gentle pre-rise before the penult.
-          addKnot(knots, T * 0.7, lang.aratoQuestionBodySt);
-          addKnot(knots, penultStart, lang.aratoLongPreRiseSt);
-        } else {
-          addKnot(knots, penultStart, lang.aratoQuestionBodySt);
-        }
-        addKnot(knots, lastStart, lang.aratoQuestionPeakSt);   // rise across the penultimate syllable
-        addKnot(knots, T, lang.aratoQuestionEndSt);            // fall across the last
+    case 2: {  // plain declarative
+      if (syll == 1) ramp(u, V(0) + 4, n, static_cast<int>(lang.aratoDeclOneSyllFall));
+      else declBody(V(0) + 4, syll >= 6);
+      break;
+    }
+    case 5: {  // wh-question and exclamation: fall from a fixed frame
+      const int f0 = static_cast<int>(lang.aratoWhStartFrame);
+      if (syll == 1) ramp(u, f0, n, static_cast<int>(lang.aratoWhOneSyllFall));
+      else if (syll == 2) ramp(u, f0, n, static_cast<int>(lang.aratoWhTwoSyllFall));
+      else {
+        const int mid = V(1) + 7;
+        ramp(u, f0, mid, static_cast<int>(lang.aratoWhFall));
+        ramp(u, mid, n, static_cast<int>(lang.aratoWhTail));
       }
       break;
     }
-    case Kind::Wh:
-    case Kind::Exclamation: {
-      startSt = (kind == Kind::Wh) ? lang.aratoWhStartSt : lang.aratoExclStartSt;
-      // BraiLab has shed most of the peak by a fifth of the unit whatever the
-      // first word's length (wh 146 -> 113, exclamation 146 -> 100 by decile 2).
-      addKnot(knots, 0.0, 0.0);
-      const double firstFall = std::min(firstWordEnd, T * 0.2);
-      addKnot(knots, firstFall, lang.aratoWhFirstWordEndSt);
-      addKnot(knots, std::max(firstFall, T * 0.3), lang.aratoWhMidSt);
-      addKnot(knots, T, lang.aratoWhEndSt);
+    case 6: {  // yes/no, one or three-plus syllables
+      if (syll == 1) {
+        const int a = V(0) + 6;
+        ramp(u, a, a + 3, static_cast<int>(lang.aratoYnOneSyllRise1));
+        ramp(u, a + 3, a + 6, static_cast<int>(lang.aratoYnOneSyllRise2));
+        // no tail: the program leaves a one-syllable question at its peak
+      } else {
+        const int pen = V(-2) + 4;
+        ramp(u, 0, pen, static_cast<int>(lang.aratoYnCreep));
+        ramp(u, pen, pen + 4, static_cast<int>(lang.aratoYnRise));
+        ramp(u, pen + 4, n, static_cast<int>(lang.aratoYnFall));
+      }
       break;
     }
-    case Kind::Comma: {
-      startSt = lang.aratoCommaStartSt;
-      addKnot(knots, 0.0, 0.0);
-      addKnot(knots, T, lang.aratoCommaEndSt);
+    case 7: {  // yes/no, exactly two syllables
+      const int a = V(1) + 6;
+      ramp(u, a, a + 2, static_cast<int>(lang.aratoYnTwoSyllRise));
+      ramp(u, a + 2, n, static_cast<int>(lang.aratoYnTwoSyllFall));
       break;
     }
+    case 8: {  // comma / semicolon: the unit always ends with a rise over the last word
+      if (words == 1) {
+        ramp(u, 0, n, static_cast<int>(lang.aratoCommaRise));
+      } else {
+        const int lastWord = W(-1);
+        // Syllables before the last word (+1 if the last word starts with a vowel).
+        int before = 0;
+        for (int v : u.V) if (v < lastWord) ++before;
+        {
+          const int lastTok = u.tokOfFrame[static_cast<size_t>(clampIdx(lastWord, 0, n - 1))];
+          if (lastTok >= 0 && tokenIsVowel(tokens[static_cast<size_t>(lastTok)])) ++before;
+        }
+        const int fall = static_cast<int>(lang.aratoCommaFall);
+        if (articleInitial) {
+          if (before <= 1) ramp(u, 6, n, static_cast<int>(lang.aratoCommaRise));
+          else {
+            setHump();
+            int from = V(1) + 4; if (from >= lastWord) from = lastWord - 2;
+            ramp(u, from, lastWord, fall);
+          }
+        } else {
+          if (before == 0) ramp(u, 0, n, static_cast<int>(lang.aratoCommaRise));
+          else {
+            int from = V(0) + 4; if (from >= lastWord) from = lastWord - 2;
+            ramp(u, from, lastWord, fall);
+          }
+        }
+        ramp(u, lastWord, n, static_cast<int>(lang.aratoCommaRise));
+      }
+      break;
+    }
+    default: break;  // type 3 (colon / line end): flat at P
   }
 
   // ---------------------------------------------------------------------------
-  // Sample per token.  Inflection scales every offset (the user's slider);
-  // unvoiced and silent tokens carry the last pitch so nothing jumps.
+  // Integrate the codes cumulatively, as the chip does, and hand each token its
+  // start and end pitch.  The inflection slider scales every increment and the
+  // start delta from the program's own values (reached at aratoInflectionRef).
   // ---------------------------------------------------------------------------
-  // The measured shapes are reproduced at aratoInflectionRef (the platforms'
-  // default slider position, 0.5); the slider scales them from there.
   const double ref = (lang.aratoInflectionRef > 0.0) ? lang.aratoInflectionRef : 0.5;
   const double scale = inflection / ref;
-  auto hz = [&](double timeMs) {
-    const double st = (startSt + interpolate(knots, timeMs)) * scale;
-    return basePitch * std::pow(2.0, st / 12.0);
+  const double byteHz = lang.aratoPitchByteHz;
+  double pitch = basePitch + startDelta * byteHz * scale;
+  const double lo = 40.0, hi = std::max(400.0, basePitch * 2.0);
+  pitch = std::min(std::max(pitch, lo), hi);
+  std::vector<double> atStart(static_cast<size_t>(u.n) + 1, pitch);
+  for (int f = 0; f < u.n; ++f) {
+    const int c = u.code[static_cast<size_t>(f)];
+    double inc = 0.0;
+    if (c >= 1 && c <= 15) inc = kPiHz[c];
+    else if (c >= 17 && c <= 31) inc = -kPiHz[32 - c];
+    pitch = std::min(std::max(pitch + inc * scale, lo), hi);
+    atStart[static_cast<size_t>(f) + 1] = pitch;
+  }
+  // A token carries one start and one end pitch, and the emitter draws a
+  // straight line between them.  The chip drew every frame, so a peak or a
+  // knee inside a long vowel (the two-syllable question's rise-fall, the wh
+  // hold-then-fall) would be flattened.  Where the integrated contour leaves
+  // that straight line by more than a few hertz inside a vowel, split the
+  // vowel at that frame: two halves, same sound, each with its own pitch.
+  struct Split { size_t tok; double atMs; };
+  std::vector<Split> splits;
+  const double splitTolHz = 4.0;
+  for (size_t i = 0; i < nTok; ++i) {
+    const Token& t = tokens[i];
+    if (t.silence || !t.def || !tokenIsVowel(t) || t.durationMs < 30.0) continue;
+    const int fa = clampIdx(static_cast<int>(tokStartMs[i] / frameMs), 0, u.n);
+    const int fb = clampIdx(static_cast<int>(std::ceil(tokEndMs[i] / frameMs)), 0, u.n);
+    if (fb - fa < 3) continue;
+    const double p0 = atStart[static_cast<size_t>(fa)], p1 = atStart[static_cast<size_t>(fb)];
+    double bestDev = 0.0; int bestF = -1;
+    for (int f = fa + 1; f < fb; ++f) {
+      const double lin = p0 + (p1 - p0) * (double)(f - fa) / (double)(fb - fa);
+      const double dev = std::fabs(atStart[static_cast<size_t>(f)] - lin);
+      if (dev > bestDev) { bestDev = dev; bestF = f; }
+    }
+    if (bestF < 0 || bestDev < splitTolHz) continue;
+    const double atMs = bestF * frameMs;
+    if (atMs - tokStartMs[i] < 12.0 || tokEndMs[i] - atMs < 12.0) continue;
+    splits.push_back({i, atMs});
+  }
+  auto pitchAt = [&](double ms) {
+    const int f = clampIdx(static_cast<int>(ms / frameMs), 0, u.n);
+    return atStart[static_cast<size_t>(f)];
   };
-  for (size_t i = 0; i < n; ++i) {
-    Token& t = tokens[i];
-    // Gaps and silences get the contour too: a voiced closure is on it, and
-    // a true silence is inaudible either way.
-    setPitchFields(t, hz(tokStartMs[i]), hz(tokEndMs[i]));
+  // Apply from the back so earlier indices stay valid.
+  for (size_t k = splits.size(); k-- > 0;) {
+    const Split& s = splits[k];
+    Token& a = tokens[s.tok];
+    Token b = a;                                  // second half: same sound, keeps the token's fade
+    const double firstDur = s.atMs - tokStartMs[s.tok];
+    b.durationMs = a.durationMs - firstDur;
+    a.durationMs = firstDur;
+    a.fadeMs = std::min(a.fadeMs, 3.0);           // a short crossfade into the twin
+    b.wordStart = false;
+    b.syllableStart = false;
+    b.stress = 0;
+    setPitchFields(a, pitchAt(tokStartMs[s.tok]), pitchAt(s.atMs));
+    setPitchFields(b, pitchAt(s.atMs), pitchAt(tokEndMs[s.tok]));
+    tokens.insert(tokens.begin() + static_cast<long>(s.tok) + 1, b);
+    tokStartMs.insert(tokStartMs.begin() + static_cast<long>(s.tok) + 1, s.atMs);
+    tokEndMs.insert(tokEndMs.begin() + static_cast<long>(s.tok), s.atMs);
+  }
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    setPitchFields(tokens[i], pitchAt(tokStartMs[i]), pitchAt(tokEndMs[i]));
   }
 }
 
