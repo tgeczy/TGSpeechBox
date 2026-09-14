@@ -8,6 +8,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <queue>
 #include <cstring>
 #include <cstddef>  // offsetof
+#include <cmath>    // exp (aspiration tail decay)
 #include "utils.h"
 #include "frame.h"
 
@@ -478,6 +479,22 @@ class FrameManagerImpl: public FrameManager {
 				oldFrameRequest->NULLFrame = true;
 			}
 		} else {
+			// A silence queued after an aspirated release keeps a residual
+			// aspiration and pre-formant gain so the release has a tail (see the
+			// NULLFrame branch above).  That tail must not last the whole
+			// silence: a two-second pause is not a two-second breath (#125).
+			// Once the fade into the silence is over, let it decay with a
+			// ~30 ms time constant, inaudible after about 150 ms.
+			if(oldFrameRequest->NULLFrame &&
+			   (curFrame.aspirationAmplitude > 0.0 || curFrame.preFormantGain > 0.0)) {
+				const double tail = exp(-1000.0 / (30.0 * (double)sampleRate));
+				curFrame.aspirationAmplitude *= tail;
+				curFrame.preFormantGain *= tail;
+				if(curFrame.aspirationAmplitude < 1e-4) curFrame.aspirationAmplitude = 0.0;
+				if(curFrame.preFormantGain < 1e-4) curFrame.preFormantGain = 0.0;
+				oldFrameRequest->frame.aspirationAmplitude = curFrame.aspirationAmplitude;
+				oldFrameRequest->frame.preFormantGain = curFrame.preFormantGain;
+			}
 			// Per-sample pitch ramping (linear)
 			curFrame.voicePitch+=oldFrameRequest->voicePitchInc;
 			oldFrameRequest->frame.voicePitch=curFrame.voicePitch;
