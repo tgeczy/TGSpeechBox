@@ -60,6 +60,10 @@ class FrameEx(ctypes.Structure):
         ("transVoicingHoldRatio", ctypes.c_double),
         # Frication spectral tilt (DSP v9). 0=flat, negative=darken high-freq parallels.
         ("fricationTiltDb", ctypes.c_double),
+        # Voice amplitude end target (DSP v9). NAN=hold flat; finite=per-sample linear ramp like endVoicePitch.
+        ("endVoiceAmplitude", ctypes.c_double),
+        # Amplitude onset glide ms (DSP v9). 0=legacy step; >0 = voiceAmplitude+outputGain glide in from the previous values.
+        ("amplitudeOnsetMs", ctypes.c_double),
     ]
     # <<< END AUTO-GENERATED <<<
 

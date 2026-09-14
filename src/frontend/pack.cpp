@@ -953,6 +953,25 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("prominenceAmplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
   getBool("prominencePitchFromProminence", lp.prominencePitchFromProminence);
 
+  getBool("amplitudeContourEnabled", lp.amplitudeContourEnabled);
+  getNum("amplitudeContourOnsetMs", lp.amplitudeContourOnsetMs);
+  getNum("amplitudeContourNasalFallDb", lp.amplitudeContourNasalFallDb);
+  getNum("amplitudeContourStressedFallDb", lp.amplitudeContourStressedFallDb);
+  getNum("amplitudeContourUnstressedFallDb", lp.amplitudeContourUnstressedFallDb);
+  getNum("amplitudeContourUnstressedLevelDb", lp.amplitudeContourUnstressedLevelDb);
+  getNum("amplitudeContourNasalLevelDb", lp.amplitudeContourNasalLevelDb);
+  getNum("amplitudeContourGlideLevelDb", lp.amplitudeContourGlideLevelDb);
+  getNum("amplitudeContourVoicedFricLevelDb", lp.amplitudeContourVoicedFricLevelDb);
+  getNum("amplitudeContourVoicedAffricateLevelDb", lp.amplitudeContourVoicedAffricateLevelDb);
+  getNum("amplitudeContourVoicelessFricLevelDb", lp.amplitudeContourVoicelessFricLevelDb);
+  getNum("amplitudeContourStopLevelDb", lp.amplitudeContourStopLevelDb);
+  getNum("amplitudeContourSonorantFallDb", lp.amplitudeContourSonorantFallDb);
+  getNum("amplitudeContourMinMs", lp.amplitudeContourMinMs);
+  getNum("amplitudeContourMakeupDb", lp.amplitudeContourMakeupDb);
+  getNum("amplitudeContourDeclinationDb", lp.amplitudeContourDeclinationDb);
+  getNum("amplitudeContourFinalLevelDb", lp.amplitudeContourFinalLevelDb);
+  getNum("amplitudeContourFinalFallDb", lp.amplitudeContourFinalFallDb);
+
   getBool("microprosodyEnabled", lp.microprosodyEnabled);
   getBool("microprosodyVoicelessF0RaiseEnabled", lp.microprosodyVoicelessF0RaiseEnabled);
   getNum("microprosodyVoicelessF0RaiseHz", lp.microprosodyVoicelessF0RaiseHz);

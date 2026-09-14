@@ -54,6 +54,8 @@ SECTION_TITLES = [
     ("transSourceHoldRatio",  "Source amplitude timing (DSP v8). 0.0 = legacy, no hold."),
     ("transVoicingHoldRatio", "Voicing onset hold (DSP v8). 0.0 = legacy, no hold."),
     ("fricationTiltDb",       "Frication spectral tilt (DSP v9). 0=flat, negative=darken high-freq parallels."),
+    ("endVoiceAmplitude",     "Voice amplitude end target (DSP v9). NAN=hold flat; finite=per-sample linear ramp like endVoicePitch."),
+    ("amplitudeOnsetMs",      "Amplitude onset glide ms (DSP v9). 0=legacy step; >0 = voiceAmplitude+outputGain glide in from the previous values."),
 ]
 
 MARKER_BEGIN_TAG = (

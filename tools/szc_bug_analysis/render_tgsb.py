@@ -45,6 +45,7 @@ FRAMEEX_FIELDS = [
     "transF1Scale", "transF2Scale", "transF3Scale", "transNasalScale",
     "transAmplitudeMode", "cf7", "cb7", "cf8", "cb8",
     "transSourceHoldRatio", "transVoicingHoldRatio", "fricationTiltDb",
+    "endVoiceAmplitude", "amplitudeOnsetMs",
 ]
 
 

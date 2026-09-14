@@ -148,6 +148,10 @@ struct EditorFrameEx {
   double transVoicingHoldRatio;
   // Frication spectral tilt (DSP v9). 0=flat, negative=darken high-freq parallels.
   double fricationTiltDb;
+  // Voice amplitude end target (DSP v9). NAN=hold flat; finite=per-sample linear ramp like endVoicePitch.
+  double endVoiceAmplitude;
+  // Amplitude onset glide ms (DSP v9). 0=legacy step; >0 = voiceAmplitude+outputGain glide in from the previous values.
+  double amplitudeOnsetMs;
 };
 // <<< END AUTO-GENERATED <<<
 

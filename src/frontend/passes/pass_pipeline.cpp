@@ -23,6 +23,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "cluster_blend.h"
 #include "special_coartic.h"
 #include "prominence.h"
+#include "amplitude_contour.h"
 
 #include "../utf8.h"
 
@@ -87,6 +88,9 @@ const PassDesc kPasses[] = {
 
     {"boundary_smoothing", PassStage::PostTiming, &passes::runBoundarySmoothing},
     {"trajectory_limit", PassStage::PostTiming, &passes::runTrajectoryLimit},
+    // Last in PostTiming: sees final tokens and durations, sits on top of
+    // prominence's amplitude realization.
+    {"amplitude_contour", PassStage::PostTiming, &passes::runAmplitudeContour},
 
     {"microprosody", PassStage::PostPitch, &passes::runMicroprosody},
 };

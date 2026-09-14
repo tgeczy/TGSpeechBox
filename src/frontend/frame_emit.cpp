@@ -252,6 +252,8 @@ static void generateAcousticEvents(
         // it just left (overriding the F2/F3 pre-positioning above), which
         // slow rates stretch into an audible ghost of the prior phoneme.
         vbFrameEx.endCf1 = vbFrameEx.endCf2 = vbFrameEx.endCf3 = NAN;
+        vbFrameEx.endVoiceAmplitude = NAN;
+        vbFrameEx.amplitudeOnsetMs = 0.0;
         vbFrameEx.endPf1 = vbFrameEx.endPf2 = vbFrameEx.endPf3 = NAN;
         emitFn(&vbFrame, &vbFrameEx, t.durationMs, vbFadeMs);
       } else {
@@ -280,6 +282,8 @@ static void generateAcousticEvents(
         // Same guard as the voice bar: stale inherited formant ramp targets
         // would override the taper's own place blending below.
         taperFrameEx.endCf1 = taperFrameEx.endCf2 = taperFrameEx.endCf3 = NAN;
+        taperFrameEx.endVoiceAmplitude = NAN;
+        taperFrameEx.amplitudeOnsetMs = 0.0;
         taperFrameEx.endPf1 = taperFrameEx.endPf2 = taperFrameEx.endPf3 = NAN;
 
         // --- Early taper: sibilant tail ---
@@ -444,6 +448,17 @@ static void generateAcousticEvents(
                      t.hasEndPf3 ? t.endPf3 :
                      (t.def && t.def->hasEndCf3) ? t.def->endCf3 :
                      t.hasEndCf3 ? t.endCf3 : NAN;
+
+    // Voice amplitude end target (DSP v9).  The amplitude_contour pass
+    // leaves a RATIO on the token; it is applied to the final base
+    // amplitude here, after this emitter's own scalings (tap dip), so the
+    // two stay coherent.  Tokens without a contour hold flat (NAN) — and
+    // the assignment is unconditional because frameEx is value-initialised
+    // to zeros, and a zero here would ramp every frame to silence.
+    frameEx.endVoiceAmplitude =
+        (t.endVoiceAmplitudeScale >= 0.0 && base[va] > 0.0)
+            ? base[va] * t.endVoiceAmplitudeScale : NAN;
+    frameEx.amplitudeOnsetMs = (t.amplitudeOnsetMs > 0.0) ? t.amplitudeOnsetMs : 0.0;
 
     // Per-parameter transition speed scales (set by boundary_smoothing pass).
     frameEx.transF1Scale = t.transF1Scale;
@@ -673,6 +688,20 @@ static void generateAcousticEvents(
           mf[va] *= ampScale;
         }
 
+        // Amplitude contour (DSP v9) sliced across the glide like the
+        // pitch ramp: this micro-frame starts on the contour at t0 and ramps
+        // to the contour at t1 (with the dip evaluated there), so the
+        // waypoints join without a step.  Unset (NAN) = flat, as before.
+        double contourEnd = NAN;
+        if (!nvsp_isnan(frameEx.endVoiceAmplitude) && base[va] > 0.0) {
+          const double r = frameEx.endVoiceAmplitude / base[va];
+          mf[va] *= 1.0 + (r - 1.0) * t0;
+          double fracNext = (N > 1) ? (static_cast<double>(seg + 1) / (N - 1)) : 1.0;
+          if (fracNext > 1.0) fracNext = 1.0;
+          double dipNext = (dipFactor > 0.0) ? (1.0 - dipFactor * sin(M_PI * fracNext)) : 1.0;
+          contourEnd = base[va] * (1.0 + (r - 1.0) * t1) * dipNext;
+        }
+
         nvspFrontend_Frame frame;
         std::memcpy(&frame, mf, sizeof(frame));
 
@@ -710,6 +739,8 @@ static void generateAcousticEvents(
           mfEx.endPf2 = NAN;
           mfEx.endPf3 = NAN;
         }
+        mfEx.endVoiceAmplitude = contourEnd;
+        if (seg > 0) mfEx.amplitudeOnsetMs = 0.0;  // the onset belongs to the first waypoint
 
         // Fade: first micro-frame uses token's entry fade.
         // Internal micro-frames use a short snap fade (3ms) so formants
@@ -866,10 +897,19 @@ static void generateAcousticEvents(
           mf[vp] = p0 + pd * (pos / dur);
           mf[evp] = p0 + pd * ((pos + segDur) / dur);
 
+          // Amplitude contour (DSP v9) sliced across the three segments.
+          double segAmpEnd = NAN;
+          if (!nvsp_isnan(frameEx.endVoiceAmplitude) && base[va] > 0.0) {
+            const double r = frameEx.endVoiceAmplitude / base[va];
+            mf[va] = base[va] * (1.0 + (r - 1.0) * (pos / dur));
+            segAmpEnd = base[va] * (1.0 + (r - 1.0) * ((pos + segDur) / dur));
+          }
+
           nvspFrontend_Frame frame;
           std::memcpy(&frame, mf, sizeof(frame));
 
           nvspFrontend_FrameEx segEx = frameEx;
+          segEx.endVoiceAmplitude = segAmpEnd;
           if (ramp) {
             segEx.endCf1 = e1; segEx.endCf2 = e2; segEx.endCf3 = e3;
             segEx.endPf1 = ep1; segEx.endPf2 = ep2; segEx.endPf3 = ep3;
@@ -881,6 +921,7 @@ static void generateAcousticEvents(
             segEx.fujisakiPhraseAmp = 0.0;
             segEx.fujisakiAccentAmp = 0.0;
             segEx.fujisakiReset = 0.0;
+            segEx.amplitudeOnsetMs = 0.0;  // the onset belongs to the first segment
           }
           double fadeIn = firstSeg ? t.fadeMs : 3.0;
           if (fadeIn > segDur) fadeIn = segDur;

@@ -67,6 +67,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -403,10 +404,29 @@ void applyPitchArato(
     const double firstDur = s.atMs - tokStartMs[s.tok];
     b.durationMs = a.durationMs - firstDur;
     a.durationMs = firstDur;
+    // Amplitude contour (DSP v9): the twins share ONE line.  The first
+    // half ends where the line is at the cut, the second starts there and
+    // finishes the fall — otherwise the whole fall would play twice.
+    if (a.endVoiceAmplitudeScale >= 0.0 && a.durationMs + b.durationMs > 0.0) {
+      const double r = a.endVoiceAmplitudeScale;
+      const double frac = a.durationMs / (a.durationMs + b.durationMs);
+      const double atCut = 1.0 + (r - 1.0) * frac;
+      const int vaIdx = static_cast<int>(FieldId::voiceAmplitude);
+      const std::uint64_t vaBit = 1ULL << vaIdx;
+      const double va = (b.setMask & vaBit) ? b.field[vaIdx]
+                        : (b.def && (b.def->setMask & vaBit)) ? b.def->field[vaIdx] : 0.0;
+      if (atCut > 0.0 && va > 0.0) {
+        a.endVoiceAmplitudeScale = atCut;
+        b.field[vaIdx] = va * atCut;
+        b.setMask |= vaBit;
+        b.endVoiceAmplitudeScale = r / atCut;
+      }
+    }
     a.fadeMs = std::min(a.fadeMs, 3.0);           // a short crossfade into the twin
     b.wordStart = false;
     b.syllableStart = false;
     b.stress = 0;
+    b.amplitudeOnsetMs = 0.0;                     // one onset per vowel, on the first half
     setPitchFields(a, pitchAt(tokStartMs[s.tok]), pitchAt(s.atMs));
     setPitchFields(b, pitchAt(s.atMs), pitchAt(tokEndMs[s.tok]));
     tokens.insert(tokens.begin() + static_cast<long>(s.tok) + 1, b);

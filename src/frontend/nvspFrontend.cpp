@@ -468,6 +468,8 @@ static int queueIPA_ExImpl(
   frameExDefaults.endPf1 = NAN;
   frameExDefaults.endPf2 = NAN;
   frameExDefaults.endPf3 = NAN;
+  frameExDefaults.endVoiceAmplitude = NAN;  // hold flat unless a pass asks for a contour
+  frameExDefaults.amplitudeOnsetMs = 0.0;   // no onset glide unless a pass asks for one
   frameExDefaults.cf7 = 6500.0;
   frameExDefaults.cb7 = 720.0;
   frameExDefaults.cf8 = 7500.0;

@@ -129,6 +129,17 @@ struct Token {
   bool hasEndPb1 = false, hasEndPb2 = false, hasEndPb3 = false;
   double endPb1 = 0.0, endPb2 = 0.0, endPb3 = 0.0;
 
+  // Voice amplitude end RATIO (set by the amplitude_contour pass): the
+  // segment ends at voiceAmplitude * endVoiceAmplitudeScale.  < 0 = unset
+  // (hold flat).  A ratio rather than an absolute so frame_emit can apply
+  // it to the final amplitude after its own scalings, and so a pass that
+  // splits a token (arato_style) can interpolate it.
+  double endVoiceAmplitudeScale = -1.0;
+  // Amplitude onset glide in ms (set by the amplitude_contour pass; 0 =
+  // none): the DSP glides voicing amplitude and master gain in from the
+  // previous segment's values over this time instead of stepping.
+  double amplitudeOnsetMs = 0.0;
+
   // Canonical steady-state formant targets (set by coarticulation pass when
   // lang.coarticulationSteadyState is on).  With coartic shaping, field[cf*]
   // holds the locus-shifted ONSET and endCf* holds the EXIT target — the

@@ -1229,6 +1229,35 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   // Realization: pitch (controls whether pitch_fujisaki reads prominence)
   bool prominencePitchFromProminence = false;
 
+  // Amplitude contour (loudness level + within-segment fall; DSP v9).
+  // Runs last in PostTiming, on top of prominence.  Levels are dB offsets
+  // on the frame's master gain (outputGain) relative to a primary-stressed
+  // vowel; falls are dB across the segment, ramped on the voicing source.
+  // A segment shorter than amplitudeContourMinMs gets a proportionally
+  // smaller fall.  Makeup is added to every contoured segment's level so a
+  // language can keep its integrated loudness.  All off by default.
+  bool amplitudeContourEnabled = false;
+  double amplitudeContourOnsetMs = 20.0;          // glide in from the previous segment
+  double amplitudeContourStressedFallDb = 2.0;
+  double amplitudeContourUnstressedFallDb = 4.0;
+  double amplitudeContourUnstressedLevelDb = -3.0;
+  double amplitudeContourNasalLevelDb = -2.0;     // murmur starts near the vowel...
+  double amplitudeContourNasalFallDb = 8.0;       // ...and decays toward the closure
+  double amplitudeContourGlideLevelDb = -3.0;
+  double amplitudeContourSonorantFallDb = 2.0;    // liquids and semivowels
+  double amplitudeContourVoicedFricLevelDb = -14.0;
+  double amplitudeContourVoicedAffricateLevelDb = -6.0;  // level only; burst keeps its shape
+  double amplitudeContourVoicelessFricLevelDb = -4.0;    // s ʃ f θ h and voiceless affricates; level only
+  double amplitudeContourStopLevelDb = -3.0;             // stop bursts/releases (+ their aspiration); level only
+  double amplitudeContourMinMs = 40.0;
+  double amplitudeContourMakeupDb = 0.0;
+  // Clause shape: level declines linearly by declinationDb from the first
+  // voiced segment to the last; the final word sits finalLevelDb lower
+  // still and its stressed vowel falls at least finalFallDb.
+  double amplitudeContourDeclinationDb = 3.0;
+  double amplitudeContourFinalLevelDb = -2.0;
+  double amplitudeContourFinalFallDb = 5.0;
+
   // Microprosody.
   bool microprosodyEnabled = false;
   bool microprosodyVoicelessF0RaiseEnabled = true;

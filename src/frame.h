@@ -211,6 +211,41 @@ typedef struct {
 	 * distinguishes /ɡ/ from /p/ — so /ɡ/ stays /ɡ/ even when darkened.
 	 */
 	double fricationTiltDb;
+
+	/* =========================================================================
+	 * Voice amplitude end target (DSP v9)
+	 * =========================================================================
+	 *
+	 * The voiced-source amplitude at the END of this frame.  NAN (the
+	 * default) holds voiceAmplitude flat across the frame, exactly as
+	 * before.  A finite value makes the frame manager ramp voiceAmplitude
+	 * linearly per sample from the frame's voiceAmplitude to this value over
+	 * minNumSamples, with the same bookkeeping endVoicePitch gets (the fade
+	 * portion is advanced in one step, the hold phase walks the rest).
+	 *
+	 * The frontend's amplitude_contour pass uses it to give every voiced
+	 * segment its own level and its own fall (a stressed vowel decays a
+	 * little, an unstressed one a lot; sonorants sit a few dB under the
+	 * vowels): the loudness structure of natural speech and of the
+	 * ETI-Eloquence lineage.  A 40 ms hold at one amplitude is a large part
+	 * of what the ear reads as "spliced".  Klatt (1980) tables the class
+	 * levels; the within-segment fall is measured against reference renders.
+	 *
+	 * The ramp clamps at 0; it never drives the source negative.
+	 */
+	double endVoiceAmplitude;
+
+	/* Amplitude onset glide (DSP v9).  0 (the default) = legacy: the
+	 * voicing amplitude and master gain step to this frame's values inside
+	 * the crossfade.  A positive value in milliseconds makes voiceAmplitude
+	 * and outputGain glide linearly from whatever was playing at the
+	 * transition start to this frame's values over that time (capped at the
+	 * frame length), and the endVoiceAmplitude fall then runs over the rest.
+	 * With it, a vowel after a nasal rises over ~20 ms instead of jumping,
+	 * and a voiced fricative eases down into its valley: Klatt's piecewise-
+	 * linear source interpolation, and what keeps the loudness contour from
+	 * reading as a compressor pumping.  Formants keep their own crossfade. */
+	double amplitudeOnsetMs;
 } speechPlayer_frameEx_t;
 
 // Default values for frameEx parameters. Used when:
@@ -248,7 +283,9 @@ static const speechPlayer_frameEx_t speechPlayer_frameEx_defaults = {
 	1250.0, // cb8: Rabiner 1968 default
 	0.0,    // transSourceHoldRatio: no hold (legacy)
 	0.0,    // transVoicingHoldRatio: no hold (legacy)
-	0.0     // fricationTiltDb: flat spectral tilt (DSP v9, rate-modulated for stops)
+	0.0,    // fricationTiltDb: flat spectral tilt (DSP v9, rate-modulated for stops)
+	NAN,    // endVoiceAmplitude: hold flat (DSP v9)
+	0.0     // amplitudeOnsetMs: no onset glide (DSP v9)
 };
 
 const int speechPlayer_frameEx_numParams=sizeof(speechPlayer_frameEx_t)/sizeof(double);

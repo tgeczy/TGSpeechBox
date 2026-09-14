@@ -52,6 +52,7 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/allophones.cpp \
 	$(PASSESDIR)/boundary_smoothing.cpp \
 	$(PASSESDIR)/cluster_blend.cpp \
+	$(PASSESDIR)/amplitude_contour.cpp \
 	$(PASSESDIR)/cluster_timing.cpp \
 	$(PASSESDIR)/coarticulation.cpp \
 	$(PASSESDIR)/svarabhakti.cpp \
@@ -260,6 +261,9 @@ $(BUILDDIR)/syllable_marking.o: $(PASSESDIR)/syllable_marking.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/amplitude_contour.o: $(PASSESDIR)/amplitude_contour.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/pitch_arato.o: $(PASSESDIR)/pitch_arato.cpp

@@ -140,6 +140,16 @@ struct frameRequest_t {
 
 	speechPlayer_frame_t frame;
 	double voicePitchInc;
+	// Per-sample voiceAmplitude step toward frameEx.endVoiceAmplitude (DSP v9).
+	// 0 = hold flat.  Same life cycle as voicePitchInc.
+	double voiceAmplitudeInc;
+	// Amplitude onset glide (DSP v9): over the first ampOnsetSamples of the
+	// frame, voiceAmplitude/outputGain move linearly from the values that
+	// were playing at the transition start (vaFrom/ogFrom, captured then) to
+	// the frame's own values (vaTarget/ogTarget).  0 = legacy step.
+	double ampOnsetSamples;
+	double vaFrom, ogFrom;
+	double vaTarget, ogTarget;
 	
 	// Formant end targets for exponential smoothing (DECTalk-style transitions)
 	// NAN = no ramping for that formant
@@ -165,6 +175,17 @@ class FrameManagerImpl: public FrameManager {
 	bool purgeFlag;  // Set on purge, cleared when checked
 	int sampleRate;  // Needed to express kAmpSpanMs in samples
 
+	// Amplitude onset glide (DSP v9): where the line is at this sample.
+	void applyAmplitudeOnset(frameRequest_t* r) {
+		double ratio=(double)sampleCounter/r->ampOnsetSamples;
+		if(ratio>1.0) ratio=1.0;
+		if(ratio<0.0) ratio=0.0;
+		curFrame.voiceAmplitude=r->vaFrom+(r->vaTarget-r->vaFrom)*ratio;
+		curFrame.outputGain=r->ogFrom+(r->ogTarget-r->ogFrom)*ratio;
+		if(curFrame.voiceAmplitude<0) curFrame.voiceAmplitude=0;
+		if(curFrame.outputGain<0) curFrame.outputGain=0;
+	}
+
 	void updateCurrentFrame() {
 		sampleCounter++;
 		if(newFrameRequest) {
@@ -176,6 +197,7 @@ class FrameManagerImpl: public FrameManager {
 				memcpy(&curFrame, &(oldFrameRequest->frame), sizeof(speechPlayer_frame_t));
 				memcpy(&curFrameEx, &(oldFrameRequest->frameEx), sizeof(speechPlayer_frameEx_t));
 				curHasFrameEx = oldFrameRequest->hasFrameEx;
+				if(oldFrameRequest->ampOnsetSamples>0) applyAmplitudeOnset(oldFrameRequest);
 			} else {
 				double linearRatio=(double)sampleCounter/(newFrameRequest->numFadeSamples);
 
@@ -387,6 +409,10 @@ class FrameManagerImpl: public FrameManager {
 				}
 				} // end sophisticated crossfade
 
+				// Amplitude onset glide (DSP v9): voicing amplitude and master
+				// gain follow their own slow line instead of the crossfade.
+				if(newFrameRequest->ampOnsetSamples>0) applyAmplitudeOnset(newFrameRequest);
+
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
 					curHasFrameEx = true;
 
@@ -434,6 +460,8 @@ class FrameManagerImpl: public FrameManager {
 					newFrameRequest->frame.voiceTurbulenceAmplitude=0;
 					newFrameRequest->frame.voicePitch=curFrame.voicePitch;
 					newFrameRequest->voicePitchInc=0;
+					newFrameRequest->voiceAmplitudeInc=0;
+					newFrameRequest->ampOnsetSamples=0;
 
 					// Carry frameEx through silence fades so transitions stay smooth.
 					memcpy(&(newFrameRequest->frameEx),&(oldFrameRequest->frameEx),sizeof(speechPlayer_frameEx_t));
@@ -467,6 +495,16 @@ class FrameManagerImpl: public FrameManager {
 						curHasFrameEx = oldFrameRequest->hasFrameEx;
 					}
 					newFrameRequest->frame.voicePitch+=(newFrameRequest->voicePitchInc*newFrameRequest->numFadeSamples);
+					// Amplitude onset glide starts from what is playing now
+					// (0 when we come from silence).
+					newFrameRequest->vaFrom=curFrame.voiceAmplitude;
+					newFrameRequest->ogFrom=curFrame.outputGain;
+					if(newFrameRequest->voiceAmplitudeInc!=0 && newFrameRequest->ampOnsetSamples<=0) {
+						// The crossfade lands on the amplitude the ramp has reached by
+						// its end, so the hold phase continues the line without a step.
+						newFrameRequest->frame.voiceAmplitude+=(newFrameRequest->voiceAmplitudeInc*newFrameRequest->numFadeSamples);
+						if(newFrameRequest->frame.voiceAmplitude<0) newFrameRequest->frame.voiceAmplitude=0;
+					}
 				}
 			} else {
 				curFrameIsNULL=true;
@@ -498,6 +536,18 @@ class FrameManagerImpl: public FrameManager {
 			// Per-sample pitch ramping (linear)
 			curFrame.voicePitch+=oldFrameRequest->voicePitchInc;
 			oldFrameRequest->frame.voicePitch=curFrame.voicePitch;
+			// Per-sample voice amplitude ramping (linear, DSP v9).  Written
+			// back into the request so the next crossfade starts from the
+			// ramped value, not from the frame's queued start amplitude.
+			if(oldFrameRequest->ampOnsetSamples>0 && (double)sampleCounter<=oldFrameRequest->ampOnsetSamples) {
+				applyAmplitudeOnset(oldFrameRequest);
+				oldFrameRequest->frame.voiceAmplitude=curFrame.voiceAmplitude;
+				oldFrameRequest->frame.outputGain=curFrame.outputGain;
+			} else if(oldFrameRequest->voiceAmplitudeInc!=0) {
+				curFrame.voiceAmplitude+=oldFrameRequest->voiceAmplitudeInc;
+				if(curFrame.voiceAmplitude<0) curFrame.voiceAmplitude=0;
+				oldFrameRequest->frame.voiceAmplitude=curFrame.voiceAmplitude;
+			}
 			
 			// Per-sample formant ramping with exponential smoothing
 			// This mimics articulatory inertia - fast initial movement, gentle settling
@@ -545,6 +595,10 @@ class FrameManagerImpl: public FrameManager {
 		memset(&(oldFrameRequest->frame), 0, sizeof(speechPlayer_frame_t));
 		oldFrameRequest->frameEx = speechPlayer_frameEx_defaults;
 		oldFrameRequest->voicePitchInc=0;
+		oldFrameRequest->voiceAmplitudeInc=0;
+		oldFrameRequest->ampOnsetSamples=0;
+		oldFrameRequest->vaFrom=oldFrameRequest->ogFrom=0;
+		oldFrameRequest->vaTarget=oldFrameRequest->ogTarget=0;
 		oldFrameRequest->endCf1=NAN;
 		oldFrameRequest->endCf2=NAN;
 		oldFrameRequest->endCf3=NAN;
@@ -575,6 +629,11 @@ class FrameManagerImpl: public FrameManager {
 			memset(&(frameRequest->frame), 0, sizeof(speechPlayer_frame_t));
 			frameRequest->voicePitchInc=0;
 		}
+		frameRequest->voiceAmplitudeInc=0;
+		frameRequest->ampOnsetSamples=0;
+		frameRequest->vaFrom=frameRequest->ogFrom=0;
+		frameRequest->vaTarget=frameRequest->frame.voiceAmplitude;
+		frameRequest->ogTarget=frameRequest->frame.outputGain;
 		
 		// Initialize formant end targets to NAN (no ramping by default)
 		frameRequest->endCf1 = NAN;
@@ -593,6 +652,29 @@ class FrameManagerImpl: public FrameManager {
 			frameRequest->frameEx = speechPlayer_frameEx_defaults;
 			unsigned int copySize = frameExSize < sizeof(speechPlayer_frameEx_t) ? frameExSize : sizeof(speechPlayer_frameEx_t);
 			memcpy(&(frameRequest->frameEx), frameEx, copySize);
+
+			// Voice amplitude end target (DSP v9): a finite value ramps
+			// voiceAmplitude linearly over the frame, like endVoicePitch.
+			if(!frameRequest->NULLFrame && frameRequest->minNumSamples>0 &&
+			   std::isfinite(frameRequest->frameEx.endVoiceAmplitude)) {
+				double endVa=frameRequest->frameEx.endVoiceAmplitude;
+				if(endVa<0) endVa=0;
+				frameRequest->voiceAmplitudeInc=(endVa-frameRequest->frame.voiceAmplitude)/frameRequest->minNumSamples;
+			}
+			// Amplitude onset glide (DSP v9): the fall, if any, runs after it.
+			if(!frameRequest->NULLFrame && frameRequest->minNumSamples>0 &&
+			   std::isfinite(frameRequest->frameEx.amplitudeOnsetMs) && frameRequest->frameEx.amplitudeOnsetMs>0.0) {
+				double onset=frameRequest->frameEx.amplitudeOnsetMs*(double)sampleRate/1000.0;
+				if(onset>(double)frameRequest->minNumSamples) onset=(double)frameRequest->minNumSamples;
+				frameRequest->ampOnsetSamples=onset;
+				if(frameRequest->voiceAmplitudeInc!=0) {
+					double endVa=frameRequest->frameEx.endVoiceAmplitude;
+					if(endVa<0) endVa=0;
+					double rem=(double)frameRequest->minNumSamples-onset;
+					if(rem<1.0) rem=1.0;
+					frameRequest->voiceAmplitudeInc=(endVa-frameRequest->vaTarget)/rem;
+				}
+			}
 			
 			// Store formant end targets for exponential smoothing
 			// Tau of ~10ms gives smooth articulatory movement that mimics real speech

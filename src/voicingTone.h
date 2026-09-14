@@ -15,7 +15,7 @@ Licensed under the MIT License. See LICENSE for details.
  * Increments when the synthesizer DSP changes in a way that callers may want
  * to detect (even if the core ABI stays stable).
  */
-#define SPEECHPLAYER_DSP_VERSION 8u
+#define SPEECHPLAYER_DSP_VERSION 9u
 
 /*
  * VoicingTone struct versioning
