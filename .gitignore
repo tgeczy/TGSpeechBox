@@ -58,3 +58,14 @@ AuthKey_*.p8
 /AGENTS.md
 # Tool caches (HuggingFace hub etc.)
 /.cache/
+# Root artifact zoo (release binaries live on GitHub releases; renders,
+# traces and listening zips are transient) -- archived to C:/git/tgsb-archive
+/test_output_*
+/*.wav
+/*.mp3
+/*.apk
+/*.aab
+/*.exe
+/*.nvda-addon
+/*.zip
+/testflight-notes.txt
