@@ -65,6 +65,7 @@ class LangPackSettingsMixin:
             ("fujisaki_style", VoiceInfo("fujisaki_style", _("Fujisaki"))),
             ("impulse_style", VoiceInfo("impulse_style", _("Impulse"))),
             ("klatt_style", VoiceInfo("klatt_style", _("Klatt"))),
+            ("arato_style", VoiceInfo("arato_style", _("Arató (BraiLab)"))),
             ("legacy", VoiceInfo("legacy", _("Classic"))),
         )
     )

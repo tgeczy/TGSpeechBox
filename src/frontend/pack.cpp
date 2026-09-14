@@ -473,6 +473,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   //   legacyPitchMode: "legacy"      -> "legacy"
   //   legacyPitchMode: "espeak_style"-> "espeak_style"
   //   legacyPitchMode: "fujisaki_style" -> "fujisaki_style"
+  //   also "impulse_style", "klatt_style", "arato_style" (BraiLab melodies)
   {
     const yaml_min::Node* n = settings.get("legacyPitchMode");
     if (n && n->isScalar()) {
@@ -560,6 +561,40 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("klattContinuationRiseHz", lp.klattContinuationRiseHz);
   getNum("klattGlottalLowerHz", lp.klattGlottalLowerHz);
   getNum("klattSmoothAlpha", lp.klattSmoothAlpha);
+
+  // Arató (BraiLab) intonation parameters (used when legacyPitchMode = "arato_style")
+  getNum("aratoHumpSt", lp.aratoHumpSt);
+  getNum("aratoBodyEndSt", lp.aratoBodyEndSt);
+  getNum("aratoFinalEndSt", lp.aratoFinalEndSt);
+  getNum("aratoFinalFallMaxMs", lp.aratoFinalFallMaxMs);
+  getNum("aratoQuestionStartSt", lp.aratoQuestionStartSt);
+  getNum("aratoQuestionBodySt", lp.aratoQuestionBodySt);
+  getNum("aratoQuestionPeakSt", lp.aratoQuestionPeakSt);
+  getNum("aratoQuestionEndSt", lp.aratoQuestionEndSt);
+  getNum("aratoLongUnitSyllables", lp.aratoLongUnitSyllables);
+  getNum("aratoLongPreRiseSt", lp.aratoLongPreRiseSt);
+  getNum("aratoWhStartSt", lp.aratoWhStartSt);
+  getNum("aratoWhFirstWordEndSt", lp.aratoWhFirstWordEndSt);
+  getNum("aratoWhMidSt", lp.aratoWhMidSt);
+  getNum("aratoWhEndSt", lp.aratoWhEndSt);
+  getNum("aratoExclStartSt", lp.aratoExclStartSt);
+  getNum("aratoCommaStartSt", lp.aratoCommaStartSt);
+  getNum("aratoCommaEndSt", lp.aratoCommaEndSt);
+  getNum("aratoInflectionRef", lp.aratoInflectionRef);
+  {
+    // aratoWhPairs: ["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]
+    const yaml_min::Node* seq = settings.get("aratoWhPairs");
+    if (seq && seq->isSeq()) {
+      lp.aratoWhPairs.clear();
+      for (const auto& el : seq->seq) {
+        if (!el.isScalar()) continue;
+        const std::string& s = el.scalar;
+        const size_t sp = s.find(' ');
+        if (sp == std::string::npos) continue;
+        lp.aratoWhPairs.emplace_back(utf8ToU32(s.substr(0, sp)), utf8ToU32(s.substr(sp + 1)));
+      }
+    }
+  }
 
   getBool("postStopAspirationEnabled", lp.postStopAspirationEnabled);
   {

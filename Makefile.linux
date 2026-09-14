@@ -61,6 +61,7 @@ FRONTEND_SRCS = \
 	$(PASSESDIR)/microprosody.cpp \
 	$(PASSESDIR)/nasalization.cpp \
 	$(PASSESDIR)/pass_pipeline.cpp \
+	$(PASSESDIR)/pitch_arato.cpp \
 	$(PASSESDIR)/pitch_espeak.cpp \
 	$(PASSESDIR)/pitch_fujisaki.cpp \
 	$(PASSESDIR)/pitch_impulse.cpp \
@@ -259,6 +260,9 @@ $(BUILDDIR)/syllable_marking.o: $(PASSESDIR)/syllable_marking.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/trajectory_limit.o: $(PASSESDIR)/trajectory_limit.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
+
+$(BUILDDIR)/pitch_arato.o: $(PASSESDIR)/pitch_arato.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -DNVSP_FRONTEND_EXPORTS=1 -c $< -o $@
 
 $(BUILDDIR)/pitch_espeak.o: $(PASSESDIR)/pitch_espeak.cpp

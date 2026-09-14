@@ -12,6 +12,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <array>
 #include <memory>
 #include <string>
+#include <utility>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -536,6 +537,32 @@ struct LanguagePack {
   double klattContinuationRiseHz = 15.0;
   double klattGlottalLowerHz = 15.0;
   double klattSmoothAlpha = 0.4;
+
+  // Arató (BraiLab) intonation parameters (legacyPitchMode = "arato_style").
+  // Semitones relative to the unit start (the start pitches relative to the
+  // voice's base pitch).  Defaults are the values measured from the 1991
+  // TALKHUN program (see passes/pitch_arato.cpp).
+  double aratoHumpSt = 3.3;              // declarative: first-syllable hump
+  double aratoBodyEndSt = -0.6;          // declarative: where the straight decline ends
+  double aratoFinalEndSt = -7.2;         // declarative: the plunge lands here
+  double aratoFinalFallMaxMs = 700.0;    // cap on the plunge span (ms at speed 1)
+  double aratoQuestionStartSt = 3.3;     // yes/no unit start, re base
+  double aratoQuestionBodySt = 0.3;      // yes/no flat body
+  double aratoQuestionPeakSt = 5.0;      // peak at the end of the penultimate syllable
+  double aratoQuestionEndSt = -2.3;      // fall on the last syllable
+  double aratoLongUnitSyllables = 8.0;   // from this many syllables the body stays flat longer
+  double aratoLongPreRiseSt = 1.5;       // long yes/no: level reached before the penult
+  double aratoWhStartSt = 9.4;           // wh-question unit start, re base
+  double aratoWhFirstWordEndSt = -4.4;   // after the question word
+  double aratoWhMidSt = -7.4;            // at 30 % of the unit
+  double aratoWhEndSt = -13.0;           // end, no plunge
+  double aratoExclStartSt = 9.4;         // exclamation start (same shape as wh)
+  double aratoCommaStartSt = 4.8;        // comma clause start, re base
+  double aratoCommaEndSt = -5.8;         // comma clause end; the next unit resets
+  double aratoInflectionRef = 0.5;       // inflection value at which the shapes are as measured
+  // Arató's wh-word test: the unit's first two phoneme keys, e.g. "h o" for
+  // hol/hogyan/hová/honnan (his letter pairs HO HÁ MI ME KI).
+  std::vector<std::pair<std::u32string, std::u32string>> aratoWhPairs;
 
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";

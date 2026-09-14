@@ -926,7 +926,7 @@ NVSP_FRONTEND_API int nvspFrontend_setPitchMode(
   std::string mode = modeUtf8;
   if (mode != "espeak_style" && mode != "legacy" &&
       mode != "fujisaki_style" && mode != "impulse_style" &&
-      mode != "klatt_style") {
+      mode != "klatt_style" && mode != "arato_style") {
     setError(h, "Unknown pitch mode: " + mode);
     return 0;
   }

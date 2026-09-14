@@ -216,6 +216,7 @@ Settings load_settings(const std::wstring& ini_path)
         else if (pm == L"impulse_style")  s.pitchMode = 3;
         else if (pm == L"klatt_style")    s.pitchMode = 4;
         else if (pm == L"legacy")         s.pitchMode = 5;
+        else if (pm == L"arato_style")    s.pitchMode = 6;
         else s.pitchMode = 0;
     }
     s.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", 50, ini_path.c_str());
@@ -276,6 +277,7 @@ bool save_settings(const std::wstring& ini_path, const Settings& s)
             case 3: pmStr = L"impulse_style"; break;
             case 4: pmStr = L"klatt_style"; break;
             case 5: pmStr = L"legacy"; break;
+            case 6: pmStr = L"arato_style"; break;
             default: pmStr = L""; break;
         }
         WritePrivateProfileStringW(L"Audio", L"pitchMode", pmStr, ini_path.c_str());
@@ -562,8 +564,9 @@ INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
             SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Impulse");
             SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Klatt");
             SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Classic");
+            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Arató (BraiLab)");
             int pmSel = st->settings.pitchMode;
-            if (pmSel < 0 || pmSel > 5) pmSel = 0;
+            if (pmSel < 0 || pmSel > 6) pmSel = 0;
             SendMessageW(pm, CB_SETCURSEL, pmSel, 0);
         }
 

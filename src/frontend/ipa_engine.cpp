@@ -11,6 +11,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "ipa_parser.h"
 
 #include "passes/pass_pipeline.h"
+#include "passes/pitch_arato.h"
 #include "passes/pitch_common.h"
 #include "passes/pitch_espeak.h"
 #include "passes/pitch_fujisaki.h"
@@ -389,6 +390,8 @@ static void calculatePitches(std::vector<Token>& tokens, const PackSet& pack,
     applyPitchImpulse(tokens, pack, speed, basePitch, inflection, clauseType);
   else if (mode == "klatt_style")
     applyPitchKlatt(tokens, pack, speed, basePitch, inflection, clauseType);
+  else if (mode == "arato_style")
+    applyPitchArato(tokens, pack, speed, basePitch, inflection, clauseType);
   else  // Default: espeak_style
     applyPitchEspeak(tokens, pack, speed, basePitch, inflection, clauseType);
 }

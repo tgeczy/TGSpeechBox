@@ -49,6 +49,7 @@
     <string name="pitch_mode_fujisaki">Fujisaki Style</string>
     <string name="pitch_mode_impulse">Impulse Style</string>
     <string name="pitch_mode_klatt">Klatt Style</string>
+    <string name="pitch_mode_arato">Arató (BraiLab)</string>
 
     <!-- Advanced tab: System Rate Override -->
     <string name="system_rate_title">System Rate</string>

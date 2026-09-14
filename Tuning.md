@@ -616,6 +616,7 @@ The frontend supports five pitch models, selected via `legacyPitchMode`:
 - `legacyPitchMode: "legacy"` — Time-based pitch curves ported from the ee80f4d-era `ipa.py`. Gentle declination across the clause with stress accents on vowel nuclei. Produces a predictable "classic" screen reader prosody, especially at higher rates.
 - `legacyPitchMode: "fujisaki_style"` — Fujisaki pitch model with exponential declination and accent peaks. This provides Eloquence-like intonation with smooth phrase-level pitch fall, stressed syllable peaks, and clause-final pitch shaping.
 - `legacyPitchMode: "impulse_style"` — Additive impulse pitch model. Linear declination baseline with count-based stress peaks that diminish across the utterance (first stress gets the largest boost, subsequent stresses progressively smaller). Terminal gestures shape the final vowel by clause type. A two-pole IIR smoothing filter removes discontinuities, producing warm rounded pitch bumps.
+- `legacyPitchMode: "arato_style"` — The BraiLab sentence melodies, after Arató András and Vaspöri Teréz (Arató, "A BraiLab beszélő számítógépcsalád", 1992, §5.4). One intonation unit per clause; the closing punctuation picks the shape: declaratives hump on the first syllable, decline in a straight line and plunge across the last two syllables; yes/no questions stay flat and rise on the penultimate syllable, falling on the last (long questions delay the rise); wh-questions and exclamations start at the peak and fall; comma clauses decline without a plunge and the next unit resets. Wh-questions are recognised by Arató's word-initial pairs (`aratoWhPairs`). Every shape constant is an `arato*St` setting in semitones, defaulting to values measured from the 1991 TALKHUN program.
 - `legacyPitchMode: "klatt_style"` — Klatt 1987 hat-pattern intonation model. A three-state machine (BEFORE_HAT / ON_HAT / AFTER_HAT): pitch starts at a declining baseline, rises sharply on the first primary-stressed syllable, sustains a raised plateau with diminishing per-stress peaks, then falls back below baseline on the final stressed syllable. Statements get glottal lowering on the final vowel; questions rise instead of falling. Single-pole IIR smoothing.
 
 Additional pitch settings:
@@ -795,6 +796,22 @@ settings:
   klattHatRiseHz: 30.0
   klattFinalFallBelowBaseHz: 21.0
   klattSmoothAlpha: 0.4
+```
+
+#### Arató (BraiLab) intonation settings
+
+When `legacyPitchMode: "arato_style"` is enabled, the contour is a piecewise-linear shape in semitones anchored to the clause's syllables. Every default below was measured from the 1991 TALKHUN program (BraiLab PC, Arató András and Vaspöri Teréz) and is reproduced at the platforms' default inflection (`aratoInflectionRef`, 0.5); the inflection slider scales the whole shape from there.
+
+- `aratoHumpSt` (3.3), `aratoBodyEndSt` (−0.6), `aratoFinalEndSt` (−7.2), `aratoFinalFallMaxMs` (700): declarative. Hump on the first syllable, straight decline to the body end, plunge across the last two syllables (capped in ms at speed 1).
+- `aratoQuestionStartSt` (3.3), `aratoQuestionBodySt` (0.3), `aratoQuestionPeakSt` (5.0), `aratoQuestionEndSt` (−2.3), `aratoLongUnitSyllables` (8), `aratoLongPreRiseSt` (1.5): yes/no questions. Higher start, flat body, rise across the penultimate syllable, fall on the last; from `aratoLongUnitSyllables` syllables up the body stays flat until 70 % and pre-rises to `aratoLongPreRiseSt` before the penult. One-syllable questions rise-fall inside the syllable.
+- `aratoWhStartSt` (9.4), `aratoWhFirstWordEndSt` (−4.4), `aratoWhMidSt` (−7.4), `aratoWhEndSt` (−13.0), `aratoExclStartSt` (9.4): wh-questions and exclamations start at the peak, shed most of it within the first fifth of the unit, and decline without a plunge.
+- `aratoCommaStartSt` (4.8), `aratoCommaEndSt` (−5.8): comma, semicolon and colon clauses decline without a plunge; the next clause restarts at its own start pitch (Arató's cue for a comma is the reset, not a rise).
+- `aratoWhPairs` (list of `"key key"` strings): a `?` clause whose first two phoneme keys match a pair takes the wh-shape. Hungarian uses Arató's letter pairs HO HÁ MI ME KI as `["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]` (keys as they are after the pack's replacements).
+
+```yaml
+settings:
+  legacyPitchMode: "arato_style"
+  aratoWhPairs: ["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]
 ```
 
 ### Tonal language support

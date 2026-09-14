@@ -340,7 +340,7 @@ The native module reads settings from a config file. Two locations are checked (
 The config file ships as a commented-out template showing all defaults. Uncomment any line to override:
 
 ```conf
-# Pitch mode: espeak_style, fujisaki_style, impulse_style, klatt_style
+# Pitch mode: espeak_style, fujisaki_style, impulse_style, klatt_style, arato_style
 TGSBPitchMode fujisaki_style
 
 # Pause between clauses: off, short, long

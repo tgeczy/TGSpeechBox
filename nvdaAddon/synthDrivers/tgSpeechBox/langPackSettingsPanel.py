@@ -598,6 +598,26 @@ def _getPanelClass():
                 "klattStress3Hz",
                 "klattStress4Hz",
 
+                # --- Arató (BraiLab) intonation ---
+                "aratoHumpSt",
+                "aratoBodyEndSt",
+                "aratoFinalEndSt",
+                "aratoFinalFallMaxMs",
+                "aratoQuestionStartSt",
+                "aratoQuestionBodySt",
+                "aratoQuestionPeakSt",
+                "aratoQuestionEndSt",
+                "aratoLongUnitSyllables",
+                "aratoLongPreRiseSt",
+                "aratoWhStartSt",
+                "aratoWhFirstWordEndSt",
+                "aratoWhMidSt",
+                "aratoWhEndSt",
+                "aratoExclStartSt",
+                "aratoCommaStartSt",
+                "aratoCommaEndSt",
+                "aratoInflectionRef",
+
                 # --- Hungarian / language-specific ---
                 "applyLengthenedScaleToVowelsOnly",
                 "huShortAVowelEnabled",

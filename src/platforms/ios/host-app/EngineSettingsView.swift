@@ -20,6 +20,7 @@ private let kPitchModes = [
     ("fujisaki_style", "Fujisaki Style"),
     ("impulse_style",  "Impulse Style"),
     ("klatt_style",    "Klatt Style"),
+    ("arato_style",    "Arató (BraiLab)"),
 ]
 
 private let kPauseModes = [

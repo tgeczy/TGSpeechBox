@@ -528,6 +528,7 @@ private fun PitchModeDropdown(viewModel: TgsbViewModel) {
         "fujisaki_style" to stringResource(R.string.pitch_mode_fujisaki),
         "impulse_style"  to stringResource(R.string.pitch_mode_impulse),
         "klatt_style"    to stringResource(R.string.pitch_mode_klatt),
+        "arato_style"    to stringResource(R.string.pitch_mode_arato),
     )
 
     val currentMode by viewModel.pitchMode.collectAsState()

@@ -525,6 +525,7 @@ Available modes:
 | `"fujisaki_style"` | Flat base + DSP phrase/accent contours |
 | `"impulse_style"` | Multi-layer additive pitch |
 | `"klatt_style"` | Klatt 1987 hat-pattern intonation |
+| `"arato_style"` | BraiLab sentence melodies, after Arató András and Vaspöri Teréz (Arató 1992, §5.4) |
 
 ### Text preparation (ABI v4+)
 

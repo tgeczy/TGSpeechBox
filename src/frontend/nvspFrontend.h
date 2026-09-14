@@ -477,6 +477,7 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
     "fujisaki_style"  - flat base + DSP phrase/accent contours
     "impulse_style"   - multi-layer additive pitch
     "klatt_style"     - Klatt 1987 hat-pattern intonation
+    "arato_style"     - BraiLab sentence melodies (Arató 1992, §5.4)
 
   Persists until the next setLanguage() call (which reloads from YAML).
   Returns 1 on success, 0 on failure (invalid handle or unknown mode).
