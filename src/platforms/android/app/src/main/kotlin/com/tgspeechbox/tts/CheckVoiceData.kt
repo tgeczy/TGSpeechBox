@@ -20,9 +20,7 @@ class CheckVoiceData : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = getSharedPreferences(
-            TgsbTtsService.PREFS_NAME, MODE_PRIVATE
-        )
+        val prefs = TgsbStorage.prefs(this)
         val enabledKeys = TgsbTtsService.getEnabledLocaleKeys(prefs)
 
         val available = ArrayList<String>()

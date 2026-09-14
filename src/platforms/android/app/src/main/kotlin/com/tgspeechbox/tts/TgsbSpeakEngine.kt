@@ -117,9 +117,9 @@ class TgsbSpeakEngine(private val context: Context) {
 
         TgsbAssets.ensureExtracted(context)
 
-        val filesDir = context.filesDir
-        val espeakDataPath = filesDir.absolutePath
-        val packDirPath = File(filesDir, "tgsb").absolutePath
+        val dataDir = TgsbStorage.dataDir(context)
+        val espeakDataPath = dataDir.absolutePath
+        val packDirPath = File(dataDir, "tgsb").absolutePath
 
         if (!File(espeakDataPath, "espeak-ng-data").exists()) {
             Log.e(TAG, "espeak-ng-data not found at $espeakDataPath")

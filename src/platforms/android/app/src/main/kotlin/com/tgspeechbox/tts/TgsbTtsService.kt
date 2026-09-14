@@ -8,8 +8,13 @@
 
 package com.tgspeechbox.tts
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.media.AudioFormat
+import android.os.Build
 import android.speech.tts.SynthesisCallback
 import android.speech.tts.SynthesisRequest
 import android.speech.tts.TextToSpeech
@@ -179,6 +184,8 @@ class TgsbTtsService : TextToSpeechService() {
     private var confirmedNativeLang: LangDef? = null
     private var cachedOverridesVersion: Int = -1
     private lateinit var prefs: SharedPreferences
+    /** Set while the service was created before the user's first unlock; see watchForUnlock. */
+    private var unlockReceiver: BroadcastReceiver? = null
 
     // JNI declarations
     private external fun nativeCreate(
@@ -235,14 +242,17 @@ class TgsbTtsService : TextToSpeechService() {
         super.onCreate()
         Log.i(TAG, "onCreate: extracting assets and initializing engine")
 
-        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        // Settings and data live in device-protected storage so this service
+        // can run on the lock screen before the first unlock (Direct Boot).
+        prefs = TgsbStorage.prefs(this)
         prefs.registerOnSharedPreferenceChangeListener(prefsListener)
         loadPresetFromPrefs()
 
         TgsbAssets.ensureExtracted(this)
 
-        val espeakDataPath = filesDir.absolutePath
-        val packDirPath = File(filesDir, "tgsb").absolutePath
+        val dataDir = TgsbStorage.dataDir(this)
+        val espeakDataPath = dataDir.absolutePath
+        val packDirPath = File(dataDir, "tgsb").absolutePath
 
         nativeHandle = nativeCreate(espeakDataPath, packDirPath, SAMPLE_RATE)
         if (nativeHandle == 0L) {
@@ -250,23 +260,93 @@ class TgsbTtsService : TextToSpeechService() {
         } else {
             Log.i(TAG, "Native engine created (handle=$nativeHandle)")
             applyCurrentVoice()
+            restoreSavedLanguage()
+        }
 
-            // Restore the last language from prefs (survives process kills).
-            // nativeCreate initializes en-us, so if the saved language is
-            // different, we need to explicitly set it now.
-            val savedLang = prefs.getString(PREF_LAST_LANG, null)
-            val restoredLd = if (savedLang != null) {
-                LANGUAGES.find { it.tgsbLang == savedLang }
-            } else null
+        watchForUnlock()
+    }
 
-            if (restoredLd != null && restoredLd.tgsbLang != "en-us") {
-                currentLang = restoredLd
-                setNativeLanguage(restoredLd)
-                Log.i(TAG, "Restored language from prefs: ${restoredLd.tgsbLang}")
-            } else {
-                confirmedNativeLang = currentLang
+    /**
+     * Restore the last language from prefs (survives process kills).
+     * nativeCreate initializes en-us, so if the saved language is different,
+     * we need to explicitly set it now.
+     */
+    private fun restoreSavedLanguage() {
+        val savedLang = prefs.getString(PREF_LAST_LANG, null)
+        val restoredLd = if (savedLang != null) {
+            LANGUAGES.find { it.tgsbLang == savedLang }
+        } else null
+
+        if (restoredLd != null && restoredLd.tgsbLang != "en-us") {
+            currentLang = restoredLd
+            setNativeLanguage(restoredLd)
+            Log.i(TAG, "Restored language from prefs: ${restoredLd.tgsbLang}")
+        } else {
+            confirmedNativeLang = currentLang
+        }
+    }
+
+    /**
+     * When this service is created on the lock screen after a reboot, the
+     * settings come from protected storage -- which is empty the first time
+     * after the update, because the saved ones still sit in the other half
+     * and cannot be read until the user unlocks. Watch for that unlock once,
+     * then carry the settings over and let the next utterance apply them.
+     */
+    private fun watchForUnlock() {
+        if (TgsbStorage.unlocked(this)) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action != Intent.ACTION_USER_UNLOCKED) return
+                stopWatchingForUnlock()
+                onUserUnlocked()
             }
         }
+        unlockReceiver = receiver
+        val filter = IntentFilter(Intent.ACTION_USER_UNLOCKED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(receiver, filter)
+        }
+        Log.i(TAG, "Created before first unlock; waiting for the user to unlock")
+    }
+
+    private fun stopWatchingForUnlock() {
+        val receiver = unlockReceiver ?: return
+        unlockReceiver = null
+        try {
+            unregisterReceiver(receiver)
+        } catch (e: IllegalArgumentException) {
+            // Already gone.
+        }
+    }
+
+    /**
+     * The user unlocked the phone: TgsbStorage.prefs now moves the saved
+     * settings into protected storage. That evicts the instance obtained
+     * before the move, so re-fetch it, and mark everything dirty so the next
+     * synthesis (on its own thread, never from here) re-applies voice, sliders,
+     * overrides and the saved language. Also lets TgsbAssets drop the copies
+     * an older version left in the credential-encrypted half.
+     */
+    private fun onUserUnlocked() {
+        val fresh = TgsbStorage.prefs(this)
+        if (fresh !== prefs) {
+            prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
+            prefs = fresh
+            prefs.registerOnSharedPreferenceChangeListener(prefsListener)
+        }
+        settingsDirty = true
+        cachedOverridesVersion = -1
+        val savedLang = prefs.getString(PREF_LAST_LANG, null)
+        val restoredLd = if (savedLang != null) LANGUAGES.find { it.tgsbLang == savedLang } else null
+        if (restoredLd != null) {
+            currentLang = restoredLd
+            confirmedNativeLang = null  // forces setNativeLanguage on the next utterance
+        }
+        TgsbAssets.ensureExtracted(this)
+        Log.i(TAG, "User unlocked: settings carried into protected storage; re-apply on next utterance")
     }
 
     /** Set the native language, tracking success/failure. */
@@ -448,6 +528,7 @@ class TgsbTtsService : TextToSpeechService() {
     }
 
     override fun onDestroy() {
+        stopWatchingForUnlock()
         prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
         if (nativeHandle != 0L) {
             nativeDestroy(nativeHandle)

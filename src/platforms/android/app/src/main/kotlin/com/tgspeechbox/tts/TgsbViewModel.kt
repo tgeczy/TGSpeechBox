@@ -39,7 +39,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private val prefs: SharedPreferences =
-        application.getSharedPreferences(TgsbTtsService.PREFS_NAME, 0)
+        TgsbStorage.prefs(application)
 
     private val engine = TgsbSpeakEngine(application)
 
@@ -1330,7 +1330,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     fun clearImportExportStatus() { _importExportStatus.value = null }
 
     private fun packFileForLang(context: Context, langTag: String): File =
-        File(context.filesDir, "tgsb/packs/lang/$langTag.yaml")
+        File(TgsbStorage.dataDir(context), "tgsb/packs/lang/$langTag.yaml")
 
     private fun packOverridesJson(langTag: String): String {
         val overrides = loadOverrides(langTag)

@@ -22,9 +22,7 @@ class TgsbSettingsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = getSharedPreferences(
-            TgsbTtsService.PREFS_NAME, MODE_PRIVATE
-        )
+        val prefs = TgsbStorage.prefs(this)
         val currentPreset = prefs.getString(
             TgsbTtsService.PREF_VOICE_PRESET,
             TgsbTtsService.DEFAULT_PRESET

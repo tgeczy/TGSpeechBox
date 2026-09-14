@@ -830,7 +830,7 @@ char *tgsb_phonemizer_phonemize(const char *text);  // caller free()s
 
 Two JNI paths exist and must both be updated when adding new parameters:
 
-**TgsbTtsService** — Full pipeline (eSpeak + frontend + DSP) for system-wide TTS. Exposed via Android's `TextToSpeech` framework for TalkBack and other apps.
+**TgsbTtsService** — Full pipeline (eSpeak + frontend + DSP) for system-wide TTS. Exposed via Android's `TextToSpeech` framework for TalkBack and other apps. Declared `directBootAware`: it runs on the lock screen after a reboot, before the first unlock, because its extracted data and its settings live in device-protected storage (`TgsbStorage.kt`); settings saved by an older version are carried over once, and the old copies of the data are removed once the user is unlocked.
 
 **TgsbSpeakEngine** — IPA-only synthesis for the standalone app. Also supports text input (routes through eSpeak internally).
 
