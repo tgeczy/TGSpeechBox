@@ -69,3 +69,7 @@ AuthKey_*.p8
 /*.nvda-addon
 /*.zip
 /testflight-notes.txt
+# Local build trees and local-only analysis workspaces (never shipped)
+/build-*/
+/tools/evv_crossover/
+/tools/szc_bug_analysis/*/
