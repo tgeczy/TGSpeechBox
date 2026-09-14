@@ -12,12 +12,15 @@
 #include <string>
 #include <vector>
 
+#include "test_output_dir.h"
+
 namespace tgsb_test {
 
 inline bool writeWav(const std::string& path,
                      const std::vector<std::int16_t>& pcm,
                      int sampleRate) {
-    FILE* f = std::fopen(path.c_str(), "wb");
+    const std::string resolved = outputPath(path);
+    FILE* f = std::fopen(resolved.c_str(), "wb");
     if (!f) return false;
 
     const std::uint32_t dataSize =

@@ -76,3 +76,5 @@ AuthKey_*.p8
 /tools/szc_bug_analysis/*.wav
 /tools/szc_bug_analysis/*.png
 /tools/szc_bug_analysis/*.mp3
+# Diagnostic renders written by the C++ test suite (tests/cpp/test_output_dir.h)
+/test-wavs/

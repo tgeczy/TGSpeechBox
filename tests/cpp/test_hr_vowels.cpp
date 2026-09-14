@@ -18,6 +18,7 @@
 // IPA strings come from `espeak-ng -v hr -q --ipa "<word>"`. The hr.yaml
 // normalization rules then re-route to dialect-specific phonemes.
 
+#include "test_output_dir.h"
 #include "doctest.h"
 #include "audio_capture.h"
 #include "wav_export.h"
@@ -46,7 +47,7 @@ static void writeTraceSidecar(const std::string& path,
                               const std::vector<tgsb_test::TraceEntry>& trace,
                               const std::vector<std::size_t>& samplePositions,
                               std::size_t pcmTotal) {
-    FILE* f = std::fopen(path.c_str(), "wb");
+    FILE* f = std::fopen(tgsb_test::outputPath(path).c_str(), "wb");
     if (!f) return;
     for (std::size_t i = 0; i < trace.size(); ++i) {
         const auto& e = trace[i];
