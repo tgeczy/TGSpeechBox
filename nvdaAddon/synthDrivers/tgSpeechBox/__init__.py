@@ -52,6 +52,16 @@ except Exception:
     def _(s): return s
 
 
+def _volumeSettingAt100():
+    # #126: NVDA's stock VolumeSetting defaults to 50, so a clean install
+    # landed at half volume.  The driver's scale is 100% = engine gain 1.0
+    # (#114), the same as Android, iOS, SAPI and Linux, so the default is
+    # 100 here too.  Saved configs are untouched.
+    s = _SynthDriverBase.VolumeSetting()
+    s.defaultVal = 100
+    return s
+
+
 class SynthDriver(
     LangPackSettingsMixin,
     VoicingToneMixin,
@@ -70,7 +80,7 @@ class SynthDriver(
         _SynthDriverBase.PitchSetting(),
         DriverSetting("legacyPitchMode", _("Pitch mode"), availableInSettingsRing=True),
         _SynthDriverBase.InflectionSetting(),
-        _SynthDriverBase.VolumeSetting(),
+        _volumeSettingAt100(),
         BooleanDriverSetting("yearSplitting", _("Year splitting (4-digit numbers as digit pairs)"), defaultVal=False),
         BooleanDriverSetting("thousandsSeparatorCommaToSpace", _("Thousands separator comma to space"), defaultVal=False),
         NumericDriverSetting("voiceTilt", _("Voice tilt (brightness)"), defaultVal=50),
