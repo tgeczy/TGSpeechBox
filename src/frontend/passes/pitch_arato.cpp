@@ -368,6 +368,14 @@ void applyPitchArato(
   for (size_t i = 0; i < nTok; ++i) {
     const Token& t = tokens[i];
     if (t.silence || !t.def || !tokenIsVowel(t) || t.durationMs < 30.0) continue;
+    // Never split a token that glides: the emitter renders a diphthong's whole
+    // formant sweep from each token's own start to its end target, so two
+    // halves would each play the full glide ("why" -> "why-i", #125).
+    const bool glides = t.isDiphthongGlide ||
+        t.hasEndCf1 || t.hasEndCf2 || t.hasEndCf3 ||
+        t.hasEndPf1 || t.hasEndPf2 || t.hasEndPf3 ||
+        (t.def->hasEndCf1 || t.def->hasEndCf2 || t.def->hasEndCf3);
+    if (glides) continue;
     const int fa = clampIdx(static_cast<int>(tokStartMs[i] / frameMs), 0, u.n);
     const int fb = clampIdx(static_cast<int>(std::ceil(tokEndMs[i] / frameMs)), 0, u.n);
     if (fb - fa < 3) continue;
