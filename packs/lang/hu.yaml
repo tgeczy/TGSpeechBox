@@ -288,7 +288,7 @@ settings:
       # normalization), suppress the first stop's burst so the pair sounds
       # like a single extended closure rather than two separate stop events.
       - name: geminate_stop_burst_suppress
-        flags: [isStop]
+        flags: [stop]  # was 'isStop', an unknown name: the rule matched EVERY repeated phoneme (2026-09-14)
         beforeSamePhoneme: true
         action: scale
         fieldScales: {fricationAmplitude: 0.0, pa1: 0.0, pa2: 0.0, pa3: 0.0, pa4: 0.0, pa5: 0.0, pa6: 0.0}
