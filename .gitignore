@@ -56,3 +56,5 @@ AuthKey_*.p8
 # Local Codex project memory
 /.codex-memory/
 /AGENTS.md
+# Tool caches (HuggingFace hub etc.)
+/.cache/
