@@ -225,7 +225,10 @@ void applyPitchArato(
   if (clauseType == '?') type = whInitial ? 5 : (syll == 2 ? 7 : 6);
   else if (clauseType == '!') type = 5;
   else if (clauseType == ',' || clauseType == ';') type = 8;
-  else if (clauseType == ':') type = 3;
+  // The program spoke a colon (and an unpunctuated line end) flat at P, its
+  // "type 3".  A screen reader ends half its labels with a colon, so the
+  // default here is the comma melody; aratoColonFlat restores the original.
+  else if (clauseType == ':') type = lang.aratoColonFlat ? 3 : 8;
   else type = articleInitial ? 1 : 2;
 
   double startDelta = 0.0;

@@ -569,6 +569,7 @@ struct LanguagePack {
   double aratoCommaFall = -30.0;              // comma: to the last word
   double aratoCommaRise = 30.0;               //        then up over the last word (the continuation cue)
   double aratoInflectionRef = 0.5;            // inflection at which the program's values are reproduced
+  bool aratoColonFlat = false;                // true = a colon clause is flat at P, as in the original
   // Arató's wh-word test: the unit's first two phoneme keys, e.g. "h o" for
   // hol/hogyan/hová/honnan (his letter pairs HO HÁ MI ME KI).
   std::vector<std::pair<std::u32string, std::u32string>> aratoWhPairs;

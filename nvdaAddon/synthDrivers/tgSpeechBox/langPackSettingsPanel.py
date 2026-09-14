@@ -626,6 +626,7 @@ def _getPanelClass():
                 "aratoCommaFall",
                 "aratoCommaRise",
                 "aratoInflectionRef",
+                "aratoColonFlat",
 
                 # --- Hungarian / language-specific ---
                 "applyLengthenedScaleToVowelsOnly",

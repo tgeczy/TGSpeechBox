@@ -590,6 +590,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("aratoCommaFall", lp.aratoCommaFall);
   getNum("aratoCommaRise", lp.aratoCommaRise);
   getNum("aratoInflectionRef", lp.aratoInflectionRef);
+  getBool("aratoColonFlat", lp.aratoColonFlat);
   {
     // aratoWhPairs: ["h o", "h á", "m i_hu", "m ɛ_hu", "k i_hu"]
     const yaml_min::Node* seq = settings.get("aratoWhPairs");
