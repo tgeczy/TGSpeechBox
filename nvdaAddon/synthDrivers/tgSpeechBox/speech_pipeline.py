@@ -447,8 +447,9 @@ class SpeechPipelineMixin:
 
                     ok = False
                     try:
-                        # Automatic speed split: cap synthesis at 3.0x and put
-                        # the excess into DSP time-stretch (frame-advance).
+                        # Automatic speed split: cap synthesis at 2.0x and put
+                        # the excess into DSP time-stretch (frame-advance), so a
+                        # live 3x is frontend 2x plus 1.5x stretch.
                         # Prevents formant mush at extreme rates.
                         _SYNTH_CAP = 2.0
                         _effectiveSpeed = self._curRate
