@@ -3107,6 +3107,7 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "Ã":
+    # nasal coupling (2026-09-14, #123): zero moved off the 250 Hz pole -> real pole-zero pair; caNP 1.0 = series like Klatt; va +0.1 for the ~3.5 dB shelf
     _isAfricate: false
     _isLiquid: true
     _isNasal: true
@@ -3114,22 +3115,22 @@ phonemes:
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 1.0
     cb1: 180
     cb2: 150
     cb3: 200
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 100
+    cbNP: 100
     cf1: 550
     cf2: 1150
     cf3: 2400
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 300
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -3151,7 +3152,7 @@ phonemes:
     pf4: 3498
     pf5: 3975
     pf6: 4900
-    voiceAmplitude: 0.75
+    voiceAmplitude: 0.85
   "á":
     # Hungarian long á /aː/ - open central UNROUNDED vowel.
     # Distinct from ᴒ: higher F1 (more open), higher F2 (central), no rounding.
@@ -3202,6 +3203,7 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.78
   "ã":
+    # nasal coupling (2026-09-14, #123): zero moved off the 250 Hz pole -> real pole-zero pair; caNP 1.0 = series like Klatt; va +0.1 for the ~3.5 dB shelf
     _isAfricate: false
     _isLiquid: true
     _isNasal: true
@@ -3209,22 +3211,22 @@ phonemes:
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 1.0
     cb1: 180
     cb2: 150
     cb3: 200
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 100
+    cbNP: 100
     cf1: 650
     cf2: 1150
     cf3: 2400
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 300
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -3246,7 +3248,7 @@ phonemes:
     pf4: 3498
     pf5: 3975
     pf6: 4900
-    voiceAmplitude: 0.75
+    voiceAmplitude: 0.85
   "æ":
     _isLiquid: false
     _isNasal: false
@@ -3568,28 +3570,29 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "õ":
+    # nasal coupling (2026-09-14, #123): zero moved off the 250 Hz pole -> real pole-zero pair; caNP 1.0 = series like Klatt; va +0.1 for the ~3.5 dB shelf
     _isLiquid: false
     _isNasal: true
     _isStop: false
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 1.0
     cb1: 216
     cb2: 120
     cb3: 120
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 100
+    cbNP: 100
     cf1: 440
     cf2: 1000
     cf3: 2300
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 300
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -3611,7 +3614,7 @@ phonemes:
     pf4: 3498
     pf5: 3975
     pf6: 4900
-    voiceAmplitude: 0.8
+    voiceAmplitude: 0.9
   "ø":
     # Front rounded vowel - F2 raised from 1400 to 1550 for smoother
     # transitions from palatal consonants (gy, ty, ny).
@@ -3801,28 +3804,29 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ĩ":
+    # nasal coupling (2026-09-14, #123): zero moved off the 250 Hz pole -> real pole-zero pair; caNP 1.0 = series like Klatt; va +0.1 for the ~3.5 dB shelf
     _isLiquid: false
     _isNasal: true
     _isStop: false
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 1.0
     cb1: 89.1
     cb2: 150
     cb3: 300
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 100
+    cbNP: 100
     cf1: 310
     cf2: 2020
     cf3: 2960
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 300
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -3844,7 +3848,7 @@ phonemes:
     pf4: 3498
     pf5: 3975
     pf6: 4900
-    voiceAmplitude: 0.8
+    voiceAmplitude: 0.9
   "ŋ":
     # Velar nasal - tuned for velar pinch (F2/F3 convergence).
     # F2=1800, F3=2400 to match velar stops. Research shows nasals
@@ -3985,28 +3989,29 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ũ":
+    # nasal coupling (2026-09-14, #123): zero moved off the 250 Hz pole -> real pole-zero pair; caNP 1.0 = series like Klatt; va +0.1 for the ~3.5 dB shelf
     _isLiquid: false
     _isNasal: true
     _isStop: false
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 1.0
     cb1: 128.7
     cb2: 82.5
     cb3: 105
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 100
+    cbNP: 100
     cf1: 290
     cf2: 950
     cf3: 2280
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 300
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -4028,7 +4033,7 @@ phonemes:
     pf4: 3498
     pf5: 3975
     pf6: 4900
-    voiceAmplitude: 0.8
+    voiceAmplitude: 0.9
   "ű":
     _isAfricate: false
     _isLiquid: false
@@ -4903,6 +4908,7 @@ phonemes:
       endPf2: 940
       endPf3: 2350
   "ɑ̃":
+    # nasal coupling (2026-09-14): brought in line with ɛ̃/ɔ̃ (zero 400, pole 250, caNP 0.4); was 250/250 = no coupling
     _isAfricate: false
     _isLiquid: false
     _isNasal: true
@@ -4910,22 +4916,22 @@ phonemes:
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 0.4
     cb1: 270
     cb2: 200
     cb3: 250
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 80
+    cbNP: 100
     cf1: 580
     cf2: 1050
     cf3: 2400
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 400
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -9496,28 +9502,29 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.80
   "ᴜ":
+    # nasal coupling (2026-09-14, #123): zero moved off the 250 Hz pole -> real pole-zero pair; caNP 1.0 = series like Klatt; va +0.1 for the ~3.5 dB shelf
     _isLiquid: false
     _isNasal: true
     _isStop: false
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 1.0
     cb1: 158.4
     cb2: 75
     cb3: 60
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 100
+    cbNP: 100
     cf1: 405
     cf2: 900
     cf3: 2420
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 300
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -9539,7 +9546,7 @@ phonemes:
     pf4: 3498
     pf5: 3975
     pf6: 4900
-    voiceAmplitude: 0.8
+    voiceAmplitude: 0.9
   "ᵁ":
     _isLiquid: false
     _isNasal: false
@@ -9953,28 +9960,29 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ẽ":
+    # nasal coupling (2026-09-14, #123): zero moved off the 250 Hz pole -> real pole-zero pair; caNP 1.0 = series like Klatt; va +0.1 for the ~3.5 dB shelf
     _isLiquid: false
     _isNasal: true
     _isStop: false
     _isVoiced: true
     _isVowel: true
     aspirationAmplitude: 0
-    caNP: 0.6
+    caNP: 1.0
     cb1: 138.6
     cb2: 75
     cb3: 150
     cb4: 250
     cb5: 200
     cb6: 1000
-    cbN0: 150
-    cbNP: 150
+    cbN0: 100
+    cbNP: 100
     cf1: 430
     cf2: 1900
     cf3: 2700
     cf4: 3498
     cf5: 3975
     cf6: 4900
-    cfN0: 250
+    cfN0: 300
     cfNP: 250
     fricationAmplitude: 0
     pa1: 0
@@ -9996,7 +10004,7 @@ phonemes:
     pf4: 3498
     pf5: 3975
     pf6: 4900
-    voiceAmplitude: 0.8
+    voiceAmplitude: 0.9
   "":
     _isLiquid: false
     _isNasal: false

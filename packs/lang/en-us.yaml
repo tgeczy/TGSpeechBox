@@ -2,6 +2,10 @@
 # English (US) overrides layered on top of default.yaml + en.yaml
 
 settings:
+  # Flap intensity dip (2026-09-14): a flap with no dip is a faint vowel
+  # with a little noise on it; 0.6 (milder than Spanish's 0.55) makes the
+  # closure audible. Tomi's ears, blind triplets: 'more treble, not bad'.
+  svarabhaktiTapDip: 0.6
   # Keep stop closures for clarity, but avoid the overly-clicky "always" mode
   # (helps clusters like "adjust" and "change" feel less springy).
   stopClosureMode: vowel-and-cluster

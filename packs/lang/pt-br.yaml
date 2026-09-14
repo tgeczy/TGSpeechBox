@@ -2,6 +2,12 @@
 # Inherits from: default.yaml -> pt.yaml
 
 settings:
+  # -ão offglide at fast rates (#123, the 12-of-13 item): the glide after a
+  # nasal vowel gets 1.6x its base so ~37 ms survive at 1.6x instead of 23.
+  nasalDiphthongOffglideScale: 1.6
+  # Taps (agora) read as stops ('agota') without an intensity dip; the
+  # Spanish value, native-approved there, does the rhotic work here too.
+  svarabhaktiTapDip: 0.55
   # Helps make consonant+R clusters (bra, tra, etc.) more distinct.
   stopClosureMode: "vowel-and-cluster"
   stopClosureClusterGapsEnabled: true

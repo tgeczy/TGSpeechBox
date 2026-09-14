@@ -53,6 +53,8 @@ settings:
   stressedVowelHiatusGapMs: 0
   stressedVowelHiatusFadeMs: 0
   semivowelOffglideScale: 1.0
+  # Glide after a nasal vowel (pt-br -ão): duration/fade multiplier, 1.0 = off.
+  nasalDiphthongOffglideScale: 1.0
 normalization:
   preReplacements:
     # Strip eSpeak joiners / format chars so tokens match (e.g. ə‍l, e‍ɪ, etc.)

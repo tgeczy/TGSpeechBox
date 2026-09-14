@@ -674,6 +674,15 @@ struct LanguagePack {
   // Default 1.0 = disabled.
   double semivowelOffglideScale = 1.0;
 
+  // Nasal-diphthong offglide scale (#123). A semivowel that follows a
+  // nasal vowel (pt-br -ão = Ã + w) gets voicedConsonantDurationMs like
+  // any semivowel, half the vowel's base; in running speech at 1.6x that
+  // leaves ~8 ms near the glide's F2 target. This multiplies the duration
+  // and fade of exactly that glide -- vowel(nasal) + semivowel -- word-
+  // finally or not, and touches no onset /w/. Timing semantics: scales
+  // with rate like the glide it scales. Default 1.0 = disabled.
+  double nasalDiphthongOffglideScale = 1.0;
+
   // Trill amplitude modulation (optional).
   //
   // Some languages use a true trill for /r/. Formant synthesis can render this

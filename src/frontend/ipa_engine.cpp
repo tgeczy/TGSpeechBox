@@ -288,6 +288,18 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       }
     }
 
+    // Nasal-diphthong offglide (#123): the glide after a nasal vowel gets
+    // its own scale so pt-br -ão can keep its cue at fast rates without
+    // lengthening every semivowel. Word-final included (that is where
+    // most of them are). Default 1.0 = no change.
+    if (lang.nasalDiphthongOffglideScale != 1.0 && tokenIsSemivowel(t) &&
+        last && !last->silence && tokenIsVowel(*last) && tokenIsNasal(*last)) {
+      double s = std::clamp(lang.nasalDiphthongOffglideScale, 0.25, 3.0);
+      dur *= s;
+      fade *= s;
+      if (fade > dur) fade = dur;
+    }
+
     // Hungarian short vowel tweak (defaults to enabled, safe to disable).
     if (lang.huShortAVowelEnabled && tokenIsVowel(t) && t.lengthened == 0 && t.baseChar != 0) {
       if (t.baseChar == (lang.huShortAVowelKey.empty() ? U'\0' : lang.huShortAVowelKey[0])) {

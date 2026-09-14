@@ -604,6 +604,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getBool("autoTieDiphthongs", lp.autoTieDiphthongs);
   getBool("autoDiphthongOffglideToSemivowel", lp.autoDiphthongOffglideToSemivowel);
   getNum("semivowelOffglideScale", lp.semivowelOffglideScale);
+  getNum("nasalDiphthongOffglideScale", lp.nasalDiphthongOffglideScale);
 
   // Trill amplitude modulation (ms; applies only to `_isTrill` phonemes).
   getNum("trillModulationMs", lp.trillModulationMs);
