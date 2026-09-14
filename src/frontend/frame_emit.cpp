@@ -1238,8 +1238,29 @@ static void generateAcousticEvents(
         const bool contNext = fricIdx + 1 < tokens.size() &&
                               continuesFric(tokens[fricIdx + 1]);
 
+        // A tap carries frication too (ɾ: 0.25), so it lands here as well,
+        // and at normal rate (14 ms) this envelope IS the tap that natives
+        // approved (#113, #115, #121 rounds).  The dedicated tap notch below
+        // needs >= 8 ms; this block needed > 9 ms, so between 8 and 9 ms
+        // (about 1.56x-1.75x) a tap fell through to the notch instead -- a
+        // different shape, and in Spanish the pack's 0.55 dip multiplied
+        // by the notch's 0.55 again (Astra audit, 2026-09-14).  Taps of at
+        // least 8 ms take this path too, with attack and decay compressed
+        // so the body keeps at least 2 ms of its 9 ms share.  Below 8 ms a
+        // tap stays one flat frame, as before.
+        const bool isTapTok = t.def && ((t.def->flags & kIsTap) != 0) &&
+                              ((t.def->flags & kIsTrill) == 0);
+        const double envelopeMinMs = attackMs + decayMs + 2.0;
+        const bool fitsEnvelope = envelopeMinMs < t.durationMs;
+        const bool shortTap = isTapTok && !fitsEnvelope && t.durationMs >= 8.0;
+        if (shortTap) {
+          const double s = t.durationMs / envelopeMinMs;
+          attackMs *= s;
+          decayMs *= s;
+        }
+
         // Skip attack ramp in post-stop clusters (/ks/, /ts/, etc.)
-        if (!prevTokenWasStop && attackMs + decayMs + 2.0 < t.durationMs) {
+        if (!prevTokenWasStop && (fitsEnvelope || shortTap)) {
           const int faIdx = static_cast<int>(FieldId::fricationAmplitude);
 
           // Pitch interpolation across 3 micro-frames
