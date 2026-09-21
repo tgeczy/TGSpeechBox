@@ -162,6 +162,39 @@ TEST_CASE("amplitudeOnsetMs: the voice glides in from the previous frame's level
 	CHECK(fabs(rmsDb(step, sr, 100.0, 180.0) - rmsDb(glide, sr, 100.0, 180.0)) < 0.2);
 }
 
+TEST_CASE("endVoiceAmplitude only lowers: a silenced or scaled voice never ramps back up (#129)") {
+	const int sr = 22050;
+	// A platform voice preset zeroes voiceAmplitude on the frame after the
+	// frontend set an absolute end target (0.6 x 0.79).  The whisper must stay
+	// a whisper: no voicing may grow across the frame.
+	auto run = [&](double startVa, double endVa) {
+		speechPlayer_handle_t h = speechPlayer_initialize(sr);
+		REQUIRE(h);
+		speechPlayer_frame_t f = makeVoicedFrame(startVa);
+		speechPlayer_frameEx_t fx = speechPlayer_frameEx_defaults;
+		fx.endVoiceAmplitude = endVa;
+		speechPlayer_queueFrameEx(h, &f, &fx, sizeof(fx), (unsigned)(sr / 2), 22, -1, false);
+		speechPlayer_queueFrameEx(h, NULL, NULL, 0, (unsigned)(sr / 10), 22, -1, false);
+		std::vector<sample> pcm = drain(h);
+		speechPlayer_terminate(h);
+		return pcm;
+	};
+	{
+		std::vector<sample> pcm = run(0.0, 0.47);
+		const double late = rmsDb(pcm, sr, 440.0, 490.0);
+		INFO("zero voice, target 0.47: late " << late << " dB");
+		CHECK(late < -60.0);  // silent, not a voice fading in
+	}
+	{
+		// A scaled voice (preset x0.5) with a target above it holds flat.
+		std::vector<sample> pcm = run(0.3, 0.47);
+		const double early = rmsDb(pcm, sr, 60.0, 110.0);
+		const double late = rmsDb(pcm, sr, 440.0, 490.0);
+		INFO("scaled voice 0.3, target 0.47: early " << early << " late " << late);
+		CHECK(fabs(early - late) < 0.5);
+	}
+}
+
 TEST_CASE("endVoiceAmplitude: the ramp never drives the source negative") {
 	const int sr = 22050;
 	// Target far below zero: the ramp clamps at 0 and the tail is silent,

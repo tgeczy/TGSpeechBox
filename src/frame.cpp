@@ -522,10 +522,13 @@ class FrameManagerImpl: public FrameManager {
 			// NULLFrame branch above).  That tail must not last the whole
 			// silence: a two-second pause is not a two-second breath (#125).
 			// Once the fade into the silence is over, let it decay with a
-			// ~30 ms time constant, inaudible after about 150 ms.
+			// ~12 ms time constant, inaudible after about 60 ms: a released
+			// stop's aspiration lasts 40-80 ms in speech, and a whisper voice,
+			// whose every frame is aspiration, must not trail a breath into
+			// each gap that reads as an echo at slow rates (#129).
 			if(oldFrameRequest->NULLFrame &&
 			   (curFrame.aspirationAmplitude > 0.0 || curFrame.preFormantGain > 0.0)) {
-				const double tail = exp(-1000.0 / (30.0 * (double)sampleRate));
+				const double tail = exp(-1000.0 / (12.0 * (double)sampleRate));
 				curFrame.aspirationAmplitude *= tail;
 				curFrame.preFormantGain *= tail;
 				if(curFrame.aspirationAmplitude < 1e-4) curFrame.aspirationAmplitude = 0.0;
@@ -655,10 +658,19 @@ class FrameManagerImpl: public FrameManager {
 
 			// Voice amplitude end target (DSP v9): a finite value ramps
 			// voiceAmplitude linearly over the frame, like endVoicePitch.
+			// The contour only ever LOWERS the voice: the target is clamped to
+			// the frame's own voiceAmplitude, and a frame with no voice stays
+			// silent.  Platforms apply voice presets to the frame after the
+			// frontend (the whisper voices set voiceAmplitude to 0) but not to
+			// this FrameEx target, so without the clamp the DSP ramped the
+			// voice back up toward the frontend's absolute target inside every
+			// vowel (#129, "Caleb is no longer a whisper").
 			if(!frameRequest->NULLFrame && frameRequest->minNumSamples>0 &&
+			   frameRequest->frame.voiceAmplitude>0.0 &&
 			   std::isfinite(frameRequest->frameEx.endVoiceAmplitude)) {
 				double endVa=frameRequest->frameEx.endVoiceAmplitude;
 				if(endVa<0) endVa=0;
+				if(endVa>frameRequest->frame.voiceAmplitude) endVa=frameRequest->frame.voiceAmplitude;
 				frameRequest->voiceAmplitudeInc=(endVa-frameRequest->frame.voiceAmplitude)/frameRequest->minNumSamples;
 			}
 			// Amplitude onset glide (DSP v9): the fall, if any, runs after it.
@@ -670,6 +682,7 @@ class FrameManagerImpl: public FrameManager {
 				if(frameRequest->voiceAmplitudeInc!=0) {
 					double endVa=frameRequest->frameEx.endVoiceAmplitude;
 					if(endVa<0) endVa=0;
+					if(endVa>frameRequest->vaTarget) endVa=frameRequest->vaTarget;  // lower only (#129)
 					double rem=(double)frameRequest->minNumSamples-onset;
 					if(rem<1.0) rem=1.0;
 					frameRequest->voiceAmplitudeInc=(endVa-frameRequest->vaTarget)/rem;

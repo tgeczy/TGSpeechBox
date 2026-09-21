@@ -2,9 +2,9 @@
 # eSpeak's own pt letter naming is inconsistent (é -> "é agudo" but ó -> "ó"),
 # so name the accented letters explicitly. Shared by pt, pt-br, pt-pt.
 á	a agudo
-é	e agudo
+é	é agudo
 í	i agudo
-ó	o agudo
+ó	ó agudo
 ú	u agudo
 â	a circunflexo
 ê	e circunflexo
@@ -12,4 +12,6 @@
 ã	a til
 õ	o til
 à	a crase
+ò	ó grave
+ù	u grave
 ç	cê cedilha
