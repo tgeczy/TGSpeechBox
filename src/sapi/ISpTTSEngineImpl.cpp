@@ -693,10 +693,31 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         // Split concatenated text into clauses for intonation.
         auto clauses = split_clauses(batch.text);
 
-        // Synthesize all clauses into an audio buffer.
+        // Stream clause by clause (#128).  The batch used to be synthesized
+        // into one buffer first and written afterwards, so the first byte
+        // reached the host only when the whole text had been rendered and
+        // the time to the first sound grew with the length of a line
+        // (Narrator on long lines).  Now each clause is synthesized and handed
+        // to the site before the next one is rendered.  Bookmarks fire at a
+        // position proportional to their character offset inside the clause
+        // they fall in (before: proportional across the whole batch).
+        const auto& settings = tgsb::get_settings_cached(rt_->base_dir());
+        const int pm = settings.pauseMode;
+        const size_t total_chars = batch.text.size();
         std::vector<tgsb::sample_t> audio_buf;
-        for (const auto& clause : clauses) {
-            if (ctx.aborted) break;
+        size_t bm_idx = 0;
+        bool wrote_any = false;
+
+        auto fire_bookmark = [&](size_t idx) {
+            add_bookmark_event(pOutputSite, ctx.bytes_written,
+                               batch.bookmarks[idx].mark.c_str());
+        };
+
+        for (size_t ci = 0; ci < clauses.size() && !ctx.aborted; ++ci) {
+            const auto& clause = clauses[ci];
+            const bool last_clause = (ci + 1 == clauses.size());
+            const size_t clause_end = last_clause ? total_chars : clauses[ci + 1].start;
+
             std::wstring clauseText = padEmojiWithSpacesW(
                 batch.text.substr(clause.start, clause.len));
             params.clause_type = clause.clause_type;
@@ -705,14 +726,13 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                 DEBUG_LOG("TGSpeechSapi: queue_text failed 0x%08X", hr);
                 continue;
             }
+            audio_buf.clear();
             int got;
             while ((got = rt_->synthesize(static_cast<int>(sampleBuf.size()), sampleBuf.data())) > 0)
                 audio_buf.insert(audio_buf.end(), sampleBuf.data(), sampleBuf.data() + got);
 
             // Pause mode: insert silence after each clause.
             // Short: 35ms sentence / 25ms comma. Long: 60ms / 50ms.
-            const auto& settings = tgsb::get_settings_cached(rt_->base_dir());
-            int pm = settings.pauseMode;
             if (pm > 0 && !audio_buf.empty()) {
                 double pauseMs = 0.0;
                 char ct = clause.clause_type;
@@ -725,69 +745,75 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                     audio_buf.insert(audio_buf.end(), padSamples, tgsb::sample_t{0});
                 }
             }
-        }
+            if (audio_buf.empty()) continue;
+            wrote_any = true;
 
-        if (audio_buf.empty()) continue;
-
-        // Calculate byte thresholds for bookmarks (proportional to char position).
-        const ULONGLONG total_bytes = static_cast<ULONGLONG>(audio_buf.size()) * sizeof(tgsb::sample_t);
-        const size_t total_chars = batch.text.size();
-        for (auto& bm : batch.bookmarks) {
-            if (total_chars > 0 && bm.char_offset <= total_chars)
-                bm.byte_threshold = (static_cast<ULONGLONG>(bm.char_offset) * total_bytes) / total_chars;
-            else
-                bm.byte_threshold = total_bytes;
-        }
-
-        // Play back, firing bookmark events at proportional positions.
-        size_t bm_idx = 0;
-        size_t audio_pos = 0;
-        const ULONGLONG batch_start = ctx.bytes_written;
-
-        while (audio_pos < audio_buf.size() && !ctx.aborted) {
-            actions = pOutputSite->GetActions();
-            if (actions & SPVES_ABORT) {
-                rt_->purge();
-                ctx.aborted = true;
-                break;
+            // Byte thresholds for the bookmarks that fall inside this clause,
+            // proportional to their character position within it.
+            const ULONGLONG clause_bytes = static_cast<ULONGLONG>(audio_buf.size()) * sizeof(tgsb::sample_t);
+            const ULONGLONG clause_start_bytes = ctx.bytes_written;
+            const size_t span = (clause_end > clause.start) ? (clause_end - clause.start) : 1;
+            for (size_t k = bm_idx; k < batch.bookmarks.size(); ++k) {
+                auto& bm = batch.bookmarks[k];
+                if (!last_clause && bm.char_offset >= clause_end) break;
+                const size_t off = (bm.char_offset > clause.start) ? (bm.char_offset - clause.start) : 0;
+                bm.byte_threshold = clause_start_bytes +
+                    ((off >= span) ? clause_bytes : (static_cast<ULONGLONG>(off) * clause_bytes) / span);
             }
-            if (actions & SPVES_SKIP) {
-                pOutputSite->CompleteSkip(0);
-                rt_->purge();
-                ctx.aborted = true;
-                break;
-            }
+            auto bookmark_in_clause = [&](size_t idx) {
+                return last_clause || batch.bookmarks[idx].char_offset < clause_end;
+            };
 
-            // Fire bookmarks whose threshold we've passed.
-            const ULONGLONG batch_progress = ctx.bytes_written - batch_start;
-            while (bm_idx < batch.bookmarks.size() &&
-                   batch_progress >= batch.bookmarks[bm_idx].byte_threshold) {
-                add_bookmark_event(pOutputSite, ctx.bytes_written,
-                                   batch.bookmarks[bm_idx].mark.c_str());
+            // Hand this clause to the site, firing its bookmarks on the way.
+            size_t audio_pos = 0;
+            while (audio_pos < audio_buf.size() && !ctx.aborted) {
+                actions = pOutputSite->GetActions();
+                if (actions & SPVES_ABORT) {
+                    rt_->purge();
+                    ctx.aborted = true;
+                    break;
+                }
+                if (actions & SPVES_SKIP) {
+                    pOutputSite->CompleteSkip(0);
+                    rt_->purge();
+                    ctx.aborted = true;
+                    break;
+                }
+                while (bm_idx < batch.bookmarks.size() && bookmark_in_clause(bm_idx) &&
+                       ctx.bytes_written >= batch.bookmarks[bm_idx].byte_threshold) {
+                    fire_bookmark(bm_idx);
+                    ++bm_idx;
+                }
+
+                const size_t remaining = audio_buf.size() - audio_pos;
+                const size_t chunk = std::min(remaining, sampleBuf.size());
+                const ULONG bytes = static_cast<ULONG>(chunk * sizeof(tgsb::sample_t));
+                const BYTE* data = reinterpret_cast<const BYTE*>(audio_buf.data() + audio_pos);
+
+                const ULONGLONG before = ctx.bytes_written;
+                if (!write_bytes(pOutputSite, data, bytes, ctx.bytes_written)) {
+                    ctx.aborted = true;
+                    break;
+                }
+                if (ctx.bytes_written == before) {
+                    Sleep(5);
+                    continue;
+                }
+                audio_pos += chunk;
+            }
+            // Whatever belonged to this clause and has not fired yet (a
+            // bookmark at its very end) fires now, before the next clause.
+            while (!ctx.aborted && bm_idx < batch.bookmarks.size() && bookmark_in_clause(bm_idx)) {
+                fire_bookmark(bm_idx);
                 ++bm_idx;
             }
-
-            const size_t remaining = audio_buf.size() - audio_pos;
-            const size_t chunk = std::min(remaining, sampleBuf.size());
-            const ULONG bytes = static_cast<ULONG>(chunk * sizeof(tgsb::sample_t));
-            const BYTE* data = reinterpret_cast<const BYTE*>(audio_buf.data() + audio_pos);
-
-            const ULONGLONG before = ctx.bytes_written;
-            if (!write_bytes(pOutputSite, data, bytes, ctx.bytes_written)) {
-                ctx.aborted = true;
-                break;
-            }
-            if (ctx.bytes_written == before) {
-                Sleep(5);
-                continue;
-            }
-            audio_pos += chunk;
         }
+
+        if (!wrote_any) continue;
 
         // Fire any remaining bookmarks (end-of-batch).
         while (bm_idx < batch.bookmarks.size()) {
-            add_bookmark_event(pOutputSite, ctx.bytes_written,
-                               batch.bookmarks[bm_idx].mark.c_str());
+            fire_bookmark(bm_idx);
             ++bm_idx;
         }
     }
