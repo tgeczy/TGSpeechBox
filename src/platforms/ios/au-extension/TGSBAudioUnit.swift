@@ -773,7 +773,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     // compresses semantic boundaries instead of erasing them.
     private func scaledBreakMs(fromTag tag: String, scalePercent: Int) -> Int {
         var ms = Self.breakStrengths["medium"]!
-        if let v = firstCapture(#"time\s*=\s*"([^"]+)""#, in: tag)?
+        // Attribute values may be double- or single-quoted; time= may carry
+        // "800.0ms" (what iOS 27 sends), "0.8s", or a bare number of ms —
+        // the same three forms DoubleTalk's parser accepts.
+        if let v = firstCapture(#"time\s*=\s*["']([^"']+)["']"#, in: tag)?
             .lowercased().trimmingCharacters(in: .whitespaces) {
             if v.hasSuffix("ms"),
                let d = Double(v.dropLast(2)
@@ -783,8 +786,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
                       let d = Double(v.dropLast(1)
                           .trimmingCharacters(in: .whitespaces)) {
                 ms = Int((d * 1000).rounded())
+            } else if let d = Double(v) {
+                ms = Int(d.rounded())
             }
-        } else if let v = firstCapture(#"strength\s*=\s*"([^"]+)""#, in: tag)?
+        } else if let v = firstCapture(#"strength\s*=\s*["']([^"']+)["']"#, in: tag)?
             .lowercased(), let s = Self.breakStrengths[v] {
             ms = s
         }
