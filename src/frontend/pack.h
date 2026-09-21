@@ -738,6 +738,10 @@ struct LanguagePack {
   // NOTE: trillModulationMs is subject to normal speed scaling (like other durations).
   // The internal flutter cycle rate is fixed in code (see ipa_engine.cpp).
   double trillModulationMs = 0.0;
+  // Voicing kept through a trill's closed phases, as a fraction of the
+  // open-phase amplitude.  0 = full gating (square-wave envelope); a natural
+  // apical trill keeps some low-frequency energy through each contact.
+  double trillCloseVoicingFactor = 0.0;
   double trillModulationFadeMs = 0.0;
 
   // Intra-word vowel hiatus break (optional).

@@ -995,12 +995,36 @@ static void generateAcousticEvents(
 
       double remaining = totalDur;
       double pos = 0.0;
-      bool highPhase = true;
+      // Phase plan: an apical trill after a voiced segment begins with a
+      // contact and always ends with the release into what follows.  Lay
+      // out round(duration / cycle) contacts, each followed by an opening,
+      // with an extra opening in front when the previous segment was not
+      // voiced; the open phases absorb the remainder so the token length
+      // is kept and the last phase is always the release.  Before this the
+      // phases started open and a lengthened trill (hu "arra", 81 ms) ended
+      // on 11 ms of silence against the vowel: "ah-ra".
+      const bool prevVoiced = trajectoryState->hasPrevFrame && trajectoryState->prevVoiceAmp > 0.05;
+      int nCycles = static_cast<int>(std::round(totalDur / cycleMs));
+      if (nCycles < 1) nCycles = 1;
+      const int nClosed = nCycles;
+      const int nOpen = prevVoiced ? nCycles : nCycles + 1;
+      double openEach = (totalDur - nClosed * closeMs) / nOpen;
+      double closeEach = closeMs;
+      if (openEach < 2.0) {  // very short trill: keep at least a brief opening
+        openEach = std::max(2.0, totalDur / (nClosed + nOpen));
+        closeEach = std::max(0.0, (totalDur - nOpen * openEach) / nClosed);
+      }
+      const double closeVoice = std::clamp(lang.trillCloseVoicingFactor, 0.0, 1.0);
+      bool highPhase = !prevVoiced;  // contact first after voicing
       bool firstPhase = true;
+      int phasesLeft = nClosed + nOpen;
 
-      while (remaining > 1e-9) {
-        double phaseDur = highPhase ? openMs : closeMs;
+      while (remaining > 1e-9 && phasesLeft > 0) {
+        double phaseDur = highPhase ? openEach : closeEach;
+        if (phasesLeft == 1) phaseDur = remaining;          // the release takes what is left
         if (phaseDur > remaining) phaseDur = remaining;
+        --phasesLeft;
+        if (phaseDur <= 1e-9) { highPhase = !highPhase; continue; }
 
         double t0 = (totalDur > 0.0) ? (pos / totalDur) : 0.0;
         double t1 = (totalDur > 0.0) ? ((pos + phaseDur) / totalDur) : 1.0;
@@ -1013,7 +1037,7 @@ static void generateAcousticEvents(
 
         if (!highPhase) {
           if (hasVoiceAmp) {
-            seg[va] = baseVoiceAmp * kTrillCloseFactor;
+            seg[va] = baseVoiceAmp * std::max(kTrillCloseFactor, closeVoice);
           }
           if (hasFricAmp && baseFricAmp > 0.0) {
             seg[fa] = std::max(baseFricAmp, kTrillFricFloor);

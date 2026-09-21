@@ -659,6 +659,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
 
   // Trill amplitude modulation (ms; applies only to `_isTrill` phonemes).
   getNum("trillModulationMs", lp.trillModulationMs);
+  getNum("trillCloseVoicingFactor", lp.trillCloseVoicingFactor);
   getNum("trillModulationFadeMs", lp.trillModulationFadeMs);
 
   // Optional: spelling diphthong handling in acronym-like (spelled-out) words.
