@@ -325,6 +325,18 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             }
         }
 
+        // End-of-request pause (eSpeak model, see endOfRequestPauseMs): a
+        // request that ends in speech gets a pause-mode-scaled silence after
+        // it — off 0, short 150, long 300 ms — so the gap between VoiceOver's
+        // separate requests scales with the same setting as the breaks it
+        // sends inside one.  A request that already ends in a rendered break
+        // keeps the longer of the two.
+        if pauseScalePercent > 0, let last = segments.indices.last,
+           !segments[last].text.isEmpty {
+            let tailMs = Self.endOfRequestPauseMs * pauseScalePercent / 100
+            segments[last].pauseAfterMs = max(segments[last].pauseAfterMs, tailMs)
+        }
+
         let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
             .integer(forKey: "adv_settingsVersion") ?? 0
         let voiceChanged = voiceName != cachedVoice
@@ -757,6 +769,14 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         "medium": 350, "strong": 500, "x-strong": 800,
     ]
     private static let maxBreakMs = 2000
+    // End-of-request pause at the "long" setting, scaled by the pause mode
+    // like the breaks.  eSpeak ends every utterance with ~300 ms of silence,
+    // which is the only reason eSpeak users hear a gap between the separate
+    // requests VoiceOver on iOS 27 now sends for what used to be one
+    // announcement ("dock" / "page 1 of 4"); our engine ended a request 1-2 ms
+    // after the last sound.  VoiceOver cancels the tail the moment the user
+    // moves on, exactly as it does with eSpeak's (#132).
+    private static let endOfRequestPauseMs = 300
 
     private func firstCapture(_ pattern: String, in s: String) -> String? {
         guard let re = try? NSRegularExpression(pattern: pattern,
