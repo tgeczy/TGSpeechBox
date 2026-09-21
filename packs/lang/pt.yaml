@@ -123,6 +123,9 @@ normalization:
       - ɾ
 
   replacements:
+    # eSpeak NG 1.53 writes the "ou" diphthong as oʊ where 1.52 wrote ow.
+    - from: "oʊ"
+      to: "ow"
     # --- Nasal vowels ---
     # eSpeak pt (--ipa) often emits combining-tilde vowels (e.g. ɐ̃).
     # Convert them to NVSP's precomposed nasal vowels when available.

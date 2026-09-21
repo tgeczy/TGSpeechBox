@@ -10163,6 +10163,171 @@ phonemes:
 # Voice Profiles:
 # - Designed to reduce harshness/clipping at low sample rates by lowering gains and rolling off extreme highs.
 # - Major identity shift comes from per-vowel CF/PF (F1..F3) overrides + pitch contour scaling.
+  # Retroflex stops and nasal (beta 10). Swedish writes its r + dental
+  # clusters (rt, rd, rn) as these, and eSpeak NG 1.53 emits them itself;
+  # until now no phoneme carried the keys, so the tokenizer dropped the
+  # consonant: "bort" came out as "bo".  A retroflex is cued by a lowered
+  # F3 and F4 in the neighbouring vowel (Tabain, Butcher, Breen & Beare
+  # 2020, JASA 147, DOI 10.1121/10.0001012; Ladefoged & Maddieson 1996,
+  # ch. 2), so each is its alveolar twin with F3 350 Hz and F4 300 Hz
+  # lower and F2 a little lower.
+  # voiceless retroflex stop: t with the retroflex loci
+  "ʈ":
+    # Voiceless alveolar stop
+    # Burst: diffuse-rising spectrum (Blumstein & Stevens 1979).
+    # Same place as /d/ → same pa shape, higher overall amplitude.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: true
+    burstDurationMs: 9
+    burstDecayRate: 0.5
+    burstSpectralTilt: 0
+    _isVoiced: false
+    _isVowel: false
+    aspirationAmplitude: 0.40
+    caNP: 0
+    cb1: 300
+    cb2: 95
+    cb3: 175
+    cb4: 350
+    cb5: 500
+    cb6: 1500
+    cbN0: 100
+    cbNP: 100
+    cf1: 380
+    cf2: 1620
+    cf3: 2300
+    cf4: 3198
+    cf5: 3975
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.80
+    pa1: 0.08
+    pa2: 0.15
+    pa3: 0.30
+    pa4: 0.48
+    pa5: 0.48
+    pa6: 0.35
+    parallelBypass: 0
+    pb1: 280
+    pb2: 110
+    pb3: 200
+    pb4: 350
+    pb5: 500
+    pb6: 1500
+    pf1: 380
+    pf2: 1620
+    pf3: 2300
+    pf4: 3198
+    pf5: 3975
+    pf6: 4900
+    voiceAmplitude: 0
+  # voiced retroflex stop: d with the retroflex loci
+  "ɖ":
+    # Voiced alveolar stop.  fricationAmplitude lowered 0.60→0.45 to
+    # unmask alveolar burst shape (pa4/pa5) and reduce affricate quality
+    # in clusters like /nd/ ("calendar" → "calenger").
+    # Burst: diffuse-rising spectrum (Blumstein & Stevens 1979).
+    # Front-cavity resonance ~4000 Hz → pa4/pa5 dominant.
+    # F2 locus ~1700 Hz (Delattre et al. 1955, Sussman et al. 1993).
+    # pa5/pa6 rolled off to reduce affricate quality on small speakers.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: true
+    _isVoiced: true
+    burstDurationMs: 9
+    burstDecayRate: 0.5
+    voiceBarAmplitude: 0.50
+    voiceBarF1: 150
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 66
+    cb2: 90
+    cb3: 160
+    cb4: 350
+    cb5: 500
+    cb6: 1500
+    cbN0: 100
+    cbNP: 100
+    cf1: 200
+    cf2: 1620
+    cf3: 2250
+    cf4: 3198
+    cf5: 3975
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.45
+    pa1: 0.08
+    pa2: 0.15
+    pa3: 0.30
+    pa4: 0.48
+    pa5: 0.48
+    pa6: 0.35
+    parallelBypass: 0
+    pb1: 60
+    pb2: 100
+    pb3: 170
+    pb4: 350
+    pb5: 500
+    pb6: 1500
+    pf1: 200
+    pf2: 1520
+    pf3: 2250
+    pf4: 3198
+    pf5: 3975
+    pf6: 4900
+    voiceAmplitude: 0.9
+  # retroflex nasal: n with the retroflex loci
+  "ɳ":
+    _isLiquid: false
+    _isNasal: true
+    _isStop: false
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 1
+    cb1: 90
+    cb2: 260
+    cb3: 225
+    cb4: 300
+    cb5: 350
+    cb6: 1300
+    cbN0: 100
+    cbNP: 170
+    # Alveolar nasal - lowered F2 to distinguish from palatal ɲ
+    cf1: 280
+    cf2: 1470
+    cf3: 2390
+    cf4: 3198
+    cf5: 3975
+    cf6: 4900
+    cfN0: 1450
+    cfNP: 240
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 40
+    pb2: 300
+    pb3: 300
+    pb4: 300
+    pb5: 350
+    pb6: 1300
+    pf1: 480
+    pf2: 1470
+    pf3: 2250
+    pf4: 3198
+    pf5: 3975
+    pf6: 4900
+    voiceAmplitude: 0.9
+
 voiceProfiles:
   Beth:
     voicingTone:

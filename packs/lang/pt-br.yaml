@@ -66,6 +66,10 @@ normalization:
     - from: "x"
       to: "h"
 
+    # eSpeak NG 1.53 writes the "ou" diphthong as oʊ where 1.52 wrote ow;
+    # keep the offglide a glide, and keep this ahead of the ʊ→u rule.
+    - from: "oʊ"
+      to: "ow"
     # Brazilian /ʊ/ in words like "topo" — map to plain /u/.
     - from: "ʊ"
       to: "u"
@@ -84,6 +88,10 @@ normalization:
       to: "ãj"
     - from: "y"
       to: "i"
+    # eSpeak NG 1.53 writes that same raised final "e" as ɪ (cidade → sidˈadʒɪ);
+    # route it where y went, not to the English KIT vowel.
+    - from: "ɪ"
+      to: "i"
     - from: "iˈãᴜ"
       to:   "iːˈãᴜ"
     - from: "iˌãᴜ"
@@ -99,6 +107,10 @@ normalization:
     # eSpeak pt-br often uses "æ" for word-final unstressed "a" (casa, feira).
     # Map it to a central a-like vowel so it doesn't sound like English "cat".
     - from: "æ"
+      to: "a"
+    # eSpeak NG 1.53 writes the unstressed "a" as ɐ (agora → ˌaɡˈɔɾɐ), where
+    # 1.52 wrote æ; same vowel, same destination.
+    - from: "ɐ"
       to: "a"
 
     # Brazilian Portuguese "ã" tends to be a bit darker/rounder than pt-pt.
