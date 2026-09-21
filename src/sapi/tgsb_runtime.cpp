@@ -165,6 +165,7 @@ void __cdecl runtime::frontend_frame_cb(void* userData, const nvspFrontend_Frame
     if (fadeSamples == 0) fadeSamples = 1;
 
     if (!rt.speech_player_) return;
+    rt.queued_samples_ += minSamples;
 
     if (!frameOrNull) {
         speechPlayer_queueFrame(rt.speech_player_, nullptr, minSamples, fadeSamples, userIndex, false);
@@ -197,6 +198,7 @@ void __cdecl runtime::frontend_frame_ex_cb(void* userData, const nvspFrontend_Fr
     if (fadeSamples == 0) fadeSamples = 1;
 
     if (!rt.speech_player_) return;
+    rt.queued_samples_ += minSamples;
 
     if (!frameOrNull) {
         speechPlayer_queueFrameEx(rt.speech_player_, nullptr, nullptr, 0, minSamples, fadeSamples, userIndex, false);
@@ -792,6 +794,7 @@ void runtime::text_to_ipa_utf8(const std::wstring& text, std::string& out_ipa)
 
 HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params)
 {
+    queued_samples_ = 0;
     if (text.empty()) return S_OK;
 
     HRESULT hr = ensure_initialized();

@@ -62,6 +62,11 @@ public:
     int synthesize(int max_samples, sample* out_samples);
     void purge();
 
+    // Samples the last queue_text() put on the DSP queue (the sum of the
+    // frames' minimum lengths): a lower bound on the audio it will produce,
+    // which places bookmarks while the clause is still streaming (#128).
+    unsigned long long queued_samples() const noexcept { return queued_samples_; }
+
     int sample_rate() const noexcept { return sample_rate_; }
     const std::wstring& base_dir() const noexcept { return base_dir_; }
     void set_time_stretch(double factor);
@@ -88,6 +93,7 @@ private:
 
     nvspFrontend_VoicingTone cached_voicing_tone_{};
     bool has_voicing_tone_ = false;
+    unsigned long long queued_samples_ = 0;
 
     // Frame callbacks for nvspFrontend.
     static void __cdecl frontend_frame_cb(void* userData, const nvspFrontend_Frame* frameOrNull, double durationMs, double fadeMs, int userIndex);

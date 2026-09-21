@@ -172,6 +172,7 @@ class SynthDriver(
         self._pauseMode = "short"
         self._language = "auto"
         self._resolvedLang = "en-us"
+        self._activeSpeechLang = None  # language both engines are in (#131); None = unknown
         self._langPackSettingsCache: dict[str, object] = {}
         self._sampleRate = 22050
 
@@ -560,9 +561,10 @@ class SynthDriver(
             )
 
         # Keep frontend pack selection in sync with the resolved language tag.
+        frontendOk = False
         try:
             if getattr(self, "_frontend", None):
-                self._applyFrontendLangTag(resolved)
+                frontendOk = self._applyFrontendLangTag(resolved)
                 # Re-apply voice profile after language change — setLanguage
                 # replaces the entire PackSet, so the profile's phonetic
                 # transforms need to be re-applied on the new pack data.
@@ -570,6 +572,10 @@ class SynthDriver(
                     self._frontend.setVoiceProfile(self._activeProfileName)
         except Exception:
             log.error("TGSpeechBox: error setting frontend language", exc_info=True)
+
+        # Automatic language switching (#131) starts from here: both engines
+        # are in `resolved`, or in an unknown state if either failed.
+        self._activeSpeechLang = resolved if (espeakApplied is not None and frontendOk) else None
 
         log.debug("TGSpeechBox: language setting=%r resolved=%r; eSpeak=%r; packs=%r", self._language, resolved, self._espeakLang or None, getattr(self, "_frontendLangTag", None))
 
@@ -663,7 +669,12 @@ class SynthDriver(
 
         If *tag* is omitted, reloads the currently selected driver language.
         """
-        ok = self._applyFrontendLangTag(tag or self._getCurrentLangTag())
+        want = tag or self._getCurrentLangTag()
+        ok = self._applyFrontendLangTag(want)
+        # The pack in the frontend may no longer be the one the last spoken
+        # block set (#131); the next block re-applies its language unless the
+        # reload put the frontend where eSpeak already is.
+        self._activeSpeechLang = want if (ok and want == getattr(self, "_espeakLang", None)) else None
         if ok:
             try:
                 self._refreshLangPackSettingsCache()

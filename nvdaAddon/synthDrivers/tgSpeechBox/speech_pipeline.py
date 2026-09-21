@@ -160,28 +160,51 @@ class SpeechPipelineMixin:
                 return pref
         return None
 
+    def _setEspeakLangForSwitch(self, want):
+        # eSpeak voice for a language switch: the direct name first, then the
+        # language fallbacks, as _set_language does.
+        if _espeakSetVoiceDirect(want):
+            return True
+        for c in (want, want.replace("-", "_"), want.split("-", 1)[0]):
+            if espeak_direct.setVoiceByLanguage(c):
+                return True
+        return False
+
     def _applySpeechLang(self, tag):
         # Switch eSpeak and the frontend to tag (None = the user's language)
-        # for the text that follows.  Cheap when nothing changes: NVDA sends a
-        # language change at the start of most utterances.
+        # for the text that follows.  Lazy: the engines stay in the language
+        # last spoken until a block asks for another one, so a page in one
+        # foreign language costs one pack reload rather than two per line
+        # (the en-us pack reloads in ~110 ms, most others in ~25 ms).
+        # _activeSpeechLang is the language both engines are in, or None when
+        # that is not known (a failed switch, a pack reload from the settings
+        # panel); None makes the next block apply its language in full.
         base = getattr(self, "_resolvedLang", "en-us") or "en-us"
         want = tag or base
-        active = getattr(self, "_activeSpeechLang", None) or base
-        if want == active:
+        active = getattr(self, "_activeSpeechLang", None)
+        if active is not None and want == active:
             return
         try:
-            espeakOk = _espeakSetVoiceDirect(want)
-            if not espeakOk:
-                for c in (want, want.replace("-", "_"), want.split("-", 1)[0]):
-                    if espeak_direct.setVoiceByLanguage(c):
-                        espeakOk = True
-                        break
-            if espeakOk:
-                self._espeakLang = want
-            self._applyFrontendLangTag(want)
+            if not self._setEspeakLangForSwitch(want):
+                log.debug("TGSpeechBox: no eSpeak voice for %r; staying in %r", want, active)
+                return  # nothing has changed
+            if not self._applyFrontendLangTag(want):
+                # eSpeak moved and the pack did not: put eSpeak back so the
+                # two agree, and forget the state if even that fails.
+                self._activeSpeechLang = active if self._setEspeakLangForSwitch(active or base) else None
+                return
+            # setLanguage replaces the PackSet; a voice profile's phonetic
+            # transforms live in it and are re-applied as _set_language does.
+            if getattr(self, "_usingVoiceProfile", False) and getattr(self, "_activeProfileName", ""):
+                try:
+                    self._frontend.setVoiceProfile(self._activeProfileName)
+                except Exception:
+                    log.debug("TGSpeechBox: could not re-apply the voice profile after a language switch", exc_info=True)
+            self._espeakLang = want
             self._activeSpeechLang = want
             log.debug("TGSpeechBox: speech language -> %r (user setting %r)", want, base)
         except Exception:
+            self._activeSpeechLang = None
             log.debug("TGSpeechBox: language switch to %r failed", want, exc_info=True)
 
     def _buildBlocks(self, speechSequence, coalesceSayAll: bool = False):
@@ -325,10 +348,11 @@ class SpeechPipelineMixin:
         for (text, indexesAfter, blockPitchOffset, blockLang) in blocks:
             # Bail if cancel() invalidated this generation
             if generation != self._speakGen:
-                self._applySpeechLang(None)
                 return
 
             # Speak text for this block, in the language NVDA asked for (#131).
+            # Every text block sets its language, so nothing is restored on
+            # cancel or at the end of the utterance (see _applySpeechLang).
             if text:
                 self._applySpeechLang(blockLang)
                 for chunk in re_textPause.split(text):
@@ -592,7 +616,6 @@ class SpeechPipelineMixin:
                     except Exception:
                         log.debug("TGSpeechBox: failed to queue index marker %r", idx, exc_info=True)
 
-        self._applySpeechLang(None)  # back to the user's language for the next utterance
         if endPause and endPause > 0:
             self._player.queueFrame(None, float(endPause), min(float(endPause), 5.0))
 
