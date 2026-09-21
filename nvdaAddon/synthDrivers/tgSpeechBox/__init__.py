@@ -114,9 +114,17 @@ class SynthDriver(
 
     from synthDriverHandler import synthDoneSpeaking, synthIndexReached
     from speech.commands import IndexCommand, PitchCommand
-    supportedCommands = {c for c in (IndexCommand, PitchCommand) if c}
+    try:
+        from speech.commands import LangChangeCommand
+    except Exception:
+        LangChangeCommand = None
+    # LangChangeCommand: NVDA's automatic language switching (#131).  NVDA only
+    # sends it when the synthesizer declares it; each one becomes a block
+    # boundary in speech_pipeline._buildBlocks and the block's language is
+    # applied to eSpeak and the frontend before it is phonemized.
+    supportedCommands = {c for c in (IndexCommand, PitchCommand, LangChangeCommand) if c}
     supportedNotifications = {synthIndexReached, synthDoneSpeaking}
-    del IndexCommand, PitchCommand, synthDoneSpeaking, synthIndexReached
+    del IndexCommand, PitchCommand, LangChangeCommand, synthDoneSpeaking, synthIndexReached
 
     exposeExtraParams = False
     _ESPEAK_PHONEME_MODE = 0x36100 + 0x82

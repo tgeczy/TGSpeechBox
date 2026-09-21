@@ -16,6 +16,12 @@ import os
 from logHandler import log
 from synthDriverHandler import synthDoneSpeaking, synthIndexReached
 from speech.commands import IndexCommand, PitchCommand
+try:
+    from speech.commands import LangChangeCommand
+except Exception:  # older NVDA
+    LangChangeCommand = None
+from .constants import languages as _languages
+from .espeak_bridge import espeakSetVoiceDirect as _espeakSetVoiceDirect
 
 from . import speechPlayer, espeak_direct
 from .constants import COALESCE_MAX_CHARS, COALESCE_MAX_INDEXES
@@ -133,6 +139,51 @@ class SpeechPipelineMixin:
 
     # ---- Block building ----
 
+    # -- Automatic language switching (#131) -----------------------------------
+    def _resolveLangSwitchTag(self, nvdaLang):
+        # Map a LangChangeCommand language ("en_US", "pt_BR", "de", None) to one
+        # of our pack tags, or None for "the user's own setting".  Unsupported
+        # languages resolve to None too, so the text is spoken in the current
+        # voice rather than silently dropped.
+        if not nvdaLang:
+            return None
+        t = str(nvdaLang).strip().lower().replace("_", "-")
+        if not t:
+            return None
+        if t in _languages:
+            return t
+        base = t.split("-", 1)[0]
+        if base in _languages:
+            return base
+        for pref in (base + "-us", base + "-br", base + "-es", base + "-gb"):
+            if pref in _languages:
+                return pref
+        return None
+
+    def _applySpeechLang(self, tag):
+        # Switch eSpeak and the frontend to tag (None = the user's language)
+        # for the text that follows.  Cheap when nothing changes: NVDA sends a
+        # language change at the start of most utterances.
+        base = getattr(self, "_resolvedLang", "en-us") or "en-us"
+        want = tag or base
+        active = getattr(self, "_activeSpeechLang", None) or base
+        if want == active:
+            return
+        try:
+            espeakOk = _espeakSetVoiceDirect(want)
+            if not espeakOk:
+                for c in (want, want.replace("-", "_"), want.split("-", 1)[0]):
+                    if espeak_direct.setVoiceByLanguage(c):
+                        espeakOk = True
+                        break
+            if espeakOk:
+                self._espeakLang = want
+            self._applyFrontendLangTag(want)
+            self._activeSpeechLang = want
+            log.debug("TGSpeechBox: speech language -> %r (user setting %r)", want, base)
+        except Exception:
+            log.debug("TGSpeechBox: language switch to %r failed", want, exc_info=True)
+
     def _buildBlocks(self, speechSequence, coalesceSayAll: bool = False):
         """Convert an NVDA speechSequence into blocks: (text, [indexesAfterText], pitchOffset).
 
@@ -140,7 +191,10 @@ class SpeechPipelineMixin:
         This prevents audible gaps when NVDA inserts index markers at visual line wraps
         during Say All.
         """
-        blocks = []  # list[tuple[str, list[int], int]]
+        blocks = []  # list[tuple[str, list[int], int, str | None]]  (text, indexes, pitch, lang)
+        # Language requested by NVDA's automatic language switching for the
+        # text that follows; None = the user's own language setting (#131).
+        curLang = None
         textBuf = []
         pendingIndexes = []
         seenNonEmptyText = False
@@ -152,7 +206,7 @@ class SpeechPipelineMixin:
             nonlocal seenNonEmptyText, bufPitchOffset
             raw = normalizeTextForEspeak(" ".join(textBuf))
             textBuf.clear()
-            blocks.append((raw, pendingIndexes.copy(), bufPitchOffset))
+            blocks.append((raw, pendingIndexes.copy(), bufPitchOffset, curLang))
             pendingIndexes.clear()
             seenNonEmptyText = False
             bufPitchOffset = pitchOffset
@@ -166,6 +220,11 @@ class SpeechPipelineMixin:
                 bufPitchOffset = pitchOffset
                 continue
 
+            if LangChangeCommand and isinstance(item, LangChangeCommand):
+                if textBuf or pendingIndexes:
+                    flush()
+                curLang = self._resolveLangSwitchTag(getattr(item, "lang", None))
+                continue
             if isinstance(item, str):
                 if item:
                     if not textBuf and not pendingIndexes:
@@ -178,7 +237,7 @@ class SpeechPipelineMixin:
             if IndexCommand and isinstance(item, IndexCommand):
                 # Leading indexes (no text yet) should fire immediately.
                 if not seenNonEmptyText and not textBuf:
-                    blocks.append(("", [item.index], pitchOffset))
+                    blocks.append(("", [item.index], pitchOffset, curLang))
                     continue
 
                 pendingIndexes.append(item.index)
@@ -263,13 +322,15 @@ class SpeechPipelineMixin:
                 return 50.0 if pauseMode == "long" else 25.0
             return 0.0
 
-        for (text, indexesAfter, blockPitchOffset) in blocks:
+        for (text, indexesAfter, blockPitchOffset, blockLang) in blocks:
             # Bail if cancel() invalidated this generation
             if generation != self._speakGen:
+                self._applySpeechLang(None)
                 return
 
-            # Speak text for this block.
+            # Speak text for this block, in the language NVDA asked for (#131).
             if text:
+                self._applySpeechLang(blockLang)
                 for chunk in re_textPause.split(text):
                     # Check again between chunks for fast cancellation
                     if generation != self._speakGen:
@@ -531,6 +592,7 @@ class SpeechPipelineMixin:
                     except Exception:
                         log.debug("TGSpeechBox: failed to queue index marker %r", idx, exc_info=True)
 
+        self._applySpeechLang(None)  # back to the user's language for the next utterance
         if endPause and endPause > 0:
             self._player.queueFrame(None, float(endPause), min(float(endPause), 5.0))
 
