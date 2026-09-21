@@ -179,33 +179,31 @@ class SpeechPipelineMixin:
         # _activeSpeechLang is the language both engines are in, or None when
         # that is not known (a failed switch, a pack reload from the settings
         # panel); None makes the next block apply its language in full.
+        # Returns True when both engines are in the requested language.
         base = getattr(self, "_resolvedLang", "en-us") or "en-us"
         want = tag or base
         active = getattr(self, "_activeSpeechLang", None)
         if active is not None and want == active:
-            return
+            return True
         try:
             if not self._setEspeakLangForSwitch(want):
                 log.debug("TGSpeechBox: no eSpeak voice for %r; staying in %r", want, active)
-                return  # nothing has changed
+                return False  # nothing has changed
             if not self._applyFrontendLangTag(want):
                 # eSpeak moved and the pack did not: put eSpeak back so the
                 # two agree, and forget the state if even that fails.
                 self._activeSpeechLang = active if self._setEspeakLangForSwitch(active or base) else None
-                return
-            # setLanguage replaces the PackSet; a voice profile's phonetic
-            # transforms live in it and are re-applied as _set_language does.
-            if getattr(self, "_usingVoiceProfile", False) and getattr(self, "_activeProfileName", ""):
-                try:
-                    self._frontend.setVoiceProfile(self._activeProfileName)
-                except Exception:
-                    log.debug("TGSpeechBox: could not re-apply the voice profile after a language switch", exc_info=True)
+                return False
+            # The voice profile survives: the native setLanguage keeps the
+            # profile name and the transforms are applied at queue time.
             self._espeakLang = want
             self._activeSpeechLang = want
             log.debug("TGSpeechBox: speech language -> %r (user setting %r)", want, base)
+            return True
         except Exception:
             self._activeSpeechLang = None
             log.debug("TGSpeechBox: language switch to %r failed", want, exc_info=True)
+            return False
 
     def _buildBlocks(self, speechSequence, coalesceSayAll: bool = False):
         """Convert an NVDA speechSequence into blocks: (text, [indexesAfterText], pitchOffset).
@@ -354,7 +352,12 @@ class SpeechPipelineMixin:
             # Every text block sets its language, so nothing is restored on
             # cancel or at the end of the utterance (see _applySpeechLang).
             if text:
-                self._applySpeechLang(blockLang)
+                if not self._applySpeechLang(blockLang) and blockLang:
+                    # The requested language could not be applied: speak the
+                    # block in the user's own language rather than through an
+                    # unknown pair of engines.  (Speaking beats silence, so
+                    # the block goes ahead even if this fails too.)
+                    self._applySpeechLang(None)
                 for chunk in re_textPause.split(text):
                     # Check again between chunks for fast cancellation
                     if generation != self._speakGen:

@@ -665,6 +665,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         params.speed = std::clamp(std::pow(2.0, static_cast<double>(rateAdj) / 5.0), 0.25, 4.0);
 
         // Rate controls from settings: override system rate and/or rate boost.
+        double time_stretch = 1.0;  // the DSP's output clock vs the frontend's durations
         {
             const auto& stg = tgsb::get_settings_cached(rt_->base_dir());
             if (stg.overrideSystemRate) {
@@ -673,6 +674,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                 params.speed = 0.3 + t * (4.0 - 0.3);
             }
             if (stg.rateBoostEnabled) {
+                time_stretch = 1.35;
                 rt_->set_time_stretch(1.35);
             } else {
                 rt_->set_time_stretch(1.0);
@@ -730,9 +732,12 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             }
             // Byte thresholds for the bookmarks that fall inside this clause,
             // proportional to their character position within it.  Nothing
-            // has been rendered yet, so the clause length is taken from the
-            // frames the frontend queued (a lower bound on the audio to come).
-            const ULONGLONG clause_bytes = rt_->queued_samples() * sizeof(tgsb::sample_t);
+            // has been rendered yet, so the clause length is an estimate: the
+            // frames the frontend queued, brought into the DSP's output clock
+            // (rate boost stretches time, so the output is shorter than the
+            // queued minimum).  Marks that miss fire at the clause end.
+            const ULONGLONG clause_bytes =
+                static_cast<ULONGLONG>(static_cast<double>(rt_->queued_samples()) / time_stretch) * sizeof(tgsb::sample_t);
             const ULONGLONG clause_start_bytes = ctx.bytes_written;
             const size_t span = (clause_end > clause.start) ? (clause_end - clause.start) : 1;
             for (size_t k = bm_idx; k < batch.bookmarks.size(); ++k) {
@@ -741,6 +746,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                 const size_t off = (bm.char_offset > clause.start) ? (bm.char_offset - clause.start) : 0;
                 bm.byte_threshold = clause_start_bytes +
                     ((off >= span) ? clause_bytes : (static_cast<ULONGLONG>(off) * clause_bytes) / span);
+                bm.byte_threshold -= bm.byte_threshold % sizeof(tgsb::sample_t);  // sample-aligned
             }
             auto bookmark_in_clause = [&](size_t idx) {
                 return last_clause || batch.bookmarks[idx].char_offset < clause_end;
@@ -767,27 +773,39 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             // their positions are passed.  A full host buffer (Write took
             // nothing) is waited out while polling for an abort.
             auto hand_over = [&](const tgsb::sample_t* samples, size_t count) -> bool {
-                size_t pos = 0;
-                while (pos < count) {
+                const BYTE* data = reinterpret_cast<const BYTE*>(samples);
+                const size_t total = count * sizeof(tgsb::sample_t);
+                size_t pos = 0;  // bytes the host has taken so far
+                while (pos < total) {
                     if (host_stopped()) return false;
                     while (bm_idx < batch.bookmarks.size() && bookmark_in_clause(bm_idx) &&
                            ctx.bytes_written >= batch.bookmarks[bm_idx].byte_threshold) {
                         fire_bookmark(bm_idx);
                         ++bm_idx;
                     }
-                    const size_t chunk = std::min(count - pos, sampleBuf.size());
-                    const ULONG bytes = static_cast<ULONG>(chunk * sizeof(tgsb::sample_t));
-                    const BYTE* data = reinterpret_cast<const BYTE*>(samples + pos);
+                    size_t chunk = std::min(total - pos, sampleBuf.size() * sizeof(tgsb::sample_t));
+                    // Cut the block at the next bookmark, so the mark is
+                    // queued at its own offset before the audio it belongs to
+                    // rather than at the end of a 2048-sample block.
+                    if (bm_idx < batch.bookmarks.size() && bookmark_in_clause(bm_idx)) {
+                        const ULONGLONG th = batch.bookmarks[bm_idx].byte_threshold;
+                        if (th > ctx.bytes_written && th - ctx.bytes_written < chunk)
+                            chunk = static_cast<size_t>(th - ctx.bytes_written);
+                    }
                     const ULONGLONG before = ctx.bytes_written;
-                    if (!write_bytes(pOutputSite, data, bytes, ctx.bytes_written)) {
+                    if (!write_bytes(pOutputSite, data + pos, static_cast<ULONG>(chunk), ctx.bytes_written)) {
                         ctx.aborted = true;
                         return false;
                     }
-                    if (ctx.bytes_written == before) {
+                    // Advance by what the host took: Write may accept part of
+                    // a chunk and then nothing (full buffer), and the rest is
+                    // retried after a short wait.
+                    const size_t took = static_cast<size_t>(ctx.bytes_written - before);
+                    if (took == 0) {
                         Sleep(5);
                         continue;
                     }
-                    pos += chunk;
+                    pos += took;
                 }
                 return true;
             };
@@ -830,6 +848,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             }
         }
 
+        if (ctx.aborted) break;  // marks after an abort are not reported
         if (!wrote_any) continue;
 
         // Fire any remaining bookmarks (end-of-batch).

@@ -148,6 +148,12 @@ normalization:
       to: "ĩ"
     - from: "ʊ̃"
       to: "ᴜ"
+    # eSpeak NG 1.53 writes the nasal "ui" diphthong (muito, muita) as ũɪ̃,
+    # where 1.52 wrote wiŋ; the nasalized offglide becomes the glide, as
+    # in mãe/pães (ɐ̃j).  Without this the tilde is dropped and ɪ lands on
+    # an oral vowel.
+    - from: "ɪ̃"
+      to: "j"
 
     # --- Coda nasals (dialect/clarity choice) ---
     # Some speakers want an audible <n>/<m> in sequences like "antes" / "amplo".
@@ -189,6 +195,11 @@ normalization:
       to: "oj"
     - from: "uɪ"
       to: "uj"
+    # "pai, mais, cai": the same falling diphthong; it was left with the
+    # English KIT vowel as its offglide while its siblings got the glide.
+    # Must precede pt-br's ɪ→i rule, which would otherwise make it "a-i".
+    - from: "aɪ"
+      to: "aj"
     - from: "aʊ"
       to: "aw"
 
