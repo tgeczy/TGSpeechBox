@@ -19,6 +19,8 @@ Licensed under the MIT License. See LICENSE for details.
 #include <mmsystem.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <cwchar>
 #include <cmath>
 #include <string>
@@ -1049,6 +1051,38 @@ static INT_PTR CALLBACK EditPhonemeDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
 // -------------------------
 // Speech settings persistence
 // -------------------------
+// Friendly labels for the voicing parameters where NVDA's voice settings have
+// one; the file's own name stays in parentheses so the two can be matched.
+static std::string voicingDisplayName(const std::string& key) {
+  static const std::pair<const char*, const char*> kLabels[] = {
+    {"voicedTiltDbPerOct", "Voice tilt"},
+    {"speedQuotient", "Speed quotient"},
+    {"aspirationTiltDbPerOct", "Aspiration tilt"},
+    {"cascadeBwScale", "Formant sharpness"},
+    {"f4FreqScale", "Head size"},
+    {"noiseGlottalModDepth", "Noise glottal modulation"},
+    {"pitchSyncF1DeltaHz", "Pitch-sync F1"},
+    {"pitchSyncB1DeltaHz", "Pitch-sync B1"},
+    {"tremorDepth", "Voice tremor"},
+    {"nasalBwScale", "Nasal bandwidth"},
+    {"nasalGainScale", "Nasal gain"},
+    {"chorusDepth", "Chorus depth"},
+    {"chorusDetune", "Chorus detune"},
+  };
+  for (const auto& kv : kLabels) {
+    if (key == kv.first) return std::string(kv.second) + " (" + key + ")";
+  }
+  return key;
+}
+
+// Slider defaults a built-in voice carries in the NVDA driver (the voice
+// presets in constants.py), so the editor's voice sounds like NVDA's when the
+// user has not moved the slider for it.  -1 = no preset default.
+static int presetVoicingDefault(const std::string& voice, const std::string& param) {
+  if (voice == "David" && param == "f4FreqScale") return 100;  // headSize 100
+  return -1;
+}
+
 tgsb_editor::SpeechSettings loadSpeechSettingsFromIni() {
   tgsb_editor::SpeechSettings s;
   s.voiceName = wideToUtf8(readIni(L"speech", L"voice", L"Adam"));
@@ -1086,7 +1120,9 @@ std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
     int defaultVal = (i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
     int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
     if (val < 0) {
-      val = readIniInt(L"speech", key.c_str(), defaultVal);
+      // A built-in voice's own default wins over the shared [speech] value.
+      const int preset = presetVoicingDefault(s.voiceName, voicingNames[i]);
+      val = (preset >= 0) ? preset : readIniInt(L"speech", key.c_str(), defaultVal);
     }
     s.voicingParams[i] = val;
   }
@@ -1258,7 +1294,9 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
       
       // Voicing param list
       HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
-      populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
+      st->voicingDisplayNames.clear();
+      for (const auto& n : st->voicingParamNames) st->voicingDisplayNames.push_back(voicingDisplayName(n));
+      populateParamList(vlb, st->voicingDisplayNames, st->settings.voicingParams);
       syncSelectedVoicingParamToUi();
       
       // FrameEx param list (voice quality)
@@ -1319,7 +1357,9 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
           st->settings.voicingParams[static_cast<size_t>(sel)] = v;
           setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, v);
           if (sel < static_cast<int>(st->voicingParamNames.size())) {
-            refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], v);
+            refreshParamListRow(lb, static_cast<size_t>(sel),
+                                (sel < static_cast<int>(st->voicingDisplayNames.size())) ? st->voicingDisplayNames[static_cast<size_t>(sel)]
+                                                                                         : st->voicingParamNames[static_cast<size_t>(sel)], v);
             SendMessageW(lb, LB_SETCURSEL, sel, 0);
           }
         }
@@ -1395,14 +1435,15 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
             std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
             int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
             if (val < 0) {
-              val = readIniInt(L"speech", key.c_str(), 50);
+              const int preset = presetVoicingDefault(newVoiceName, voicingNames[i]);
+              val = (preset >= 0) ? preset : readIniInt(L"speech", key.c_str(), 50);
             }
             st->settings.voicingParams[i] = val;
           }
           
           // Refresh voicing params list UI
           HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
-          populateParamList(vlb, st->voicingParamNames, st->settings.voicingParams);
+          populateParamList(vlb, st->voicingDisplayNames, st->settings.voicingParams);
           syncSelectedVoicingParamToUi();
         }
         return TRUE;
@@ -1504,36 +1545,68 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
       }
 
       if (id == IDC_SPEECH_SAVE_TO_PROFILE) {
-        // Get profile name - strip "profile:" prefix if present, otherwise use voice name directly
-        std::string profileName;
-        if (tgsb_editor::TgsbRuntime::isVoiceProfile(st->settings.voiceName)) {
-          profileName = tgsb_editor::TgsbRuntime::getProfileNameFromVoice(st->settings.voiceName);
-        } else {
-          profileName = st->settings.voiceName;
-        }
-        
-        if (profileName.empty()) {
-          msgBox(hDlg, L"No voice selected.", L"Save to Profile", MB_ICONERROR);
-          return TRUE;
-        }
-        
-        // Check runtime is available
+        // The sliders describe the selected voice: a built-in voice seeds a
+        // new profile with its own shape, an existing profile is re-saved
+        // as itself.  The user names the profile and can set its inflection.
         if (!st->runtime) {
           msgBox(hDlg, L"Runtime not available.", L"Save to Profile", MB_ICONERROR);
           return TRUE;
         }
-        
-        // Save the 17 params (12 voicing + 5 FrameEx) to phonemes.yaml
+        const std::string voice = st->settings.voiceName;
+        if (voice.empty()) {
+          msgBox(hDlg, L"No voice selected.", L"Save to Profile", MB_ICONERROR);
+          return TRUE;
+        }
+        const bool fromProfile = tgsb_editor::TgsbRuntime::isVoiceProfile(voice);
+        const std::string baseVoice = fromProfile ? std::string() : voice;
+
+        SaveProfileDialogState sp;
+        sp.name = fromProfile ? tgsb_editor::TgsbRuntime::getProfileNameFromVoice(voice) : (voice + " variant");
+        {
+          // The editor's inflection slider relative to its default of 60.
+          char nbuf[32];
+          snprintf(nbuf, sizeof(nbuf), "%.2f", static_cast<double>(st->settings.inflection) / 60.0);
+          std::string s = nbuf;
+          while (!s.empty() && s.back() == '0') s.pop_back();
+          if (!s.empty() && s.back() == '.') s.pop_back();
+          sp.inflectionScale = s.empty() ? "1" : s;
+        }
+        sp.note = fromProfile
+          ? L"The voicing and voice quality sliders and the inflection scale are written into this profile in phonemes.yaml. Its class scales and phoneme overrides stay as they are."
+          : L"A new profile is written to phonemes.yaml with the voicing and voice quality sliders, the inflection scale, and the pitch and formant shape of the built-in voice " + utf8ToWide(voice) + L", so it starts out sounding like it. It appears in the Voice list right away; Editor > Edit voice profiles can change it later.";
+        if (!ShowSaveProfileDialog(GetModuleHandleW(nullptr), hDlg, sp) || !sp.ok) return TRUE;
+
+        double inflScale = 1.0;
+        {
+          const char* txt = sp.inflectionScale.c_str();
+          char* end = nullptr;
+          const double v = strtod(txt, &end);
+          if (end != txt && v >= 0.0) inflScale = v;
+        }
         std::string err;
-        if (st->runtime->saveVoiceProfileSliders(profileName, st->settings.voicingParams, st->settings.frameExParams, err)) {
-          std::wstring msg = L"Saved voicing and voice quality settings to profile \"" + utf8ToWide(profileName) + L"\" in phonemes.yaml.";
+        std::string note;
+        if (st->runtime->saveVoiceProfileSliders(sp.name, st->settings.voicingParams, st->settings.frameExParams, baseVoice, inflScale, err, note)) {
+          std::wstring msg = L"Saved profile \"" + utf8ToWide(sp.name) + L"\" in phonemes.yaml. The sliders are back at neutral; their values now live in the profile.";
+          if (!note.empty()) msg += L"\n\n" + utf8ToWide(note);
           msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONINFORMATION);
-          
-          // Refresh voice list so the new profile appears
+
+          // The values are baked in: reset the sliders so they do not apply twice.
+          for (size_t i = 0; i < st->settings.voicingParams.size(); ++i)
+            st->settings.voicingParams[i] = (i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
+          for (size_t i = 0; i < st->settings.frameExParams.size(); ++i)
+            st->settings.frameExParams[i] = (i == 4) ? 50 : 0;
+          populateParamList(GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST), st->voicingDisplayNames, st->settings.voicingParams);
+          populateParamList(GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST), st->frameExParamNames, st->settings.frameExParams);
+
+          // Refresh the voice list and select the profile.
           st->voiceProfiles = st->runtime->discoverVoiceProfiles();
-          st->settings.voiceName = std::string(tgsb_editor::TgsbRuntime::kVoiceProfilePrefix) + profileName;
+          st->settings.voiceName = std::string(tgsb_editor::TgsbRuntime::kVoiceProfilePrefix) + sp.name;
           HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
           fillVoices(combo, st->settings.voiceName, st->voiceProfiles);
+          {
+            std::string perr;
+            st->runtime->setVoiceProfile(sp.name, perr);
+          }
         } else {
           std::wstring msg = L"Failed to save: " + utf8ToWide(err);
           msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONERROR);
@@ -1569,6 +1642,78 @@ bool ShowAddMappingDialog(HINSTANCE hInst, HWND parent, AddMappingDialogState& s
 bool ShowClonePhonemeDialog(HINSTANCE hInst, HWND parent, ClonePhonemeDialogState& st) {
   st.ok = false;
   DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_CLONE_PHONEME), parent, ClonePhonemeDlgProc, (LPARAM)&st);
+  return st.ok;
+}
+
+// -------------------------
+// Save to Profile prompt
+// -------------------------
+
+static INT_PTR CALLBACK SaveProfileDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+  SaveProfileDialogState* st = reinterpret_cast<SaveProfileDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
+  switch (msg) {
+    case WM_INITDIALOG: {
+      st = reinterpret_cast<SaveProfileDialogState*>(lParam);
+      SetWindowLongPtrW(hDlg, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(st));
+      SetDlgItemTextW(hDlg, IDC_SP_NAME, utf8ToWide(st->name).c_str());
+      SetDlgItemTextW(hDlg, IDC_SP_INFLECTION, utf8ToWide(st->inflectionScale).c_str());
+      SetDlgItemTextW(hDlg, IDC_SP_NOTE, st->note.c_str());
+      // Focus the name with the suggestion selected, so typing replaces it.
+      HWND nameEdit = GetDlgItem(hDlg, IDC_SP_NAME);
+      if (nameEdit) {
+        SendMessageW(nameEdit, EM_SETSEL, 0, -1);
+        SetFocus(nameEdit);
+        return FALSE;  // focus set here
+      }
+      return TRUE;
+    }
+    case WM_COMMAND: {
+      if (!st) break;
+      if (LOWORD(wParam) == IDOK) {
+        wchar_t nameBuf[256];
+        wchar_t inflBuf[64];
+        GetDlgItemTextW(hDlg, IDC_SP_NAME, nameBuf, 256);
+        GetDlgItemTextW(hDlg, IDC_SP_INFLECTION, inflBuf, 64);
+        std::string name = wideToUtf8(nameBuf);
+        while (!name.empty() && (name.front() == ' ' || name.front() == '\t')) name.erase(name.begin());
+        while (!name.empty() && (name.back() == ' ' || name.back() == '\t')) name.pop_back();
+        if (name.empty()) {
+          msgBox(hDlg, L"A profile name is required.", L"Save to Profile", MB_ICONERROR);
+          return TRUE;
+        }
+        if (name.find(':') != std::string::npos) {
+          msgBox(hDlg, L"A profile name cannot contain a colon.", L"Save to Profile", MB_ICONERROR);
+          return TRUE;
+        }
+        std::string infl = wideToUtf8(inflBuf);
+        {
+          const char* txt = infl.c_str();
+          char* end = nullptr;
+          const double v = strtod(txt, &end);
+          if (!infl.empty() && (end == txt || v < 0.0)) {
+            msgBox(hDlg, L"Inflection scale must be a number: 1 = as the listener set it, 1.3 = a third livelier.", L"Save to Profile", MB_ICONERROR);
+            return TRUE;
+          }
+        }
+        st->name = name;
+        st->inflectionScale = infl.empty() ? "1" : infl;
+        st->ok = true;
+        EndDialog(hDlg, IDOK);
+        return TRUE;
+      }
+      if (LOWORD(wParam) == IDCANCEL) {
+        EndDialog(hDlg, IDCANCEL);
+        return TRUE;
+      }
+      break;
+    }
+  }
+  return FALSE;
+}
+
+bool ShowSaveProfileDialog(HINSTANCE hInst, HWND parent, SaveProfileDialogState& st) {
+  st.ok = false;
+  DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_SAVE_PROFILE), parent, SaveProfileDlgProc, (LPARAM)&st);
   return st.ok;
 }
 

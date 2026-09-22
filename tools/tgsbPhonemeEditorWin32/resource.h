@@ -191,6 +191,15 @@ Licensed under the MIT License. See LICENSE for details.
 #define IDC_EVP_OVERRIDE_ADD         3012
 #define IDC_EVP_OVERRIDE_EDIT        3013
 #define IDC_EVP_OVERRIDE_REMOVE      3014
+#define IDC_EVP_INFLECTION           3015
+
+// -----------------
+// Dialog: Save speech settings to a voice profile
+// -----------------
+#define IDD_SAVE_PROFILE             222
+#define IDC_SP_NAME                  3601
+#define IDC_SP_INFLECTION            3602
+#define IDC_SP_NOTE                  3603
 
 // -----------------
 // Dialog: Edit phoneme override (for voice profile)

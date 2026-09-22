@@ -58,6 +58,15 @@ struct EditSettingDialogState {
   bool ok = false;
 };
 
+// "Save to Profile" from the speech settings: name and inflection scale for
+// the profile, and a note on what will be written.
+struct SaveProfileDialogState {
+  std::string name;             // in: suggested; out: the name chosen
+  std::string inflectionScale;  // in: suggested (text); out: as typed
+  std::wstring note;            // in: what the save will write
+  bool ok = false;
+};
+
 struct EditSettingsDialogState {
   std::vector<std::pair<std::string, std::string>> settings;  // key/value
   std::vector<std::string> knownKeys;
@@ -85,6 +94,7 @@ struct SpeechSettingsDialogState {
   
   // Voicing param UI
   std::vector<std::string> voicingParamNames;
+  std::vector<std::string> voicingDisplayNames;  // "Head size (f4FreqScale)" etc., same order
   int selectedVoicingParam = 0;
   
   // FrameEx param UI (voice quality: creakiness, breathiness, jitter, shimmer, sharpness)
@@ -120,6 +130,7 @@ bool ShowEditPhonemeDialog(HINSTANCE hInst, HWND parent, EditPhonemeDialogState&
 bool ShowSpeechSettingsDialog(HINSTANCE hInst, HWND parent, SpeechSettingsDialogState& st);
 bool ShowPhonemizerSettingsDialog(HINSTANCE hInst, HWND parent, PhonemizerSettingsDialogState& st);
 bool ShowClassEditorDialog(HINSTANCE hInst, HWND parent, ClassEditorDialogState& st);
+bool ShowSaveProfileDialog(HINSTANCE hInst, HWND parent, SaveProfileDialogState& st);
 
 // Persistence for speech settings (tgsbPhonemeEditor.ini).
 tgsb_editor::SpeechSettings loadSpeechSettingsFromIni();

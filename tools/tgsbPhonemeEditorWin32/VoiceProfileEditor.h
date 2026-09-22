@@ -75,6 +75,10 @@ struct VPVoiceProfile {
   // users don't lose manual edits.
   bool hasVoicingTone = false;
   std::map<std::string, std::string> voicingTone;
+
+  // Multiplier on the listener's inflection (profile-level `inflectionScale`).
+  double inflectionScale = 1.0;
+  bool hasInflectionScale = false;
 };
 
 // Dialog state for voice profile list

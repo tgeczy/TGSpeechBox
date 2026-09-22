@@ -79,7 +79,9 @@ static std::vector<double> parseDoubleArray(const std::string& s) {
   return result;
 }
 
-static void setScaleField(VPClassScales& scales, const std::string& field, const std::string& value) {
+// Store one class-scale field into the typed members.  Returns false when the
+// field is not one the editor knows (the caller may keep it elsewhere).
+static bool setScaleField(VPClassScales& scales, const std::string& field, const std::string& value) {
   // Array fields
   if (field == "cf_mul") {
     auto arr = parseDoubleArray(value);
@@ -87,7 +89,7 @@ static void setScaleField(VPClassScales& scales, const std::string& field, const
       scales.cf_mul[i] = arr[i];
       scales.cf_mul_set[i] = true;
     }
-    return;
+    return true;
   }
   if (field == "pf_mul") {
     auto arr = parseDoubleArray(value);
@@ -95,7 +97,7 @@ static void setScaleField(VPClassScales& scales, const std::string& field, const
       scales.pf_mul[i] = arr[i];
       scales.pf_mul_set[i] = true;
     }
-    return;
+    return true;
   }
   if (field == "cb_mul") {
     auto arr = parseDoubleArray(value);
@@ -103,7 +105,7 @@ static void setScaleField(VPClassScales& scales, const std::string& field, const
       scales.cb_mul[i] = arr[i];
       scales.cb_mul_set[i] = true;
     }
-    return;
+    return true;
   }
   if (field == "pb_mul") {
     auto arr = parseDoubleArray(value);
@@ -111,7 +113,7 @@ static void setScaleField(VPClassScales& scales, const std::string& field, const
       scales.pb_mul[i] = arr[i];
       scales.pb_mul_set[i] = true;
     }
-    return;
+    return true;
   }
   if (field == "pa_mul") {
     auto arr = parseDoubleArray(value);
@@ -119,12 +121,12 @@ static void setScaleField(VPClassScales& scales, const std::string& field, const
       scales.pa_mul[i] = arr[i];
       scales.pa_mul_set[i] = true;
     }
-    return;
+    return true;
   }
   
   // Scalar fields
   double v;
-  if (!parseDouble(value, v)) return;
+  if (!parseDouble(value, v)) return false;
   
   if (field == "voicePitch_mul") { scales.voicePitch_mul = v; scales.voicePitch_mul_set = true; }
   else if (field == "endVoicePitch_mul") { scales.endVoicePitch_mul = v; scales.endVoicePitch_mul_set = true; }
@@ -137,6 +139,8 @@ static void setScaleField(VPClassScales& scales, const std::string& field, const
   else if (field == "fricationAmplitude_mul") { scales.fricationAmplitude_mul = v; scales.fricationAmplitude_mul_set = true; }
   else if (field == "preFormantGain_mul") { scales.preFormantGain_mul = v; scales.preFormantGain_mul_set = true; }
   else if (field == "outputGain_mul") { scales.outputGain_mul = v; scales.outputGain_mul_set = true; }
+  else return false;
+  return true;
 }
 
 // Parse inline map like {cf1: 648, cf2: 1856, cf3: 2820}
@@ -288,6 +292,14 @@ bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath,
 
     // Section headers at first level under the profile.
     if (indent > profileIndent) {
+      if (stripped.rfind("inflectionScale:", 0) == 0) {
+        double v;
+        if (parseDouble(trim(stripped.substr(std::string("inflectionScale:").size())), v)) {
+          currentProfile->inflectionScale = v;
+          currentProfile->hasInflectionScale = true;
+        }
+        continue;
+      }
       if (stripped == "classScales:") {
         inClassScales = true;
         classScalesIndent = indent;
@@ -368,11 +380,17 @@ bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath,
           if (pos != std::string::npos) {
             std::string field = trim(stripped.substr(0, pos));
             std::string valueStr = trim(stripped.substr(pos + 1));
-            try {
-              double value = std::stod(valueStr);
-              currentProfile->classScales[currentClass].scales[field] = value;
-            } catch (...) {
-              // Ignore parse errors.
+            // Known fields (the scalars and the six-element arrays) go into
+            // the typed members the dialog shows and the writer emits; any
+            // other numeric field is kept in the generic map so a Save &
+            // Close preserves it.  (Before this, every field went into the
+            // map, arrays failed to parse and were dropped, and the dialog
+            // showed loaded profiles as empty.)
+            if (!setScaleField(currentProfile->classScales[currentClass], field, valueStr)) {
+              double value;
+              if (parseDouble(valueStr, value)) {
+                currentProfile->classScales[currentClass].scales[field] = value;
+              }
             }
           }
         }
@@ -455,6 +473,44 @@ static std::string formatDouble(double v) {
   return ss.str();
 }
 
+// Emit one class's scale fields: the typed scalars and arrays (what the dialog
+// edits), then any unknown numeric fields kept in the generic map.
+static void appendClassScaleLines(std::vector<std::string>& out, const VPClassScales& s, int indent) {
+  const std::string pad(static_cast<size_t>(indent), ' ');
+  auto scalar = [&](const char* name, double v, bool set) {
+    if (!set) return;
+    std::ostringstream ss;
+    ss << pad << name << ": " << v;
+    out.push_back(ss.str());
+  };
+  auto array = [&](const char* name, const std::array<double, 6>& arr, const std::array<bool, 6>& set) {
+    std::string a = formatArray(arr, set);
+    if (a.empty()) return;
+    out.push_back(pad + name + ": " + a);
+  };
+  scalar("voicePitch_mul", s.voicePitch_mul, s.voicePitch_mul_set);
+  scalar("endVoicePitch_mul", s.endVoicePitch_mul, s.endVoicePitch_mul_set);
+  scalar("vibratoPitchOffset_mul", s.vibratoPitchOffset_mul, s.vibratoPitchOffset_mul_set);
+  scalar("vibratoSpeed_mul", s.vibratoSpeed_mul, s.vibratoSpeed_mul_set);
+  scalar("voiceTurbulenceAmplitude_mul", s.voiceTurbulenceAmplitude_mul, s.voiceTurbulenceAmplitude_mul_set);
+  scalar("glottalOpenQuotient_mul", s.glottalOpenQuotient_mul, s.glottalOpenQuotient_mul_set);
+  scalar("voiceAmplitude_mul", s.voiceAmplitude_mul, s.voiceAmplitude_mul_set);
+  scalar("aspirationAmplitude_mul", s.aspirationAmplitude_mul, s.aspirationAmplitude_mul_set);
+  scalar("fricationAmplitude_mul", s.fricationAmplitude_mul, s.fricationAmplitude_mul_set);
+  scalar("preFormantGain_mul", s.preFormantGain_mul, s.preFormantGain_mul_set);
+  scalar("outputGain_mul", s.outputGain_mul, s.outputGain_mul_set);
+  array("cf_mul", s.cf_mul, s.cf_mul_set);
+  array("pf_mul", s.pf_mul, s.pf_mul_set);
+  array("cb_mul", s.cb_mul, s.cb_mul_set);
+  array("pb_mul", s.pb_mul, s.pb_mul_set);
+  array("pa_mul", s.pa_mul, s.pa_mul_set);
+  for (const auto& kv : s.scales) {
+    std::ostringstream ss;
+    ss << pad << kv.first << ": " << kv.second;
+    out.push_back(ss.str());
+  }
+}
+
 bool saveVoiceProfilesToYaml(const std::wstring& yamlPath,
                            const std::vector<VPVoiceProfile>& profiles,
                            std::string& outError) {
@@ -512,6 +568,11 @@ bool saveVoiceProfilesToYaml(const std::wstring& yamlPath,
 
   for (const auto& profile : profiles) {
     newVP.push_back(std::string(vpIndent + 2, ' ') + profile.name + ":");
+    if (profile.hasInflectionScale) {
+      std::ostringstream ss;
+      ss << std::string(vpIndent + 4, ' ') << "inflectionScale: " << profile.inflectionScale;
+      newVP.push_back(ss.str());
+    }
 
     // voicingTone section (optional). Always write it back if it existed, so the
     // editor doesn't destroy manual edits.
@@ -538,11 +599,7 @@ bool saveVoiceProfilesToYaml(const std::wstring& yamlPath,
       newVP.push_back(std::string(vpIndent + 4, ' ') + "classScales:");
       for (const auto& cls : profile.classScales) {
         newVP.push_back(std::string(vpIndent + 6, ' ') + cls.first + ":");
-        for (const auto& kv : cls.second.scales) {
-          std::ostringstream ss;
-          ss << std::string(vpIndent + 8, ' ') << kv.first << ": " << kv.second;
-          newVP.push_back(ss.str());
-        }
+        appendClassScaleLines(newVP, cls.second, vpIndent + 8);
       }
     }
 
@@ -777,6 +834,9 @@ static INT_PTR CALLBACK EditVoiceProfileDlgProc(HWND hDlg, UINT msg, WPARAM wPar
       
       // Profile name
       SetDlgItemTextW(hDlg, IDC_EVP_NAME, utf8ToWide(st->profile.name).c_str());
+      // Inflection scale (1 = the listener's own setting)
+      SetDlgItemTextW(hDlg, IDC_EVP_INFLECTION,
+                      st->profile.hasInflectionScale ? utf8ToWide(formatDouble(st->profile.inflectionScale)).c_str() : L"1");
       
       // Class combo
       HWND hClassCombo = GetDlgItem(hDlg, IDC_EVP_CLASS_COMBO);
@@ -908,6 +968,19 @@ static INT_PTR CALLBACK EditVoiceProfileDlgProc(HWND hDlg, UINT msg, WPARAM wPar
         if (st->profile.name.empty()) {
           msgBox(hDlg, L"Profile name is required.", L"Voice Profile", MB_ICONERROR);
           return TRUE;
+        }
+        // Inflection scale: empty or 1 means "not set".
+        {
+          wchar_t ibuf[64];
+          GetDlgItemTextW(hDlg, IDC_EVP_INFLECTION, ibuf, 64);
+          std::string inflStr = trim(wideToUtf8(ibuf));
+          double infl = 1.0;
+          if (!inflStr.empty() && !parseDouble(inflStr, infl)) {
+            msgBox(hDlg, L"Inflection scale must be a number (1 = unchanged, 1.3 = a third livelier).", L"Voice Profile", MB_ICONERROR);
+            return TRUE;
+          }
+          st->profile.inflectionScale = infl;
+          st->profile.hasInflectionScale = (infl < 0.999999 || infl > 1.000001);
         }
         
         st->ok = true;

@@ -297,12 +297,20 @@ public:
   // Voice profile prefix used to distinguish profiles from Python presets.
   static constexpr const char* kVoiceProfilePrefix = "profile:";
 
-  // Save voicing + FrameEx slider values to YAML for specified profile.
-  // voicingSliders: 12 values (0-100), frameExSliders: 5 values (0-100)
+  // Save the voicing + FrameEx sliders into the named profile in phonemes.yaml
+  // (created if missing).  A new profile also gets the pitch and formant shape
+  // of the built-in voice named by baseVoice ("" = none) as class scales, so
+  // it starts out sounding like that voice; inflectionScale is written when it
+  // differs from 1.  outNote lists what could not be carried over from the
+  // built-in voice (absolute values have no class-scale form).
+  // voicingSliders: 0-100 each; frameExSliders: 5 values (0-100).
   bool saveVoiceProfileSliders(const std::string& profileName,
                                const std::vector<int>& voicingSliders,
                                const std::vector<int>& frameExSliders,
-                               std::string& outError);
+                               const std::string& baseVoice,
+                               double inflectionScale,
+                               std::string& outError,
+                               std::string& outNote);
 
   // Apply voice preset + per-field multipliers + volume scaling.
   // Exposed so the free callback helper can reuse the same logic.

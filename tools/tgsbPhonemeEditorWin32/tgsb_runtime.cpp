@@ -11,6 +11,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <initializer_list>
 #include <cctype>
 #include <fstream>
 #include <iomanip>
@@ -1550,11 +1551,64 @@ std::string TgsbRuntime::getVoiceProfile() const {
   return name ? name : "";
 }
 
+// The pitch and formant shape of a built-in voice as class scales on the two
+// root classes (every phoneme is a vowel or a consonant, and the frontend
+// applies each matching class cumulatively, so nothing is put on the narrower
+// classes).  Mirrors applySpeechSettingsToFrame; absolute values there have
+// no multiplier form and are reported in outNote instead.
+static void seedClassScalesFromPreset(const std::string& voice, VPVoiceProfile& p, std::string& outNote) {
+  VPClassScales s;
+  auto arr = [](std::array<double, 6>& a, std::array<bool, 6>& f, std::initializer_list<double> v) {
+    size_t i = 0;
+    for (double x : v) { if (i < 6) { a[i] = x; f[i] = true; } ++i; }
+  };
+  auto num = [](double& d, bool& f, double v) { d = v; f = true; };
+  if (voice == "Adam") {
+    arr(s.cb_mul, s.cb_mul_set, {1.3, 1, 1, 1, 1, 1});
+    arr(s.pa_mul, s.pa_mul_set, {1, 1, 1, 1, 1, 1.3});
+    num(s.fricationAmplitude_mul, s.fricationAmplitude_mul_set, 0.85);
+  } else if (voice == "David") {
+    num(s.voicePitch_mul, s.voicePitch_mul_set, 0.75);
+    num(s.endVoicePitch_mul, s.endVoicePitch_mul_set, 0.75);
+    arr(s.cf_mul, s.cf_mul_set, {0.90, 0.93, 0.95, 1, 1, 1});
+  } else if (voice == "Benjamin") {
+    arr(s.cf_mul, s.cf_mul_set, {1.01, 1.02, 1, 1, 1, 1});
+    arr(s.cb_mul, s.cb_mul_set, {1.3, 1, 1, 1, 1, 1});
+    arr(s.pa_mul, s.pa_mul_set, {1, 1, 1, 1, 1, 1.3});
+    num(s.fricationAmplitude_mul, s.fricationAmplitude_mul_set, 0.7);
+    outNote = "Benjamin's fixed upper formants (cf4 3770, cf5 4100, cf6 5000 Hz) and its nasal pole shift are absolute values with no class-scale form; they were not carried over.";
+  } else if (voice == "Caleb") {
+    num(s.voiceAmplitude_mul, s.voiceAmplitude_mul_set, 0.0);
+    outNote = "Caleb's full aspiration is an absolute value with no class-scale form; the whisper here comes from voiceAmplitude_mul 0 alone.";
+  } else if (voice == "Robert") {
+    num(s.voicePitch_mul, s.voicePitch_mul_set, 1.10);
+    num(s.endVoicePitch_mul, s.endVoicePitch_mul_set, 1.10);
+    arr(s.cf_mul, s.cf_mul_set, {1.02, 1.06, 1.08, 1.08, 1.10, 1.05});
+    arr(s.cb_mul, s.cb_mul_set, {0.65, 0.68, 0.72, 0.75, 0.78, 0.80});
+    arr(s.pf_mul, s.pf_mul_set, {1, 1, 1.06, 1.08, 1.10, 1.05});
+    arr(s.pb_mul, s.pb_mul_set, {0.72, 0.75, 0.78, 0.80, 0.82, 0.85});
+    arr(s.pa_mul, s.pa_mul_set, {1, 1, 1.08, 1.15, 1.20, 1.25});
+    num(s.voiceTurbulenceAmplitude_mul, s.voiceTurbulenceAmplitude_mul_set, 0.20);
+    num(s.fricationAmplitude_mul, s.fricationAmplitude_mul_set, 0.75);
+    num(s.vibratoPitchOffset_mul, s.vibratoPitchOffset_mul_set, 0.0);
+    num(s.vibratoSpeed_mul, s.vibratoSpeed_mul_set, 0.0);
+    outNote = "Robert's pressed glottis (glottalOpenQuotient 0.30, an absolute value) and its parallel bypass scale have no class-scale form; they were not carried over.";
+  } else {
+    return;
+  }
+  p.classScales["vowel"] = s;
+  p.classScales["consonant"] = s;
+}
+
 bool TgsbRuntime::saveVoiceProfileSliders(const std::string& profileName,
                                           const std::vector<int>& voicingSliders,
                                           const std::vector<int>& frameExSliders,
-                                          std::string& outError) {
+                                          const std::string& baseVoice,
+                                          double inflectionScale,
+                                          std::string& outError,
+                                          std::string& outNote) {
   outError.clear();
+  outNote.clear();
   
   if (m_packRoot.empty()) {
     outError = "No pack loaded. Open a pack root first (File > Open Pack Root).";
@@ -1601,11 +1655,24 @@ bool TgsbRuntime::saveVoiceProfileSliders(const std::string& profileName,
     }
   }
   
+  const bool created = (targetProfile == nullptr);
   if (!targetProfile) {
     // Create new profile
     profiles.push_back(VPVoiceProfile{});
     targetProfile = &profiles.back();
     targetProfile->name = profileName;
+  }
+  // A new profile starts from the built-in voice's shape; an existing one
+  // keeps whatever class scales it has (hand-tuned or from an earlier save).
+  if (created && !baseVoice.empty()) {
+    seedClassScalesFromPreset(baseVoice, *targetProfile, outNote);
+  }
+  // Inflection scale: written when it differs from 1; a re-save that leaves
+  // it at 1 does not clear a scale the profile already had.
+  const bool scaleSet = (inflectionScale < 0.999999 || inflectionScale > 1.000001);
+  if (created || scaleSet) {
+    targetProfile->inflectionScale = inflectionScale;
+    targetProfile->hasInflectionScale = scaleSet;
   }
   
   // Build voicingTone map with all params
