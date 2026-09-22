@@ -58,7 +58,7 @@ voiceProfiles:
         pf2: 2500
 ```
 
-**Inflection per profile:** a profile may carry `inflectionScale` (number, default `1.0`) at its top level, next to `classScales`. It multiplies the listener's inflection setting while the profile is active, so a profile can be livelier or flatter than the slider alone. The product is capped at 1.5 (the platform sliders top out at 1.0). Example: `inflectionScale: 1.3`. The phoneme editor's "Save to Profile" writes it from the editor's inflection slider relative to its default.
+**Inflection per profile:** a profile may carry `inflectionScale` (number, default `1.0`) at its top level, next to `classScales`. It multiplies the listener's inflection setting while the profile is active, so a profile can be livelier or flatter than the slider alone. The product is capped at 1.5 (the platform sliders top out at 1.0). Example: `inflectionScale: 1.3`. The phoneme editor's "Save to Profile" suggests it from the editor's inflection slider relative to 50, the default the NVDA driver, Android and iOS start from.
 
 ### Voice profile integration
 

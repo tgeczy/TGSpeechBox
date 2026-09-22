@@ -1563,9 +1563,10 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
         SaveProfileDialogState sp;
         sp.name = fromProfile ? tgsb_editor::TgsbRuntime::getProfileNameFromVoice(voice) : (voice + " variant");
         {
-          // The editor's inflection slider relative to its default of 60.
+          // The editor's inflection slider relative to 50, the default the
+          // NVDA driver, Android and iOS start from (SAPI sits at 55).
           char nbuf[32];
-          snprintf(nbuf, sizeof(nbuf), "%.2f", static_cast<double>(st->settings.inflection) / 60.0);
+          snprintf(nbuf, sizeof(nbuf), "%.2f", static_cast<double>(st->settings.inflection) / 50.0);
           std::string s = nbuf;
           while (!s.empty() && s.back() == '0') s.pop_back();
           if (!s.empty() && s.back() == '.') s.pop_back();

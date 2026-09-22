@@ -32,7 +32,7 @@ struct SpeechSettings {
   int rate = 50;       // 0..100
   int pitch = 50;      // 0..100
   int volume = 90;     // 0..100
-  int inflection = 60; // 0..100
+  int inflection = 50; // 0..100; 50 = the NVDA, Android and iOS default, so the editor's neutral is the listener's
   std::string pauseMode = "short"; // off | short | long
   std::vector<int> frameParams;   // size == frameParamNames().size()
   std::vector<int> voicingParams; // size == voicingParamNames().size()
