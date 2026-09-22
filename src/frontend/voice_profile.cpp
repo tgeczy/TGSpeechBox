@@ -69,6 +69,7 @@ static bool parseClassScales(const yaml_min::Node& node, ClassScales& out, std::
   parseMulArray("pf_mul", out.pf_mul);
   parseMulArray("cb_mul", out.cb_mul);
   parseMulArray("pb_mul", out.pb_mul);
+  parseMulArray("pa_mul", out.pa_mul);
   
   // Parse scalar multipliers.
   auto parseScalarMul = [&](const char* key, double& val, bool& setFlag) {
@@ -293,6 +294,17 @@ static bool parseVoiceProfile(const std::string& name, const yaml_min::Node& nod
     // Mark that this profile has explicit voicing tone settings
     out.hasVoicingTone = true;
   }
+
+  // Optional inflection scale (multiplier on the listener's pitch range).
+  if (const yaml_min::Node* inflNode = node.get("inflectionScale")) {
+    double v = 1.0;
+    if (inflNode->asNumber(v)) {
+      if (v < 0.0) v = 0.0;
+      if (v > 3.0) v = 3.0;
+      out.inflectionScale = v;
+      out.hasInflectionScale = true;
+    }
+  }
   
   return true;
 }
@@ -440,6 +452,7 @@ void applyVoiceProfileToFields(
     // Apply formant bandwidth multipliers.
     applyFormantMul(FieldId::cb1, scales.cb_mul);
     applyFormantMul(FieldId::pb1, scales.pb_mul);
+    applyFormantMul(FieldId::pa1, scales.pa_mul);
     
     // Apply scalar amplitude multipliers.
     applyScalarMul(FieldId::voiceAmplitude, scales.voiceAmplitude_mul, scales.voiceAmplitude_mul_set);

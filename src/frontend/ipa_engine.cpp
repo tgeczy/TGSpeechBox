@@ -522,6 +522,19 @@ bool convertIpaToTokens(
 
   if (speed <= 0.0) speed = 1.0;
 
+  // A voice profile may scale the listener's inflection (pitch range).  Done
+  // here so every pitch mode, the tone overlay and the monotone gate see the
+  // same value.  The product is capped: the platform sliders top out at 1.0,
+  // and at 1.5 the contour's top already sits 1.5 octaves above the base.
+  if (pack.voiceProfiles && !pack.lang.voiceProfileName.empty()) {
+    const VoiceProfile* vp = pack.voiceProfiles->getProfile(pack.lang.voiceProfileName);
+    if (vp && vp->hasInflectionScale) {
+      inflection *= vp->inflectionScale;
+      if (inflection > 1.5) inflection = 1.5;
+      if (inflection < 0.0) inflection = 0.0;
+    }
+  }
+
   // The legacy pitch math was historically paired with a lower default inflection
   // setting (e.g. 35) than many modern configs (often 60).
   // To keep legacyPitchMode usable without forcing users to retune sliders,

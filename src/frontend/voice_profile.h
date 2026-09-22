@@ -41,6 +41,9 @@ struct ClassScales {
   
   // Parallel formant bandwidth multipliers (pb1..pb6).
   std::array<double, kFormantCount> pb_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+
+  // Parallel formant amplitude multipliers (pa1..pa6).
+  std::array<double, kFormantCount> pa_mul = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   
   // Pitch multipliers (for shifting fundamental frequency).
   double voicePitch_mul = 1.0;
@@ -153,6 +156,11 @@ struct VoiceProfile {
   // DSP-level voicing tone parameters (optional).
   VoicingTone voicingTone;
   bool hasVoicingTone = false;
+
+  // Multiplier on the listener's inflection (pitch range) while the profile
+  // is active; 1 = unchanged.  Parsed from the profile's `inflectionScale`.
+  double inflectionScale = 1.0;
+  bool hasInflectionScale = false;
 };
 
 // Collection of voice profiles from a pack.

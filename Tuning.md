@@ -58,6 +58,8 @@ voiceProfiles:
         pf2: 2500
 ```
 
+**Inflection per profile:** a profile may carry `inflectionScale` (number, default `1.0`) at its top level, next to `classScales`. It multiplies the listener's inflection setting while the profile is active, so a profile can be livelier or flatter than the slider alone. The product is capped at 1.5 (the platform sliders top out at 1.0). Example: `inflectionScale: 1.3`. The phoneme editor's "Save to Profile" writes it from the editor's inflection slider relative to its default.
+
 ### Voice profile integration
 
 The NVDA driver uses these parameters in voice profiles defined in `phonemes.yaml`. Under the `voicingTone` key, profiles can specify any of these parameters to create distinct voice characters:
@@ -91,6 +93,7 @@ Class scales are *multipliers*:
 **Formant multipliers (arrays or scalar shorthand):**
 - `cf_mul`, `pf_mul` (formant frequency multipliers for F1..F6)
 - `cb_mul`, `pb_mul` (bandwidth multipliers for B1..B6)
+- `pa_mul` (parallel formant amplitude multipliers for A1..A6)
 
 **Pitch multipliers:**
 - `voicePitch_mul` (fundamental frequency)
@@ -111,7 +114,7 @@ Class scales are *multipliers*:
 - `preFormantGain_mul`
 - `outputGain_mul`
 
-**Scalar shorthand:** for `cf_mul` / `pf_mul` / `cb_mul` / `pb_mul`, you can provide a single number and it will be replicated across all 6 formants. Example: `cf_mul: 1.12` means `cf_mul: [1.12, 1.12, 1.12, 1.12, 1.12, 1.12]`.
+**Scalar shorthand:** for `cf_mul` / `pf_mul` / `cb_mul` / `pb_mul` / `pa_mul`, you can provide a single number and it will be replicated across all 6 formants. Example: `cf_mul: 1.12` means `cf_mul: [1.12, 1.12, 1.12, 1.12, 1.12, 1.12]`.
 
 ### Per-phoneme overrides (`phonemeOverrides`)
 
