@@ -5,6 +5,7 @@ Licensed under the MIT License. See LICENSE for details.
 */
 
 #include "tgsb_runtime.hpp"
+#include "voicingToneCompose.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -651,6 +652,9 @@ void runtime::apply_voicing_tone_if_available()
             dsp_tone.aspirationTiltDbPerOct   = tone.aspirationTiltDbPerOct;
             dsp_tone.cascadeBwScale           = tone.cascadeBwScale;
             dsp_tone.tremorDepth              = tone.tremorDepth;
+            dsp_tone.nasalBwScale             = tone.nasalBwScale;
+            dsp_tone.f4FreqScale              = tone.f4FreqScale;
+            dsp_tone.nasalGainScale           = tone.nasalGainScale;
         }
     }
 
@@ -658,47 +662,69 @@ void runtime::apply_voicing_tone_if_available()
     const auto& s = get_settings_cached(base_dir_);
     auto clamp = [](double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); };
 
-    if (s.voiceTilt >= 0) {
-        double offset = (s.voiceTilt - 50.0) * (24.0 / 50.0);
-        dsp_tone.voicedTiltDbPerOct = clamp(dsp_tone.voicedTiltDbPerOct + offset, -24.0, 24.0);
-    }
-    if (s.noiseGlottalMod >= 0) {
-        dsp_tone.noiseGlottalModDepth = s.noiseGlottalMod / 100.0;
-    }
-    if (s.pitchSyncF1 >= 0) {
-        dsp_tone.pitchSyncF1DeltaHz = (s.pitchSyncF1 - 50.0) * 1.2;
-    }
-    if (s.pitchSyncB1 >= 0) {
-        dsp_tone.pitchSyncB1DeltaHz = (s.pitchSyncB1 - 50.0) * 1.0;
-    }
-    if (s.speedQuotient >= 0) {
-        double sq = static_cast<double>(s.speedQuotient);
-        if (sq <= 50.0)
-            dsp_tone.speedQuotient = 0.5 + (sq / 50.0) * 1.5;
-        else
-            dsp_tone.speedQuotient = 2.0 + ((sq - 50.0) / 50.0) * 2.0;
-    }
-    if (s.aspirationTilt >= 0) {
-        dsp_tone.aspirationTiltDbPerOct = (s.aspirationTilt - 50.0) * 0.24;
-    }
-    if (s.cascadeBwScale >= 0) {
-        double bw = static_cast<double>(s.cascadeBwScale);
-        if (bw <= 50.0)
-            dsp_tone.cascadeBwScale = 2.0 - (bw / 50.0) * 1.0;
-        else
-            dsp_tone.cascadeBwScale = 1.0 - ((bw - 50.0) / 50.0) * 0.7;
-        dsp_tone.cascadeBwScale = clamp(dsp_tone.cascadeBwScale, 0.3, 2.0);
-    }
-    if (s.voiceTremor >= 0) {
-        dsp_tone.tremorDepth = clamp((s.voiceTremor / 100.0) * 0.4, 0.0, 0.5);
-    }
-    if (s.headSize >= 0) {
-        double hs = static_cast<double>(s.headSize);
-        if (hs <= 50.0)
-            dsp_tone.f4FreqScale = 1.25 - (hs / 50.0) * 0.25;
-        else
-            dsp_tone.f4FreqScale = 1.0 - ((hs - 50.0) / 50.0) * 0.15;
-        dsp_tone.f4FreqScale = clamp(dsp_tone.f4FreqScale, 0.7, 1.5);
+    if (has_voicing_tone_) {
+        // A voice profile's voicingTone is the base: a setting the listener
+        // has not set (-1) leaves the stored value alone, a set one composes
+        // with it (src/voicingToneCompose.h; the NVDA driver uses the same
+        // rule), so a profile sounds as saved at default settings.
+        auto sqValue = [](double v) { return v <= 50.0 ? 0.5 + (v / 50.0) * 1.5 : 2.0 + ((v - 50.0) / 50.0) * 2.0; };
+        auto bwValue = [](double v) { return v <= 50.0 ? 2.0 - (v / 50.0) * 1.0 : 1.0 - ((v - 50.0) / 50.0) * 0.7; };
+        auto hsValue = [](double v) { return v <= 50.0 ? 1.25 - (v / 50.0) * 0.25 : 1.0 - ((v - 50.0) / 50.0) * 0.15; };
+        speechPlayer_composeListenerSettings(&dsp_tone,
+            s.voiceTilt >= 0 ? (s.voiceTilt - 50.0) * (24.0 / 50.0) : 0.0,
+            s.noiseGlottalMod >= 0 ? s.noiseGlottalMod / 100.0 : 0.0,
+            s.pitchSyncF1 >= 0 ? (s.pitchSyncF1 - 50.0) * 1.2 : 0.0,
+            s.pitchSyncB1 >= 0 ? (s.pitchSyncB1 - 50.0) * 1.0 : 0.0,
+            s.speedQuotient >= 0 ? sqValue(static_cast<double>(s.speedQuotient)) : 2.0,
+            s.aspirationTilt >= 0 ? (s.aspirationTilt - 50.0) * 0.24 : 0.0,
+            s.cascadeBwScale >= 0 ? clamp(bwValue(static_cast<double>(s.cascadeBwScale)), 0.3, 2.0) : 1.0,
+            s.voiceTremor >= 0 ? clamp((s.voiceTremor / 100.0) * 0.4, 0.0, 0.5) : 0.0,
+            1.0,
+            s.headSize >= 0 ? clamp(hsValue(static_cast<double>(s.headSize)), 0.7, 1.5) : 1.0,
+            1.0);
+    } else {
+        if (s.voiceTilt >= 0) {
+            double offset = (s.voiceTilt - 50.0) * (24.0 / 50.0);
+            dsp_tone.voicedTiltDbPerOct = clamp(dsp_tone.voicedTiltDbPerOct + offset, -24.0, 24.0);
+        }
+        if (s.noiseGlottalMod >= 0) {
+            dsp_tone.noiseGlottalModDepth = s.noiseGlottalMod / 100.0;
+        }
+        if (s.pitchSyncF1 >= 0) {
+            dsp_tone.pitchSyncF1DeltaHz = (s.pitchSyncF1 - 50.0) * 1.2;
+        }
+        if (s.pitchSyncB1 >= 0) {
+            dsp_tone.pitchSyncB1DeltaHz = (s.pitchSyncB1 - 50.0) * 1.0;
+        }
+        if (s.speedQuotient >= 0) {
+            double sq = static_cast<double>(s.speedQuotient);
+            if (sq <= 50.0)
+                dsp_tone.speedQuotient = 0.5 + (sq / 50.0) * 1.5;
+            else
+                dsp_tone.speedQuotient = 2.0 + ((sq - 50.0) / 50.0) * 2.0;
+        }
+        if (s.aspirationTilt >= 0) {
+            dsp_tone.aspirationTiltDbPerOct = (s.aspirationTilt - 50.0) * 0.24;
+        }
+        if (s.cascadeBwScale >= 0) {
+            double bw = static_cast<double>(s.cascadeBwScale);
+            if (bw <= 50.0)
+                dsp_tone.cascadeBwScale = 2.0 - (bw / 50.0) * 1.0;
+            else
+                dsp_tone.cascadeBwScale = 1.0 - ((bw - 50.0) / 50.0) * 0.7;
+            dsp_tone.cascadeBwScale = clamp(dsp_tone.cascadeBwScale, 0.3, 2.0);
+        }
+        if (s.voiceTremor >= 0) {
+            dsp_tone.tremorDepth = clamp((s.voiceTremor / 100.0) * 0.4, 0.0, 0.5);
+        }
+        if (s.headSize >= 0) {
+            double hs = static_cast<double>(s.headSize);
+            if (hs <= 50.0)
+                dsp_tone.f4FreqScale = 1.25 - (hs / 50.0) * 0.25;
+            else
+                dsp_tone.f4FreqScale = 1.0 - ((hs - 50.0) / 50.0) * 0.15;
+            dsp_tone.f4FreqScale = clamp(dsp_tone.f4FreqScale, 0.7, 1.5);
+        }
     }
     if (s.chorusDepth >= 0) {
         dsp_tone.chorusDepth = clamp(s.chorusDepth / 100.0, 0.0, 1.0);

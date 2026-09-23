@@ -20,6 +20,7 @@
 
 #include <espeak-ng/speak_lib.h>
 #include "speechPlayer.h"
+#include "voicingToneCompose.h"
 #include "nvspFrontend.h"
 
 #define TAG "TgsbJNI"
@@ -231,6 +232,9 @@ typedef struct {
     double userTremorDepth;
     double userChorusDepth;
     double userChorusDetuneHz;
+    double userNasalBwScale;   /* stored so a rebuild keeps them */
+    double userF4FreqScale;
+    double userNasalGainScale;
 
     /* Inflection (pitch range) — 0.0..1.0, default 0.5 */
     double inflection;
@@ -241,6 +245,8 @@ typedef struct {
     /* Pause mode: 0=off, 1=short, 2=long */
     int pauseMode;
 } TgsbEngine;
+
+static void rebuildVoicingTone(TgsbEngine *engine);
 
 /* Frame callback context */
 typedef struct {
@@ -559,6 +565,7 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoiceProfile(
 
     const char *name = env->GetStringUTFChars(profileName, NULL);
     nvspFrontend_setVoiceProfile(engine->frontend, name);
+    rebuildVoicingTone(engine);  /* the profile's own voice source, if it has one */
     LOGI("Voice profile set to: %s", name);
     env->ReleaseStringUTFChars(profileName, name);
 }
@@ -729,6 +736,78 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetLanguage(
 /* Voice quality settings (shared by Service + Standalone)              */
 /* ------------------------------------------------------------------ */
 
+/* The player's voicing tone.  With a voice profile active that has its own
+ * voicingTone block, that stored voice source is the base and the user's
+ * settings compose with it (src/voicingToneCompose.h; the NVDA driver uses
+ * the same rule), so a profile sounds as saved at default settings.  A
+ * built-in voice is its preset plus the user's settings, as before. */
+static void rebuildVoicingTone(TgsbEngine *engine)
+{
+    if (!engine || !engine->player) return;
+    speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+    nvspFrontend_VoicingTone pt;
+    memset(&pt, 0, sizeof(pt));
+    const char *profile = engine->frontend ? nvspFrontend_getVoiceProfile(engine->frontend) : NULL;
+    const int useProfile = profile && profile[0] &&
+                           nvspFrontend_getVoicingTone(engine->frontend, &pt);
+    const int u = engine->hasUserTone;
+    if (useProfile) {
+        tone.voicingPeakPos = pt.voicingPeakPos;
+        tone.voicedPreEmphA = pt.voicedPreEmphA;
+        tone.voicedPreEmphMix = pt.voicedPreEmphMix;
+        tone.highShelfGainDb = pt.highShelfGainDb;
+        tone.highShelfFcHz = pt.highShelfFcHz;
+        tone.highShelfQ = pt.highShelfQ;
+        tone.voicedTiltDbPerOct = pt.voicedTiltDbPerOct;
+        tone.noiseGlottalModDepth = pt.noiseGlottalModDepth;
+        tone.pitchSyncF1DeltaHz = pt.pitchSyncF1DeltaHz;
+        tone.pitchSyncB1DeltaHz = pt.pitchSyncB1DeltaHz;
+        tone.speedQuotient = pt.speedQuotient;
+        tone.aspirationTiltDbPerOct = pt.aspirationTiltDbPerOct;
+        tone.cascadeBwScale = pt.cascadeBwScale;
+        tone.tremorDepth = pt.tremorDepth;
+        tone.nasalBwScale = pt.nasalBwScale;
+        tone.f4FreqScale = pt.f4FreqScale;
+        tone.nasalGainScale = pt.nasalGainScale;
+        speechPlayer_composeListenerSettings(&tone,
+            u ? engine->userVoicedTiltDbPerOct : 0.0,
+            u ? engine->userNoiseGlottalModDepth : 0.0,
+            u ? engine->userPitchSyncF1DeltaHz : 0.0,
+            u ? engine->userPitchSyncB1DeltaHz : 0.0,
+            u ? engine->userSpeedQuotient : 2.0,
+            u ? engine->userAspirationTiltDbPerOct : 0.0,
+            u ? engine->userCascadeBwScale : 1.0,
+            u ? engine->userTremorDepth : 0.0,
+            u ? engine->userNasalBwScale : 1.0,
+            u ? engine->userF4FreqScale : 1.0,
+            u ? engine->userNasalGainScale : 1.0);
+    } else {
+        const VoicePreset *vp = &kPresets[engine->voiceIndex];
+        if (vp->hasVoicedTilt)
+            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+        if (u) {
+            tone.voicedTiltDbPerOct += engine->userVoicedTiltDbPerOct;
+            tone.noiseGlottalModDepth = engine->userNoiseGlottalModDepth;
+            tone.pitchSyncF1DeltaHz = engine->userPitchSyncF1DeltaHz;
+            tone.pitchSyncB1DeltaHz = engine->userPitchSyncB1DeltaHz;
+            tone.speedQuotient = engine->userSpeedQuotient;
+            tone.aspirationTiltDbPerOct = engine->userAspirationTiltDbPerOct;
+            tone.cascadeBwScale = engine->userCascadeBwScale;
+            tone.tremorDepth = engine->userTremorDepth;
+            tone.nasalBwScale = engine->userNasalBwScale;
+            tone.f4FreqScale = engine->userF4FreqScale;
+            tone.nasalGainScale = engine->userNasalGainScale;
+        } else if (vp->f4FreqScale > 0.0) {
+            tone.f4FreqScale = vp->f4FreqScale;
+        }
+    }
+    if (u) {
+        tone.chorusDepth = engine->userChorusDepth;
+        tone.chorusDetuneHz = engine->userChorusDetuneHz;
+    }
+    speechPlayer_setVoicingTone(engine->player, &tone);
+}
+
 static void applyVoicingTone(TgsbEngine *engine,
     double voicedTiltDbPerOct, double noiseGlottalModDepth,
     double pitchSyncF1DeltaHz, double pitchSyncB1DeltaHz,
@@ -752,26 +831,10 @@ static void applyVoicingTone(TgsbEngine *engine,
     engine->userChorusDepth = chorusDepth;
     engine->userChorusDetuneHz = chorusDetuneHz;
 
-    speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
-    const VoicePreset *vp = &kPresets[engine->voiceIndex];
-    if (vp->hasVoicedTilt)
-        tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
-
-    tone.voicedTiltDbPerOct += voicedTiltDbPerOct;
-    tone.noiseGlottalModDepth = noiseGlottalModDepth;
-    tone.pitchSyncF1DeltaHz = pitchSyncF1DeltaHz;
-    tone.pitchSyncB1DeltaHz = pitchSyncB1DeltaHz;
-    tone.speedQuotient = speedQuotient;
-    tone.aspirationTiltDbPerOct = aspirationTiltDbPerOct;
-    tone.cascadeBwScale = cascadeBwScale;
-    tone.tremorDepth = tremorDepth;
-    tone.nasalBwScale = nasalBwScale;
-    tone.f4FreqScale = f4FreqScale;
-    tone.nasalGainScale = nasalGainScale;
-    tone.chorusDepth = chorusDepth;
-    tone.chorusDetuneHz = chorusDetuneHz;
-
-    speechPlayer_setVoicingTone(engine->player, &tone);
+    engine->userNasalBwScale = nasalBwScale;
+    engine->userF4FreqScale = f4FreqScale;
+    engine->userNasalGainScale = nasalGainScale;
+    rebuildVoicingTone(engine);
 }
 
 static void applyFrameExDefaults(TgsbEngine *engine,
@@ -853,27 +916,8 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
     engine->sampleRate = sampleRate;
     speechPlayer_setOutputGain(engine->player, 1.6);
 
-    /* Re-apply voicing tone settings */
-    if (engine->hasUserTone) {
-        applyVoicingTone(engine,
-            engine->userVoicedTiltDbPerOct,
-            engine->userNoiseGlottalModDepth,
-            engine->userPitchSyncF1DeltaHz,
-            engine->userPitchSyncB1DeltaHz,
-            engine->userSpeedQuotient,
-            engine->userAspirationTiltDbPerOct,
-            engine->userCascadeBwScale,
-            engine->userTremorDepth,
-            1.0, 1.0, 1.0,
-            engine->userChorusDepth,
-            engine->userChorusDetuneHz);
-    } else {
-        speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
-        const VoicePreset *vp = &kPresets[engine->voiceIndex];
-        if (vp->hasVoicedTilt)
-            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
-        speechPlayer_setVoicingTone(engine->player, &tone);
-    }
+    /* Re-apply the voicing tone (profile or preset, plus the user's settings) */
+    rebuildVoicingTone(engine);
 
     LOGI("Sample rate changed to %d", sampleRate);
 }

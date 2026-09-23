@@ -410,115 +410,94 @@ class VoicingToneMixin:
             # Build the tone struct with safe defaults
             tone = speechPlayer.VoicingTone.defaults()
 
-            # Get base tone from frontend (ABI v2+) - parses voicingTone: from YAML
+            # A voice profile with its own voicingTone block is the base
+            # (the frontend fills keys it leaves out with its defaults).
+            profileBase = None
             if profileName and hasattr(self, "_frontend") and self._frontend:
                 if self._frontend.hasExplicitVoicingTone():
-                    frontendTone = self._frontend.getVoicingTone()
-                    if frontendTone:
-                        tone.voicingPeakPos = frontendTone.voicingPeakPos
-                        tone.voicedPreEmphA = frontendTone.voicedPreEmphA
-                        tone.voicedPreEmphMix = frontendTone.voicedPreEmphMix
-                        tone.highShelfGainDb = frontendTone.highShelfGainDb
-                        tone.highShelfFcHz = frontendTone.highShelfFcHz
-                        tone.highShelfQ = frontendTone.highShelfQ
-                        tone.voicedTiltDbPerOct = frontendTone.voicedTiltDbPerOct
-                        tone.noiseGlottalModDepth = frontendTone.noiseGlottalModDepth
-                        tone.pitchSyncF1DeltaHz = frontendTone.pitchSyncF1DeltaHz
-                        tone.pitchSyncB1DeltaHz = frontendTone.pitchSyncB1DeltaHz
-                        tone.speedQuotient = frontendTone.speedQuotient
-                        tone.aspirationTiltDbPerOct = frontendTone.aspirationTiltDbPerOct
-                        tone.cascadeBwScale = frontendTone.cascadeBwScale
-                        tone.nasalBwScale = frontendTone.nasalBwScale
-                        tone.f4FreqScale = frontendTone.f4FreqScale
-                        tone.nasalGainScale = frontendTone.nasalGainScale
-                        if hasattr(frontendTone, 'chorusDepth'):
-                            tone.chorusDepth = frontendTone.chorusDepth
-                            tone.chorusDetuneHz = frontendTone.chorusDetuneHz
+                    profileBase = self._frontend.getVoicingTone()
+            if profileBase:
+                for field in ("voicingPeakPos", "voicedPreEmphA", "voicedPreEmphMix",
+                              "highShelfGainDb", "highShelfFcHz", "highShelfQ",
+                              "voicedTiltDbPerOct", "noiseGlottalModDepth",
+                              "pitchSyncF1DeltaHz", "pitchSyncB1DeltaHz",
+                              "speedQuotient", "aspirationTiltDbPerOct",
+                              "cascadeBwScale", "tremorDepth",
+                              "nasalBwScale", "f4FreqScale", "nasalGainScale"):
+                    setattr(tone, field, getattr(profileBase, field))
 
-            # Helper for slider values
             def safe_float(val, default=0.0):
                 try:
                     return float(val)
                 except (ValueError, TypeError):
                     return default
 
-            # Apply voice tilt OFFSET from the slider.
-            # Direction is INTENTIONAL — think of a valve: at 100 it's wide
-            # open and the rush muffles/darkens the voice; closing it toward
-            # 0 opens the voice up, brighter. So slider up = positive dB/oct
-            # = darker; slider down = negative = brighter (the DSP's
-            # voicedTiltDbPerOct treats negative as brighter — opposite sign
-            # convention from aspirationTiltDbPerOct and fricationTiltDb).
-            # Do not "fix" this by flipping the map.
+            # The listener's settings as absolute values (what they mean for a
+            # built-in voice).  Neutral positions: tilt 50, noise 0, pitch-sync
+            # 50, speed quotient 50, aspiration tilt 50, sharpness 50, tremor 0,
+            # head size 50 -> 0 / 0 / 0 / 2.0 / 0 / 1.0 / 0 / 1.0.
+            # Tilt direction is INTENTIONAL: slider up = positive dB/oct =
+            # darker (a valve: wide open muffles).  Do not "fix" this by
+            # flipping the map; voicedTiltDbPerOct treats negative as brighter.
             tiltSlider = safe_float(getattr(self, "_curVoiceTilt", 50), 50.0)
             tiltOffset = (tiltSlider - 50.0) * (24.0 / 50.0)
-            tone.voicedTiltDbPerOct += tiltOffset
-            tone.voicedTiltDbPerOct = max(-24.0, min(24.0, tone.voicedTiltDbPerOct))
-
-            # Apply noise glottal modulation from slider (0-100 maps to 0.0-1.0)
-            noiseModSlider = safe_float(getattr(self, "_curNoiseGlottalMod", 0), 0.0)
-            tone.noiseGlottalModDepth = noiseModSlider / 100.0
-
-            # Apply pitch-sync F1 from slider (0-100 maps to -60 to +60 Hz, centered at 50 = 0)
-            f1Slider = safe_float(getattr(self, "_curPitchSyncF1", 50), 50.0)
-            tone.pitchSyncF1DeltaHz = (f1Slider - 50.0) * 1.2
-
-            # Apply pitch-sync B1 from slider (0-100 maps to -50 to +50 Hz, centered at 50 = 0)
-            b1Slider = safe_float(getattr(self, "_curPitchSyncB1", 50), 50.0)
-            tone.pitchSyncB1DeltaHz = (b1Slider - 50.0) * 1.0
-
-            # Apply speed quotient from slider (0-100 maps to 0.5-4.0, centered at 50 = 2.0)
+            noiseMod = safe_float(getattr(self, "_curNoiseGlottalMod", 0), 0.0) / 100.0
+            psF1 = (safe_float(getattr(self, "_curPitchSyncF1", 50), 50.0) - 50.0) * 1.2
+            psB1 = (safe_float(getattr(self, "_curPitchSyncB1", 50), 50.0) - 50.0) * 1.0
             sqSlider = safe_float(getattr(self, "_curSpeedQuotient", 50), 50.0)
             if sqSlider <= 50.0:
-                tone.speedQuotient = 0.5 + (sqSlider / 50.0) * 1.5
+                sq = 0.5 + (sqSlider / 50.0) * 1.5
             else:
-                tone.speedQuotient = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
-
-            # Apply aspiration tilt from slider (0-100 maps to -12 to +12 dB/oct, centered at 50 = 0)
-            aspTiltSlider = safe_float(getattr(self, "_curAspirationTilt", 50), 50.0)
-            tone.aspirationTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
-
-            # Apply cascade bandwidth scale from slider (0-100 maps to 0.4-1.4, centered at 50 = 1.0)
-            # Below 50: sharper formants (Eloquence-like clarity)
-            # Above 50: wider formants (softer, more blended)
+                sq = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
+            aspTilt = (safe_float(getattr(self, "_curAspirationTilt", 50), 50.0) - 50.0) * 0.24
             bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
             if bwSlider <= 50.0:
-                # 0 -> 2.0 (wide/muffled), 50 -> 1.0 (neutral)
-                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.0
+                bw = 2.0 - (bwSlider / 50.0) * 1.0
             else:
-                # 50 -> 1.0 (neutral), 100 -> 0.3 (sharp/ringy)
-                tone.cascadeBwScale = 1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
-            tone.cascadeBwScale = max(0.3, min(2.0, tone.cascadeBwScale))
-
-            # Apply voice tremor from slider (0-100 maps to 0.0-0.4 depth)
-            tremorSlider = safe_float(getattr(self, "_curVoiceTremor", 0), 0.0)
-            tone.tremorDepth = (tremorSlider / 100.0) * 0.4
-            tone.tremorDepth = max(0.0, min(0.5, tone.tremorDepth))
-
-            # Apply head size (F4 frequency scale) from slider
-            # 0 = small head (F4 high, 1.25), 50 = neutral (1.0), 100 = large head (F4 low, 0.85)
-            # Tighter range keeps the effect perceptually useful throughout.
+                bw = 1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
+            bw = max(0.3, min(2.0, bw))
+            tremor = max(0.0, min(0.5, (safe_float(getattr(self, "_curVoiceTremor", 0), 0.0) / 100.0) * 0.4))
             headSizeSlider = safe_float(getattr(self, "_curHeadSize", 50), 50.0)
             if headSizeSlider <= 50.0:
-                # 0 -> 1.25 (small), 50 -> 1.0 (neutral)
-                tone.f4FreqScale = 1.25 - (headSizeSlider / 50.0) * 0.25
+                f4 = 1.25 - (headSizeSlider / 50.0) * 0.25
             else:
-                # 50 -> 1.0 (neutral), 100 -> 0.85 (large)
-                tone.f4FreqScale = 1.0 - ((headSizeSlider - 50.0) / 50.0) * 0.15
-            tone.f4FreqScale = max(0.7, min(1.5, tone.f4FreqScale))
+                f4 = 1.0 - ((headSizeSlider - 50.0) / 50.0) * 0.15
+            f4 = max(0.7, min(1.5, f4))
 
-            # Apply chorus depth from slider (0-100 maps to 0.0-1.0)
+            if profileBase:
+                # Compose with the profile (src/voicingToneCompose.h has the
+                # same rule for SAPI, Android and iOS): neutral settings keep
+                # the stored values, a moved setting adjusts them, and moving
+                # it back restores them.
+                clamp = lambda v, lo, hi: max(lo, min(hi, v))
+                tone.voicedTiltDbPerOct = clamp(tone.voicedTiltDbPerOct + tiltOffset, -24.0, 24.0)
+                tone.noiseGlottalModDepth = clamp(tone.noiseGlottalModDepth + noiseMod, 0.0, 1.0)
+                tone.pitchSyncF1DeltaHz = tone.pitchSyncF1DeltaHz + psF1
+                tone.pitchSyncB1DeltaHz = tone.pitchSyncB1DeltaHz + psB1
+                tone.speedQuotient = clamp(tone.speedQuotient * (sq / 2.0), 0.5, 4.0)
+                tone.aspirationTiltDbPerOct = clamp(tone.aspirationTiltDbPerOct + aspTilt, -24.0, 24.0)
+                tone.cascadeBwScale = clamp(tone.cascadeBwScale * bw, 0.3, 2.0)
+                tone.tremorDepth = clamp(tone.tremorDepth + tremor, 0.0, 0.5)
+                tone.f4FreqScale = clamp(tone.f4FreqScale * f4, 0.7, 1.5)
+            else:
+                # A built-in voice (or a profile without a voicingTone block):
+                # the settings are the values, as before.
+                tone.voicedTiltDbPerOct = max(-24.0, min(24.0, tone.voicedTiltDbPerOct + tiltOffset))
+                tone.noiseGlottalModDepth = noiseMod
+                tone.pitchSyncF1DeltaHz = psF1
+                tone.pitchSyncB1DeltaHz = psB1
+                tone.speedQuotient = sq
+                tone.aspirationTiltDbPerOct = aspTilt
+                tone.cascadeBwScale = bw
+                tone.tremorDepth = tremor
+                tone.f4FreqScale = f4
+
+            # Chorus is a listener setting (profiles do not carry it).
             chorusSlider = safe_float(getattr(self, "_curChorusDepth", 0), 0.0)
-            tone.chorusDepth = chorusSlider / 100.0
-            tone.chorusDepth = max(0.0, min(1.0, tone.chorusDepth))
-
-            # Apply chorus detune from slider (0-100 maps to 0.5-5.0 Hz)
-            # Default slider 33 maps to 2.0 Hz
+            tone.chorusDepth = max(0.0, min(1.0, chorusSlider / 100.0))
             detuneSlider = safe_float(getattr(self, "_curChorusDetune", 33), 33.0)
-            tone.chorusDetuneHz = 0.5 + (detuneSlider / 100.0) * 4.5
-            tone.chorusDetuneHz = max(0.5, min(5.0, tone.chorusDetuneHz))
+            tone.chorusDetuneHz = max(0.5, min(5.0, 0.5 + (detuneSlider / 100.0) * 4.5))
 
-            # Apply to player
             self._player.setVoicingTone(tone)
             self._lastAppliedVoicingTone = tone
 
