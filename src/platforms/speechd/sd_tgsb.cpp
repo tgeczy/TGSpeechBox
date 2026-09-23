@@ -812,7 +812,9 @@ int main(int argc, char** argv) {
             o ? (bwS <= 50.0 ? 2.0 - bwS / 50.0 : 1.0 - ((bwS - 50.0) / 50.0) * 0.7) : 1.0,
             o ? (cl(vtTremor) / 100.0) * 0.4 : 0.0,
             1.0, 1.0, 1.0);
-        dbg("VOICE: profile '%s' voice source applied", prof);
+        dbg("VOICE: profile '%s' voice source applied: tilt %.2f sq %.3f f4 %.3f shelf %.2f nasalBw %.2f nasalGain %.2f cbw %.2f",
+            prof, vt.voicedTiltDbPerOct, vt.speedQuotient, vt.f4FreqScale, vt.highShelfGainDb,
+            vt.nasalBwScale, vt.nasalGainScale, vt.cascadeBwScale);
       }
     }
 
