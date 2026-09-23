@@ -778,6 +778,59 @@ static bool synthesizeAll(
   return true;
 }
 
+// Exact stored values for the selected profile's unmoved voicing sliders.
+void TgsbRuntime::exactBaselineTone(double out[19]) const {
+  for (int i = 0; i < 19; ++i) out[i] = NAN;
+  if (!isVoiceProfile(m_speech.voiceName)) return;
+  if (getProfileNameFromVoice(m_speech.voiceName) != m_toneBaselineProfile) return;
+  const size_t n = std::min<size_t>({m_speech.voicingParams.size(), m_toneBaselineSliders.size(),
+                                     m_toneBaselineValues.size(), static_cast<size_t>(kProfileToneKeyCount)});
+  for (size_t i = 0; i < n; ++i) {
+    if (m_speech.voicingParams[i] == m_toneBaselineSliders[i]) out[i] = m_toneBaselineValues[i];
+  }
+}
+
+template <typename Tone>
+static void setToneFieldIfExact(Tone& tone, int i, double v);
+template <>
+void setToneFieldIfExact(EditorVoicingToneV2& t, int i, double v) {
+  if (std::isnan(v)) return;
+  switch (i) {
+    case 0: t.voicingPeakPos = v; break;
+    case 1: t.voicedPreEmphA = v; break;
+    case 2: t.voicedPreEmphMix = v; break;
+    case 3: t.highShelfGainDb = v; break;
+    case 4: t.highShelfFcHz = v; break;
+    case 5: t.highShelfQ = v; break;
+    case 6: t.voicedTiltDbPerOct = v; break;
+    case 7: t.noiseGlottalModDepth = v; break;
+    case 8: t.pitchSyncF1DeltaHz = v; break;
+    case 9: t.pitchSyncB1DeltaHz = v; break;
+    case 10: t.speedQuotient = v; break;
+    case 11: t.aspirationTiltDbPerOct = v; break;
+    case 12: t.cascadeBwScale = v; break;
+    case 13: t.tremorDepth = v; break;
+    case 14: t.nasalBwScale = v; break;
+    case 15: t.f4FreqScale = v; break;
+    case 16: t.nasalGainScale = v; break;
+    default: break;
+  }
+}
+template <>
+void setToneFieldIfExact(EditorVoicingToneV1& t, int i, double v) {
+  if (std::isnan(v)) return;
+  switch (i) {
+    case 0: t.voicingPeakPos = v; break;
+    case 1: t.voicedPreEmphA = v; break;
+    case 2: t.voicedPreEmphMix = v; break;
+    case 3: t.highShelfGainDb = v; break;
+    case 4: t.highShelfFcHz = v; break;
+    case 5: t.highShelfQ = v; break;
+    case 6: t.voicedTiltDbPerOct = v; break;
+    default: break;
+  }
+}
+
 bool TgsbRuntime::synthPreviewPhoneme(
   const Node& phonemeMap,
   int sampleRate,
@@ -803,11 +856,21 @@ bool TgsbRuntime::synthPreviewPhoneme(
     switch (m_voicingToneSupport) {
       case VoicingToneSupport::V2: {
         EditorVoicingToneV2 tone = buildVoicingToneV2(m_speech.voicingParams);
+        {
+          double exact[19];
+          exactBaselineTone(exact);
+          for (int ti = 0; ti < 19; ++ti) setToneFieldIfExact(tone, ti, exact[ti]);
+        }
         m_spSetVoicingTone(player, &tone);
         break;
       }
       case VoicingToneSupport::V1: {
         EditorVoicingToneV1 tone = buildVoicingToneV1(m_speech.voicingParams);
+        {
+          double exact[19];
+          exactBaselineTone(exact);
+          for (int ti = 0; ti < 7; ++ti) setToneFieldIfExact(tone, ti, exact[ti]);
+        }
         m_spSetVoicingTone(player, &tone);
         break;
       }
@@ -1260,11 +1323,21 @@ bool TgsbRuntime::synthIpa(
     switch (m_voicingToneSupport) {
       case VoicingToneSupport::V2: {
         EditorVoicingToneV2 tone = buildVoicingToneV2(m_speech.voicingParams);
+        {
+          double exact[19];
+          exactBaselineTone(exact);
+          for (int ti = 0; ti < 19; ++ti) setToneFieldIfExact(tone, ti, exact[ti]);
+        }
         m_spSetVoicingTone(player, &tone);
         break;
       }
       case VoicingToneSupport::V1: {
         EditorVoicingToneV1 tone = buildVoicingToneV1(m_speech.voicingParams);
+        {
+          double exact[19];
+          exactBaselineTone(exact);
+          for (int ti = 0; ti < 7; ++ti) setToneFieldIfExact(tone, ti, exact[ti]);
+        }
         m_spSetVoicingTone(player, &tone);
         break;
       }
@@ -1567,7 +1640,8 @@ std::wstring TgsbRuntime::phonemesYamlPath() const {
 bool TgsbRuntime::loadProfileToneSliders(const std::string& profileName,
                                          std::vector<int>& voicingSliders,
                                          double& outInflectionScale,
-                                         std::string& outError) const {
+                                         std::string& outError,
+                                         std::vector<double>* outValues) const {
   outError.clear();
   outInflectionScale = 1.0;
   if (m_packRoot.empty()) {
@@ -1594,6 +1668,11 @@ bool TgsbRuntime::loadProfileToneSliders(const std::string& profileName,
       if (end != it->second.c_str() && std::isfinite(parsed)) v = parsed;
     }
     voicingSliders[static_cast<size_t>(i)] = mapVoicingValueToSlider(i, v);
+    if (outValues) {
+      if (outValues->size() < static_cast<size_t>(kProfileToneKeyCount))
+        outValues->resize(static_cast<size_t>(kProfileToneKeyCount), 0.0);
+      (*outValues)[static_cast<size_t>(i)] = v;
+    }
   }
   if (prof->hasInflectionScale) outInflectionScale = prof->inflectionScale;
   return true;

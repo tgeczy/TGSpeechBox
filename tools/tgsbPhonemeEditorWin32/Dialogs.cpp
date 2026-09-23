@@ -1255,8 +1255,9 @@ static void loadProfileSourceIntoSliders(SpeechSettingsDialogState* st) {
   const std::string name = tgsb_editor::TgsbRuntime::getProfileNameFromVoice(st->settings.voiceName);
   double scale = 1.0;
   std::string err;
-  if (st->runtime->loadProfileToneSliders(name, st->settings.voicingParams, scale, err)) {
-    st->runtime->setToneBaseline(name, st->settings.voicingParams);
+  std::vector<double> values;
+  if (st->runtime->loadProfileToneSliders(name, st->settings.voicingParams, scale, err, &values)) {
+    st->runtime->setToneBaseline(name, st->settings.voicingParams, values);
   }
 }
 

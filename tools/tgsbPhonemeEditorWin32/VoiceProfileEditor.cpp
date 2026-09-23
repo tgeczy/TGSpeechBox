@@ -610,6 +610,18 @@ void applyProfileSave(std::vector<VPVoiceProfile>& profiles, const ProfileSaveRe
   // the target carries the source's values: itself, or a fresh copy of it.
   const bool keepUnmoved = !req.sourceProfile.empty() &&
       (req.name == req.sourceProfile || find(req.sourceProfile) != nullptr);
+  // The high shelf this profile plays before the save.  A missing key means
+  // 5.5 dB inside a voicingTone block and 4 dB without one, so adding or
+  // emptying a block changes an absent shelf's meaning; it is kept below.
+  double shelfBefore = profileToneFallback(3, !target->voicingTone.empty());
+  {
+    auto it = target->voicingTone.find("highShelfGainDb");
+    if (it != target->voicingTone.end()) {
+      double v;
+      if (parseDouble(it->second, v) && std::isfinite(v)) shelfBefore = v;
+    }
+  }
+  const double shelfWanted = (keepUnmoved && !req.toneMoved[3]) ? shelfBefore : req.tone[3];
   for (int i = 0; i < kProfileToneKeyCount; ++i) {
     const std::string key = kProfileToneKeys[i];
     if (keepUnmoved && !req.toneMoved[i]) continue;
@@ -619,16 +631,13 @@ void applyProfileSave(std::vector<VPVoiceProfile>& profiles, const ProfileSaveRe
       target->voicingTone[key] = formatToneValue(req.tone[i]);
     }
   }
-  // A block without a high shelf plays 5.5 dB (the frontend's fallback), not
-  // the 4 dB a built-in voice plays.  When the shelf slider says otherwise,
-  // pin it so the profile sounds as previewed.
-  // (Only when the shelf is the saver's to set: an unmoved shelf on a loaded
-  // profile already plays what the preview played.)
-  if ((!keepUnmoved || req.toneMoved[3]) &&
-      !target->voicingTone.empty() &&
-      target->voicingTone.find("highShelfGainDb") == target->voicingTone.end() &&
-      std::fabs(req.tone[3] - 5.5) > 1e-9) {
-    target->voicingTone["highShelfGainDb"] = formatToneValue(req.tone[3]);
+  // With no shelf key the profile plays 5.5 dB if it has a block and 4 dB if
+  // not.  When that is not the shelf wanted (the moved slider, or what it
+  // played before the save), write the shelf explicitly.
+  if (target->voicingTone.find("highShelfGainDb") == target->voicingTone.end()) {
+    const double implied = target->voicingTone.empty() ? 4.0 : 5.5;
+    if (std::fabs(shelfWanted - implied) > 1e-9)
+      target->voicingTone["highShelfGainDb"] = formatToneValue(shelfWanted);
   }
   target->hasVoicingTone = !target->voicingTone.empty();
   // The typed scale is the profile's own; 1 means "as the listener set it".

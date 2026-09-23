@@ -316,18 +316,23 @@ public:
 
   // Set the voicing sliders to a profile's stored voice source (the engine's
   // fallbacks for keys it leaves out) and report its inflection scale.
+  // outValues (optional) receives the exact stored values the sliders stand
+  // for, so an unmoved slider can preview the stored value, not its step.
   bool loadProfileToneSliders(const std::string& profileName,
                               std::vector<int>& voicingSliders,
                               double& outInflectionScale,
-                              std::string& outError) const;
+                              std::string& outError,
+                              std::vector<double>* outValues = nullptr) const;
 
   // The profile whose voice source the sliders were last loaded from, and the
   // slider positions it loaded, kept across dialog openings.
   const std::string& toneBaselineProfile() const { return m_toneBaselineProfile; }
   const std::vector<int>& toneBaselineSliders() const { return m_toneBaselineSliders; }
-  void setToneBaseline(const std::string& profile, const std::vector<int>& sliders) {
+  void setToneBaseline(const std::string& profile, const std::vector<int>& sliders,
+                       const std::vector<double>& values = {}) {
     m_toneBaselineProfile = profile;
     m_toneBaselineSliders = sliders;
+    m_toneBaselineValues = values;
   }
 
   // Apply voice preset + per-field multipliers + volume scaling.
@@ -371,6 +376,10 @@ private:
   std::wstring m_packRoot;
   std::string m_toneBaselineProfile;
   std::vector<int> m_toneBaselineSliders;
+  std::vector<double> m_toneBaselineValues;
+  // For the selected profile, the stored value of each voicing slider that has
+  // not moved since it was loaded (NAN elsewhere); used by the preview.
+  void exactBaselineTone(double out[19]) const;
   std::wstring phonemesYamlPath() const;
   std::string m_langTag;
 
