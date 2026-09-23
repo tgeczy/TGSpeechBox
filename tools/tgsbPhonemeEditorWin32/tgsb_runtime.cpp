@@ -10,6 +10,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <initializer_list>
 #include <cctype>
@@ -264,58 +265,58 @@ static double clampDouble(double v, double lo, double hi) {
   return v;
 }
 
-// Map slider value (0-100) to actual VoicingTone parameter value
-// Each parameter has different ranges, with 50 being "neutral/default"
+// Voicing sliders (0-100) to VoicingTone values: two straight pieces per
+// parameter, low end at 0, the value a built-in voice plays at the neutral
+// position (50) in the middle, high end at 100.  The middle values are the
+// DSP defaults and match the NVDA driver's sliders where it has them (speed
+// quotient, formant sharpness, head size), so a voice at neutral sliders
+// sounds the same in the editor and in NVDA, and a profile saved from
+// neutral sliders writes nothing.  (Before 3.10 beta 10 the first six were
+// straight lines whose midpoints were not the defaults: neutral sliders
+// wrote pre-emphasis 0.485 and a 0 dB high shelf into every saved profile.)
+struct VoicingSliderMap { double lo, mid, hi; };
+static const VoicingSliderMap kVoicingSliderMap[] = {
+  {0.85, 0.91, 0.95},     // 0 voicingPeakPos
+  {0.0, 0.92, 0.97},      // 1 voicedPreEmphA
+  {0.0, 0.35, 1.0},       // 2 voicedPreEmphMix
+  {-12.0, 4.0, 12.0},     // 3 highShelfGainDb
+  {500.0, 2000.0, 8000.0},// 4 highShelfFcHz
+  {0.3, 0.7, 2.0},        // 5 highShelfQ
+  {-24.0, 0.0, 24.0},     // 6 voicedTiltDbPerOct
+  {0.0, 0.5, 1.0},        // 7 noiseGlottalModDepth (neutral = slider 0)
+  {-60.0, 0.0, 60.0},     // 8 pitchSyncF1DeltaHz
+  {-50.0, 0.0, 50.0},     // 9 pitchSyncB1DeltaHz
+  {0.5, 2.0, 4.0},        // 10 speedQuotient (as NVDA)
+  {-12.0, 0.0, 12.0},     // 11 aspirationTiltDbPerOct
+  {2.0, 1.0, 0.3},        // 12 cascadeBwScale (as NVDA)
+  {0.0, 0.2, 0.4},        // 13 tremorDepth (neutral = slider 0)
+  {0.5, 1.0, 2.0},        // 14 nasalBwScale
+  {1.25, 1.0, 0.85},      // 15 f4FreqScale (as NVDA's head size)
+  {0.5, 1.0, 1.5},        // 16 nasalGainScale
+  {0.0, 0.5, 1.0},        // 17 chorusDepth (neutral = slider 0)
+  {0.5, 2.75, 5.0},       // 18 chorusDetuneHz (neutral = slider 33)
+};
+static constexpr int kVoicingSliderMapCount = static_cast<int>(sizeof(kVoicingSliderMap) / sizeof(kVoicingSliderMap[0]));
+
 static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
-  double sv = static_cast<double>(clampInt(sliderValue, 0, 100));
-  
-  switch (paramIndex) {
-    case 0: // voicingPeakPos: 0.85-0.95, default 0.91 at 50
-      return 0.85 + (sv / 100.0) * 0.10;
-    case 1: // voicedPreEmphA: 0.0-0.97, default 0.92 at 50
-      return (sv / 100.0) * 0.97;
-    case 2: // voicedPreEmphMix: 0.0-1.0, default 0.35 at 50
-      return sv / 100.0;
-    case 3: // highShelfGainDb: -12 to +12, default 4.0 at 50
-      return -12.0 + (sv / 100.0) * 24.0;
-    case 4: // highShelfFcHz: 500-8000, default 2000 at 50
-      return 500.0 + (sv / 100.0) * 7500.0;
-    case 5: // highShelfQ: 0.3-2.0, default 0.7 at 50
-      return 0.3 + (sv / 100.0) * 1.7;
-    case 6: // voicedTiltDbPerOct: -24 to +24, default 0.0 at 50
-      return -24.0 + (sv / 100.0) * 48.0;
-    case 7: // noiseGlottalModDepth: 0.0-1.0, default 0.0 at 0
-      return sv / 100.0;
-    case 8: // pitchSyncF1DeltaHz: -60 to +60, default 0.0 at 50
-      return -60.0 + (sv / 100.0) * 120.0;
-    case 9: // pitchSyncB1DeltaHz: -50 to +50, default 0.0 at 50
-      return -50.0 + (sv / 100.0) * 100.0;
-    case 10: // speedQuotient: 0.5-4.0, default 2.0 at 50
-      return 0.5 + (sv / 100.0) * 3.5;
-    case 11: // aspirationTiltDbPerOct: -12 to +12, default 0.0 at 50
-      return -12.0 + (sv / 100.0) * 24.0;
-case 12: // cascadeBwScale: 0.3-2.0, default 1.0 at slider 50
-      if (sv <= 50.0) {
-        return 2.0 - (sv / 50.0) * 1.0;   // 0 -> 2.0, 50 -> 1.0
-      }
-      return 1.0 - ((sv - 50.0) / 50.0) * 0.7;  // 50 -> 1.0, 100 -> 0.3
-    case 13: // tremorDepth: 0.0-0.4, default 0.0 at 0
-      return (sv / 100.0) * 0.4;
-    case 14: // nasalBwScale: 0.5-2.0, default 1.0 at 50
-      return 0.5 + (sv / 100.0) * 1.5;
-    case 15: // f4FreqScale: 0.7-1.5, default 1.0 at 50
-      if (sv <= 50.0)
-        return 1.25 - (sv / 50.0) * 0.25;
-      return 1.0 - ((sv - 50.0) / 50.0) * 0.15;
-    case 16: // nasalGainScale: 0.5-1.5, default 1.0 at 50
-      return 0.5 + (sv / 100.0) * 1.0;
-    case 17: // chorusDepth: 0.0-1.0, default 0.0 at 0
-      return sv / 100.0;
-    case 18: // chorusDetuneHz: 0.5-5.0, default 2.0 at ~33
-      return 0.5 + (sv / 100.0) * 4.5;
-    default:
-      return 0.0;
+  if (paramIndex < 0 || paramIndex >= kVoicingSliderMapCount) return 0.0;
+  const VoicingSliderMap& m = kVoicingSliderMap[paramIndex];
+  const double sv = static_cast<double>(clampInt(sliderValue, 0, 100));
+  if (sv <= 50.0) return m.lo + (sv / 50.0) * (m.mid - m.lo);
+  return m.mid + ((sv - 50.0) / 50.0) * (m.hi - m.mid);
+}
+
+// The slider position whose value is closest to v (the inverse of the above).
+static int mapVoicingValueToSlider(int paramIndex, double v) {
+  if (paramIndex < 0 || paramIndex >= kVoicingSliderMapCount) return 50;
+  const VoicingSliderMap& m = kVoicingSliderMap[paramIndex];
+  double s;
+  if ((v - m.mid) * (m.lo - m.mid) >= 0.0) {
+    s = (m.mid == m.lo) ? 0.0 : (v - m.lo) / (m.mid - m.lo) * 50.0;
+  } else {
+    s = (m.hi == m.mid) ? 100.0 : 50.0 + (v - m.mid) / (m.hi - m.mid) * 50.0;
   }
+  return clampInt(static_cast<int>(std::lround(s)), 0, 100);
 }
 
 // Build VoicingTone struct with ABI header (v2+ layout, extended fields allowed)
@@ -393,9 +394,9 @@ static EditorFrameEx buildFrameEx(const std::vector<int>& sliders, bool& outHasE
   int shimmerVal = (sliders.size() > 3) ? clampInt(sliders[3], 0, 100) : 0;
   ex.shimmer = shimmerVal / 100.0;
   
-  // sharpness: 0-100 -> 0.5-2.0 multiplier (50 = 1.0 = neutral)
+  // sharpness: 0-100 -> 0.25-4.0 multiplier, 50 = 1.0 (NVDA's curve)
   int sharpVal = (sliders.size() > 4) ? clampInt(sliders[4], 0, 100) : 50;
-  ex.sharpness = 0.5 + (sharpVal / 100.0) * 1.5;
+  ex.sharpness = std::pow(2.0, (sharpVal - 50.0) / 25.0);  // as NVDA: 0.25x .. 1x .. 4x
   
   // Check if any effect is active (non-default values)
   outHasEffect = (creakVal > 0 || breathVal > 0 || jitterVal > 0 || shimmerVal > 0 || sharpVal != 50);
@@ -1551,188 +1552,86 @@ std::string TgsbRuntime::getVoiceProfile() const {
   return name ? name : "";
 }
 
-// The pitch and formant shape of a built-in voice as class scales on the two
-// root classes (every phoneme is a vowel or a consonant, and the frontend
-// applies each matching class cumulatively, so nothing is put on the narrower
-// classes).  Mirrors applySpeechSettingsToFrame; absolute values there have
-// no multiplier form and are reported in outNote instead.
-static void seedClassScalesFromPreset(const std::string& voice, VPVoiceProfile& p, std::string& outNote) {
-  VPClassScales s;
-  auto arr = [](std::array<double, 6>& a, std::array<bool, 6>& f, std::initializer_list<double> v) {
-    size_t i = 0;
-    for (double x : v) { if (i < 6) { a[i] = x; f[i] = true; } ++i; }
-  };
-  auto num = [](double& d, bool& f, double v) { d = v; f = true; };
-  if (voice == "Adam") {
-    arr(s.cb_mul, s.cb_mul_set, {1.3, 1, 1, 1, 1, 1});
-    arr(s.pa_mul, s.pa_mul_set, {1, 1, 1, 1, 1, 1.3});
-    num(s.fricationAmplitude_mul, s.fricationAmplitude_mul_set, 0.85);
-  } else if (voice == "David") {
-    num(s.voicePitch_mul, s.voicePitch_mul_set, 0.75);
-    num(s.endVoicePitch_mul, s.endVoicePitch_mul_set, 0.75);
-    arr(s.cf_mul, s.cf_mul_set, {0.90, 0.93, 0.95, 1, 1, 1});
-  } else if (voice == "Benjamin") {
-    arr(s.cf_mul, s.cf_mul_set, {1.01, 1.02, 1, 1, 1, 1});
-    arr(s.cb_mul, s.cb_mul_set, {1.3, 1, 1, 1, 1, 1});
-    arr(s.pa_mul, s.pa_mul_set, {1, 1, 1, 1, 1, 1.3});
-    num(s.fricationAmplitude_mul, s.fricationAmplitude_mul_set, 0.7);
-    outNote = "Benjamin's fixed upper formants (cf4 3770, cf5 4100, cf6 5000 Hz) and its nasal pole shift are absolute values with no class-scale form; they were not carried over.";
-  } else if (voice == "Caleb") {
-    num(s.voiceAmplitude_mul, s.voiceAmplitude_mul_set, 0.0);
-    outNote = "Caleb's full aspiration is an absolute value with no class-scale form; the whisper here comes from voiceAmplitude_mul 0 alone.";
-  } else if (voice == "Robert") {
-    num(s.voicePitch_mul, s.voicePitch_mul_set, 1.10);
-    num(s.endVoicePitch_mul, s.endVoicePitch_mul_set, 1.10);
-    arr(s.cf_mul, s.cf_mul_set, {1.02, 1.06, 1.08, 1.08, 1.10, 1.05});
-    arr(s.cb_mul, s.cb_mul_set, {0.65, 0.68, 0.72, 0.75, 0.78, 0.80});
-    arr(s.pf_mul, s.pf_mul_set, {1, 1, 1.06, 1.08, 1.10, 1.05});
-    arr(s.pb_mul, s.pb_mul_set, {0.72, 0.75, 0.78, 0.80, 0.82, 0.85});
-    arr(s.pa_mul, s.pa_mul_set, {1, 1, 1.08, 1.15, 1.20, 1.25});
-    num(s.voiceTurbulenceAmplitude_mul, s.voiceTurbulenceAmplitude_mul_set, 0.20);
-    num(s.fricationAmplitude_mul, s.fricationAmplitude_mul_set, 0.75);
-    num(s.vibratoPitchOffset_mul, s.vibratoPitchOffset_mul_set, 0.0);
-    num(s.vibratoSpeed_mul, s.vibratoSpeed_mul_set, 0.0);
-    outNote = "Robert's pressed glottis (glottalOpenQuotient 0.30, an absolute value) and its parallel bypass scale have no class-scale form; they were not carried over.";
-  } else {
-    return;
+std::wstring TgsbRuntime::phonemesYamlPath() const {
+  // m_packRoot is either the packs folder itself or its parent.
+  std::wstring base = m_packRoot;
+  if (!base.empty() && base.back() != L'\\' && base.back() != L'/') base += L'\\';
+  std::wstring direct = base + L"phonemes.yaml";
+  {
+    std::ifstream test(direct);
+    if (test.is_open()) return direct;
   }
-  p.classScales["vowel"] = s;
-  p.classScales["consonant"] = s;
+  return base + L"packs\\phonemes.yaml";
+}
+
+bool TgsbRuntime::loadProfileToneSliders(const std::string& profileName,
+                                         std::vector<int>& voicingSliders,
+                                         double& outInflectionScale,
+                                         std::string& outError) const {
+  outError.clear();
+  outInflectionScale = 1.0;
+  if (m_packRoot.empty()) {
+    outError = "No pack loaded. Open a pack root first (File > Open Pack Root).";
+    return false;
+  }
+  std::vector<VPVoiceProfile> profiles;
+  if (!loadVoiceProfilesFromYaml(phonemesYamlPath(), profiles, outError)) return false;
+  const VPVoiceProfile* prof = nullptr;
+  for (const auto& p : profiles) if (p.name == profileName) { prof = &p; break; }
+  if (!prof) {
+    outError = "Profile \"" + profileName + "\" is not in phonemes.yaml.";
+    return false;
+  }
+  if (voicingSliders.size() < static_cast<size_t>(kProfileToneKeyCount))
+    voicingSliders.resize(static_cast<size_t>(kProfileToneKeyCount), 50);
+  const bool hasBlock = prof->hasVoicingTone && !prof->voicingTone.empty();
+  for (int i = 0; i < kProfileToneKeyCount; ++i) {
+    double v = profileToneFallback(i, hasBlock);
+    auto it = prof->voicingTone.find(kProfileToneKeys[i]);
+    if (it != prof->voicingTone.end()) {
+      char* end = nullptr;
+      const double parsed = std::strtod(it->second.c_str(), &end);
+      if (end != it->second.c_str() && std::isfinite(parsed)) v = parsed;
+    }
+    voicingSliders[static_cast<size_t>(i)] = mapVoicingValueToSlider(i, v);
+  }
+  if (prof->hasInflectionScale) outInflectionScale = prof->inflectionScale;
+  return true;
 }
 
 bool TgsbRuntime::saveVoiceProfileSliders(const std::string& profileName,
                                           const std::vector<int>& voicingSliders,
-                                          const std::vector<int>& frameExSliders,
+                                          const std::string& sourceProfile,
+                                          const std::vector<int>& sourceSliders,
                                           const std::string& baseVoice,
                                           double inflectionScale,
                                           std::string& outError,
                                           std::string& outNote) {
   outError.clear();
   outNote.clear();
-  
   if (m_packRoot.empty()) {
     outError = "No pack loaded. Open a pack root first (File > Open Pack Root).";
     return false;
   }
-  
-  // Build path to phonemes.yaml
-  // m_packRoot could be either:
-  //   - The packs folder itself (app.packsDir): C:\git\TGSpeechBox\packs
-  //   - Or the parent (packRoot for frontend): C:\git\TGSpeechBox
-  // Try both patterns
-  std::wstring yamlPath = m_packRoot;
-  if (!yamlPath.empty() && yamlPath.back() != L'\\' && yamlPath.back() != L'/') {
-    yamlPath += L'\\';
-  }
-  yamlPath += L"phonemes.yaml";
-  
-  // If that doesn't exist, try packs/phonemes.yaml
-  {
-    std::ifstream test(yamlPath);
-    if (!test.is_open()) {
-      yamlPath = m_packRoot;
-      if (!yamlPath.empty() && yamlPath.back() != L'\\' && yamlPath.back() != L'/') {
-        yamlPath += L'\\';
-      }
-      yamlPath += L"packs\\phonemes.yaml";
-    }
-  }
-  
-  // Load existing profiles
+  const std::wstring yamlPath = phonemesYamlPath();
   std::vector<VPVoiceProfile> profiles;
   std::string loadErr;
-  if (!loadVoiceProfilesFromYaml(yamlPath, profiles, loadErr)) {
-    // It's OK if file doesn't exist or has no profiles - we'll create one
-    profiles.clear();
+  if (!loadVoiceProfilesFromYaml(yamlPath, profiles, loadErr)) profiles.clear();
+
+  ProfileSaveRequest req;
+  req.name = profileName;
+  req.sourceProfile = sourceProfile;
+  req.baseVoice = baseVoice;
+  req.inflectionScale = inflectionScale;
+  const bool haveBaseline = !sourceProfile.empty() &&
+      sourceSliders.size() >= static_cast<size_t>(kProfileToneKeyCount);
+  for (int i = 0; i < kProfileToneKeyCount; ++i) {
+    const int s = (static_cast<size_t>(i) < voicingSliders.size()) ? voicingSliders[static_cast<size_t>(i)] : 50;
+    req.tone[i] = mapVoicingSliderToValue(i, s);
+    req.toneMoved[i] = !haveBaseline || s != sourceSliders[static_cast<size_t>(i)];
   }
-  
-  // Find or create the target profile
-  VPVoiceProfile* targetProfile = nullptr;
-  for (auto& p : profiles) {
-    if (p.name == profileName) {
-      targetProfile = &p;
-      break;
-    }
-  }
-  
-  const bool created = (targetProfile == nullptr);
-  if (!targetProfile) {
-    // Create new profile
-    profiles.push_back(VPVoiceProfile{});
-    targetProfile = &profiles.back();
-    targetProfile->name = profileName;
-  }
-  // A new profile starts from the built-in voice's shape; an existing one
-  // keeps whatever class scales it has (hand-tuned or from an earlier save).
-  if (created && !baseVoice.empty()) {
-    seedClassScalesFromPreset(baseVoice, *targetProfile, outNote);
-  }
-  // Inflection scale: written when it differs from 1; a re-save that leaves
-  // it at 1 does not clear a scale the profile already had.
-  const bool scaleSet = (inflectionScale < 0.999999 || inflectionScale > 1.000001);
-  if (created || scaleSet) {
-    targetProfile->inflectionScale = inflectionScale;
-    targetProfile->hasInflectionScale = scaleSet;
-  }
-  
-  // Build voicingTone map with all params
-  targetProfile->hasVoicingTone = true;
-  targetProfile->voicingTone.clear();
-  
-  // Helper to format double as string
-  auto fmtDouble = [](double v) -> std::string {
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(6) << v;
-    std::string s = oss.str();
-    // Trim trailing zeros after decimal point
-    size_t dot = s.find('.');
-    if (dot != std::string::npos) {
-      size_t last = s.find_last_not_of('0');
-      if (last != std::string::npos && last > dot) {
-        s = s.substr(0, last + 1);
-      }
-      // Remove trailing dot
-      if (s.back() == '.') s.pop_back();
-    }
-    return s;
-  };
-  
-  // 14 VoicingTone params
-  const auto& voicingNames = voicingParamNames();
-  for (size_t i = 0; i < voicingNames.size() && i < voicingSliders.size(); ++i) {
-    double val = mapVoicingSliderToValue(static_cast<int>(i), voicingSliders[i]);
-    targetProfile->voicingTone[voicingNames[i]] = fmtDouble(val);
-  }
-  
-  // 5 FrameEx params
-  const auto& frameExNames = frameExParamNames();
-  auto clamp01 = [](int v) -> double {
-    int c = (v < 0) ? 0 : ((v > 100) ? 100 : v);
-    return static_cast<double>(c) / 100.0;
-  };
-  
-  if (frameExSliders.size() > 0 && frameExNames.size() > 0)
-    targetProfile->voicingTone[frameExNames[0]] = fmtDouble(clamp01(frameExSliders[0]));  // creakiness
-  if (frameExSliders.size() > 1 && frameExNames.size() > 1)
-    targetProfile->voicingTone[frameExNames[1]] = fmtDouble(clamp01(frameExSliders[1]));  // breathiness
-  if (frameExSliders.size() > 2 && frameExNames.size() > 2)
-    targetProfile->voicingTone[frameExNames[2]] = fmtDouble(clamp01(frameExSliders[2]));  // jitter
-  if (frameExSliders.size() > 3 && frameExNames.size() > 3)
-    targetProfile->voicingTone[frameExNames[3]] = fmtDouble(clamp01(frameExSliders[3]));  // shimmer
-  if (frameExSliders.size() > 4 && frameExNames.size() > 4) {
-    // sharpness: 0-100 -> 0.5-2.0
-    int sharpVal = frameExSliders[4];
-    sharpVal = (sharpVal < 0) ? 0 : ((sharpVal > 100) ? 100 : sharpVal);
-    double sharpness = 0.5 + (static_cast<double>(sharpVal) / 100.0) * 1.5;
-    targetProfile->voicingTone[frameExNames[4]] = fmtDouble(sharpness);
-  }
-  
-  // Save back to YAML
-  if (!saveVoiceProfilesToYaml(yamlPath, profiles, outError)) {
-    return false;
-  }
-  
-  return true;
+  applyProfileSave(profiles, req, outNote);
+  return saveVoiceProfilesToYaml(yamlPath, profiles, outError);
 }
 
 } // namespace tgsb_editor

@@ -297,20 +297,38 @@ public:
   // Voice profile prefix used to distinguish profiles from Python presets.
   static constexpr const char* kVoiceProfilePrefix = "profile:";
 
-  // Save the voicing + FrameEx sliders into the named profile in phonemes.yaml
-  // (created if missing).  A new profile also gets the pitch and formant shape
-  // of the built-in voice named by baseVoice ("" = none) as class scales, so
-  // it starts out sounding like that voice; inflectionScale is written when it
-  // differs from 1.  outNote lists what could not be carried over from the
-  // built-in voice (absolute values have no class-scale form).
-  // voicingSliders: 0-100 each; frameExSliders: 5 values (0-100).
+  // Save the voicing sliders into the named profile in phonemes.yaml as its
+  // voice source (see applyProfileSave in VoiceProfileEditor.h).  A new
+  // profile copies sourceProfile (the profile the sliders were loaded from)
+  // or, without one, takes baseVoice's shape.  sourceSliders are the slider
+  // positions as loaded from sourceProfile: a slider still there keeps the
+  // stored value.  inflectionScale is the profile's own scale (1 = none).
+  // The voice quality sliders (creak, breath, jitter, shimmer, sharpness)
+  // are the listener's settings on every platform and are not written.
   bool saveVoiceProfileSliders(const std::string& profileName,
                                const std::vector<int>& voicingSliders,
-                               const std::vector<int>& frameExSliders,
+                               const std::string& sourceProfile,
+                               const std::vector<int>& sourceSliders,
                                const std::string& baseVoice,
                                double inflectionScale,
                                std::string& outError,
                                std::string& outNote);
+
+  // Set the voicing sliders to a profile's stored voice source (the engine's
+  // fallbacks for keys it leaves out) and report its inflection scale.
+  bool loadProfileToneSliders(const std::string& profileName,
+                              std::vector<int>& voicingSliders,
+                              double& outInflectionScale,
+                              std::string& outError) const;
+
+  // The profile whose voice source the sliders were last loaded from, and the
+  // slider positions it loaded, kept across dialog openings.
+  const std::string& toneBaselineProfile() const { return m_toneBaselineProfile; }
+  const std::vector<int>& toneBaselineSliders() const { return m_toneBaselineSliders; }
+  void setToneBaseline(const std::string& profile, const std::vector<int>& sliders) {
+    m_toneBaselineProfile = profile;
+    m_toneBaselineSliders = sliders;
+  }
 
   // Apply voice preset + per-field multipliers + volume scaling.
   // Exposed so the free callback helper can reuse the same logic.
@@ -351,6 +369,9 @@ private:
   nvspFrontend_handle_t m_feHandle = nullptr;
   std::string m_lastFrontendError;
   std::wstring m_packRoot;
+  std::string m_toneBaselineProfile;
+  std::vector<int> m_toneBaselineSliders;
+  std::wstring phonemesYamlPath() const;
   std::string m_langTag;
 
   SpeechSettings m_speech;

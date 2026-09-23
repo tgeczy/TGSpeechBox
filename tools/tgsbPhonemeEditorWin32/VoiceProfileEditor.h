@@ -154,6 +154,40 @@ const char* const kOverrideFieldNames[] = {
 constexpr int kOverrideFieldCount = sizeof(kOverrideFieldNames) / sizeof(kOverrideFieldNames[0]);
 
 // Load voice profiles from phonemes.yaml
+// ---------------------------------------------------------------------------
+// Voice source (voicingTone) of a profile, as the editor's sliders see it.
+// The first kProfileToneKeyCount voicing sliders are the keys the frontend
+// reads from a profile's voicingTone block, in slider order.
+constexpr int kProfileToneKeyCount = 17;
+extern const char* const kProfileToneKeys[kProfileToneKeyCount];
+// What a built-in voice plays with every slider at its neutral position.
+double profileToneNeutral(int keyIndex);
+// What the engine uses for a key a profile leaves out: the frontend fills a
+// profile's voicingTone block from its own defaults (high shelf 5.5 dB); a
+// profile without a block plays the DSP defaults.
+double profileToneFallback(int keyIndex, bool profileHasToneBlock);
+
+// A scale typed by the user: the whole string is a finite number in 0..3.
+bool parseScaleStrict(const std::string& text, double& out);
+
+// One "Save to Profile" request from the speech settings.
+struct ProfileSaveRequest {
+  std::string name;              // destination profile
+  std::string sourceProfile;     // profile the sliders were loaded from ("" = none)
+  std::string baseVoice;         // built-in voice whose shape seeds a new profile ("" = none)
+  double tone[kProfileToneKeyCount] = {};    // slider values mapped to parameter values
+  bool toneMoved[kProfileToneKeyCount] = {}; // slider moved since it was loaded from sourceProfile
+  double inflectionScale = 1.0;  // the profile's own scale; 1 = the listener's inflection
+};
+
+// Apply a request to a loaded profile list.  A new destination starts as a
+// copy of sourceProfile (class scales, overrides, voice source) or, without
+// one, with baseVoice's shape.  Voice-source keys whose slider did not move
+// keep their stored text; moved keys are written, and a key at the neutral
+// value is left out, so an untouched save adds nothing.  outNote reports
+// what a built-in voice's shape could not carry over.
+void applyProfileSave(std::vector<VPVoiceProfile>& profiles, const ProfileSaveRequest& req, std::string& outNote);
+
 bool loadVoiceProfilesFromYaml(const std::wstring& yamlPath, std::vector<VPVoiceProfile>& outProfiles, std::string& outError);
 
 // Save voice profiles back to phonemes.yaml (preserves other content)

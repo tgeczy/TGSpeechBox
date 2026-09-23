@@ -8,6 +8,7 @@ Licensed under the MIT License. See LICENSE for details.
 #define _UNICODE
 
 #include "Dialogs.h"
+#include "VoiceProfileEditor.h"
 
 #include "AccessibilityUtils.h"
 #include "WinUtils.h"
@@ -1083,6 +1084,24 @@ static int presetVoicingDefault(const std::string& voice, const std::string& par
   return -1;
 }
 
+// A voicing slider for a built-in voice from the INI: the voice's own
+// section, then its preset default, then the shared [speech] value, then the
+// slider's neutral position.  INI files written before 3.10 beta 10 stored
+// the noise-modulation slider at 50 as "neutral"; its neutral is 0, so a
+// stored 50 from such a file reads as 0.
+static int builtInVoicingSlider(const std::string& voiceName, size_t i, const std::string& param) {
+  const int neutral = (i == 7 || i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
+  const std::wstring key = L"voicing_" + utf8ToWide(param);
+  const std::wstring section = L"voice_" + utf8ToWide(voiceName);
+  int val = readIniInt(section.c_str(), key.c_str(), -1);
+  if (val < 0) {
+    const int preset = presetVoicingDefault(voiceName, param);
+    val = (preset >= 0) ? preset : readIniInt(L"speech", key.c_str(), neutral);
+  }
+  if (i == 7 && val == 50 && readIniInt(L"speech", L"toneMapVersion", 1) < 2) val = 0;
+  return val;
+}
+
 tgsb_editor::SpeechSettings loadSpeechSettingsFromIni() {
   tgsb_editor::SpeechSettings s;
   s.voiceName = wideToUtf8(readIni(L"speech", L"voice", L"Adam"));
@@ -1117,12 +1136,14 @@ tgsb_editor::SpeechSettings loadSpeechSettingsFromIni() {
 std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
     // Try voice-specific section first, fallback to [speech] defaults
     // tremorDepth (13), chorusDepth (17) default to 0; chorusDetune (18) to 33
-    int defaultVal = (i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
-    int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
-    if (val < 0) {
-      // A built-in voice's own default wins over the shared [speech] value.
-      const int preset = presetVoicingDefault(s.voiceName, voicingNames[i]);
-      val = (preset >= 0) ? preset : readIniInt(L"speech", key.c_str(), defaultVal);
+    int defaultVal = (i == 7 || i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
+    int val;
+    if (voiceSection != L"speech") {
+      val = builtInVoicingSlider(s.voiceName, i, voicingNames[i]);
+    } else {
+      // A profile: the speech settings dialog reloads its voice source
+      // from phonemes.yaml when it opens.
+      val = readIniInt(L"speech", key.c_str(), defaultVal);
     }
     s.voicingParams[i] = val;
   }
@@ -1136,6 +1157,7 @@ void saveSpeechSettingsToIni(const tgsb_editor::SpeechSettings& s) {
   writeIniInt(L"speech", L"volume", s.volume);
   writeIniInt(L"speech", L"inflection", s.inflection);
   writeIni(L"speech", L"pauseMode", utf8ToWide(s.pauseMode));
+  writeIniInt(L"speech", L"toneMapVersion", 2);  // voicing sliders: 50 = the DSP default
 
   const auto& names = TgsbRuntime::frameParamNames();
   for (size_t i = 0; i < names.size() && i < s.frameParams.size(); ++i) {
@@ -1225,6 +1247,19 @@ static void refreshParamListRow(HWND list, size_t idx, const std::string& name, 
   SendMessageW(list, LB_INSERTSTRING, static_cast<WPARAM>(idx), reinterpret_cast<LPARAM>(text.c_str()));
 }
 
+// Put the selected profile's stored voice source into the voicing sliders
+// and remember it as the baseline a later save compares against.
+static void loadProfileSourceIntoSliders(SpeechSettingsDialogState* st) {
+  if (!st || !st->runtime) return;
+  if (!tgsb_editor::TgsbRuntime::isVoiceProfile(st->settings.voiceName)) return;
+  const std::string name = tgsb_editor::TgsbRuntime::getProfileNameFromVoice(st->settings.voiceName);
+  double scale = 1.0;
+  std::string err;
+  if (st->runtime->loadProfileToneSliders(name, st->settings.voicingParams, scale, err)) {
+    st->runtime->setToneBaseline(name, st->settings.voicingParams);
+  }
+}
+
 static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
   SpeechSettingsDialogState* st = reinterpret_cast<SpeechSettingsDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
 
@@ -1270,6 +1305,15 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
     case WM_INITDIALOG: {
       st = reinterpret_cast<SpeechSettingsDialogState*>(lParam);
       SetWindowLongPtrW(hDlg, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(st));
+
+      // A profile selected at open shows its stored voice source, unless the
+      // sliders were already loaded from it this session (they may hold
+      // unsaved changes to it).
+      if (st->runtime && tgsb_editor::TgsbRuntime::isVoiceProfile(st->settings.voiceName) &&
+          st->runtime->toneBaselineProfile() !=
+              tgsb_editor::TgsbRuntime::getProfileNameFromVoice(st->settings.voiceName)) {
+        loadProfileSourceIntoSliders(st);
+      }
 
       // Accessible names for any ListView controls (none here), and predictable defaults.
       HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
@@ -1422,25 +1466,18 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
             }
           }
           
-          // Load voicing params for this voice from INI
+          // The voicing sliders show the selected voice's own voice source:
+          // a profile's from phonemes.yaml, a built-in voice's from the INI.
           st->settings.voiceName = newVoiceName;
-          
-          std::wstring voiceSection = L"speech";
-          if (!tgsb_editor::TgsbRuntime::isVoiceProfile(newVoiceName)) {
-            voiceSection = L"voice_" + utf8ToWide(newVoiceName);
+          if (tgsb_editor::TgsbRuntime::isVoiceProfile(newVoiceName)) {
+            loadProfileSourceIntoSliders(st);
+          } else {
+            const auto& voicingNames = tgsb_editor::TgsbRuntime::voicingParamNames();
+            for (size_t i = 0; i < voicingNames.size() && i < st->settings.voicingParams.size(); ++i)
+              st->settings.voicingParams[i] = builtInVoicingSlider(newVoiceName, i, voicingNames[i]);
+            if (st->runtime) st->runtime->setToneBaseline("", {});
           }
-          
-          const auto& voicingNames = tgsb_editor::TgsbRuntime::voicingParamNames();
-          for (size_t i = 0; i < voicingNames.size() && i < st->settings.voicingParams.size(); ++i) {
-            std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
-            int val = readIniInt(voiceSection.c_str(), key.c_str(), -1);
-            if (val < 0) {
-              const int preset = presetVoicingDefault(newVoiceName, voicingNames[i]);
-              val = (preset >= 0) ? preset : readIniInt(L"speech", key.c_str(), 50);
-            }
-            st->settings.voicingParams[i] = val;
-          }
-          
+
           // Refresh voicing params list UI
           HWND vlb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
           populateParamList(vlb, st->voicingDisplayNames, st->settings.voicingParams);
@@ -1545,9 +1582,11 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
       }
 
       if (id == IDC_SPEECH_SAVE_TO_PROFILE) {
-        // The sliders describe the selected voice: a built-in voice seeds a
-        // new profile with its own shape, an existing profile is re-saved
-        // as itself.  The user names the profile and can set its inflection.
+        // The voicing sliders hold the selected voice's voice source (a
+        // profile's own, loaded from phonemes.yaml, or a built-in voice's).
+        // Saving writes them into the named profile; a new name made from a
+        // profile copies that profile, one made from a built-in voice takes
+        // its pitch and formant shape.
         if (!st->runtime) {
           msgBox(hDlg, L"Runtime not available.", L"Save to Profile", MB_ICONERROR);
           return TRUE;
@@ -1558,56 +1597,77 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
           return TRUE;
         }
         const bool fromProfile = tgsb_editor::TgsbRuntime::isVoiceProfile(voice);
+        const std::string sourceProfile = fromProfile ? tgsb_editor::TgsbRuntime::getProfileNameFromVoice(voice) : std::string();
         const std::string baseVoice = fromProfile ? std::string() : voice;
 
+        // The profile's own inflection scale that keeps what is heard now:
+        // the listener's slider returns to 50 after the save, so the scale
+        // absorbs the slider's distance from 50 on top of the stored scale.
+        double storedScale = 1.0;
+        if (fromProfile) {
+          std::vector<int> scratch = st->settings.voicingParams;
+          std::string lerr;
+          st->runtime->loadProfileToneSliders(sourceProfile, scratch, storedScale, lerr);
+        }
+        double suggested = storedScale * static_cast<double>(st->settings.inflection) / 50.0;
+        if (suggested > 3.0) suggested = 3.0;
+
         SaveProfileDialogState sp;
-        sp.name = fromProfile ? tgsb_editor::TgsbRuntime::getProfileNameFromVoice(voice) : (voice + " variant");
+        sp.name = fromProfile ? sourceProfile : (voice + " variant");
         {
-          // The editor's inflection slider relative to 50, the default the
-          // NVDA driver, Android and iOS start from (SAPI sits at 55).
           char nbuf[32];
-          snprintf(nbuf, sizeof(nbuf), "%.2f", static_cast<double>(st->settings.inflection) / 50.0);
-          std::string s = nbuf;
-          while (!s.empty() && s.back() == '0') s.pop_back();
-          if (!s.empty() && s.back() == '.') s.pop_back();
-          sp.inflectionScale = s.empty() ? "1" : s;
+          snprintf(nbuf, sizeof(nbuf), "%.2f", suggested);
+          std::string sv = nbuf;
+          while (!sv.empty() && sv.back() == '0') sv.pop_back();
+          if (!sv.empty() && sv.back() == '.') sv.pop_back();
+          sp.inflectionScale = sv.empty() ? "1" : sv;
         }
         sp.note = fromProfile
-          ? L"The voicing and voice quality sliders and the inflection scale are written into this profile in phonemes.yaml. Its class scales and phoneme overrides stay as they are."
-          : L"A new profile is written to phonemes.yaml with the voicing and voice quality sliders, the inflection scale, and the pitch and formant shape of the built-in voice " + utf8ToWide(voice) + L", so it starts out sounding like it. It appears in the Voice list right away; Editor > Edit voice profiles can change it later.";
+          ? L"Writes the voicing sliders and the inflection scale into the profile in phonemes.yaml. Keep the name to update " + utf8ToWide(sourceProfile) + L"; a new name makes a copy of it with these changes. Voice quality sliders (creakiness, breathiness, jitter, shimmer, sharpness) are listener settings and are not saved."
+          : L"Makes a new profile in phonemes.yaml from the built-in voice " + utf8ToWide(voice) + L": its pitch and formant shape, the voicing sliders you moved, and the inflection scale. Voice quality sliders are listener settings and are not saved. The profile appears in the Voice list; Editor > Edit voice profiles can change it later.";
         if (!ShowSaveProfileDialog(GetModuleHandleW(nullptr), hDlg, sp) || !sp.ok) return TRUE;
 
         double inflScale = 1.0;
-        {
-          const char* txt = sp.inflectionScale.c_str();
-          char* end = nullptr;
-          const double v = strtod(txt, &end);
-          if (end != txt && v >= 0.0) inflScale = v;
+        if (!tgsb_editor::parseScaleStrict(sp.inflectionScale, inflScale)) inflScale = 1.0;
+
+        // Saving over a different existing profile replaces its voice source.
+        const bool destExists = std::find(st->voiceProfiles.begin(), st->voiceProfiles.end(), sp.name) != st->voiceProfiles.end();
+        if (destExists && sp.name != sourceProfile) {
+          const std::wstring q = L"A profile named \"" + utf8ToWide(sp.name) +
+              L"\" already exists. Replace its voice source and inflection scale with these? Its class scales and phoneme overrides stay.";
+          if (MessageBoxW(hDlg, q.c_str(), L"Save to Profile", MB_YESNO | MB_ICONQUESTION) != IDYES) return TRUE;
         }
+
+        const std::vector<int> baseline =
+            (fromProfile && st->runtime->toneBaselineProfile() == sourceProfile)
+                ? st->runtime->toneBaselineSliders() : std::vector<int>();
         std::string err;
         std::string note;
-        if (st->runtime->saveVoiceProfileSliders(sp.name, st->settings.voicingParams, st->settings.frameExParams, baseVoice, inflScale, err, note)) {
-          std::wstring msg = L"Saved profile \"" + utf8ToWide(sp.name) + L"\" in phonemes.yaml. The sliders are back at neutral; their values now live in the profile.";
+        if (st->runtime->saveVoiceProfileSliders(sp.name, st->settings.voicingParams,
+                                                 destExists && sp.name != sourceProfile ? std::string() : sourceProfile,
+                                                 destExists && sp.name != sourceProfile ? std::vector<int>() : baseline,
+                                                 baseVoice, inflScale, err, note)) {
+          std::wstring msg = L"Saved profile \"" + utf8ToWide(sp.name) +
+              L"\" in phonemes.yaml and selected it. The inflection slider is back at 50; the profile's scale carries the difference.";
           if (!note.empty()) msg += L"\n\n" + utf8ToWide(note);
           msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONINFORMATION);
 
-          // The values are baked in: reset the sliders so they do not apply twice.
-          for (size_t i = 0; i < st->settings.voicingParams.size(); ++i)
-            st->settings.voicingParams[i] = (i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
-          for (size_t i = 0; i < st->settings.frameExParams.size(); ++i)
-            st->settings.frameExParams[i] = (i == 4) ? 50 : 0;
-          populateParamList(GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST), st->voicingDisplayNames, st->settings.voicingParams);
-          populateParamList(GetDlgItem(hDlg, IDC_SPEECH_FRAMEEX_LIST), st->frameExParamNames, st->settings.frameExParams);
-
-          // Refresh the voice list and select the profile.
+          // Select the profile and show its voice source as stored.
           st->voiceProfiles = st->runtime->discoverVoiceProfiles();
           st->settings.voiceName = std::string(tgsb_editor::TgsbRuntime::kVoiceProfilePrefix) + sp.name;
-          HWND combo = GetDlgItem(hDlg, IDC_SPEECH_VOICE);
-          fillVoices(combo, st->settings.voiceName, st->voiceProfiles);
+          fillVoices(GetDlgItem(hDlg, IDC_SPEECH_VOICE), st->settings.voiceName, st->voiceProfiles);
           {
             std::string perr;
             st->runtime->setVoiceProfile(sp.name, perr);
           }
+          loadProfileSourceIntoSliders(st);
+          populateParamList(GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST), st->voicingDisplayNames, st->settings.voicingParams);
+          syncSelectedVoicingParamToUi();
+
+          // The scale now carries the inflection; the listener's slider is neutral.
+          st->settings.inflection = 50;
+          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_INFLECTION_SLIDER), st->settings.inflection);
+          setDlgIntText(hDlg, IDC_SPEECH_INFLECTION_VAL, st->settings.inflection);
         } else {
           std::wstring msg = L"Failed to save: " + utf8ToWide(err);
           msgBox(hDlg, msg.c_str(), L"Save to Profile", MB_ICONERROR);
@@ -1688,11 +1748,9 @@ static INT_PTR CALLBACK SaveProfileDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
         }
         std::string infl = wideToUtf8(inflBuf);
         {
-          const char* txt = infl.c_str();
-          char* end = nullptr;
-          const double v = strtod(txt, &end);
-          if (!infl.empty() && (end == txt || v < 0.0)) {
-            msgBox(hDlg, L"Inflection scale must be a number: 1 = as the listener set it, 1.3 = a third livelier.", L"Save to Profile", MB_ICONERROR);
+          double v = 1.0;
+          if (!infl.empty() && !tgsb_editor::parseScaleStrict(infl, v)) {
+            msgBox(hDlg, L"Inflection scale must be a number from 0 to 3: 1 = as the listener set it, 1.3 = a third livelier.", L"Save to Profile", MB_ICONERROR);
             return TRUE;
           }
         }
