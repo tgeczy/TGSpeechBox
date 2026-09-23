@@ -576,6 +576,19 @@ struct LanguagePack {
   // The definite article as a first word, as phoneme keys ("ᴒ", "ᴒ z" in hu).
   std::vector<std::u32string> aratoArticles;
 
+  // Microintonation (Arató §5.4): the PCF8200's "natural pulsation of formant
+  // frequencies and bandwidths" inside steady vowels, a two-state toggle every
+  // chip frame or two.  The emitter applies it to a vowel's steady portion.
+  // formantPulseMode: "off", "on", or "arato" (only while legacyPitchMode is
+  // arato_style).  Values measured on the BraiLab's vowels; ear-gated.
+  std::string formantPulseMode = "off";
+  double formantPulseMs = 12.8;        // one state per this many ms (the chip's frame)
+  double formantPulseF1Depth = 0.06;   // second state: F1 up by this fraction
+  double formantPulseF2Depth = 0.07;   // second state: F2 down by this fraction
+  double formantPulseBwScale = 2.5;    // B1 and B3 multiplied by this ...
+  double formantPulseBwEvery = 2.0;    // ... on every Nth second-state piece
+  double formantPulseFadeMs = 2.0;     // crossfade at the piece joins
+
   bool postStopAspirationEnabled = false;
   std::u32string postStopAspirationPhoneme = U"h";
 

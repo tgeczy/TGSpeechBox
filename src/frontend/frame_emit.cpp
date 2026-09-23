@@ -167,6 +167,14 @@ static void generateAcousticEvents(
                 "nvspFrontend_Frame must remain trivially copyable");
 
   const bool trillEnabled = (pack.lang.trillModulationMs > 0.0);
+  // Microintonation (Arató §5.4): pulse the steady portion of vowels when the
+  // pack asks for it outright, or asks for it with the Arató melodies and
+  // those are the active pitch mode.  Decided once per call.
+  const bool pulseActive =
+      pack.lang.formantPulseMode == "on" ||
+      (pack.lang.formantPulseMode == "arato" && pack.lang.legacyPitchMode == "arato_style");
+  const double pulseMs = std::max(4.0, pack.lang.formantPulseMs);
+  const int pulseBwEvery = std::max(1, static_cast<int>(pack.lang.formantPulseBwEvery + 0.5));
 
   const int vp = static_cast<int>(FieldId::voicePitch);
   const int evp = static_cast<int>(FieldId::endVoicePitch);
@@ -888,12 +896,17 @@ static void generateAcousticEvents(
                            double a1, double a2, double a3,
                            double ap1, double ap2, double ap3,
                            double e1, double e2, double e3,
-                           double ep1, double ep2, double ep3, bool ramp) {
+                           double ep1, double ep2, double ep3, bool ramp,
+                           double bwMul, double fadeOverride) {
           if (segDur <= 0.5) return;
           double mf[kFrameFieldCount];
           std::memcpy(mf, base, sizeof(mf));
           mf[icf1] = a1; mf[icf2] = a2; mf[icf3] = a3;
           mf[ipf1] = ap1; mf[ipf2] = ap2; mf[ipf3] = ap3;
+          if (bwMul != 1.0) {  // microintonation: the second state widens B1 and B3
+            mf[static_cast<int>(FieldId::cb1)] *= bwMul;
+            mf[static_cast<int>(FieldId::cb3)] *= bwMul;
+          }
           mf[vp] = p0 + pd * (pos / dur);
           mf[evp] = p0 + pd * ((pos + segDur) / dur);
 
@@ -923,7 +936,7 @@ static void generateAcousticEvents(
             segEx.fujisakiReset = 0.0;
             segEx.amplitudeOnsetMs = 0.0;  // the onset belongs to the first segment
           }
-          double fadeIn = firstSeg ? t.fadeMs : 3.0;
+          double fadeIn = firstSeg ? t.fadeMs : (fadeOverride >= 0.0 ? fadeOverride : 3.0);
           if (fadeIn > segDur) fadeIn = segDur;
 
           FELOG("  seg dur=%.1f fade=%.1f cf=%.0f/%.0f end=%.0f/%.0f\n",
@@ -939,13 +952,36 @@ static void generateAcousticEvents(
 
         if (tIn > 0.0) {
           emitSeg(tIn, onF1, onF2, onF3, base[ipf1], base[ipf2], base[ipf3],
-                  stF1, stF2, stF3, stPf1, stPf2, stPf3, true);
+                  stF1, stF2, stF3, stPf1, stPf2, stPf3, true, 1.0, -1.0);
         }
-        emitSeg(steadyDur, stF1, stF2, stF3, stPf1, stPf2, stPf3,
-                0, 0, 0, 0, 0, 0, false);
+        if (pulseActive && steadyDur >= 1.5 * pulseMs) {
+          // Microintonation (Arató §5.4): the steady portion alternates
+          // between two states, one piece per chip frame.  Odd pieces lift
+          // F1 and lower F2 (the parallel branch follows where it is set),
+          // and every Nth odd piece also widens B1 and B3.  Pitch and the
+          // amplitude line are sliced by emitSeg as usual; the joins get
+          // the short pulse fade.
+          const int n = std::max(2, static_cast<int>(steadyDur / pulseMs + 0.5));
+          const double piece = steadyDur / n;
+          const double d1 = lang.formantPulseF1Depth;
+          const double d2 = lang.formantPulseF2Depth;
+          for (int k = 0; k < n; ++k) {
+            const bool alt = (k % 2) == 1;
+            const bool bw = alt && (((k / 2) % pulseBwEvery) == 0);
+            const double f1 = alt ? stF1 * (1.0 + d1) : stF1;
+            const double f2 = alt ? stF2 * (1.0 - d2) : stF2;
+            const double q1 = (alt && stPf1 > 0.0) ? stPf1 * (1.0 + d1) : stPf1;
+            const double q2 = (alt && stPf2 > 0.0) ? stPf2 * (1.0 - d2) : stPf2;
+            emitSeg(piece, f1, f2, stF3, q1, q2, stPf3, 0, 0, 0, 0, 0, 0, false,
+                    bw ? lang.formantPulseBwScale : 1.0, lang.formantPulseFadeMs);
+          }
+        } else {
+          emitSeg(steadyDur, stF1, stF2, stF3, stPf1, stPf2, stPf3,
+                  0, 0, 0, 0, 0, 0, false, 1.0, -1.0);
+        }
         if (tOut > 0.0) {
           emitSeg(tOut, stF1, stF2, stF3, stPf1, stPf2, stPf3,
-                  exF1, exF2, exF3, exPf1, exPf2, exPf3, true);
+                  exF1, exF2, exF3, exPf1, exPf2, exPf3, true, 1.0, -1.0);
         }
 
         trajectoryState->prevCf2 = needOut ? exF2 : stF2;
@@ -1662,7 +1698,89 @@ static void generateAcousticEvents(
       }
     }
 
-    emitFn(&frame, &frameEx, mainDur, emitFade);
+    // Microintonation (Arató §5.4) for a vowel that did not take the
+    // three-segment path: one frame, either steady or ramping from its
+    // onset to an exit target.  It is cut into alternating pieces; a ramp is
+    // sliced linearly so each piece starts where the last one ended and the
+    // trajectory is unchanged, with the pulse riding on top.  Diphthong
+    // glides and trills keep their own paths.
+    const bool pulseThis = pulseActive && t.def && ((t.def->flags & kIsVowel) != 0) &&
+        !t.silence && !t.isDiphthongGlide && !(trillEnabled && tokenIsTrill(t)) &&
+        base[va] > 0.0 && mainDur >= 1.5 * pulseMs;
+    if (pulseThis) {
+      const int icf1 = static_cast<int>(FieldId::cf1);
+      const int icf2 = static_cast<int>(FieldId::cf2);
+      const int icf3 = static_cast<int>(FieldId::cf3);
+      const int ipf1 = static_cast<int>(FieldId::pf1);
+      const int ipf2 = static_cast<int>(FieldId::pf2);
+      const int ipf3 = static_cast<int>(FieldId::pf3);
+      const int icb1 = static_cast<int>(FieldId::cb1);
+      const int icb3 = static_cast<int>(FieldId::cb3);
+      const int n = std::max(2, static_cast<int>(mainDur / pulseMs + 0.5));
+      const double piece = mainDur / n;
+      const double d1 = lang.formantPulseF1Depth;
+      const double d2 = lang.formantPulseF2Depth;
+      const double p0 = base[vp];
+      const double pd = base[evp] - p0;
+      const bool hasAmpEnd = !nvsp_isnan(frameEx.endVoiceAmplitude) && base[va] > 0.0;
+      const double ampR = hasAmpEnd ? frameEx.endVoiceAmplitude / base[va] : 1.0;
+      // Slice a start->end ramp (NAN end = steady) at fractions fa..fb.
+      auto slice = [](double start, double end, double fa, double fb, double& s, double& e) {
+        if (nvsp_isnan(end)) { s = start; e = NAN; return; }
+        s = start + (end - start) * fa;
+        e = start + (end - start) * fb;
+      };
+      double pos = 0.0;
+      for (int k = 0; k < n; ++k) {
+        const bool alt = (k % 2) == 1;
+        const bool bw = alt && (((k / 2) % pulseBwEvery) == 0);
+        const double fa = pos / mainDur;
+        const double fb = (pos + piece) / mainDur;
+        double mf[kFrameFieldCount];
+        std::memcpy(mf, base, sizeof(mf));
+        nvspFrontend_FrameEx pieceEx = frameEx;
+        double s, e;
+        slice(base[icf1], frameEx.endCf1, fa, fb, s, e); mf[icf1] = s; pieceEx.endCf1 = e;
+        slice(base[icf2], frameEx.endCf2, fa, fb, s, e); mf[icf2] = s; pieceEx.endCf2 = e;
+        slice(base[icf3], frameEx.endCf3, fa, fb, s, e); mf[icf3] = s; pieceEx.endCf3 = e;
+        slice(base[ipf1], frameEx.endPf1, fa, fb, s, e); mf[ipf1] = s; pieceEx.endPf1 = e;
+        slice(base[ipf2], frameEx.endPf2, fa, fb, s, e); mf[ipf2] = s; pieceEx.endPf2 = e;
+        slice(base[ipf3], frameEx.endPf3, fa, fb, s, e); mf[ipf3] = s; pieceEx.endPf3 = e;
+        if (alt) {
+          mf[icf1] *= (1.0 + d1);
+          mf[icf2] *= (1.0 - d2);
+          if (!nvsp_isnan(pieceEx.endCf1)) pieceEx.endCf1 *= (1.0 + d1);
+          if (!nvsp_isnan(pieceEx.endCf2)) pieceEx.endCf2 *= (1.0 - d2);
+          if (mf[ipf1] > 0.0) mf[ipf1] *= (1.0 + d1);
+          if (mf[ipf2] > 0.0) mf[ipf2] *= (1.0 - d2);
+          if (!nvsp_isnan(pieceEx.endPf1) && pieceEx.endPf1 > 0.0) pieceEx.endPf1 *= (1.0 + d1);
+          if (!nvsp_isnan(pieceEx.endPf2) && pieceEx.endPf2 > 0.0) pieceEx.endPf2 *= (1.0 - d2);
+          if (bw) {
+            mf[icb1] *= lang.formantPulseBwScale;
+            mf[icb3] *= lang.formantPulseBwScale;
+          }
+        }
+        mf[vp] = p0 + pd * fa;
+        mf[evp] = p0 + pd * fb;
+        if (hasAmpEnd) {
+          mf[va] = base[va] * (1.0 + (ampR - 1.0) * (pos / mainDur));
+          pieceEx.endVoiceAmplitude = base[va] * (1.0 + (ampR - 1.0) * ((pos + piece) / mainDur));
+        }
+        if (k > 0) {
+          pieceEx.amplitudeOnsetMs = 0.0;  // one onset per vowel
+          pieceEx.fujisakiPhraseAmp = 0.0;
+          pieceEx.fujisakiAccentAmp = 0.0;
+          pieceEx.fujisakiReset = 0.0;
+        }
+        nvspFrontend_Frame pieceFrame;
+        std::memcpy(&pieceFrame, mf, sizeof(pieceFrame));
+        emitFn(&pieceFrame, &pieceEx, piece,
+               (k == 0) ? std::min(emitFade, piece) : lang.formantPulseFadeMs);
+        pos += piece;
+      }
+    } else {
+      emitFn(&frame, &frameEx, mainDur, emitFade);
+    }
     hadPrevFrame = true;
 
     prevTokenWasTap = false;

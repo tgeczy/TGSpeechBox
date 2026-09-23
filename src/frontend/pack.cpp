@@ -611,6 +611,14 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
       for (const auto& el : art->seq) if (el.isScalar()) lp.aratoArticles.push_back(utf8ToU32(el.scalar));
     }
   }
+  // Microintonation (Arató §5.4), applied by the frame emitter.
+  getStr("formantPulseMode", lp.formantPulseMode);
+  getNum("formantPulseMs", lp.formantPulseMs);
+  getNum("formantPulseF1Depth", lp.formantPulseF1Depth);
+  getNum("formantPulseF2Depth", lp.formantPulseF2Depth);
+  getNum("formantPulseBwScale", lp.formantPulseBwScale);
+  getNum("formantPulseBwEvery", lp.formantPulseBwEvery);
+  getNum("formantPulseFadeMs", lp.formantPulseFadeMs);
 
   getBool("postStopAspirationEnabled", lp.postStopAspirationEnabled);
   {
