@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "speechPlayer.h"
+#include "voicingToneCompose.h"
 #include "nvspFrontend.h"
 
 // ============================================================================
@@ -722,8 +723,12 @@ int main(int argc, char** argv) {
   reapplyPitchMode();
   if (!pitchMode.empty()) dbg("CONFIG: pitchMode=%s", pitchMode.c_str());
 
-  // Build voicing tone from config sliders (same mapping as tgsbRender / NVDA driver)
-  {
+  // Build the voicing tone from the config sliders; with a voice profile that
+  // has its own voicingTone block, that stored voice source is the base and
+  // the configured settings compose with it (src/voicingToneCompose.h, the
+  // same rule as NVDA, SAPI, Android and iOS).  Called at startup and after
+  // every voice change.
+  auto applyVoicingTone = [&]() {
     // VoicingTone struct — must match voicingTone.h layout
     struct VT {
       uint32_t magic, structSize, structVersion, dspVersion;
@@ -775,8 +780,45 @@ int main(int argc, char** argv) {
       dbg("CONFIG: voicing tone applied (16 params)");
     }
 
+    // A profile with its own voicingTone block: its stored values are the
+    // base, and each configured setting composes with them (an unset one is
+    // neutral).  The listener values use the NVDA driver's slider mapping so
+    // that a setting at its documented neutral (50, or 0 for noise and
+    // tremor) leaves the profile exactly as saved.
+    {
+      nvspFrontend_VoicingTone pt;
+      memset(&pt, 0, sizeof(pt));
+      const char* prof = nvspFrontend_getVoiceProfile(fe);
+      if (prof && prof[0] && nvspFrontend_getVoicingTone(fe, &pt)) {
+        vt.voicingPeakPos = pt.voicingPeakPos;  vt.voicedPreEmphA = pt.voicedPreEmphA;
+        vt.voicedPreEmphMix = pt.voicedPreEmphMix;  vt.highShelfGainDb = pt.highShelfGainDb;
+        vt.highShelfFcHz = pt.highShelfFcHz;  vt.highShelfQ = pt.highShelfQ;
+        vt.voicedTiltDbPerOct = pt.voicedTiltDbPerOct;  vt.noiseGlottalModDepth = pt.noiseGlottalModDepth;
+        vt.pitchSyncF1DeltaHz = pt.pitchSyncF1DeltaHz;  vt.pitchSyncB1DeltaHz = pt.pitchSyncB1DeltaHz;
+        vt.speedQuotient = pt.speedQuotient;  vt.aspirationTiltDbPerOct = pt.aspirationTiltDbPerOct;
+        vt.cascadeBwScale = pt.cascadeBwScale;  vt.tremorDepth = pt.tremorDepth;
+        vt.nasalBwScale = pt.nasalBwScale;  vt.f4FreqScale = pt.f4FreqScale;
+        vt.nasalGainScale = pt.nasalGainScale;
+        const bool o = hasVoicingToneOverride;
+        auto cl = [](int v) { return (double)(v < 0 ? 0 : v > 100 ? 100 : v); };
+        const double sqS = cl(vtSpeedQuotient), bwS = cl(vtCascadeBwScale);
+        speechPlayer_composeListenerSettings(reinterpret_cast<speechPlayer_voicingTone_t*>(&vt),
+            o ? (cl(vtVoicedTiltDbPerOct) - 50.0) * 0.48 : 0.0,
+            o ? cl(vtNoiseGlottalModDepth) / 100.0 : 0.0,
+            o ? (cl(vtPitchSyncF1DeltaHz) - 50.0) * 1.2 : 0.0,
+            o ? (cl(vtPitchSyncB1DeltaHz) - 50.0) * 1.0 : 0.0,
+            o ? (sqS <= 50.0 ? 0.5 + (sqS / 50.0) * 1.5 : 2.0 + ((sqS - 50.0) / 50.0) * 2.0) : 2.0,
+            o ? (cl(vtAspirationTiltDbPerOct) - 50.0) * 0.24 : 0.0,
+            o ? (bwS <= 50.0 ? 2.0 - bwS / 50.0 : 1.0 - ((bwS - 50.0) / 50.0) * 0.7) : 1.0,
+            o ? (cl(vtTremor) / 100.0) * 0.4 : 0.0,
+            1.0, 1.0, 1.0);
+        dbg("VOICE: profile '%s' voice source applied", prof);
+      }
+    }
+
     speechPlayer_setVoicingTone(player, (const speechPlayer_voicingTone_t*)&vt);
-  }
+  };
+  applyVoicingTone();
 
   // Apply built-in voice
   const BuiltinVoice* activeVoice = findBuiltinVoice(voiceName.c_str());
@@ -898,6 +940,7 @@ int main(int argc, char** argv) {
           } else if (!cleanName.empty()) {
             nvspFrontend_setVoiceProfile(fe, cleanName.c_str());
           }
+          applyVoicingTone();  // a profile's own voice source, or the config's
         }
         else if (key == "language") {
           // SD sends "c", "C", or "NULL" for unset language — keep default
