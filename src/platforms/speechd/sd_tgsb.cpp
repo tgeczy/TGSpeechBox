@@ -802,7 +802,14 @@ int main(int argc, char** argv) {
         const bool o = hasVoicingToneOverride;
         auto cl = [](int v) { return (double)(v < 0 ? 0 : v > 100 ? 100 : v); };
         const double sqS = cl(vtSpeedQuotient), bwS = cl(vtCascadeBwScale);
-        speechPlayer_composeListenerSettings(reinterpret_cast<speechPlayer_voicingTone_t*>(&vt),
+        // Compose on a real speechPlayer_voicingTone_t and copy back: writing
+        // to the local VT through a cast pointer breaks strict aliasing, and
+        // GCC -O2 then read stale fields (found on the Linux VM, 2026-09-23:
+        // the configured settings silently did not compose).
+        static_assert(sizeof(VT) == sizeof(speechPlayer_voicingTone_t), "VT must match speechPlayer_voicingTone_t");
+        speechPlayer_voicingTone_t composed;
+        memcpy(&composed, &vt, sizeof(composed));
+        speechPlayer_composeListenerSettings(&composed,
             o ? (cl(vtVoicedTiltDbPerOct) - 50.0) * 0.48 : 0.0,
             o ? cl(vtNoiseGlottalModDepth) / 100.0 : 0.0,
             o ? (cl(vtPitchSyncF1DeltaHz) - 50.0) * 1.2 : 0.0,
@@ -812,13 +819,19 @@ int main(int argc, char** argv) {
             o ? (bwS <= 50.0 ? 2.0 - bwS / 50.0 : 1.0 - ((bwS - 50.0) / 50.0) * 0.7) : 1.0,
             o ? (cl(vtTremor) / 100.0) * 0.4 : 0.0,
             1.0, 1.0, 1.0);
+        memcpy(&vt, &composed, sizeof(vt));
         dbg("VOICE: profile '%s' voice source applied: tilt %.2f sq %.3f f4 %.3f shelf %.2f nasalBw %.2f nasalGain %.2f cbw %.2f",
             prof, vt.voicedTiltDbPerOct, vt.speedQuotient, vt.f4FreqScale, vt.highShelfGainDb,
             vt.nasalBwScale, vt.nasalGainScale, vt.cascadeBwScale);
       }
     }
 
-    speechPlayer_setVoicingTone(player, (const speechPlayer_voicingTone_t*)&vt);
+    {
+      speechPlayer_voicingTone_t out;  // a real object, not a cast (strict aliasing)
+      static_assert(sizeof(VT) == sizeof(speechPlayer_voicingTone_t), "VT must match speechPlayer_voicingTone_t");
+      memcpy(&out, &vt, sizeof(out));
+      speechPlayer_setVoicingTone(player, &out);
+    }
   };
   applyVoicingTone();
 
