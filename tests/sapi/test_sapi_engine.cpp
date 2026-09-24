@@ -176,6 +176,31 @@ const std::wstring kLong =
 
 }  // namespace
 
+// Each Speak() call is an utterance of its own (#127): the frontend used to
+// carry its stream state from one call into the next, so an item that starts
+// with a vowel began 20 ms later after a word ending in a consonant than
+// after one ending in a vowel.
+TEST_CASE("an item starts the same whatever was spoken before it") {
+    ComScope com;
+    Engine engine(L"en-us");
+    const int level = 400;
+    auto onsetAfter = [&](const wchar_t* before) {
+        HostSite prev;
+        engine.speak(before, prev);
+        HostSite item;
+        engine.speak(L"Applications", item);
+        return onset(item.audio, level);
+    };
+    const size_t afterVowel = onsetAfter(L"idea");
+    const size_t afterConsonant = onsetAfter(L"desktop");
+    const size_t afterNothing = onsetAfter(L"Applications");
+    const double rate = engine.fmt.nSamplesPerSec / 1000.0;
+    MESSAGE("onset after idea " << afterVowel / rate << " ms, after desktop " << afterConsonant / rate
+                                << " ms, after itself " << afterNothing / rate << " ms");
+    CHECK(std::fabs(static_cast<double>(afterConsonant) - static_cast<double>(afterVowel)) / rate <= 1.0);
+    CHECK(std::fabs(static_cast<double>(afterNothing) - static_cast<double>(afterVowel)) / rate <= 1.0);
+}
+
 // #135 (Edu): tabbing fast under NVDA or Narrator, "a small residue of the
 // previous word or phrase at the start of the next one", easier to hear at
 // slow rates.  A host abort must leave nothing of the old utterance behind:

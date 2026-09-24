@@ -227,6 +227,15 @@ class NvspFrontend(object):
         except AttributeError:
             pass
 
+        # beginStream (optional - may not exist in older DLLs)
+        self._hasBeginStreamApi = False
+        try:
+            self._dll.nvspFrontend_beginStream.argtypes = [ctypes.c_void_p]
+            self._dll.nvspFrontend_beginStream.restype = None
+            self._hasBeginStreamApi = True
+        except AttributeError:
+            pass
+
         # FrameEx API (ABI v2+) - optional, may not exist in older DLLs
         self._hasFrameExApi = False
         try:
@@ -429,6 +438,16 @@ class NvspFrontend(object):
         except Exception:
             log.debug("TGSpeechBox: getVoiceProfile failed", exc_info=True)
             return ""
+
+    def beginStream(self) -> None:
+        """Make the next queued chunk the first of a new utterance: no
+        boundary gap before it, nothing carried over from the last one."""
+        if not self._dll or not self._h or not self._hasBeginStreamApi:
+            return
+        try:
+            self._dll.nvspFrontend_beginStream(self._h)
+        except Exception:
+            log.debug("TGSpeechBox: beginStream failed", exc_info=True)
 
     def getPackWarnings(self) -> str:
         """Get non-fatal warnings from pack loading."""

@@ -62,6 +62,8 @@ public:
     int synthesize(int max_samples, sample* out_samples);
     // Drop everything queued and leave the synthesizer empty.
     void purge();
+    // The next queue_text() starts a new utterance in the frontend.
+    void begin_stream();
 
     // Samples the last queue_text() put on the DSP queue (the sum of the
     // frames' minimum lengths): a lower bound on the audio it will produce,

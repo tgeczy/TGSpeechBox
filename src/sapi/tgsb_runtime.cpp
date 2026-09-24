@@ -928,6 +928,11 @@ void runtime::purge()
     while (speechPlayer_synthesize(speech_player_, 512, drain) > 0) {}
 }
 
+void runtime::begin_stream()
+{
+    if (frontend_) nvspFrontend_beginStream(frontend_);
+}
+
 // ------------ Preset and volume ------------
 
 void runtime::apply_preset_and_volume(void* frame_ptr, const speak_params& params)

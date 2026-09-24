@@ -274,6 +274,7 @@ class SynthDriver(
         self._bgQueue: "queue.Queue" = queue.Queue()
         self._bgStop = threading.Event()
         self._speakGen = 0  # Generation counter: cancel/speak race guard
+        self._newStreamPending = False  # set by cancel(), applied by _speakBg
         self._bgThread = BgThread(self._bgQueue, self._bgStop, onError=self._onBgThreadError)
         self._bgThread.start()
 
@@ -729,6 +730,9 @@ class SynthDriver(
             # Bump generation to invalidate any in-flight or pending _speakBg jobs.
             # BgThread checks this counter between chunks and inside _onFrame callbacks.
             self._speakGen += 1
+            # The next utterance starts a new frontend stream (#127); the
+            # BgThread applies it before it queues anything.
+            self._newStreamPending = True
 
             # Drain pending jobs as an optimisation (they'd bail on generation
             # mismatch anyway, but this avoids the dequeue-and-bail overhead).

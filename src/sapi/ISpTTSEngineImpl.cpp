@@ -472,6 +472,10 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         (void)rt_->set_language(lang_tag);
     }
 
+    // Each Speak() call is an utterance of its own: nothing about how the
+    // last one ended carries into this one (#127).
+    rt_->begin_stream();
+
     speak_context ctx;
     ctx.site = pOutputSite;
 

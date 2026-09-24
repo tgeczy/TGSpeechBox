@@ -247,6 +247,16 @@ NVSP_FRONTEND_API void nvspFrontend_setOverrideDirectory(nvspFrontend_handle_t h
 NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, const char* langTagUtf8);
 
 /*
+  Start a new stream.  queueIPA puts a short gap between consecutive chunks
+  of one utterance and remembers how the last chunk ended; after this call
+  the next chunk is the first of a new utterance, with no gap before it and
+  nothing carried over.  Call it when speech is interrupted or a new
+  utterance begins, so a word does not depend on what was spoken before it
+  (#127).  setLanguage() does the same.
+*/
+NVSP_FRONTEND_API void nvspFrontend_beginStream(nvspFrontend_handle_t handle);
+
+/*
   Convert IPA text into frames.
 
   Inputs:

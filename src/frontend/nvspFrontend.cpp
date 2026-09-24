@@ -76,6 +76,15 @@ NVSP_FRONTEND_API void nvspFrontend_setOverrideDirectory(
       ? std::string(overrideDirUtf8) : std::string();
 }
 
+NVSP_FRONTEND_API void nvspFrontend_beginStream(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return;
+  std::lock_guard<std::mutex> lock(h->mu);
+  h->streamHasSpeech = false;
+  h->lastEndsVowelLike = false;
+}
+
 NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, const char* langTagUtf8) {
   using namespace nvsp_frontend;
   Handle* h = asHandle(handle);

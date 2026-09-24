@@ -337,6 +337,13 @@ class SpeechPipelineMixin:
         # Bail immediately if a cancel() already invalidated this generation
         if generation != self._speakGen:
             return
+        # After an interruption the next utterance starts a new stream in the
+        # frontend, so it does not depend on what was cut off (#127).  Done
+        # here, on the thread that queues IPA, so a chunk still in flight when
+        # cancel() ran cannot undo it.
+        if getattr(self, "_newStreamPending", False):
+            self._newStreamPending = False
+            self._frontend.beginStream()
         hadRealSpeech = False
         hadKickedAudio = False  # streaming: kick AudioThread after first chunk
         hasIndex = bool(IndexCommand) and any(isinstance(i, IndexCommand) for i in speakList)
