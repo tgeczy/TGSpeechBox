@@ -478,18 +478,22 @@ class SynthDriver(
                     return t
             return ""
 
-        # 1. Try NVDA UI language directly (exact or base match).
+        # 1. A bare NVDA UI language (e.g. "en") says nothing about the
+        #    region, so the OS locale's regional variant wins when we have
+        #    one: NVDA in English on Windows en_GB is en-gb, not the first
+        #    English in our list.
+        nvdaBase = nvdaLang.split("-", 1)[0]
+        if "-" not in nvdaLang and winLang.startswith(nvdaBase + "-"):
+            regional = _findMatch(winLang)
+            if regional and regional.split("-", 1)[0] == nvdaBase:
+                return regional
+
+        # 2. Otherwise the NVDA UI language directly (exact or base match).
         match = _findMatch(nvdaLang)
         if match:
-            # If the match is a bare base tag (e.g. "en") and the OS locale
-            # gives a more specific regional variant, prefer that.
-            if match == nvdaLang.split("-", 1)[0] and winLang.startswith(match + "-"):
-                regional = _findMatch(winLang)
-                if regional:
-                    return regional
             return match
 
-        # 2. Fall back to OS locale (covers cases where NVDA returns an
+        # 3. Fall back to OS locale (covers cases where NVDA returns an
         #    unusual tag that doesn't match but the OS locale does).
         if winLang:
             match = _findMatch(winLang)

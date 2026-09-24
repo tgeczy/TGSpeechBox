@@ -36,6 +36,15 @@ _voiceOps = buildVoiceOps(voices, _frameFieldNames)
 del _frameFieldNames
 
 
+def _autoDialectSwitching() -> bool:
+    # NVDA's "Automatic dialect switching" (speech settings).
+    try:
+        import config
+        return bool(config.conf["speech"]["autoDialectSwitching"])
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Letter-name dictionaries — per-language TSV files mapping single characters
 # to their spoken names (e.g. Spanish ó → "o acentuada", y → "i griega").
@@ -148,8 +157,19 @@ class SpeechPipelineMixin:
         if not nvdaLang:
             return None
         t = str(nvdaLang).strip().lower().replace("_", "-")
-        if not t:
+        if not t or t == "auto":
             return None
+        # Text in the user's own language keeps the user's dialect.  NVDA does
+        # this itself by comparing the text's language with the synth's
+        # `language`, but ours is "auto" by default, which NVDA cannot compare,
+        # so every tag arrives as the page wrote it: plain "pt" chose European
+        # Portuguese for a Brazilian user (#127), plain "es" Spain for a
+        # Mexican one.  A bare tag says nothing about the dialect; an explicit
+        # one is followed only with NVDA's automatic dialect switching on.
+        own = getattr(self, "_resolvedLang", "en-us") or "en-us"
+        if t.split("-", 1)[0] == own.split("-", 1)[0]:
+            if "-" not in t or not _autoDialectSwitching():
+                return None
         if t in _languages:
             return t
         base = t.split("-", 1)[0]
