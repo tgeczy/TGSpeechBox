@@ -74,21 +74,33 @@ def pytest_collection_modifyitems(config, items):
 # Staging
 # ---------------------------------------------------------------------------
 
-def _copy_if_newer(src: pathlib.Path, dst: pathlib.Path) -> None:
-    if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime and dst.stat().st_size == src.stat().st_size:
+def _copy_if_different(src: pathlib.Path, dst: pathlib.Path) -> None:
+    import filecmp
+    if dst.exists() and filecmp.cmp(src, dst, shallow=False):
         return
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
 
 
+_staged = False
+
+
 def _stage_addon() -> None:
-    """Lay the add-on out as scripts/package does, from this tree's sources."""
+    """Lay the add-on out as scripts/package does, from this tree's sources
+    and the DLLs tests/conftest.py has just built.  Once per session; files
+    are compared by content, so what is staged is always what is in the tree."""
+    global _staged
+    if _staged:
+        return
     STAGE.mkdir(parents=True, exist_ok=True)
+    for stale in STAGE.glob("*.py"):
+        if not (ADDON_SRC / stale.name).exists() and stale.name != "speechPlayer.py":
+            stale.unlink()  # a module deleted from the tree must not linger here
     for py in ADDON_SRC.glob("*.py"):
-        _copy_if_newer(py, STAGE / py.name)
-    _copy_if_newer(REPO / "speechPlayer.py", STAGE / "speechPlayer.py")
+        _copy_if_different(py, STAGE / py.name)
+    _copy_if_different(REPO / "speechPlayer.py", STAGE / "speechPlayer.py")
     for name in ("nvspFrontend.dll", "speechPlayer.dll"):
-        _copy_if_newer(DLL_DIR / name, STAGE / "x64" / name)
+        _copy_if_different(DLL_DIR / name, STAGE / "x64" / name)
     # packs/ fresh every session: the driver writes language settings back
     # into its own packs, and a test must never see another test's writes.
     packs = STAGE / "packs"
@@ -98,6 +110,7 @@ def _stage_addon() -> None:
     (packs / ".defaults").mkdir(exist_ok=True)
     for y in (REPO / "packs" / "lang").glob("*.yaml"):
         shutil.copy2(y, packs / ".defaults" / y.name)
+    _staged = True
 
 
 # ---------------------------------------------------------------------------
@@ -374,7 +387,8 @@ def _install_fake_nvda() -> None:
 
 
 if not _missing():
-    _stage_addon()
+    # The fakes go in at import; the add-on is staged when the first test
+    # needs it, after tests/conftest.py has built the DLLs.
     _install_fake_nvda()
 
 
@@ -480,6 +494,7 @@ def record_frames(driver):
 
 @pytest.fixture
 def harness():
+    _stage_addon()
     from synthDrivers import tgSpeechBox
     FakeWavePlayer.instances.clear()
     driver = tgSpeechBox.SynthDriver()

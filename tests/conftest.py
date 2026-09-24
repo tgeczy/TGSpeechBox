@@ -40,6 +40,33 @@ def _find_dll() -> pathlib.Path:
     )
 
 
+def pytest_sessionstart(session):
+    """Build the DLLs the tests load before anything is collected.
+
+    The tests load build-<arch>-nvda/MinSizeRel's nvspFrontend.dll and
+    speechPlayer.dll, and tests/nvda stages them into its add-on copy.  A
+    source change without a rebuild would otherwise be tested against the
+    old engine, silently.  An up-to-date build takes a few seconds.  Set
+    TGSB_NO_BUILD=1 to test whatever is built.
+    """
+    if os.environ.get("TGSB_NO_BUILD"):
+        return
+    import shutil
+    import subprocess
+    arch = "x86" if _is_32bit_python() else "x64"
+    build_dir = REPO_ROOT / f"build-{arch}-nvda"
+    cmake = shutil.which("cmake")
+    if not cmake or not (build_dir / "CMakeCache.txt").is_file():
+        return  # nothing to build with; _find_dll() reports a missing DLL
+    result = subprocess.run(
+        [cmake, "--build", str(build_dir), "--config", "MinSizeRel",
+         "--target", "nvspFrontend", "speechPlayer"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if result.returncode != 0:
+        pytest.exit(f"\nbuilding the DLLs under test failed (cmake --build {build_dir}):\n"
+                    f"{result.stdout[-3000:]}\n{result.stderr[-2000:]}", returncode=2)
+
+
 def _find_pack_dir() -> pathlib.Path:
     """Returns the directory containing the 'packs' subfolder (i.e. repo root)."""
     p = REPO_ROOT / "packs"
