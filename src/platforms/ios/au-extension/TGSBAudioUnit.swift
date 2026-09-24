@@ -777,6 +777,11 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     // after the last sound.  VoiceOver cancels the tail the moment the user
     // moves on, exactly as it does with eSpeak's (#132).
     private static let endOfRequestPauseMs = 300
+    // Pause at an SSML sentence or paragraph end, at the "long" setting and
+    // scaled by the pause mode like the breaks. iOS 27 VoiceOver separates an
+    // element's parts ("Dock" / "Messages", "Search" / "Page 4 of 4") with
+    // <s> elements rather than breaks (#132).
+    private static let sentencePauseMs = 300
 
     private func firstCapture(_ pattern: String, in s: String) -> String? {
         guard let re = try? NSRegularExpression(pattern: pattern,
@@ -827,31 +832,63 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     // contour mid-utterance.
     private func extractSegments(from ssml: String,
                                  pauseScalePercent: Int) -> [SpeechSegment] {
+        // Split on <break> tags and on sentence/paragraph ends. iOS 27
+        // VoiceOver sends an element's parts as SSML sentences in ONE
+        // request -- <s>Dock</s><s>Messages</s><s>493 unread messages</s>,
+        // <s>Search</s><s>Page 4 of 4</s>, <s>TGSpeechBox</s><s>Recently
+        // updated</s> -- where it used to put a <break> between them.
+        // Stripping the tags ran the parts together with no boundary at
+        // all; eSpeak pauses at every </s>, which is the gap its users
+        // hear. Each </s> or </p> is now a pause-mode-scaled boundary
+        // (sentencePauseMs: off 0, short 150, long 300 ms).
         guard let re = try? NSRegularExpression(
-            pattern: #"<break\b[^>]*/?\s*>"#, options: [.caseInsensitive])
+            pattern: #"<break\b[^>]*/?\s*>|</\s*(?:s|p)\s*>"#,
+            options: [.caseInsensitive])
         else {
             return [SpeechSegment(text: extractPlainText(from: ssml),
                                   pauseAfterMs: 0)]
         }
         let ns = ssml as NSString
-        var out: [SpeechSegment] = []
+        var raw: [SpeechSegment] = []
         var cursor = 0
         for m in re.matches(in: ssml,
                             range: NSRange(location: 0, length: ns.length)) {
             let text = ns.substring(
                 with: NSRange(location: cursor,
                               length: m.range.location - cursor))
-            out.append(SpeechSegment(
-                text: extractPlainText(from: text),
-                pauseAfterMs: scaledBreakMs(
-                    fromTag: ns.substring(with: m.range),
-                    scalePercent: pauseScalePercent)))
+            let tag = ns.substring(with: m.range)
+            let pauseMs = tag.hasPrefix("</")
+                ? scaledSentencePauseMs(scalePercent: pauseScalePercent)
+                : scaledBreakMs(fromTag: tag, scalePercent: pauseScalePercent)
+            raw.append(SpeechSegment(text: extractPlainText(from: text),
+                                     pauseAfterMs: pauseMs))
             cursor = m.range.location + m.range.length
         }
-        out.append(SpeechSegment(
+        raw.append(SpeechSegment(
             text: extractPlainText(from: ns.substring(from: cursor)),
             pauseAfterMs: 0))
+
+        // A boundary with no text before it folds into the previous
+        // segment and the longer pause wins, so "</s><s><break
+        // 800ms/></s>" stays one 800 ms gap instead of 300 + 800.
+        var out: [SpeechSegment] = []
+        for seg in raw {
+            if seg.text.isEmpty, let last = out.indices.last {
+                out[last].pauseAfterMs = max(out[last].pauseAfterMs,
+                                             seg.pauseAfterMs)
+            } else {
+                out.append(seg)
+            }
+        }
         return out
+    }
+
+    // Sentence-boundary pause, scaled like the breaks: 0% drops it, and a
+    // nonzero result is floored at 30 ms like scaledBreakMs.
+    private func scaledSentencePauseMs(scalePercent: Int) -> Int {
+        let pct = max(0, min(scalePercent, 200))
+        guard pct > 0 else { return 0 }
+        return max(Self.sentencePauseMs * pct / 100, 30)
     }
 
     private func extractPlainText(from ssml: String) -> String {
