@@ -40,6 +40,8 @@ public:
     size_t abortAfterBytes = SIZE_MAX;
     long rate = 0;
     size_t bytes = 0;
+    // When the first audio arrived (QueryPerformanceCounter ticks, 0 = none).
+    LONGLONG firstWriteTicks = 0;
 
     // IUnknown (stack object: reference counting is a formality)
     STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
@@ -71,6 +73,11 @@ public:
             return S_OK;
         }
         const auto* s = static_cast<const int16_t*>(buf);
+        if (!firstWriteTicks && cb) {
+            LARGE_INTEGER now;
+            QueryPerformanceCounter(&now);
+            firstWriteTicks = now.QuadPart;
+        }
         audio.insert(audio.end(), s, s + cb / sizeof(int16_t));
         bytes += cb;
         if (written) *written = cb;
@@ -175,6 +182,37 @@ const std::wstring kLong =
     L"reader can cut it off part way through, the way tabbing past an item does";
 
 }  // namespace
+
+// #128 (29-Bloo, Edu): "the longer the text, the longer the synthesizer takes
+// to respond".  The engine renders and hands audio over as it goes, so the
+// first audio of a long post arrives as soon as a short item's does.
+TEST_CASE("a long text starts speaking as soon as a short one (#128)") {
+    ComScope com;
+    Engine engine(L"en-us");
+    LARGE_INTEGER freq;
+    QueryPerformanceFrequency(&freq);
+    auto firstAudioMs = [&](const std::wstring& text) {
+        std::vector<double> ms;
+        for (int i = 0; i < 5; ++i) {
+            HostSite site;
+            LARGE_INTEGER t0;
+            QueryPerformanceCounter(&t0);
+            engine.speak(text, site);
+            REQUIRE(site.firstWriteTicks != 0);
+            ms.push_back((site.firstWriteTicks - t0.QuadPart) * 1000.0 / freq.QuadPart);
+        }
+        std::sort(ms.begin(), ms.end());
+        return ms[ms.size() / 2];
+    };
+    std::wstring post;
+    for (int i = 0; i < 12; ++i)
+        post += L"This is one of the long posts people read with a screen reader every day, and it goes on "
+                L"without much punctuation so that a whole clause is long enough to matter ";
+    const double shortMs = firstAudioMs(L"Documents");
+    const double longMs = firstAudioMs(post);
+    MESSAGE("first audio: short item " << shortMs << " ms, " << post.size() << "-character post " << longMs << " ms");
+    CHECK(longMs <= shortMs + 15.0);
+}
 
 // Each Speak() call is an utterance of its own (#127): the frontend used to
 // carry its stream state from one call into the next, so an item that starts
