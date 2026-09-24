@@ -60,6 +60,7 @@ public:
     HRESULT set_voice_profile(const std::wstring& profile_name);
     HRESULT queue_text(const std::wstring& text, const speak_params& params);
     int synthesize(int max_samples, sample* out_samples);
+    // Drop everything queued and leave the synthesizer empty.
     void purge();
 
     // Samples the last queue_text() put on the DSP queue (the sum of the

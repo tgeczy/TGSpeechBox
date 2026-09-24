@@ -301,12 +301,10 @@ ISpTTSEngineImpl::ISpTTSEngineImpl()
     std::lock_guard<std::mutex> lock(g_cache_mutex);
     if (g_cached_runtime) {
         rt_ = std::move(g_cached_runtime);
-        // Fully drain any stale DSP state so the synthesizer is empty.
-        // purge() queues a silence frame; drain it so it doesn't fill
-        // the Win7 audio buffer and cause Write(0) on the next Speak().
+        // Leave the synthesizer empty (purge() drains what it queues), so
+        // nothing stale fills the Win7 audio buffer and causes Write(0) on
+        // the next Speak().
         rt_->purge();
-        tgsb::sample_t drain[512];
-        while (rt_->synthesize(512, drain) > 0) {}
     } else {
         rt_ = std::make_unique<tgsb::runtime>();
     }
@@ -319,8 +317,6 @@ ISpTTSEngineImpl::~ISpTTSEngineImpl()
     std::lock_guard<std::mutex> lock(g_cache_mutex);
     if (!g_cached_runtime && rt_) {
         rt_->purge();
-        tgsb::sample_t drain[512];
-        while (rt_->synthesize(512, drain) > 0) {}
         g_cached_runtime = std::move(rt_);
     }
 }

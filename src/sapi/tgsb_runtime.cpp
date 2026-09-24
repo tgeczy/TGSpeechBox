@@ -919,6 +919,13 @@ void runtime::purge()
     };
 
     speechPlayer_queueFrame(speech_player_, nullptr, ms_to_samples(20.0), ms_to_samples(5.0), 0, true);
+
+    // Play the fade and the silence away here.  After an abort the host has
+    // stopped taking audio, and anything left in the player would open the
+    // next Speak() call: 5 ms of the old voice, then 20 ms of silence
+    // (stretched at slow rates), before the new text starts (#135).
+    sample drain[512];
+    while (speechPlayer_synthesize(speech_player_, 512, drain) > 0) {}
 }
 
 // ------------ Preset and volume ------------

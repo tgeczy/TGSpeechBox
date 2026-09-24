@@ -260,6 +260,10 @@ if(WIN32 AND TGSB_BUILD_SAPI)
 
   set_target_properties(TGSpeechSapi PROPERTIES OUTPUT_NAME "TGSpeechSapi")
 
+  if(TGSB_BUILD_TESTS)
+    add_subdirectory(tests/sapi)
+  endif()
+
   # --- TGSpeechSapiSettings.exe ---
 
   add_executable(TGSpeechSapiSettings WIN32
