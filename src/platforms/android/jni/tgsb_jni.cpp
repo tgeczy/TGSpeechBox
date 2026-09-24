@@ -781,6 +781,9 @@ static void rebuildVoicingTone(TgsbEngine *engine)
             u ? engine->userNasalBwScale : 1.0,
             u ? engine->userF4FreqScale : 1.0,
             u ? engine->userNasalGainScale : 1.0);
+        LOGI("Profile '%s' voice source applied: tilt %.2f sq %.3f f4 %.3f shelf %.2f nasalBw %.2f nasalGain %.2f cbw %.2f (user settings %s)",
+             profile, tone.voicedTiltDbPerOct, tone.speedQuotient, tone.f4FreqScale, tone.highShelfGainDb,
+             tone.nasalBwScale, tone.nasalGainScale, tone.cascadeBwScale, u ? "composed" : "neutral");
     } else {
         const VoicePreset *vp = &kPresets[engine->voiceIndex];
         if (vp->hasVoicedTilt)
