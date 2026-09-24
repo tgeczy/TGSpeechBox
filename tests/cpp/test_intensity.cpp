@@ -96,10 +96,8 @@ TEST_CASE_FIXTURE(HandleFixture,
     REQUIRE(!res.pcm.empty());
     REQUIRE(!tr.empty());
 
-    // Post /ɣ/→/ɡ_es/ routing change: prefix-match "ɡ" finds /ɡ_es/.
-    // Note: the original /ɣ/ approximant-character assertions below may
-    // be inappropriate for /ɡ_es/ stop — kept for now as diagnostic.
-    const int gIdx = findPhonemeFrameIdx(tr, "ɡ");
+    // /ɣ_es/: intervocalic /ɣ/ routes to /ɣ_es/, a voiced velar fricative (3b3d448, 2026-05-01).
+    const int gIdx = findPhonemeFrameIdx(tr, "ɣ");
     REQUIRE(gIdx >= 0);
     const long g_start = (gIdx < static_cast<int>(res.samplePositions.size()))
         ? static_cast<long>(res.samplePositions[gIdx]) : -1;

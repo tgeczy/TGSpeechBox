@@ -109,43 +109,42 @@ def test_g_and_l_acoustic_distinction_minimal_context(es_mx):
 # the dialect replacement (s -> s_es vs s -> s_mx) isn't firing.
 # ---------------------------------------------------------------------------
 
+def _s_frame(records):
+    """The /s/ of "kasa": the strongest frication frame between the two vowels
+    (the /k/ burst before the first vowel is not it)."""
+    voiced = [i for i, r in enumerate(records) if r.frame_dict["voiceAmplitude"] > 0.5]
+    assert len(voiced) >= 2, "kasa should have two vowels"
+    between = [r for r in records[voiced[0] + 1:voiced[-1]] if r.frame_dict["fricationAmplitude"] > 0.5]
+    assert between, "no frication between the vowels of kasa: the /s/ is missing"
+    return max(between, key=lambda r: r.frame_dict["fricationAmplitude"]).frame_dict
+
+
 def test_mexican_s_diverges_from_spain_s(es_mx, es_es):
     """Issue #74/#81: Mexican /s/ was sounding identical to Spain /s/ in beta 1.
 
-    Different dialect packs replace /s/ with different language-specific phonemes
-    (s_mx vs s_es) which should have measurably different acoustic parameters.
-    If the dialect divergence isn't firing, the two will produce identical streams.
+    The dialect packs replace /s/ with different phonemes (s -> s_mx, s -> s_es)
+    whose frication is shaped differently.  If the replacement isn't firing,
+    the /s/ of "casa" reaches the DSP as the same frame in both dialects.
 
-    Test word: 'casa' (very common, contains /s/ in a clean intervocalic context).
+    Compares the /s/ frame's parallel (frication) spectrum, pa1..pa6, rather
+    than one parameter: the #100 fix gave both /s/ phonemes pa6 0.9 at 6.5 kHz
+    (it had been 0.1 for s_es), and the difference is now the apical s_es's
+    energy at F5 (pa5 0.9 at 3.75 kHz), which the laminal s_mx has none of.
+    Which parameter carries the difference may move again; that it exists
+    must not.
     """
     fe_mx, h_mx = es_mx
     fe_es, h_es = es_es
 
-    # /s/ is voiceless — voiced_frames() would filter it out entirely. Use ALL
-    # non-silence frames so the /s/ region is included in the comparison.
-    mx_records = [r for r in fe_mx.capture_frames(h_mx, "kasa") if not r.is_silence]
-    es_records = [r for r in fe_es.capture_frames(h_es, "kasa") if not r.is_silence]
+    # /s/ is voiceless, so all non-silence frames, not voiced_frames().
+    mx = _s_frame([r for r in fe_mx.capture_frames(h_mx, "kasa") if not r.is_silence])
+    es = _s_frame([r for r in fe_es.capture_frames(h_es, "kasa") if not r.is_silence])
 
-    assert len(mx_records) > 0 and len(es_records) > 0, "one dialect produced no frames"
-
-    # Diagnostic note: s_es and s_mx in packs/phonemes.yaml share fricationAmplitude
-    # (both 0.9) and total parallel energy (pa5+pa6 both sum to 1.0), but distribute
-    # that energy DIFFERENTLY across F5 and F6:
-    #
-    #   s_es: pa5=0.9,  pa6=0.1   (Castilian apical: energy concentrated at F5)
-    #   s_mx: pa5=0.35, pa6=0.65  (Mexican laminal: energy spread to F6)
-    #
-    # pa6 alone is a 6.5x discriminator. MAX pa6 across "kasa" should sit near
-    # the /s/ value (vowels and /k/ have pa6 near 0).
-    mx_max_pa6 = max(f.frame_dict["pa6"] for f in mx_records)
-    es_max_pa6 = max(f.frame_dict["pa6"] for f in es_records)
-    delta = abs(mx_max_pa6 - es_max_pa6)
-
-    # If the dialect replacement (s -> s_mx vs s -> s_es) is firing, MAX pa6
-    # for the word "kasa" must differ measurably (s_mx ~0.65 vs s_es ~0.10).
-    assert delta > 0.05, (
-        f"es-mx and es-es produced near-identical pa6 peak for 'casa'. "
-        f"Dialect replacement (s -> s_mx vs s -> s_es) likely not firing — "
-        f"this is the issue #81 regression. "
-        f"mx max pa6: {mx_max_pa6:.4f}, es max pa6: {es_max_pa6:.4f}"
+    pa = [f"pa{i}" for i in range(1, 7)]
+    delta = sum(abs(mx[k] - es[k]) for k in pa)
+    assert delta > 0.3, (
+        f"es-mx and es-es produced near-identical /s/ frication for 'casa' "
+        f"(total |pa| difference {delta:.2f}). Dialect replacement (s -> s_mx vs "
+        f"s -> s_es) likely not firing: the issue #81 regression. "
+        f"mx {[round(mx[k], 2) for k in pa]}, es {[round(es[k], 2) for k in pa]}"
     )

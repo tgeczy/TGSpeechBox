@@ -10,9 +10,15 @@
 #include "lpc.h"
 #include "pack_fixture.h"
 
+#include <algorithm>
 #include <sstream>
+#include <vector>
+
+#include "spectrum_helpers.h"
 
 using tgsb_test::extractFormantsLPC;
+using tgsb_test::findFormantPeaks;
+using tgsb_test::smoothedEnvelopeAt;
 using tgsb_test::HandleFixture;
 using tgsb_test::readFrameTrace;
 using tgsb_test::synthesizeToPcmWithTrace;
@@ -57,10 +63,8 @@ TEST_CASE_FIXTURE(HandleFixture,
 
 TEST_CASE_FIXTURE(HandleFixture,
                   "LPC: /aɣa/ vs /ala/ minimal context") {
-    // After /ɣ/→/ɡ_es/, the velar is a stop with closure-then-burst. LPC at
-    // 45% of /aɡ_esa/ now lands in the closure region (silence/voice bar
-    // only) — no formants to measure. The premise of comparing /ɣ/ vs /l/
-    // formant character is moot when one is a stop and the other a sonorant.
+    // /ɣ_es/ is a voiced velar fricative (3b3d448): it has formants, and
+    // 45% of /aɣa/ lands inside it.
     auto g = synthesizeToPcmWithTrace(handle, "aɣa", 1.0, 140.0, 0.5, 22050);
     auto l = synthesizeToPcmWithTrace(handle, "ala", 1.0, 140.0, 0.5, 22050);
     REQUIRE(!g.pcm.empty());
@@ -70,11 +74,8 @@ TEST_CASE_FIXTURE(HandleFixture,
     const std::size_t lc = static_cast<std::size_t>(l.pcm.size() * 0.45);
     auto gf = extractFormantsLPC(g.pcm, gc, 22050, 512, 14);
     auto lf = extractFormantsLPC(l.pcm, lc, 22050, 512, 14);
-    if (!gf.valid || gf.freqsHz.size() < 2) {
-        MESSAGE("  LPC at /ɡ_es/ closure returned no formants — expected for stop");
-        CHECK(true);
-        return;
-    }
+    REQUIRE(gf.valid);
+    REQUIRE(gf.freqsHz.size() >= 2);
     REQUIRE(lf.valid);
     REQUIRE(lf.freqsHz.size() >= 2);
 
@@ -101,7 +102,7 @@ TEST_CASE_FIXTURE(HandleFixture,
     auto g_tr = readFrameTrace(handle);
     auto l = synthesizeToPcmWithTrace(handle, "entɾelaðo", 1.0, 140.0, 0.5, 22050);
     auto l_tr = readFrameTrace(handle);
-    const long g_start = findPhonemeStart(g, g_tr, "ɡ");
+    const long g_start = findPhonemeStart(g, g_tr, "ɣ");
     const long l_start = findPhonemeStart(l, l_tr, "l");
     REQUIRE(g_start > 0);
     REQUIRE(l_start > 0);
@@ -148,7 +149,7 @@ TEST_CASE_FIXTURE(HandleFixture,
     REQUIRE(!g.pcm.empty());
     REQUIRE(!l.pcm.empty());
 
-    const long g_start = findPhonemeStart(g, g_tr, "ɡ");
+    const long g_start = findPhonemeStart(g, g_tr, "ɣ");
     const long l_start = findPhonemeStart(l, l_tr, "l");
     REQUIRE(g_start > 0);
     REQUIRE(l_start > 0);
@@ -205,31 +206,34 @@ TEST_CASE_FIXTURE(HandleFixture,
     auto g_tr = readFrameTrace(handle);
     auto l = synthesizeToPcmWithTrace(handle, "entɾelaðo", 1.0, 140.0, 0.5, 22050);
     auto l_tr = readFrameTrace(handle);
-    const long g_start = findPhonemeStart(g, g_tr, "ɡ");
+    const long g_start = findPhonemeStart(g, g_tr, "ɣ");
     const long l_start = findPhonemeStart(l, l_tr, "l");
     REQUIRE(g_start > 0);
     REQUIRE(l_start > 0);
 
-    const std::size_t off = 22050 * 20 / 1000;
-    auto gf = extractFormantsLPC(g.pcm,
-                                 static_cast<std::size_t>(g_start) + off,
-                                 22050, 512, 14);
-    auto lf = extractFormantsLPC(l.pcm,
-                                 static_cast<std::size_t>(l_start) + off,
-                                 22050, 512, 14);
-    // After /ɣ/→/ɡ_es/: +20 ms past start now lands in closure (silent
-    // voice bar) — LPC returns no formants. Stop architecture made the
-    // F2-separation concern moot (closure presence is the new discriminator,
-    // not formant overlap). Skip cleanly when LPC has nothing to measure.
-    if (!gf.valid || gf.freqsHz.size() < 2) {
-        MESSAGE("  LPC at /ɡ_es/+20ms found no formants — closure region. "
-                "Stop-vs-sonorant discrimination is now structural, "
-                "not formant-based. Test premise obsolete; skipping.");
-        CHECK(true);
-        return;
+    // /ɣ_es/ is ~30 ms long (3b3d448), so a 23 ms window starting 20 ms in
+    // is mostly the following /a/.  Measure inside the consonant instead:
+    // windows centred 8-14 ms in (the invariance window above, clipped to
+    // the consonant), median of the four, with the smoothed-envelope peaks
+    // test_offset_sweep uses.  A fricative has formants; no skipping.
+    std::vector<double> gF2s, lF2s;
+    for (int offMs = 8; offMs <= 14; offMs += 2) {
+        const std::size_t off = static_cast<std::size_t>(22050 * offMs / 1000);
+        auto gp = findFormantPeaks(
+            smoothedEnvelopeAt(g.pcm, static_cast<std::size_t>(g_start) + off, 22050, 512, 120.0).magnitude,
+            22050, 512, 200.0, 4000.0, 5);
+        auto lp = findFormantPeaks(
+            smoothedEnvelopeAt(l.pcm, static_cast<std::size_t>(l_start) + off, 22050, 512, 120.0).magnitude,
+            22050, 512, 200.0, 4000.0, 5);
+        auto f2 = [](const decltype(gp)& peaks) {
+            for (const auto& p : peaks)
+                if (p.freqHz >= 1000.0 && p.freqHz <= 2200.0) return p.freqHz;
+            return -1.0;
+        };
+        gF2s.push_back(f2(gp));
+        lF2s.push_back(f2(lp));
     }
-    REQUIRE(lf.valid);
-    REQUIRE(lf.freqsHz.size() >= 2);
+    auto median = [](std::vector<double> v) { std::sort(v.begin(), v.end()); return (v[1] + v[2]) / 2.0; };
 
     // Find F2 by frequency range, not by LPC output index. /ɣ/ as an
     // approximant has a weak F1 that LPC often doesn't surface as a pole —
@@ -238,15 +242,10 @@ TEST_CASE_FIXTURE(HandleFixture,
     // would cross-reference /ɣ/'s F3 against /l/'s F2. Spanish vowel/liquid
     // F2 range is roughly 1000–2200 Hz; the first LPC pole in that band is
     // the F2 of whichever consonant we're looking at.
-    auto findF2 = [](const std::vector<double>& freqs) -> double {
-        for (double f : freqs) {
-            if (f >= 1000.0 && f <= 2200.0) return f;
-        }
-        return -1.0;
-    };
-
-    const double gF2 = findF2(gf.freqsHz);
-    const double lF2 = findF2(lf.freqsHz);
+    for (double f : gF2s) REQUIRE(f > 0.0);
+    for (double f : lF2s) REQUIRE(f > 0.0);
+    const double gF2 = median(gF2s);
+    const double lF2 = median(lF2s);
     REQUIRE(gF2 > 0.0);
     REQUIRE(lF2 > 0.0);
 

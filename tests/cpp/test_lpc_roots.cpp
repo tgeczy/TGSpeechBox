@@ -74,8 +74,8 @@ TEST_CASE_FIXTURE(HandleFixture,
     REQUIRE(!g.pcm.empty());
     REQUIRE(!l.pcm.empty());
 
-    // Post /ɣ/→/ɡ_es/ routing change: prefix-match "ɡ" finds /ɡ_es/.
-    const long g_start = findStart(g, g_tr, "ɡ");
+    // /ɣ_es/: intervocalic /ɣ/ routes to /ɣ_es/, a voiced velar fricative (3b3d448, 2026-05-01).
+    const long g_start = findStart(g, g_tr, "ɣ");
     const long l_start = findStart(l, l_tr, "l");
     REQUIRE(g_start > 0);
     REQUIRE(l_start > 0);
@@ -93,7 +93,7 @@ TEST_CASE_FIXTURE(HandleFixture,
     for (const auto& e : g_tr)
         // U+0261 ɡ (script g, used for /ɡ_es/) UTF-8: 0xC9 0xA1
         if (e.phonemeKey.size() > 0 && e.phonemeKey[0] == char(0xC9)
-            && e.phonemeKey.size() > 1 && (unsigned char)e.phonemeKey[1] == 0xA1) {
+            && e.phonemeKey.size() > 1 && (unsigned char)e.phonemeKey[1] == 0xA3) {  // ɣ U+0263
             g_key = e.phonemeKey; break;
         }
     for (const auto& e : l_tr)
@@ -104,14 +104,8 @@ TEST_CASE_FIXTURE(HandleFixture,
 
     auto gr = extractFormantsViaRoots(g.pcm, gc, 22050, /*win*/ 512, /*order*/ 14);
     auto lr = extractFormantsViaRoots(l.pcm, lc, 22050, 512, 14);
-    // After /ɣ/→/ɡ_es/: +12ms past /ɡ_es/ start lands in closure (silent
-    // voice bar) — root-finding has nothing to extract. Diagnostic only.
-    if (!gr.valid) {
-        MESSAGE("  /ɡ_es/ closure region — no formants to extract via roots. "
-                "(Stop architecture; was approximant.)");
-        CHECK(true);
-        return;
-    }
+    // /ɣ_es/ is a voiced fricative (3b3d448): it has formants to find.
+    REQUIRE(gr.valid);
     REQUIRE(lr.valid);
 
     auto fmt = [](const std::vector<FormantRoot>& fs) {

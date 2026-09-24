@@ -47,8 +47,8 @@ TEST_CASE_FIXTURE(HandleFixture,
         }
         return -1;
     };
-    // Post /ɣ/→/ɡ_es/ routing change: prefix-match "ɡ" finds /ɡ_es/.
-    g_start = findStart(g_res, g_trace, "ɡ");
+    // /ɣ_es/: intervocalic /ɣ/ routes to /ɣ_es/, a voiced velar fricative (3b3d448, 2026-05-01).
+    g_start = findStart(g_res, g_trace, "ɣ");
     l_start = findStart(l_res, l_trace, "l");
     REQUIRE(g_start > 0);
     REQUIRE(l_start > 0);

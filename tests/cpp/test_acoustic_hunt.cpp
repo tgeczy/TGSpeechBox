@@ -172,12 +172,11 @@ TEST_CASE_FIXTURE(HandleFixture,
                                                       1.0, 140.0, 0.5, 22050);
     auto l_trace2 = tgsb_test::readFrameTrace(handle);
 
-    // After the /ɣ/→/ɡ_es/ routing change, the velar phoneme in /entɾeɣaðo/
-    // is now /ɡ_es/ (a stop). Prefix-match "ɡ" finds /ɡ_es/ in the trace.
-    const long g_start = phonemeStartSample(g_res2, g_trace2, "ɡ");
+    // The velar in /entɾeɣaðo/ is /ɣ_es/: intervocalic /ɣ/ routes to /ɣ_es/, a voiced velar fricative (3b3d448, 2026-05-01).
+    const long g_start = phonemeStartSample(g_res2, g_trace2, "ɣ");
     const long l_start = phonemeStartSample(l_res2, l_trace2, "l");
 
-    REQUIRE_MESSAGE(g_start > 0, "could not locate /ɡ_es/ phoneme in /entɾeɣaðo/");
+    REQUIRE_MESSAGE(g_start > 0, "could not locate /ɣ_es/ phoneme in /entɾeɣaðo/");
     REQUIRE_MESSAGE(l_start > 0, "could not locate /l/ phoneme in /entɾelaðo/");
 
     // Offset forward by ~8 ms (half the typical 15 ms consonant duration)
