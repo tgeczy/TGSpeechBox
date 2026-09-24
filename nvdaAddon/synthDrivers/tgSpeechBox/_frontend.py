@@ -227,6 +227,15 @@ class NvspFrontend(object):
         except AttributeError:
             pass
 
+        # setLanguageCached (optional - may not exist in older DLLs)
+        self._hasSetLanguageCachedApi = False
+        try:
+            self._dll.nvspFrontend_setLanguageCached.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+            self._dll.nvspFrontend_setLanguageCached.restype = ctypes.c_int
+            self._hasSetLanguageCachedApi = True
+        except AttributeError:
+            pass
+
         # beginStream (optional - may not exist in older DLLs)
         self._hasBeginStreamApi = False
         try:
@@ -396,10 +405,15 @@ class NvspFrontend(object):
         """Check if the DLL supports FrameEx API (ABI v2+)."""
         return self._hasFrameExApi
 
-    def setLanguage(self, langTag: str) -> bool:
+    def setLanguage(self, langTag: str, cached: bool = False) -> bool:
+        """Load the packs for *langTag*.  With *cached*, a pack this handle
+        loaded before is reused while its files are unchanged (#131); a plain
+        call always loads from the files and drops the kept packs."""
         if not self._dll or not self._h:
             return False
         tag = (langTag or "").strip().lower().replace("_", "-")
+        if cached and self._hasSetLanguageCachedApi:
+            return bool(int(self._dll.nvspFrontend_setLanguageCached(self._h, tag.encode("utf-8"))))
         ok = int(self._dll.nvspFrontend_setLanguage(self._h, tag.encode("utf-8")))
         return bool(ok)
 

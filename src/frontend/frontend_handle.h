@@ -12,6 +12,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "ipa_engine.h"
 #include "pack.h"
 
+#include <cstdint>
 #include <locale>
 #include <memory>
 #include <mutex>
@@ -27,6 +28,17 @@ struct Handle {
   std::string overrideDir;  // Optional dir checked first for lang YAML files
   PackSet pack;
   bool packLoaded = false;
+  // Stamp of the pack files `pack` was loaded from (packFilesStamp()).
+  std::uint64_t packStamp = 0;
+  // Packs this handle loaded before, kept by nvspFrontend_setLanguageCached
+  // so switching back to a language does not parse its YAML again (#131).
+  // An entry is used only while the pack files still have its stamp;
+  // nvspFrontend_setLanguage empties the cache.
+  struct CachedPack {
+    PackSet pack;
+    std::uint64_t stamp = 0;
+  };
+  std::unordered_map<std::string, CachedPack> packCache;
   // True once we have emitted at least one chunk of speech on this handle.
   // Used to optionally insert a tiny silence between consecutive queueIPA calls.
   bool streamHasSpeech = false;

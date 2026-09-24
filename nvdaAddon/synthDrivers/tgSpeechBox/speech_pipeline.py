@@ -193,9 +193,11 @@ class SpeechPipelineMixin:
     def _applySpeechLang(self, tag):
         # Switch eSpeak and the frontend to tag (None = the user's language)
         # for the text that follows.  Lazy: the engines stay in the language
-        # last spoken until a block asks for another one, so a page in one
-        # foreign language costs one pack reload rather than two per line
-        # (the en-us pack reloads in ~110 ms, most others in ~25 ms).
+        # last spoken until a block asks for another one.  A language's pack
+        # is parsed once (en-us ~110 ms, most others ~25 ms) and kept by the
+        # frontend, so switching back to it costs well under a millisecond;
+        # what a switch still costs is eSpeak's own voice change (~10 ms),
+        # which NVDA's eSpeak driver pays too.
         # _activeSpeechLang is the language both engines are in, or None when
         # that is not known (a failed switch, a pack reload from the settings
         # panel); None makes the next block apply its language in full.
@@ -209,7 +211,7 @@ class SpeechPipelineMixin:
             if not self._setEspeakLangForSwitch(want):
                 log.debug("TGSpeechBox: no eSpeak voice for %r; staying in %r", want, active)
                 return False  # nothing has changed
-            if not self._applyFrontendLangTag(want):
+            if not self._applyFrontendLangTag(want, cached=True):
                 # eSpeak moved and the pack did not: put eSpeak back so the
                 # two agree, and forget the state if even that fails.
                 self._activeSpeechLang = active if self._setEspeakLangForSwitch(active or base) else None

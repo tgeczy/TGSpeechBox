@@ -7,9 +7,11 @@ Licensed under the MIT License. See LICENSE for details.
 #include "frontend_handle.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <new>
 #include <set>
@@ -85,32 +87,48 @@ NVSP_FRONTEND_API void nvspFrontend_beginStream(nvspFrontend_handle_t handle) {
   h->lastEndsVowelLike = false;
 }
 
-NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, const char* langTagUtf8) {
+namespace {
+
+// Size and write time of every file a pack load may read (the packs
+// directory and the override directory's packs), folded into one number.
+// A cached pack is reused only while this is unchanged, so YAML written by
+// the settings panel, the phoneme editor or a voice-profile save is seen.
+std::uint64_t packFilesStamp(const nvsp_frontend::Handle* h) {
+  namespace fs = std::filesystem;
+  std::uint64_t stamp = 1469598103934665603ull;  // FNV-1a
+  auto mix = [&stamp](std::uint64_t v) {
+    for (int i = 0; i < 8; ++i) {
+      stamp ^= (v >> (i * 8)) & 0xff;
+      stamp *= 1099511628211ull;
+    }
+  };
+  auto walk = [&](const fs::path& root) {
+    std::error_code ec;
+    if (!fs::is_directory(root, ec)) return;
+    for (fs::recursive_directory_iterator it(root, ec), end; !ec && it != end; it.increment(ec)) {
+      std::error_code fec;
+      if (!it->is_regular_file(fec)) continue;
+      for (char c : it->path().generic_string()) mix(static_cast<unsigned char>(c));
+      mix(static_cast<std::uint64_t>(it->file_size(fec)));
+      mix(static_cast<std::uint64_t>(it->last_write_time(fec).time_since_epoch().count()));
+    }
+  };
+  const fs::path base(h->packDir);
+  std::error_code ec;
+  walk(fs::exists(base / "phonemes.yaml", ec) ? base : base / "packs");
+  if (!h->overrideDir.empty()) walk(fs::path(h->overrideDir) / "packs");
+  return stamp;
+}
+
+// Make `pack` the handle's pack for `lang`: what every language change does
+// after the pack is in hand, loaded or taken from the cache.  `savedProfile`
+// is the voice profile that was active, which survives a language change.
+void adoptPack(nvsp_frontend::Handle* h, nvsp_frontend::PackSet&& pack, const std::string& lang,
+               std::uint64_t stamp, const std::string& savedProfile) {
   using namespace nvsp_frontend;
-  Handle* h = asHandle(handle);
-  if (!h) return 0;
-
-  std::lock_guard<std::mutex> lock(h->mu);
-
-  h->lastError.clear();
-  const std::string lang = langTagUtf8 ? std::string(langTagUtf8) : std::string();
-
-  PackSet pack;
-  std::string err;
-  if (!loadPackSet(h->packDir, lang, pack, err, h->overrideDir)) {
-    setError(h, err.empty() ? "Failed to load pack set" : err);
-    return 0;
-  }
-
-  // Preserve voice profile name across language changes.
-  // loadPackSet produces a fresh PackSet with empty voiceProfileName,
-  // but the caller expects the active profile to survive.
-  std::string savedProfile = h->pack.lang.voiceProfileName;
-
   h->pack = std::move(pack);
   h->packLoaded = true;
-
-  // Restore the voice profile that was active before the language change.
+  h->packStamp = stamp;
   if (!savedProfile.empty()) {
     h->pack.lang.voiceProfileName = savedProfile;
   }
@@ -125,15 +143,85 @@ NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, con
     h->hasPendingInflectionScale = false;
   }
 
-  // Treat language change as the start of a new stream, so we don't
-  // insert a segment boundary gap before the first chunk in the new language.
+  // A language change starts a new stream: no segment boundary gap before
+  // the first chunk in the new language.
   h->streamHasSpeech = false;
   h->lastEndsVowelLike = false;
   h->langTag = normalizeLangTag(lang);
 
-  // Invalidate the data query cache — new language means new settings.
+  // Invalidate the data query cache: new language means new settings.
   h->dataCache.invalidate();
+}
 
+}  // namespace
+
+NVSP_FRONTEND_API int nvspFrontend_setLanguageCached(nvspFrontend_handle_t handle, const char* langTagUtf8) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  h->lastError.clear();
+  const std::string lang = langTagUtf8 ? std::string(langTagUtf8) : std::string();
+  const std::string key = normalizeLangTag(lang);
+  const std::uint64_t stamp = packFilesStamp(h);
+
+  if (h->packLoaded && key == h->langTag && h->packStamp == stamp) {
+    h->streamHasSpeech = false;
+    h->lastEndsVowelLike = false;
+    return 1;
+  }
+
+  PackSet next;
+  auto it = h->packCache.find(key);
+  if (it != h->packCache.end() && it->second.stamp == stamp) {
+    next = std::move(it->second.pack);
+    h->packCache.erase(it);
+  } else {
+    if (it != h->packCache.end()) h->packCache.erase(it);
+    std::string err;
+    if (!loadPackSet(h->packDir, lang, next, err, h->overrideDir)) {
+      setError(h, err.empty() ? "Failed to load pack set" : err);
+      return 0;
+    }
+  }
+
+  // Keep the pack being switched away from, under the stamp it was loaded at.
+  const std::string savedProfile = h->pack.lang.voiceProfileName;
+  if (h->packLoaded && !h->langTag.empty() && h->packStamp != 0) {
+    Handle::CachedPack& slot = h->packCache[h->langTag];
+    slot.pack = std::move(h->pack);
+    slot.stamp = h->packStamp;
+  }
+
+  adoptPack(h, std::move(next), lang, stamp, savedProfile);
+  return 1;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, const char* langTagUtf8) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  h->lastError.clear();
+  const std::string lang = langTagUtf8 ? std::string(langTagUtf8) : std::string();
+
+  // A full load from the files, as always; the packs kept for
+  // setLanguageCached are dropped with it, so a caller that reloads to see
+  // new settings sees them everywhere.
+  const std::uint64_t stamp = packFilesStamp(h);
+  PackSet pack;
+  std::string err;
+  if (!loadPackSet(h->packDir, lang, pack, err, h->overrideDir)) {
+    setError(h, err.empty() ? "Failed to load pack set" : err);
+    return 0;
+  }
+  h->packCache.clear();
+  const std::string savedProfile = h->pack.lang.voiceProfileName;  // a copy: adoptPack replaces h->pack
+  adoptPack(h, std::move(pack), lang, stamp, savedProfile);
   return 1;
 }
 

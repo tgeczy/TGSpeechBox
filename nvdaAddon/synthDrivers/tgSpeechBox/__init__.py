@@ -638,8 +638,12 @@ class SynthDriver(
 
     # ---- Frontend pack loading ----
 
-    def _applyFrontendLangTag(self, tag: str) -> bool:
+    def _applyFrontendLangTag(self, tag: str, cached: bool = False) -> bool:
         """Ask the frontend to (re)load packs for *tag*, trying sensible fallbacks.
+
+        *cached* is for switching during speech (#131): a pack the frontend
+        loaded before is reused while its files are unchanged.  Settings
+        changes and reloads call it plain, which loads from the files.
 
         Returns True if the frontend reported a successful load.
         """
@@ -654,7 +658,7 @@ class SynthDriver(
 
         for cand in candidates:
             try:
-                if self._frontend.setLanguage(cand):
+                if self._frontend.setLanguage(cand, cached=cached):
                     self._frontendLangTag = cand
                     return True
             except Exception:

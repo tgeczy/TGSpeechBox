@@ -247,6 +247,21 @@ NVSP_FRONTEND_API void nvspFrontend_setOverrideDirectory(nvspFrontend_handle_t h
 NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, const char* langTagUtf8);
 
 /*
+  Like setLanguage, for switching back and forth during speech (automatic
+  language switching, #131): the pack being left is kept on the handle, and
+  switching back to a language takes its kept pack instead of parsing the
+  YAML again.  A kept pack is used only while every file under the pack
+  directories has the size and write time it had when the pack was loaded,
+  so settings written to YAML since are picked up.  Runtime changes made to
+  a pack (applySettingOverrides, setPitchMode, setData) stay with that pack;
+  a host that relies on a language change resetting them uses
+  setLanguage, which always loads from the files and drops the kept packs.
+
+  Returns 1 on success, 0 on failure.
+*/
+NVSP_FRONTEND_API int nvspFrontend_setLanguageCached(nvspFrontend_handle_t handle, const char* langTagUtf8);
+
+/*
   Start a new stream.  queueIPA puts a short gap between consecutive chunks
   of one utterance and remembers how the last chunk ended; after this call
   the next chunk is the first of a new utterance, with no gap before it and
