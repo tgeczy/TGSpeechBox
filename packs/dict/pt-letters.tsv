@@ -1,16 +1,20 @@
 # Portuguese letter names for character-by-character navigation (#123).
 # eSpeak's own pt letter naming is inconsistent (é -> "é agudo" but ó -> "ó"),
 # so name the accented letters explicitly. Shared by pt, pt-br, pt-pt.
+# A name's first word must be read with the letter's vowel: eSpeak reads a
+# bare "e" as [i] and "o" as [u], and its own "ê"/"ô" as open [ɛ]/[ɔ], so
+# ê and ô are written "êh"/"ôh" ([e]/[o]) and õ is "ó til" (#130).
+# tests/test_letter_names_pt.py checks every name against eSpeak.
 á	a agudo
 é	é agudo
 í	i agudo
 ó	ó agudo
 ú	u agudo
 â	a circunflexo
-ê	e circunflexo
-ô	o circunflexo
+ê	êh circunflexo
+ô	ôh circunflexo
 ã	a til
-õ	o til
+õ	ó til
 à	a crase
 ò	ó grave
 ù	u grave
