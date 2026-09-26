@@ -544,6 +544,11 @@ struct LanguagePack {
   // units, anchors in 12.8 ms frames.
   double aratoFramesPerSyllable = 26.0;       // the program's frame density (12.8 ms frames at its tempo)
   double aratoPitchByteHz = 2.441;            // Hz per pitch-byte unit (10000/4096)
+  // The program's own pitch, where its hertz steps are its melody (#136).
+  // Steps (and the 40 Hz floor) scale by basePitch / this, so the melody
+  // keeps its intervals as the user's pitch moves; 0 = the chip's fixed
+  // hertz steps at any pitch.
+  double aratoReferencePitchHz = 103.0;
   double aratoStartArticle = -7.0;            // "." and "," units starting with the article
   double aratoStartDecl = 4.0;                // plain declaratives
   double aratoStartWh = 18.0;                 // wh-questions and "!"

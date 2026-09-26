@@ -565,6 +565,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Arató (BraiLab) intonation parameters (used when legacyPitchMode = "arato_style")
   getNum("aratoFramesPerSyllable", lp.aratoFramesPerSyllable);
   getNum("aratoPitchByteHz", lp.aratoPitchByteHz);
+  getNum("aratoReferencePitchHz", lp.aratoReferencePitchHz);
   getNum("aratoStartArticle", lp.aratoStartArticle);
   getNum("aratoStartDecl", lp.aratoStartDecl);
   getNum("aratoStartWh", lp.aratoStartWh);

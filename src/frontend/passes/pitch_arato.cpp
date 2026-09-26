@@ -342,11 +342,18 @@ void applyPitchArato(
   // start and end pitch.  The inflection slider scales every increment and the
   // start delta from the program's own values (reached at aratoInflectionRef).
   // ---------------------------------------------------------------------------
+  // The chip's steps are hertz, and TALKHUN's melody is what they make at its
+  // own pitch (aratoReferencePitchHz, 103 Hz).  Added unscaled to another base
+  // pitch they are a smaller interval above it and a larger one below, and a
+  // low voice's falls hit the floor (#136); scaled by the ratio they keep the
+  // program's intervals, and at its own pitch they are the program's values.
   const double ref = (lang.aratoInflectionRef > 0.0) ? lang.aratoInflectionRef : 0.5;
-  const double scale = inflection / ref;
+  const double pitchRatio = (lang.aratoReferencePitchHz > 0.0 && basePitch > 0.0)
+                                ? basePitch / lang.aratoReferencePitchHz : 1.0;
+  const double scale = inflection / ref * pitchRatio;
   const double byteHz = lang.aratoPitchByteHz;
   double pitch = basePitch + startDelta * byteHz * scale;
-  const double lo = 40.0, hi = std::max(400.0, basePitch * 2.0);
+  const double lo = 40.0 * pitchRatio, hi = std::max(400.0, basePitch * 2.0);
   pitch = std::min(std::max(pitch, lo), hi);
   std::vector<double> atStart(static_cast<size_t>(u.n) + 1, pitch);
   for (int f = 0; f < u.n; ++f) {
