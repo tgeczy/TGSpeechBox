@@ -87,3 +87,19 @@ def test_dialect_switching_on_follows_the_tag(harness, nvda_sequence):
         assert harness.driver._activeSpeechLang == "pt-br"
     finally:
         config.conf["speech"]["autoDialectSwitching"] = False
+
+
+@pytest.mark.parametrize("tag", ["en", "en_US", "en-us"])
+def test_a_raw_tag_from_a_host_keeps_the_users_dialect(harness, tag):
+    """#137 (Seva): under MultiLang a UK English user was read in US English.
+    MultiLang passes its own language commands to the voice as it wrote them
+    ("en", "en_US"), without NVDA's step that maps the user's own language to
+    the synth's; the log shows "speech language -> 'en-us' (user setting
+    'en-gb')".  A tag in the user's own language keeps the user's dialect,
+    whoever sent it."""
+    from speech.commands import LangChangeCommand
+    _as_user(harness, "en", "en_GB", "en-gb")
+    harness.driver.cancel()
+    harness.speak([LangChangeCommand(tag), "garden", LangChangeCommand(None)])
+    assert harness.driver._activeSpeechLang in ("en-gb", None), (
+        f"a raw {tag!r} command switched a UK English user to {harness.driver._activeSpeechLang}")
