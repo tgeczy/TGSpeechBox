@@ -166,6 +166,10 @@ static bool parseVoicingTone(const yaml_min::Node& node, VoicingTone& out, std::
   parseParam("f4FreqScale", out.f4FreqScale, out.f4FreqScale_set);
   parseParam("nasalGainScale", out.nasalGainScale, out.nasalGainScale_set);
 
+  // V5 parameters — dual-oscillator chorus
+  parseParam("chorusDepth", out.chorusDepth, out.chorusDepth_set);
+  parseParam("chorusDetuneHz", out.chorusDetuneHz, out.chorusDetuneHz_set);
+
   return true;
 }
 

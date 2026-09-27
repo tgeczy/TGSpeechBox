@@ -212,6 +212,31 @@ def test_david_derived_profile_keeps_its_head_size():
     assert math.isclose(tone.voicedTiltDbPerOct, -3.0, abs_tol=1e-12)
 
 
-def test_chorus_stays_a_listener_setting():
+def test_a_profile_without_chorus_takes_the_listeners_chorus():
+    # The frontend gives such a profile the DSP's 2.0 Hz; the slider's neutral
+    # (33) maps to 1.985 Hz, so the composed detune sits 0.015 Hz from the
+    # slider's own value, far below anything audible.
     tone = _run(_frontend_tone(**STORED), _curChorusDepth=40, _curChorusDetune=60)
+    assert math.isclose(tone.chorusDepth, 0.4)
+    assert abs(tone.chorusDetuneHz - (0.5 + 0.6 * 4.5)) <= 0.02
+
+
+def test_a_built_in_voice_takes_the_listeners_chorus():
+    tone = _run(None, profile_name="", _curChorusDepth=40, _curChorusDetune=60)
     assert math.isclose(tone.chorusDepth, 0.4) and math.isclose(tone.chorusDetuneHz, 0.5 + 0.6 * 4.5)
+
+
+def test_a_profiles_chorus_reaches_the_player_at_neutral_sliders():
+    """#124: Edu wanted chorus on his Robot profile.  The frontend reads
+    chorusDepth / chorusDetuneHz from a profile's voicingTone block now."""
+    tone = _run(_frontend_tone(**STORED, chorusDepth=0.35, chorusDetuneHz=3.0))
+    assert math.isclose(tone.chorusDepth, 0.35, abs_tol=1e-12)
+    assert math.isclose(tone.chorusDetuneHz, 3.0, abs_tol=1e-12)
+
+
+def test_moved_chorus_sliders_compose_with_the_profiles_chorus():
+    tone = _run(_frontend_tone(**STORED, chorusDepth=0.35, chorusDetuneHz=3.0),
+                _curChorusDepth=40, _curChorusDetune=60)
+    assert math.isclose(tone.chorusDepth, 0.75, abs_tol=1e-9)
+    # The detune slider's offset from its neutral 33, in Hz, moves the profile's.
+    assert math.isclose(tone.chorusDetuneHz, 3.0 + (60 - 33) / 100.0 * 4.5, abs_tol=1e-9)

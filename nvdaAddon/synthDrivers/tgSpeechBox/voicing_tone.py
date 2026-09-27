@@ -492,11 +492,18 @@ class VoicingToneMixin:
                 tone.tremorDepth = tremor
                 tone.f4FreqScale = f4
 
-            # Chorus is a listener setting (profiles do not carry it).
+            # Chorus.  A profile may carry it (#124); the listener's depth adds
+            # to the profile's and the detune slider moves it by its offset
+            # from neutral (33), as speechPlayer_composeListenerChorus does.
             chorusSlider = safe_float(getattr(self, "_curChorusDepth", 0), 0.0)
-            tone.chorusDepth = max(0.0, min(1.0, chorusSlider / 100.0))
             detuneSlider = safe_float(getattr(self, "_curChorusDetune", 33), 33.0)
-            tone.chorusDetuneHz = max(0.5, min(5.0, 0.5 + (detuneSlider / 100.0) * 4.5))
+            if profileBase:
+                tone.chorusDepth = max(0.0, min(1.0, profileBase.chorusDepth + chorusSlider / 100.0))
+                tone.chorusDetuneHz = max(0.5, min(5.0, profileBase.chorusDetuneHz
+                                                   + (detuneSlider - 33.0) / 100.0 * 4.5))
+            else:
+                tone.chorusDepth = max(0.0, min(1.0, chorusSlider / 100.0))
+                tone.chorusDetuneHz = max(0.5, min(5.0, 0.5 + (detuneSlider / 100.0) * 4.5))
 
             self._player.setVoicingTone(tone)
             self._lastAppliedVoicingTone = tone

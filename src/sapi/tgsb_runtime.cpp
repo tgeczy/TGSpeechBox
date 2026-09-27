@@ -655,6 +655,8 @@ void runtime::apply_voicing_tone_if_available()
             dsp_tone.nasalBwScale             = tone.nasalBwScale;
             dsp_tone.f4FreqScale              = tone.f4FreqScale;
             dsp_tone.nasalGainScale           = tone.nasalGainScale;
+            dsp_tone.chorusDepth              = tone.chorusDepth;
+            dsp_tone.chorusDetuneHz           = tone.chorusDetuneHz;
         }
     }
 
@@ -726,12 +728,20 @@ void runtime::apply_voicing_tone_if_available()
             dsp_tone.f4FreqScale = clamp(dsp_tone.f4FreqScale, 0.7, 1.5);
         }
     }
-    if (s.chorusDepth >= 0) {
-        dsp_tone.chorusDepth = clamp(s.chorusDepth / 100.0, 0.0, 1.0);
-    }
-    if (s.chorusDetune >= 0) {
-        dsp_tone.chorusDetuneHz = 0.5 + (s.chorusDetune / 100.0) * 4.5;
-        dsp_tone.chorusDetuneHz = clamp(dsp_tone.chorusDetuneHz, 0.5, 5.0);
+    if (has_voicing_tone_) {
+        // A profile may carry chorus (#124): the listener's depth adds, the
+        // detune slider moves it by its offset from neutral (33).
+        speechPlayer_composeListenerChorus(&dsp_tone,
+            s.chorusDepth >= 0 ? s.chorusDepth / 100.0 : 0.0,
+            s.chorusDetune >= 0 ? (s.chorusDetune - 33.0) / 100.0 * 4.5 : 0.0);
+    } else {
+        if (s.chorusDepth >= 0) {
+            dsp_tone.chorusDepth = clamp(s.chorusDepth / 100.0, 0.0, 1.0);
+        }
+        if (s.chorusDetune >= 0) {
+            dsp_tone.chorusDetuneHz = 0.5 + (s.chorusDetune / 100.0) * 4.5;
+            dsp_tone.chorusDetuneHz = clamp(dsp_tone.chorusDetuneHz, 0.5, 5.0);
+        }
     }
 
     speechPlayer_setVoicingTone(speech_player_, &dsp_tone);

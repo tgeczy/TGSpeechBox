@@ -655,6 +655,10 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   outTone->nasalBwScale = 1.0;
   outTone->f4FreqScale = 1.0;
   outTone->nasalGainScale = 1.0;
+  // These two were left as the caller's memory held them (hosts copied only
+  // the 17 fields before them, so nothing read them); the DSP's defaults.
+  outTone->chorusDepth = 0.0;
+  outTone->chorusDetuneHz = 2.0;
 
   // Check if we have a voice profile with voicing tone
   const std::string& profileName = h->pack.lang.voiceProfileName;
@@ -684,6 +688,8 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   if (vt.nasalBwScale_set) outTone->nasalBwScale = vt.nasalBwScale;
   if (vt.f4FreqScale_set) outTone->f4FreqScale = vt.f4FreqScale;
   if (vt.nasalGainScale_set) outTone->nasalGainScale = vt.nasalGainScale;
+  if (vt.chorusDepth_set) outTone->chorusDepth = vt.chorusDepth;
+  if (vt.chorusDetuneHz_set) outTone->chorusDetuneHz = vt.chorusDetuneHz;
 
   return 1;  // Profile has explicit voicing tone
 }

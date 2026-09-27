@@ -769,6 +769,8 @@ static void rebuildVoicingTone(TgsbEngine *engine)
         tone.nasalBwScale = pt.nasalBwScale;
         tone.f4FreqScale = pt.f4FreqScale;
         tone.nasalGainScale = pt.nasalGainScale;
+        tone.chorusDepth = pt.chorusDepth;
+        tone.chorusDetuneHz = pt.chorusDetuneHz;
         speechPlayer_composeListenerSettings(&tone,
             u ? engine->userVoicedTiltDbPerOct : 0.0,
             u ? engine->userNoiseGlottalModDepth : 0.0,
@@ -804,7 +806,13 @@ static void rebuildVoicingTone(TgsbEngine *engine)
             tone.f4FreqScale = vp->f4FreqScale;
         }
     }
-    if (u) {
+    if (useProfile) {
+        /* A profile may carry chorus (#124): the user's depth adds, the
+         * user's detune moves it by its offset from the 2 Hz neutral. */
+        speechPlayer_composeListenerChorus(&tone,
+            u ? engine->userChorusDepth : 0.0,
+            u ? engine->userChorusDetuneHz - 2.0 : 0.0);
+    } else if (u) {
         tone.chorusDepth = engine->userChorusDepth;
         tone.chorusDetuneHz = engine->userChorusDetuneHz;
     }

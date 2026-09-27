@@ -112,6 +112,10 @@ struct VoicingTone {
   double f4FreqScale = 1.0;         // F4 frequency multiplier (pharynx length)
   double nasalGainScale = 1.0;      // Nasal pole coupling amplitude multiplier
 
+  // V5 parameters — dual-oscillator chorus (a profile may carry it, #124)
+  double chorusDepth = 0.0;         // Second oscillator blend (0 = off, 1 = 50/50)
+  double chorusDetuneHz = 2.0;      // Second oscillator pitch offset (0.5-5 Hz)
+
   // Track which fields were explicitly set in YAML
   bool voicingPeakPos_set = false;
   bool voicedPreEmphA_set = false;
@@ -130,6 +134,8 @@ struct VoicingTone {
   bool nasalBwScale_set = false;
   bool f4FreqScale_set = false;
   bool nasalGainScale_set = false;
+  bool chorusDepth_set = false;
+  bool chorusDetuneHz_set = false;
 };
 
 // A single voice profile definition.

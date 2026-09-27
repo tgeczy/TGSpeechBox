@@ -26,9 +26,13 @@ Licensed under the MIT License. See LICENSE for details.
  *   multiplicative: speed quotient (/2.0), cascade bandwidth, nasal bandwidth,
  *                   F4 frequency scale, nasal gain
  *
- * Chorus is a listener-only setting (profiles do not carry it) and is set
- * by the host as before.  Built-in voices without a profile keep the hosts'
- * absolute mapping; only a profile with its own voicingTone block composes.
+ * Chorus (3.10 final): a profile may carry chorusDepth and chorusDetuneHz
+ * (nvspFrontend_getVoicingTone returns 0 and 2 Hz, the DSP's own defaults,
+ * when it doesn't), composed by speechPlayer_composeListenerChorus: the
+ * listener's depth adds, and the listener's detune moves the profile's by its
+ * offset from the host's neutral slider position.  Built-in voices without a
+ * profile keep the hosts' absolute mapping; only a profile with its own
+ * voicingTone block composes.
  * The NVDA driver implements the same rule in voicing_tone.py.
  */
 
@@ -62,6 +66,22 @@ static inline void speechPlayer_composeListenerSettings(
     tone->nasalBwScale = speechPlayer_composeClamp(tone->nasalBwScale * nasalBwScale, 0.25, 4.0);
     tone->f4FreqScale = speechPlayer_composeClamp(tone->f4FreqScale * f4FreqScale, 0.7, 1.5);
     tone->nasalGainScale = speechPlayer_composeClamp(tone->nasalGainScale * nasalGainScale, 0.25, 4.0);
+}
+
+/*
+ * The listener's chorus onto a profile's.  chorusDepth is the listener's depth
+ * (0 = neutral, 1 = full); chorusDetuneOffsetHz is how far the listener's
+ * detune slider sits from its neutral position, in Hz (0 = neutral).  Both at
+ * neutral leave the profile's chorus exactly as stored.
+ */
+static inline void speechPlayer_composeListenerChorus(
+    speechPlayer_voicingTone_t* tone,
+    double chorusDepth,
+    double chorusDetuneOffsetHz)
+{
+    if (!tone) return;
+    tone->chorusDepth = speechPlayer_composeClamp(tone->chorusDepth + chorusDepth, 0.0, 1.0);
+    tone->chorusDetuneHz = speechPlayer_composeClamp(tone->chorusDetuneHz + chorusDetuneOffsetHz, 0.5, 5.0);
 }
 
 #endif /* TGSPEECHBOX_VOICINGTONECOMPOSE_H */

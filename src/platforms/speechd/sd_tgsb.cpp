@@ -799,6 +799,7 @@ int main(int argc, char** argv) {
         vt.cascadeBwScale = pt.cascadeBwScale;  vt.tremorDepth = pt.tremorDepth;
         vt.nasalBwScale = pt.nasalBwScale;  vt.f4FreqScale = pt.f4FreqScale;
         vt.nasalGainScale = pt.nasalGainScale;
+        vt.chorusDepth = pt.chorusDepth;  vt.chorusDetuneHz = pt.chorusDetuneHz;
         const bool o = hasVoicingToneOverride;
         auto cl = [](int v) { return (double)(v < 0 ? 0 : v > 100 ? 100 : v); };
         const double sqS = cl(vtSpeedQuotient), bwS = cl(vtCascadeBwScale);
@@ -819,6 +820,11 @@ int main(int argc, char** argv) {
             o ? (bwS <= 50.0 ? 2.0 - bwS / 50.0 : 1.0 - ((bwS - 50.0) / 50.0) * 0.7) : 1.0,
             o ? (cl(vtTremor) / 100.0) * 0.4 : 0.0,
             1.0, 1.0, 1.0);
+        // A profile may carry chorus (#124): the configured depth adds, the
+        // configured detune moves it by its offset from neutral (33).
+        speechPlayer_composeListenerChorus(&composed,
+            o ? cl(vtChorusDepth) / 100.0 : 0.0,
+            o ? (cl(vtChorusDetune) - 33.0) / 100.0 * 4.5 : 0.0);
         memcpy(&vt, &composed, sizeof(vt));
         dbg("VOICE: profile '%s' voice source applied: tilt %.2f sq %.3f f4 %.3f shelf %.2f nasalBw %.2f nasalGain %.2f cbw %.2f",
             prof, vt.voicedTiltDbPerOct, vt.speedQuotient, vt.f4FreqScale, vt.highShelfGainDb,
