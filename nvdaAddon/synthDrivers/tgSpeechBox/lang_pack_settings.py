@@ -75,6 +75,44 @@ class LangPackSettingsMixin:
     def _enableLangPackWrites(self) -> None:
         """Re-enable writing language-pack settings back to YAML."""
         self._suppressLangPackWrites = False
+        self._syncLangPackSettingsToConfig()
+
+    # Voice-panel settings whose values live in the language files.
+    _LANG_PACK_PANEL_SETTINGS = frozenset({
+        "stopClosureMode", "spellingDiphthongMode", "legacyPitchMode",
+        "legacyPitchInflectionScale", "yearSplitting", "thousandsSeparatorCommaToSpace",
+    })
+
+    def _syncLangPackSettingsToConfig(self) -> None:
+        """Bring NVDA's saved copy of the voice-panel settings in line with the
+        language files, which are authoritative (#127).
+
+        NVDA keeps these in its config because they are in the voice panel,
+        and replays that copy into our setters when it re-applies settings
+        (a config profile switch, loadSettings with onlyChanged).  The copy
+        goes stale: NVDA refreshes it from our getters only when it saves (not
+        at all with "save configuration on exit" off), and it holds one value
+        per setting while the files hold one per language.  Replayed, a stale
+        copy was written into the files: Edu's NV Speech Player-era
+        "stopClosureMode: none" took the stop closures out of Brazilian
+        Portuguese.  Run after start-up's replay and after a language change.
+        """
+        try:
+            import config
+            section = config.conf["speech"][self.name]
+        except Exception:
+            return
+        for s in self.supportedSettings:
+            if s.id not in self._LANG_PACK_PANEL_SETTINGS:
+                continue
+            try:
+                value = getattr(self, s.id)
+                if value is None:
+                    continue
+                if str(section.get(s.id)) != str(value):
+                    section[s.id] = value
+            except Exception:
+                log.debug("TGSpeechBox: could not sync %s to NVDA's config", s.id, exc_info=True)
 
     def _scheduleEnableLangPackWrites(self) -> None:
         """Schedule re-enabling YAML writes after NVDA finishes config replay."""
@@ -138,7 +176,13 @@ class LangPackSettingsMixin:
         raw = getattr(self, "_langPackSettingsCache", {}).get(key)
         if raw is None:
             return default
-        return str(raw)
+        s = str(raw).strip()
+        # A quoted YAML scalar ("vowel-and-cluster", as pt-br.yaml writes it)
+        # is the value inside the quotes; with them it matched no choice in the
+        # voice panel and always looked changed to NVDA.
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
+            s = s[1:-1]
+        return s
 
     def _setLangPackSetting(self, key: str, value: object) -> None:
         """Write a language-pack ``settings:`` key and reload packs."""

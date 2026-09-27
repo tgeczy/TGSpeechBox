@@ -590,6 +590,9 @@ class SynthDriver(
                 self._refreshLangPackSettingsCache()
             except Exception:
                 log.debug("TGSpeechBox: could not refresh language-pack cache", exc_info=True)
+            # NVDA's saved copy of the voice-panel settings now has to hold
+            # this language's values (#127).
+            self._syncLangPackSettingsToConfig()
             self._scheduleSettingsPanelRefresh()
 
     # ---- Settings panel refresh ----

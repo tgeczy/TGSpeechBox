@@ -289,7 +289,11 @@ def _install_fake_nvda() -> None:
     sys.modules["addonHandler"] = addonHandler
 
     core = types.ModuleType("core")
-    core.callLater = lambda ms, fn, *a, **k: None  # the GUI loop never runs here
+    # NVDA's main loop runs callLater callbacks soon after the call; here
+    # they queue until pump_main_loop() runs them (the harness fixture does
+    # so right after the driver is built, as NVDA's loop would).
+    core.pending = []
+    core.callLater = lambda ms, fn, *a, **k: core.pending.append((fn, a, k))
     sys.modules["core"] = core
 
     languageHandler = types.ModuleType("languageHandler")
@@ -492,17 +496,58 @@ def record_frames(driver):
     return log
 
 
+def pump_main_loop():
+    """Run what the driver handed to core.callLater, as NVDA's loop would."""
+    import core
+    while core.pending:
+        fn, a, k = core.pending.pop(0)
+        fn(*a, **k)
+
+
+def driver_config_section(name="tgSpeechBox"):
+    """NVDA's saved settings for the synth: config.conf["speech"][name]."""
+    import config
+    return config.conf["speech"].setdefault(name, {})
+
+
+def nvda_replay_settings(driver):
+    """What NVDA does when it re-applies a synth's settings (a config profile
+    switch, loadSettings(onlyChanged=True)): every supported setting whose
+    saved value differs from the driver's current one is set again."""
+    section = driver_config_section(driver.name)
+    for s in driver.supportedSettings:
+        if s.id not in section:
+            continue
+        saved = section[s.id]
+        current = getattr(driver, s.id, None)
+        if str(saved) != str(current):
+            setattr(driver, s.id, saved)
+
+
+def _restore_lang_files():
+    """Undo a test's writes to the staged language files."""
+    for y in (REPO / "packs" / "lang").glob("*.yaml"):
+        _copy_if_different(y, STAGE / "packs" / "lang" / y.name)
+
+
 @pytest.fixture
 def harness():
     _stage_addon()
+    import config
     from synthDrivers import tgSpeechBox
     FakeWavePlayer.instances.clear()
+    # NVDA's initSettings creates the synth's (empty, on a first load) section.
+    config.conf["speech"]["tgSpeechBox"] = {}
     driver = tgSpeechBox.SynthDriver()
+    pump_main_loop()
     h = Harness(driver)
     try:
         yield h
     finally:
         driver.terminate()
+        pump_main_loop()
+        config.conf["speech"].pop("tgSpeechBox", None)
+        _restore_lang_files()
 
 
 @pytest.fixture(name="nvda_sequence")
@@ -513,3 +558,13 @@ def _nvda_sequence_fixture():
 @pytest.fixture(name="record_frames")
 def _record_frames_fixture():
     return record_frames
+
+
+@pytest.fixture(name="nvda_replay_settings")
+def _nvda_replay_settings_fixture():
+    return nvda_replay_settings
+
+
+@pytest.fixture(name="driver_config_section")
+def _driver_config_section_fixture():
+    return driver_config_section
