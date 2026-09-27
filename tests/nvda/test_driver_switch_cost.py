@@ -19,8 +19,11 @@ import time
 
 import pytest
 
-#: What a switch may add beyond eSpeak's own voice change.
-ALLOWED_MS = 5.0
+#: What a switch may add beyond eSpeak's own voice change.  The frontend's
+#: share is ~0.3 ms; the rest of the slack is scheduling noise on a busy
+#: machine (5 ms failed about one run in thirteen).  The regression this
+#: guards against, reloading the pack on every switch, added ~75 ms.
+ALLOWED_MS = 10.0
 
 
 def _espeak_switch_ms(driver, a, b):
@@ -60,7 +63,7 @@ def test_switching_back_to_a_language_already_spoken_is_instant(harness, nvda_se
     _latency_ms(harness, in_own())
 
     plain, switched = [], []
-    for _ in range(4):
+    for _ in range(6):
         plain.append(_latency_ms(harness, in_own()))
         plain.append(_latency_ms(harness, in_own()))
         switched.append(_latency_ms(harness, in_other()))
