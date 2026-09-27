@@ -3,7 +3,8 @@
 # so name the accented letters explicitly. Shared by pt, pt-br, pt-pt.
 # A name's first word must be read with the letter's vowel: eSpeak reads a
 # bare "e" as [i] and "o" as [u], and its own "ê"/"ô" as open [ɛ]/[ɔ], so
-# ê and ô are written "êh"/"ôh" ([e]/[o]) and õ is "ó til" (#130).
+# ê and ô are written "êh"/"ôh" ([e]/[o]), and õ, the nasal of the closed ô,
+# is "ôh til" (#130).
 # tests/test_letter_names_pt.py checks every name against eSpeak.
 á	a agudo
 é	é agudo
@@ -14,7 +15,7 @@
 ê	êh circunflexo
 ô	ôh circunflexo
 ã	a til
-õ	ó til
+õ	ôh til
 à	a crase
 ò	ó grave
 ù	u grave

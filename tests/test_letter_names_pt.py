@@ -36,14 +36,14 @@ EXPECTED = {
     "pt-br": {
         "á": "a", "é": "ɛ", "í": "i", "ó": "ɔ", "ú": "u",
         "â": "a", "ê": "e", "ô": "o",
-        "ã": "a", "õ": "ɔ",
+        "ã": "a", "õ": "o",
         "à": "a", "ò": "ɔ", "ù": "u",
     },
     # European Portuguese: the ones that differ from pt-br by more than the
     # quality of a (which is its own question) are the ones pinned.
     "pt": {
         "é": "ɛ", "í": "i", "ó": "ɔ", "ú": "u",
-        "ê": "e", "ô": "o", "õ": "ɔ", "ò": "ɔ", "ù": "u",
+        "ê": "e", "ô": "o", "õ": "o", "ò": "ɔ", "ù": "u",
     },
 }
 
