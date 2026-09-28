@@ -10,6 +10,16 @@ on:
   push:
     tags:
       - 'v-*'
+    # Every engine or package change on a version branch builds and tests the
+    # wheels (nothing is uploaded unless it is a release tag).
+    branches:
+      - 'v-*'
+    paths:
+      - 'python/**'
+      - 'src/**'
+      - 'packs/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build-wheels.yml'
   workflow_dispatch:
     inputs:
       release_tag:
