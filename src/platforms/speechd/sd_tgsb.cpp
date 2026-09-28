@@ -452,6 +452,9 @@ static void synthesize(const std::string& text,
                        bool& stopFlag) {
   dbg("SYNTH: text='%s' lang speed=%.2f pitch=%.1f", text.c_str(), speed, basePitchHz);
   sd_send("701 BEGIN");
+  // A new request is a new utterance: nothing about how the last one ended
+  // carries into this one (#127, as NVDA and SAPI).
+  nvspFrontend_beginStream(fe);
 
   SynthCtx ctx;
   ctx.player = player;

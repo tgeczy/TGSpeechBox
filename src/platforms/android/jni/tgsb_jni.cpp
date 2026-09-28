@@ -615,6 +615,9 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueueText(
     /* Purge any stale frames from previous utterance so they don't
      * leak into the start of the new one on interruption. */
     speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+    /* A new request is a new utterance: nothing about how the last one
+     * ended carries into this one (#127, as NVDA and SAPI). */
+    if (engine->frontend) nvspFrontend_beginStream(engine->frontend);
 
     const char *textChars = env->GetStringUTFChars(text, NULL);
     if (!textChars || !*textChars) {
@@ -1014,6 +1017,9 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
     engine->stopRequested = 0;
 
     speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+    /* A new request is a new utterance: nothing about how the last one
+     * ended carries into this one (#127, as NVDA and SAPI). */
+    if (engine->frontend) nvspFrontend_beginStream(engine->frontend);
 
     const char *textChars = env->GetStringUTFChars(text, NULL);
     if (!textChars || !*textChars) {
@@ -1066,6 +1072,9 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueIpa(
     engine->stopRequested = 0;
 
     speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+    /* A new request is a new utterance: nothing about how the last one
+     * ended carries into this one (#127, as NVDA and SAPI). */
+    if (engine->frontend) nvspFrontend_beginStream(engine->frontend);
 
     const char *ipaChars = env->GetStringUTFChars(ipa, NULL);
     if (!ipaChars || !*ipaChars) {
@@ -1439,6 +1448,9 @@ Java_com_tgspeechbox_tts_DebugNatives_nativeDebugQueueIpaEx(
 
     engine->stopRequested = 0;
     speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+    /* A new request is a new utterance: nothing about how the last one
+     * ended carries into this one (#127, as NVDA and SAPI). */
+    if (engine->frontend) nvspFrontend_beginStream(engine->frontend);
 
     const char *ipaChars = env->GetStringUTFChars(ipa, NULL);
     if (!ipaChars || !*ipaChars) {
@@ -1532,6 +1544,9 @@ Java_com_tgspeechbox_tts_DebugNatives_nativeDebugQueueText(
     engine->stopRequested = 0;
     if (!(flags & 8))
         speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+    /* A new request is a new utterance: nothing about how the last one
+     * ended carries into this one (#127, as NVDA and SAPI). */
+    if (engine->frontend) nvspFrontend_beginStream(engine->frontend);
 
     const char *textChars = env->GetStringUTFChars(text, NULL);
     if (!textChars || !*textChars) {

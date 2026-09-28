@@ -455,6 +455,9 @@ void tgsb_begin_utterance(TgsbEngine *engine)
     engine->stopRequested = 0;
     /* Purge stale frames from previous utterance */
     speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+    /* A new request is a new utterance: nothing about how the last one
+     * ended carries into this one (#127, as NVDA and SAPI). */
+    if (engine->frontend) nvspFrontend_beginStream(engine->frontend);
 }
 
 void tgsb_queue_silence(TgsbEngine *engine, double ms)
