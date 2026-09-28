@@ -1,0 +1,103 @@
+name: Build Python wheels (Windows, macOS)
+
+# The tgspeechbox Python package (python/): the engine's DSP and frontend
+# libraries with the language packs, one wheel per platform.  Linux wheels
+# are built by build-linux.yml, from the libraries it already builds there.
+# On a release tag the wheels are added to the release; nothing else about
+# the release (its notes, its other files) is touched.
+
+on:
+  push:
+    tags:
+      - 'v-*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release to attach the wheels to (leave empty to build and test only)'
+        required: false
+        type: string
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || '') }}
+
+jobs:
+  windows:
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            plat: win_amd64
+            py_arch: x64
+          - arch: Win32
+            plat: win32
+            py_arch: x86
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: ${{ matrix.py_arch }}
+      # Static CRT (the default TGSB_WIN7_COMPAT=ON), so the wheel needs no
+      # Visual C++ redistributable.
+      - name: Build the engine libraries
+        run: |
+          cmake -S . -B build -A ${{ matrix.arch }}
+          cmake --build build --config MinSizeRel --target speechPlayer nvspFrontend
+      - name: Build the wheel
+        run: python python/build_wheel.py --lib-dir build/MinSizeRel --plat ${{ matrix.plat }} --out dist
+      - name: Smoke-test the wheel
+        shell: bash
+        run: |
+          python -m venv /tmp/wv
+          /tmp/wv/Scripts/python -m pip install dist/*.whl
+          cd /tmp && PYTHONIOENCODING=utf-8 /tmp/wv/Scripts/python -m tgspeechbox --ipa "həˈloʊ wˈɜːld" --out /tmp/hello.wav
+          PYTHONIOENCODING=utf-8 /tmp/wv/Scripts/python -c "import tgspeechbox as t; u = t.render('kˈæt'); assert max(abs(s) for s in u.samples) > 1000; assert 'Beth' in t.Frontend('en-us').voice_profiles()"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tgspeechbox-wheel-${{ matrix.plat }}
+          path: dist/*.whl
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the engine libraries (universal)
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake --build build --target speechPlayer nvspFrontend
+          lipo -info build/libspeechPlayer.dylib build/libnvspFrontend.dylib
+          lipo -info build/libspeechPlayer.dylib | grep -q "x86_64 arm64\|arm64 x86_64"
+          lipo -info build/libnvspFrontend.dylib | grep -q "x86_64 arm64\|arm64 x86_64"
+      - name: Build the wheel
+        run: python python/build_wheel.py --lib-dir build --plat macosx_11_0_universal2 --out dist
+      - name: Smoke-test the wheel
+        run: |
+          python -m venv /tmp/wv
+          /tmp/wv/bin/python -m pip install dist/*.whl
+          cd /tmp && /tmp/wv/bin/python -m tgspeechbox --ipa "həˈloʊ wˈɜːld" --out /tmp/hello.wav
+          /tmp/wv/bin/python -c "import tgspeechbox as t; u = t.render('kˈæt'); assert max(abs(s) for s in u.samples) > 1000; assert 'Beth' in t.Frontend('en-us').voice_profiles()"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tgspeechbox-wheel-macos
+          path: dist/*.whl
+
+  attach:
+    needs: [windows, macos]
+    if: ${{ github.event.inputs.release_tag != '' || startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: tgspeechbox-wheel-*
+          merge-multiple: true
+          path: wheels
+      - name: Add the wheels to the release (files only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$RELEASE_TAG" wheels/*.whl --clobber --repo "$GITHUB_REPOSITORY"

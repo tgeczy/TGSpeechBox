@@ -10,6 +10,7 @@ Targets (each marked with BEGIN/END markers around the field declarations):
   - src/frontend/nvspFrontend.h                          (nvspFrontend_VoicingTone)
   - tools/tgsbPhonemeEditorWin32/tgsb_runtime.h          (EditorVoicingToneV3)
   - speechPlayer.py                                      (VoicingTone ctypes)
+  - python/tgspeechbox/_structs.py                       (VoicingTone ctypes, the wheel)
   - nvdaAddon/synthDrivers/tgSpeechBox/_frontend.py      (VoicingTone ctypes)
 
 Unlike FrameEx (where the whole struct is regenerated), VoicingTone targets
@@ -155,6 +156,11 @@ TARGETS: list[dict] = [
         path="nvdaAddon/synthDrivers/tgSpeechBox/_frontend.py",
         comment="#",
         render=lambda f: render_python_fields(f, "ctypes.c_double", indent="        "),
+    ),
+    dict(
+        path="python/tgspeechbox/_structs.py",
+        comment="#",
+        render=lambda f: render_python_fields(f, "c_double", indent="        "),
     ),
 ]
 

@@ -52,6 +52,25 @@ jobs:
           ${{ matrix.cross }}strip build/tgsbRender
           ${{ matrix.cross }}strip build/sd_tgsb
 
+      # The tgspeechbox Python package: these two libraries + the packs.  Built
+      # on Ubuntu 22.04 (glibc 2.35) with GCC 12, and tagged for exactly that.
+      - name: Build the Python wheel
+        run: python3 python/build_wheel.py --lib-dir build --plat manylinux_2_35_${{ matrix.arch }} --out dist
+
+      - name: Smoke-test the Python wheel
+        if: matrix.arch == 'x86_64'
+        run: |
+          python3 -m venv /tmp/wv
+          /tmp/wv/bin/python -m pip install dist/*.whl
+          cd /tmp && /tmp/wv/bin/python -m tgspeechbox --ipa "həˈloʊ wˈɜːld" --out /tmp/hello.wav
+          /tmp/wv/bin/python -c "import tgspeechbox as t; u = t.render('kˈæt'); assert max(abs(s) for s in u.samples) > 1000; assert 'Beth' in t.Frontend('en-us').voice_profiles()"
+
+      - name: Upload the Python wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: tgspeechbox-wheel-linux-${{ matrix.arch }}
+          path: dist/*.whl
+
       - name: Assemble release folder
         run: |
           DIST="tgspeechbox-linux-${{ matrix.arch }}-${{ env.RELEASE_TAG }}"
@@ -106,6 +125,7 @@ jobs:
           files: |
             tgspeechbox-linux-x86_64-${{ env.RELEASE_TAG }}/tgspeechbox-linux-x86_64-${{ env.RELEASE_TAG }}.tar.gz
             tgspeechbox-linux-aarch64-${{ env.RELEASE_TAG }}/tgspeechbox-linux-aarch64-${{ env.RELEASE_TAG }}.tar.gz
+            tgspeechbox-wheel-linux-*/*.whl
           draft: true
           generate_release_notes: false
           body: |

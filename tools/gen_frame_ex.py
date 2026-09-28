@@ -11,6 +11,7 @@ or a ctypes mirror that gets marshaled to the DLL):
   - tools/tgsbPhonemeEditorWin32/tgsb_runtime.h          (EditorFrameEx)
   - tools/tgsbRender.cpp                                 (FrameEx)
   - speechPlayer.py                                      (FrameEx ctypes)
+  - python/tgspeechbox/_structs.py                       (FrameEx ctypes, the wheel)
   - nvdaAddon/synthDrivers/tgSpeechBox/_frontend.py      (FrameEx ctypes)
 
 Historically these drifted silently — see issue #93 (chorus sliders not working
@@ -184,6 +185,11 @@ TARGETS: list[dict] = [
         path="nvdaAddon/synthDrivers/tgSpeechBox/_frontend.py",
         comment="#",
         render=lambda f: render_python_fields(f, "ctypes.c_double"),
+    ),
+    dict(
+        path="python/tgspeechbox/_structs.py",
+        comment="#",
+        render=lambda f: render_python_fields(f, "c_double"),
     ),
 ]
 

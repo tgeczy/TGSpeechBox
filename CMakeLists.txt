@@ -147,6 +147,13 @@ endif()
 # Optional: make the DLL name predictable.
 set_target_properties(nvspFrontend PROPERTIES OUTPUT_NAME "nvspFrontend")
 
+# normalizeNFKC() in utf8.cpp uses CFStringNormalize on Apple platforms (the
+# Xcode project links CoreFoundation for the apps; this is the macOS library
+# the Python wheel ships).
+if(APPLE)
+  target_link_libraries(nvspFrontend PRIVATE "-framework CoreFoundation")
+endif()
+
 # -------------------------
 # C++ unit test suite (opt-in, doctest-based)
 # -------------------------
