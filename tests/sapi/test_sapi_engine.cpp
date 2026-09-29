@@ -239,6 +239,33 @@ TEST_CASE("an item starts the same whatever was spoken before it") {
     CHECK(std::fabs(static_cast<double>(afterNothing) - static_cast<double>(afterVowel)) / rate <= 1.0);
 }
 
+// eSpeak ends a clause at an en or em dash and at Spanish ¿ and ¡, and returns
+// one clause per TextToPhonemes call with no space at either end.  The engine
+// appended them with nothing between, so "wait — what now" reached the
+// frontend as "wˈe͡ɪtwˌʌt": two words spoken as one.  A dash between words
+// must sound like the words with a space between them.
+TEST_CASE("words either side of a dash, ¿ or ¡ stay separate words") {
+    ComScope com;
+    struct Case { const wchar_t* lang; const wchar_t* marked; const wchar_t* plain; };
+    const Case cases[] = {
+        {L"en-us", L"wait — what now", L"wait what now"},
+        {L"en-us", L"wait – what now", L"wait what now"},
+        {L"es", L"hola ¿qué tal", L"hola qué tal"},
+        {L"es", L"sí — claro", L"sí claro"},
+    };
+    for (const Case& c : cases) {
+        Engine engine(c.lang);
+        HostSite marked, plain;
+        engine.speak(c.marked, marked);
+        engine.speak(c.plain, plain);
+        REQUIRE(plain.audio.size() > 0);
+        const double diffMs = (static_cast<double>(marked.audio.size()) - static_cast<double>(plain.audio.size())) *
+                              1000.0 / engine.fmt.nSamplesPerSec;
+        MESSAGE("marked " << marked.audio.size() << " plain " << plain.audio.size() << " samples");
+        CHECK_MESSAGE(std::fabs(diffMs) <= 5.0, "the dash or inverted mark changes the words' timing by " << diffMs << " ms");
+    }
+}
+
 // #135 (Edu): tabbing fast under NVDA or Narrator, "a small residue of the
 // previous word or phrase at the start of the next one", easier to hear at
 // slow rates.  A host abort must leave nothing of the old utterance behind:

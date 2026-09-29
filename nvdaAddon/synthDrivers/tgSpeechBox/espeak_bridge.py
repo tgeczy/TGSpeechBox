@@ -144,7 +144,11 @@ def espeakTextToIPA(text: str, espeakDLL, phonemeMode: int) -> str:
             chunks.append(ctypes.string_at(phonemeBuf))
         else:
             break
-    ipaBytes = b"".join(chunks)
+    # eSpeak returns one clause per call, and a clause can end inside the
+    # text we pass (at a dash, at Spanish ¿ and ¡).  Its output has no
+    # leading or trailing space, so the clauses are joined with one; with
+    # nothing between them, "wait — what" reached the frontend as one word.
+    ipaBytes = b" ".join(chunks)
     try:
         return ipaBytes.decode("utf8", errors="ignore").strip()
     except Exception:

@@ -812,6 +812,10 @@ void runtime::text_to_ipa_utf8(const std::wstring& text, std::string& out_ipa)
             k_espeak_phoneme_mode_ipa);
 
         if (!phon) break;
+        // One clause per call, with no space at either end; a clause can end
+        // inside our text (at a dash, at Spanish ¿ and ¡), so the clauses are
+        // joined with a space or the words either side run together.
+        if (*phon && !out_ipa.empty()) out_ipa.push_back(' ');
         out_ipa.append(phon);
     }
 
