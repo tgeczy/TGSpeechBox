@@ -17,6 +17,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "utils.hpp"
 #include "debug_log.h"
 #include "tgsb_settings.hpp"
+#include "nvspFrontend.h"
 
 namespace TGSpeech {
 namespace sapi {
@@ -90,18 +91,6 @@ char detect_clause_type(const wchar_t* start, size_t len)
     return '.';
 }
 
-// Check if a character is clause-ending punctuation.
-// U+2026 (…) is treated as a period so ellipsis triggers a pause.
-bool is_clause_punct(wchar_t c) {
-    return c == L'.' || c == L'?' || c == L'!' || c == L',' || c == L'\u2026';
-}
-
-// Check if a character is a semicolon or colon (clause boundary only
-// when followed by whitespace, to avoid splitting "5:44").
-bool is_soft_clause_punct(wchar_t c) {
-    return c == L';' || c == L':';
-}
-
 // Pad emoji codepoints with spaces so eSpeak treats them as separate
 // words for $textmode dictionary lookup.  On Windows, wchar_t is UTF-16
 // so emoji above U+FFFF are surrogate pairs.
@@ -151,90 +140,70 @@ static std::wstring padEmojiWithSpacesW(const std::wstring& text)
     return out;
 }
 
-// Split a SAPI text fragment into clauses. Each clause gets its own
-// clauseType so the frontend can apply correct intonation contours.
-// Same pattern as the Linux renderer and NVDA driver fixes.
+// Split a SAPI text fragment into clauses with the frontend's splitter, the
+// one every TGSpeechBox host uses (#133), so SAPI pauses where NVDA, Android,
+// iOS and Linux do.  Offsets are in the fragment's UTF-16 units.
 struct sapi_clause {
     size_t start;
     size_t len;
     char   clause_type;
+    double pause_ms;
 };
 
-std::vector<sapi_clause> split_clauses(const std::wstring& text)
+std::vector<sapi_clause> split_clauses(const std::wstring& text, int pause_mode)
 {
-    std::vector<sapi_clause> clauses;
-    const wchar_t* s = text.c_str();
-    const size_t total = text.size();
-    size_t pos = 0;
-
-    while (pos < total) {
-        // Skip leading whitespace.
-        while (pos < total && (s[pos] == L' ' || s[pos] == L'\t' ||
-                               s[pos] == L'\r' || s[pos] == L'\n'))
-            ++pos;
-        if (pos >= total) break;
-
-        size_t clauseStart = pos;
-        char clauseType = '.';
-
-        // Scan for clause boundary.
-        while (pos < total) {
-            wchar_t c = s[pos];
-            if (is_clause_punct(c)) {
-                // Comma/period between digits is a thousands separator
-                // or decimal — don't split (e.g. "65,543", "3.14").
-                if (c == L',' || c == L'.') {
-                    bool prevDigit = (pos > clauseStart) &&
-                        (static_cast<unsigned>(s[pos - 1] - L'0') <= 9);
-                    bool nextDigit = (pos + 1 < total) &&
-                        (static_cast<unsigned>(s[pos + 1] - L'0') <= 9);
-                    if (prevDigit && nextDigit) {
-                        ++pos;
-                        continue;
-                    }
-                    // Ordinal dot: "3. Mai" (German/Swedish/Czech/Finnish)
-                    if (c == L'.' && prevDigit && (pos + 2 < total) &&
-                        s[pos + 1] == L' ' &&
-                        ((static_cast<unsigned>(s[pos + 2] - L'A') <= 25) ||
-                         (static_cast<unsigned>(s[pos + 2] - L'a') <= 25))) {
-                        ++pos;
-                        continue;
-                    }
-                }
-                clauseType = (c == L'\u2026') ? '.' : static_cast<char>(c);
-                ++pos;
-                // Consume trailing closing quotes/brackets that belong
-                // to this clause (e.g. the " after great.")
-                while (pos < total) {
-                    wchar_t q = s[pos];
-                    if (q == L')' || q == L']' || q == L'"' || q == L'\'' ||
-                        q == L'\u2019' || q == L'\u201D')
-                        ++pos;
-                    else
-                        break;
-                }
-                break;
-            }
-            if (is_soft_clause_punct(c)) {
-                // Colon/semicolon: only split when followed by whitespace.
-                if (pos + 1 < total) {
-                    wchar_t next = s[pos + 1];
-                    if (next == L' ' || next == L'\t' || next == L'\r' || next == L'\n') {
-                        clauseType = ',';
-                        ++pos;
-                        break;
-                    }
-                }
-            }
-            ++pos;
+    // A UTF-8 copy, and for every byte of it the UTF-16 index it came from.
+    std::string utf8;
+    std::vector<size_t> w_at;
+    utf8.reserve(text.size() * 2);
+    w_at.reserve(text.size() * 2 + 1);
+    for (size_t i = 0; i < text.size();) {
+        uint32_t cp = text[i];
+        size_t units = 1;
+        if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < text.size() &&
+            text[i + 1] >= 0xDC00 && text[i + 1] <= 0xDFFF) {
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (text[i + 1] - 0xDC00);
+            units = 2;
         }
-
-        size_t clauseLen = pos - clauseStart;
-        if (clauseLen > 0) {
-            clauses.push_back({ clauseStart, clauseLen, clauseType });
+        char buf[4];
+        size_t n = 0;
+        if (cp < 0x80) {
+            buf[n++] = static_cast<char>(cp);
+        } else if (cp < 0x800) {
+            buf[n++] = static_cast<char>(0xC0 | (cp >> 6));
+            buf[n++] = static_cast<char>(0x80 | (cp & 0x3F));
+        } else if (cp < 0x10000) {
+            buf[n++] = static_cast<char>(0xE0 | (cp >> 12));
+            buf[n++] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            buf[n++] = static_cast<char>(0x80 | (cp & 0x3F));
+        } else {
+            buf[n++] = static_cast<char>(0xF0 | (cp >> 18));
+            buf[n++] = static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+            buf[n++] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            buf[n++] = static_cast<char>(0x80 | (cp & 0x3F));
         }
+        for (size_t k = 0; k < n; ++k) {
+            utf8.push_back(buf[k]);
+            w_at.push_back(i);
+        }
+        i += units;
     }
+    w_at.push_back(text.size());
 
+    std::vector<sapi_clause> clauses;
+    const int len = static_cast<int>(utf8.size());
+    int pos = 0;
+    while (pos < len) {
+        int start = 0, end = 0;
+        char type = '.';
+        double pause = 0.0;
+        const int next = nvspFrontend_nextClause(utf8.c_str(), len, pos, pause_mode,
+                                                 &start, &end, &type, &pause);
+        if (next <= pos) break;
+        if (end > start)
+            clauses.push_back({ w_at[start], w_at[end] - w_at[start], type, pause });
+        pos = next;
+    }
     return clauses;
 }
 
@@ -692,8 +661,6 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
 
         add_sentence_boundary_event(pOutputSite, ctx.bytes_written, batch.first_text_src_offset);
 
-        // Split concatenated text into clauses for intonation.
-        auto clauses = split_clauses(batch.text);
 
         // Stream as it renders (#128).  The batch used to be synthesized
         // into one buffer first and written afterwards, so the first byte
@@ -707,6 +674,8 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         // proportional across the whole batch).
         const auto& settings = tgsb::get_settings_cached(rt_->base_dir());
         const int pm = settings.pauseMode;
+        // Clauses for intonation and the pauses after them.
+        auto clauses = split_clauses(batch.text, pm);
         const size_t total_chars = batch.text.size();
         std::vector<tgsb::sample_t> audio_buf;
         size_t bm_idx = 0;
@@ -825,20 +794,11 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             if (!clause_wrote) continue;
             wrote_any = true;
 
-            // Pause mode: silence after each clause.
-            // Short: 35ms sentence / 25ms comma. Long: 60ms / 50ms.
-            if (pm > 0) {
-                double pauseMs = 0.0;
-                char ct = clause.clause_type;
-                if (ct == '.' || ct == '!' || ct == '?' || ct == ':' || ct == ';')
-                    pauseMs = (pm == 2) ? 60.0 : 35.0;
-                else if (ct == ',')
-                    pauseMs = (pm == 2) ? 50.0 : 25.0;
-                if (pauseMs > 0.0) {
-                    auto padSamples = static_cast<size_t>(pauseMs * rt_->sample_rate() / 1000.0 + 0.5);
-                    audio_buf.assign(padSamples, tgsb::sample_t{0});
-                    if (!hand_over(audio_buf.data(), audio_buf.size())) break;
-                }
+            // The pause after the clause, as every host leaves it.
+            if (clause.pause_ms > 0.0) {
+                auto padSamples = static_cast<size_t>(clause.pause_ms * rt_->sample_rate() / 1000.0 + 0.5);
+                audio_buf.assign(padSamples, tgsb::sample_t{0});
+                if (!hand_over(audio_buf.data(), audio_buf.size())) break;
             }
             // Whatever belonged to this clause and has not fired yet (a
             // bookmark at its very end) fires now, before the next clause.

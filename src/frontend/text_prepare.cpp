@@ -5,6 +5,7 @@ Licensed under the MIT License. See LICENSE for details.
 */
 
 #include "text_prepare.h"
+#include "utf8.h"
 
 #include <algorithm>
 #include <cctype>
@@ -590,6 +591,159 @@ std::string splitYears(const std::string& text, const std::string& ohDigit) {
   result.reserve(text.size() + 32);
   for (const auto& tok : toks) result += tok.s;
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Clause splitting (#133)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr char32_t kEnd = 0;
+
+// The codepoint at byte i and its length; malformed bytes read as one byte.
+char32_t decodeAt(std::string_view s, size_t i, size_t& len) {
+  if (i >= s.size()) { len = 0; return kEnd; }
+  const unsigned char c = static_cast<unsigned char>(s[i]);
+  size_t n = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+  if (i + n > s.size()) n = 1;
+  char32_t cp = n == 1 ? c : n == 2 ? (c & 0x1F) : n == 3 ? (c & 0x0F) : (c & 0x07);
+  for (size_t k = 1; k < n; ++k) {
+    const unsigned char cc = static_cast<unsigned char>(s[i + k]);
+    if ((cc & 0xC0) != 0x80) { len = 1; return c; }
+    cp = (cp << 6) | (cc & 0x3F);
+  }
+  len = n;
+  return cp;
+}
+
+// The codepoint that ends just before byte i.
+char32_t decodeBefore(std::string_view s, size_t i, size_t floor, size_t& start) {
+  if (i <= floor) { start = i; return kEnd; }
+  size_t b = i - 1;
+  while (b > floor && (static_cast<unsigned char>(s[b]) & 0xC0) == 0x80) --b;
+  size_t len = 0;
+  start = b;
+  return decodeAt(s, b, len);
+}
+
+bool isClauseSpace(char32_t c) {
+  return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == 0xA0 || c == 0x2028 ||
+         c == 0x2029 || c == 0x202F;
+}
+
+bool isCloser(char32_t c) {
+  return c == ')' || c == ']' || c == '"' || c == '\'' || c == 0x2019 || c == 0x201D;
+}
+
+bool isAsciiDigit(char32_t c) { return c >= '0' && c <= '9'; }
+
+bool isWordCodepoint(char32_t c) { return c != kEnd && !isPunctOrSpaceCodepoint(c); }
+
+bool isEndMark(char32_t c) {
+  return c == '.' || c == '?' || c == '!' || c == ',' || c == ':' || c == ';' || c == 0x2026;
+}
+
+// A clause that ends in mark c: its type and pause class.
+char markType(char32_t c) { return c == 0x2026 ? '.' : static_cast<char>(c); }
+int markPause(char32_t c) { return c == ',' ? 1 : 2; }
+
+}  // namespace
+
+bool nextClause(std::string_view text, size_t pos, ClauseSpan& out) {
+  const size_t n = text.size();
+  size_t len = 0;
+  while (pos < n && isClauseSpace(decodeAt(text, pos, len))) pos += len;
+  if (pos >= n) return false;
+
+  const size_t start = pos;
+  const char32_t first = decodeAt(text, start, len);
+  const bool opensWithBracket = first == '(' || first == '[';
+  bool hasContent = false;
+  char32_t prev = kEnd;
+
+  auto finish = [&](size_t end, size_t next, char type, int pauseClass) {
+    size_t e = end;
+    size_t b = 0;
+    while (e > start && isClauseSpace(decodeBefore(text, e, start, b))) e = b;
+    out.start = start;
+    out.end = e;
+    out.next = next;
+    out.type = type;
+    out.pauseClass = pauseClass;
+    return true;
+  };
+
+  size_t i = start;
+  while (i < n) {
+    const char32_t c = decodeAt(text, i, len);
+    const size_t j = i + len;
+    size_t nextLen = 0;
+    const char32_t next = decodeAt(text, j, nextLen);
+
+    if (isEndMark(c)) {
+      const bool digitDot = c == '.' && isAsciiDigit(prev);
+      if (!digitDot && !isEndMark(next)) {
+        size_t k = j;
+        size_t kLen = 0;
+        char32_t after = decodeAt(text, k, kLen);
+        while (isCloser(after)) {
+          k += kLen;
+          after = decodeAt(text, k, kLen);
+        }
+        const bool ellipsis = c == 0x2026 || (c == '.' && prev == '.');
+        if (after == kEnd || isClauseSpace(after) || (ellipsis && k == j && isWordCodepoint(after)))
+          return finish(k, k, markType(c), markPause(c));
+      }
+    } else if (c == 0x2014 || c == 0x2013) {  // em and en dash
+      const bool range = c == 0x2013 && isAsciiDigit(prev) && isAsciiDigit(next);
+      if (hasContent && !range) return finish(j, j, ',', 1);
+    } else if (c == '-') {
+      if (next == '-') {
+        const size_t k = j + nextLen;
+        size_t afterLen = 0;
+        const char32_t after = decodeAt(text, k, afterLen);
+        const bool spaced = isClauseSpace(prev) && (after == kEnd || isClauseSpace(after));
+        const bool joined = isWordCodepoint(prev) && isWordCodepoint(after);
+        if (hasContent && (spaced || joined)) return finish(k, k, ',', 1);
+        prev = '-';
+        i = k;
+        continue;
+      }
+      if (hasContent && isClauseSpace(prev) && (next == kEnd || isClauseSpace(next)))
+        return finish(j, j, ',', 1);
+    } else if (c == '(' || c == '[') {
+      if (hasContent && isClauseSpace(prev)) return finish(i, i, ',', 1);
+    } else if (c == ')' || c == ']') {
+      if (opensWithBracket && i > start && (next == kEnd || isClauseSpace(next)))
+        return finish(j, j, ',', 1);
+    } else if (c == 0xBF || c == 0xA1) {  // Spanish inverted question and exclamation marks
+      if (hasContent) return finish(i, i, ',', 1);
+    }
+
+    if (isWordCodepoint(c)) hasContent = true;
+    prev = c;
+    i = j;
+  }
+
+  // The text ran out: the clause takes the type of the mark it ends with,
+  // closing quotes and brackets aside, and has no pause when it ends in none.
+  size_t e = n;
+  size_t b = 0;
+  char32_t last = decodeBefore(text, e, start, b);
+  while (e > start && (isClauseSpace(last) || isCloser(last))) {
+    e = b;
+    last = decodeBefore(text, e, start, b);
+  }
+  if (isEndMark(last)) return finish(n, n, markType(last), markPause(last));
+  return finish(n, n, '.', 0);
+}
+
+double clausePauseMs(int pauseClass, int pauseMode) {
+  if (pauseMode <= 0 || pauseClass <= 0) return 0.0;
+  const bool longPauses = pauseMode >= 2;
+  if (pauseClass == 1) return longPauses ? 50.0 : 25.0;
+  return longPauses ? 60.0 : 35.0;
 }
 
 }  // namespace nvsp_frontend

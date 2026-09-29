@@ -550,6 +550,31 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
 #define nvspFrontend_splitCompounds nvspFrontend_prepareText
 
 /*
+  One clause splitter for every host (#133).  Finds the next clause of
+  `textUtf8` (textLen bytes) at or after byte `pos`, skipping whitespace:
+  its start and end in bytes (trailing whitespace excluded), its clause type
+  for queueIPA ('.', ',', '?', '!', ':' or ';'), and the pause to leave after
+  it in ms for pauseMode (0 off, 1 short, 2 long).  Returns the byte to
+  continue from, or -1 when nothing but whitespace is left.
+
+  Splits after . ? ! , : ; and an ellipsis when whitespace or the end follows
+  (an ellipsis also straight into a word), never after a dot that follows a
+  digit; and, like a comma, at dashes between words, around parenthesised or
+  bracketed text, and before Spanish inverted question and exclamation marks.
+  Needs no handle.
+*/
+NVSP_FRONTEND_API int nvspFrontend_nextClause(
+  const char* textUtf8,
+  int textLen,
+  int pos,
+  int pauseMode,
+  int* clauseStart,
+  int* clauseEnd,
+  char* clauseType,
+  double* pauseMs
+);
+
+/*
   Free a string returned by nvspFrontend_prepareText().
 */
 NVSP_FRONTEND_API void nvspFrontend_freeString(char* str);

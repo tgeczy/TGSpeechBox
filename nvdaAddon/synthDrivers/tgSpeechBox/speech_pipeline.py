@@ -335,6 +335,32 @@ class SpeechPipelineMixin:
 
     # ---- Background speak implementation ----
 
+    _PAUSE_MODES = {"off": 0, "short": 1, "long": 2}
+
+    def _splitClauses(self, text, pauseMode, punctuationPauseMs):
+        """(clause, clause type, pause after it in ms) for each clause of
+        `text`.  The frontend's splitter decides, the one every host uses
+        (#133): the same places, types and pauses on every platform.  An
+        older DLL without it falls back to the driver's own rule."""
+        clauses = self._frontend.splitClauses(text, self._PAUSE_MODES.get(pauseMode, 1))
+        if clauses is not None:
+            return clauses
+        clauses = []
+        for chunk in re_textPause.split(text):
+            if not chunk:
+                continue
+            punctToken = None
+            s_stripped = chunk.rstrip().rstrip(')]"\u2019\u201D\'')
+            if s_stripped.endswith("..."):
+                punctToken = "..."
+                clauseType = "."  # the frontend reads one byte
+            elif s_stripped and (s_stripped[-1] in ".?!,:;"):
+                punctToken = clauseType = s_stripped[-1]
+            else:
+                clauseType = None
+            clauses.append((chunk, clauseType, punctuationPauseMs(punctToken)))
+        return clauses
+
     def _speakBg(self, speakList, generation):
         # Bail immediately if a cancel() already invalidated this generation
         if generation != self._speakGen:
@@ -389,38 +415,14 @@ class SpeechPipelineMixin:
                     # unknown pair of engines.  (Speaking beats silence, so
                     # the block goes ahead even if this fails too.)
                     self._applySpeechLang(None)
-                for chunk in re_textPause.split(text):
+                for chunk, clauseType, punctPauseMs in self._splitClauses(text, pauseMode, _punctuationPauseMs):
                     # Check again between chunks for fast cancellation
                     if generation != self._speakGen:
                         return
 
-                    if not chunk:
-                        continue
-
                     chunk = normalizeTextForEspeak(chunk)
                     if not chunk:
                         continue
-
-                    # Determine punctuation at the *end* of the chunk.
-                    # This influences two things:
-                    # - clauseType passed to the frontend (intonation hints)
-                    # - optional micro-pause insertion after the chunk
-                    punctToken = None
-                    s = chunk.rstrip()
-                    # Strip trailing closing quotes/brackets so ." and ?"
-                    # expose the actual punctuation mark for clause detection.
-                    s_stripped = s.rstrip(')]"\u2019\u201D\'')
-                    if s_stripped.endswith("..."):
-                        punctToken = "..."
-                        # Frontend only reads 1 byte; treat ellipsis as '.' for prosody.
-                        clauseType = "."
-                    elif s_stripped and (s_stripped[-1] in ".?!,:;"):
-                        punctToken = s_stripped[-1]
-                        clauseType = s_stripped[-1]
-                    else:
-                        clauseType = None
-
-                    punctPauseMs = _punctuationPauseMs(punctToken)
 
                     # Single-character letter name lookup: if the chunk is
                     # a lone character and we have a letter-name override for

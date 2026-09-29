@@ -239,30 +239,39 @@ TEST_CASE("an item starts the same whatever was spoken before it") {
     CHECK(std::fabs(static_cast<double>(afterNothing) - static_cast<double>(afterVowel)) / rate <= 1.0);
 }
 
-// eSpeak ends a clause at an en or em dash and at Spanish ¿ and ¡, and returns
-// one clause per TextToPhonemes call with no space at either end.  The engine
-// appended them with nothing between, so "wait — what now" reached the
-// frontend as "wˈe͡ɪtwˌʌt": two words spoken as one.  A dash between words
-// must sound like the words with a space between them.
-TEST_CASE("words either side of a dash, ¿ or ¡ stay separate words") {
+// A dash between words, parentheses around words, and Spanish ¿ and ¡ pause
+// like a comma (#133): the same clauses and the same pause as the text
+// written with commas.  Before the shared splitter SAPI did not split there
+// at all, and eSpeak's own break at the mark ran the words either side
+// together ("wait — what" as "wˈe͡ɪtwˌʌt").
+TEST_CASE("a dash, parentheses, ¿ or ¡ pause like a comma (#133)") {
     ComScope com;
-    struct Case { const wchar_t* lang; const wchar_t* marked; const wchar_t* plain; };
+    struct Case { const wchar_t* lang; const wchar_t* marked; const wchar_t* commas; const wchar_t* plain; };
     const Case cases[] = {
-        {L"en-us", L"wait — what now", L"wait what now"},
-        {L"en-us", L"wait – what now", L"wait what now"},
-        {L"es", L"hola ¿qué tal", L"hola qué tal"},
-        {L"es", L"sí — claro", L"sí claro"},
+        {L"en-us", L"wait — what now", L"wait, what now", L"wait what now"},
+        {L"en-us", L"wait – what now", L"wait, what now", L"wait what now"},
+        {L"en-us", L"The file (about two megabytes) is ready", L"The file, about two megabytes, is ready",
+         L"The file about two megabytes is ready"},
+        {L"es", L"hola ¿qué tal", L"hola, qué tal", L"hola qué tal"},
+        {L"es", L"dijo ¡basta", L"dijo, basta", L"dijo basta"},
     };
     for (const Case& c : cases) {
         Engine engine(c.lang);
-        HostSite marked, plain;
+        HostSite marked, commas, plain;
         engine.speak(c.marked, marked);
+        engine.speak(c.commas, commas);
         engine.speak(c.plain, plain);
         REQUIRE(plain.audio.size() > 0);
-        const double diffMs = (static_cast<double>(marked.audio.size()) - static_cast<double>(plain.audio.size())) *
-                              1000.0 / engine.fmt.nSamplesPerSec;
-        MESSAGE("marked " << marked.audio.size() << " plain " << plain.audio.size() << " samples");
-        CHECK_MESSAGE(std::fabs(diffMs) <= 5.0, "the dash or inverted mark changes the words' timing by " << diffMs << " ms");
+        auto ms = [&](const HostSite& a, const HostSite& b) {
+            return (static_cast<double>(a.audio.size()) - static_cast<double>(b.audio.size())) * 1000.0 /
+                   engine.fmt.nSamplesPerSec;
+        };
+        MESSAGE("marked " << marked.audio.size() << " commas " << commas.audio.size() << " plain "
+                          << plain.audio.size() << " samples");
+        CHECK_MESSAGE(std::fabs(ms(marked, commas)) <= 5.0, "the mark does not sound like a comma: "
+                                                                << ms(marked, commas) << " ms apart");
+        CHECK_MESSAGE(ms(marked, plain) >= 20.0, "no pause at the mark: only " << ms(marked, plain)
+                                                                              << " ms longer than without it");
     }
 }
 

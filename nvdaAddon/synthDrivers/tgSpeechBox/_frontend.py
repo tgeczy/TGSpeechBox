@@ -236,6 +236,24 @@ class NvspFrontend(object):
         except AttributeError:
             pass
 
+        # nextClause: the clause splitter every host shares (#133)
+        self._hasNextClauseApi = False
+        try:
+            self._dll.nvspFrontend_nextClause.argtypes = [
+                ctypes.c_char_p,                  # textUtf8
+                ctypes.c_int,                     # textLen
+                ctypes.c_int,                     # pos
+                ctypes.c_int,                     # pauseMode
+                ctypes.POINTER(ctypes.c_int),     # clauseStart
+                ctypes.POINTER(ctypes.c_int),     # clauseEnd
+                ctypes.POINTER(ctypes.c_char),    # clauseType
+                ctypes.POINTER(ctypes.c_double),  # pauseMs
+            ]
+            self._dll.nvspFrontend_nextClause.restype = ctypes.c_int
+            self._hasNextClauseApi = True
+        except AttributeError:
+            pass
+
         # beginStream (optional - may not exist in older DLLs)
         self._hasBeginStreamApi = False
         try:
@@ -452,6 +470,35 @@ class NvspFrontend(object):
         except Exception:
             log.debug("TGSpeechBox: getVoiceProfile failed", exc_info=True)
             return ""
+
+    def splitClauses(self, text: str, pauseMode: int):
+        """The clauses of `text` as every TGSpeechBox host splits it (#133):
+        a list of (clause text, clause type, pause after it in ms) for
+        pauseMode 0 (off), 1 (short) or 2 (long).  None when the DLL has no
+        splitter."""
+        if not self._dll or not self._hasNextClauseApi:
+            return None
+        data = text.encode("utf-8")
+        start = ctypes.c_int()
+        end = ctypes.c_int()
+        clauseType = ctypes.c_char()
+        pauseMs = ctypes.c_double()
+        clauses = []
+        pos = 0
+        while pos < len(data):
+            nxt = self._dll.nvspFrontend_nextClause(
+                data, len(data), pos, int(pauseMode),
+                ctypes.byref(start), ctypes.byref(end),
+                ctypes.byref(clauseType), ctypes.byref(pauseMs))
+            if nxt <= pos:
+                break
+            clauses.append((
+                data[start.value:end.value].decode("utf-8", errors="replace"),
+                clauseType.value.decode("ascii", errors="replace") or ".",
+                float(pauseMs.value),
+            ))
+            pos = nxt
+        return clauses
 
     def beginStream(self) -> None:
         """Make the next queued chunk the first of a new utterance: no

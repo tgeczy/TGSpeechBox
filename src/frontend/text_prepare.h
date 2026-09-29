@@ -10,6 +10,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "pack.h"
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -52,6 +53,31 @@ std::string separateHyphenatedNumbers(const std::string& text);
 // Split 4-digit numbers into two 2-digit pairs for year-style reading.
 // "1995" -> "19 95" ("nineteen ninety-five").
 std::string splitYears(const std::string& text, const std::string& ohDigit);
+
+// One clause of host text (#133): where it starts and ends (bytes, trailing
+// whitespace excluded), where the next one starts, the clause type the
+// frontend's pitch passes read ('.', ',', '?', '!', ':' or ';'), and the pause
+// after it (0 none, 1 comma, 2 sentence).  Every host splits with this, so
+// every platform pauses at the same places.
+struct ClauseSpan {
+  size_t start = 0;
+  size_t end = 0;
+  size_t next = 0;
+  char type = '.';
+  int pauseClass = 0;
+};
+
+// The next clause of UTF-8 `text` at or after byte `pos`; false when only
+// whitespace is left.  The rule is the NVDA driver's (split after . ? ! , : ;
+// and an ellipsis when a space, the end, or for an ellipsis a word follows;
+// never after a dot that follows a digit), plus a comma-like break at dashes
+// between words, around parenthesised or bracketed text, and before Spanish
+// inverted question and exclamation marks.
+bool nextClause(std::string_view text, size_t pos, ClauseSpan& out);
+
+// The pause after a clause, in ms, for a host's pause setting (0 off,
+// 1 short, 2 long).
+double clausePauseMs(int pauseClass, int pauseMode);
 
 }  // namespace nvsp_frontend
 

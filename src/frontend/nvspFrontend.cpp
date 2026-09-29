@@ -22,6 +22,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "utf8.h"
 #include "yaml_export.h"
 #include "text_parser.h"
+#include "text_prepare.h"
 
 // Helper to format a double with minimal precision (avoid "2.000000")
 // Defined here (outside extern "C") to avoid C4190 warning about std::string.
@@ -1063,6 +1064,28 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
     return;
   }
   h->pack.lang.legacyPitchInflectionScale = scale;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_nextClause(
+  const char* textUtf8,
+  int textLen,
+  int pos,
+  int pauseMode,
+  int* clauseStart,
+  int* clauseEnd,
+  char* clauseType,
+  double* pauseMs
+) {
+  if (!textUtf8 || textLen <= 0 || pos < 0 || pos >= textLen) return -1;
+  nvsp_frontend::ClauseSpan span;
+  if (!nvsp_frontend::nextClause(std::string_view(textUtf8, static_cast<size_t>(textLen)),
+                                 static_cast<size_t>(pos), span))
+    return -1;
+  if (clauseStart) *clauseStart = static_cast<int>(span.start);
+  if (clauseEnd) *clauseEnd = static_cast<int>(span.end);
+  if (clauseType) *clauseType = span.type;
+  if (pauseMs) *pauseMs = nvsp_frontend::clausePauseMs(span.pauseClass, pauseMode);
+  return static_cast<int>(span.next);
 }
 
 NVSP_FRONTEND_API char* nvspFrontend_prepareText(
