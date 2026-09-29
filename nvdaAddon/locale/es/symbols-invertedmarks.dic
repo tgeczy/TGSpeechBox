@@ -1,0 +1,6 @@
+# TGSpeechBox add-on (NVDA 2024.4 and later): send Spanish "¿" and "¡" themselves to the synthesizer at every
+# symbol level.  NVDA's own dictionaries never keep them, so the driver never saw where a question or an
+# exclamation opens and could not pause there (#133).  The spoken name and the level stay NVDA's own ("-").
+symbols:
+¿	-	-	always
+¡	-	-	always
