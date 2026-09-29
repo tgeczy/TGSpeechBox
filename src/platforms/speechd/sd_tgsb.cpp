@@ -468,44 +468,21 @@ static void synthesize(const std::string& text,
   if (speed > 2.0) { timeStretch = speed / 2.0; speed = 2.0; }
   speechPlayer_setTimeStretch(player, timeStretch);
 
-  // Clause-splitting loop (same as tgsbRender --espeak / tgsb_bridge.cpp)
-  const char *p = text.c_str();
-  while (*p && !stopFlag) {
-    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-    if (!*p) break;
-
-    const char *clauseStart = p;
+  // Clauses and the pauses after them: the frontend's splitter, the one
+  // every host uses (#133).
+  const int textLen = (int)text.size();
+  int pos = 0;
+  while (pos < textLen && !stopFlag) {
+    int clauseStart = 0, clauseEnd = 0;
     char clauseType = '.';
+    double pauseMs = 0.0;
+    const int next = nvspFrontend_nextClause(text.c_str(), textLen, pos, pauseMode,
+                                             &clauseStart, &clauseEnd, &clauseType, &pauseMs);
+    if (next <= pos) break;
+    pos = next;
+    if (clauseEnd <= clauseStart) continue;
 
-    while (*p) {
-      char c = *p;
-      if (c == '?' || c == '!') { clauseType = c; p++; break; }
-      if (c == ',' || c == '.') {
-        bool prevDigit = (p > clauseStart) && (unsigned char)(*(p-1) - '0') <= 9;
-        bool nextDigit = *(p+1) && (unsigned char)(*(p+1) - '0') <= 9;
-        if (prevDigit && nextDigit) { p++; continue; }  // thousands: 26,655
-        // Ordinal dot: "3. Mai" — digit + dot + space + letter (German/Swedish/Czech/Finnish)
-        if (c == '.' && prevDigit && *(p+1) == ' ' && *(p+2) &&
-            ((unsigned char)(*(p+2) - 'A') <= 25 || (unsigned char)(*(p+2) - 'a') <= 25)) {
-          p++; continue;
-        }
-        clauseType = c; p++; break;
-      }
-      if ((unsigned char)c == 0xE2 && (unsigned char)*(p+1) == 0x80 &&
-          (unsigned char)*(p+2) == 0xA6) { clauseType = '.'; p += 3; break; }
-      if (c == ';' || c == ':') {
-        char next = *(p+1);
-        if (next == ' ' || next == '\t' || next == '\r' || next == '\n' || next == '\0') {
-          clauseType = ','; p++; break;
-        }
-      }
-      p++;
-    }
-
-    size_t len = (size_t)(p - clauseStart);
-    if (len == 0) continue;
-
-    std::string clause(clauseStart, len);
+    std::string clause(text, (size_t)clauseStart, (size_t)(clauseEnd - clauseStart));
 
     // Text normalization
     char *prepared = nvspFrontend_prepareText(fe, clause.c_str());
@@ -540,13 +517,8 @@ static void synthesize(const std::string& text,
     }
     dbg("SYNTH: synthesized %d total samples", totalSamples);
 
-    // Punctuation pause between clauses (same as iOS bridge / NVDA driver)
-    if (pauseMode > 0 && totalSamples > 0) {
-      double pauseMs = 0.0;
-      if (clauseType == '.' || clauseType == '!' || clauseType == '?')
-        pauseMs = pauseMode == 2 ? 60.0 : 35.0;
-      else if (clauseType == ',')
-        pauseMs = pauseMode == 2 ? 50.0 : 25.0;
+    // The pause after the clause, as every host leaves it.
+    if (totalSamples > 0) {
       if (pauseMs > 0.0) {
         unsigned int samples = (unsigned int)(pauseMs * sampleRate / 1000.0 + 0.5);
         unsigned int fadeSamp = (unsigned int)(3.0 * sampleRate / 1000.0 + 0.5);

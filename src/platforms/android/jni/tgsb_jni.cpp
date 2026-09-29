@@ -300,10 +300,9 @@ static void onFrame(
 /* ------------------------------------------------------------------ */
 
 /*
- * Pre-split text at clause boundaries (. ? ! , ; :) then feed each
- * clause to eSpeak individually, tagging it with the correct clause
- * type for prosody.  This mirrors the NVDA driver, which pre-splits
- * rather than relying on eSpeak's opaque clause chunking.
+ * Split text into clauses with the frontend's splitter, the one every host
+ * uses (#133), then feed each clause to eSpeak on its own, tagged with its
+ * clause type for prosody, and leave the splitter's pause after it.
  */
 static void synthesizeClauses(TgsbEngine *engine,
                               const char *text,
@@ -311,74 +310,24 @@ static void synthesizeClauses(TgsbEngine *engine,
                               nvspFrontend_FrameExCallback cb,
                               FrameCtx *ctx)
 {
-    const char *p = text;
-    while (*p && !engine->stopRequested) {
-        /* skip leading whitespace */
-        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-        if (!*p) break;
-
-        /* scan forward to find next clause boundary */
-        const char *clauseStart = p;
-        char clauseType = '.';   /* default if no punctuation found */
-        while (*p) {
-            char c = *p;
-            if (c == '?' || c == '!') {
-                clauseType = c;
-                p++;
-                break;
-            }
-            /* comma/period between digits is a thousands separator or decimal
-             * (e.g. "26,655" or "3.14"), not a clause boundary */
-            if (c == ',' || c == '.') {
-                bool prevDigit = (p > clauseStart) &&
-                    (unsigned char)(*(p - 1) - '0') <= 9;
-                bool nextDigit = *(p + 1) &&
-                    (unsigned char)(*(p + 1) - '0') <= 9;
-                if (prevDigit && nextDigit) {
-                    p++;
-                    continue;
-                }
-                /* Ordinal dot: "3. Mai" (German/Swedish/Czech/Finnish) */
-                if (c == '.' && prevDigit && *(p+1) == ' ' && *(p+2) &&
-                    ((unsigned char)(*(p+2) - 'A') <= 25 ||
-                     (unsigned char)(*(p+2) - 'a') <= 25)) {
-                    p++;
-                    continue;
-                }
-                clauseType = c;
-                p++;
-                break;
-            }
-            /* U+2026 ellipsis (UTF-8: E2 80 A6) — treat as period */
-            if ((unsigned char)c == 0xE2 &&
-                (unsigned char)*(p+1) == 0x80 &&
-                (unsigned char)*(p+2) == 0xA6) {
-                clauseType = '.';
-                p += 3;
-                break;
-            }
-            /* colon/semicolon only split when followed by whitespace
-             * (avoids splitting times like "5:44" or ratios like "3:1") */
-            if (c == ';' || c == ':') {
-                char next = *(p + 1);
-                if (next == ' ' || next == '\t' || next == '\r' ||
-                    next == '\n' || next == '\0') {
-                    clauseType = ',';
-                    p++;
-                    break;
-                }
-            }
-            p++;
-        }
-        /* if we hit end-of-string without punctuation, p is at '\0' */
+    const int textLen = (int)strlen(text);
+    int pos = 0;
+    while (pos < textLen && !engine->stopRequested) {
+        int clauseStart = 0, clauseEnd = 0;
+        char clauseType = '.';
+        double pauseMs = 0.0;
+        const int next = nvspFrontend_nextClause(text, textLen, pos, engine->pauseMode,
+                                                 &clauseStart, &clauseEnd, &clauseType, &pauseMs);
+        if (next <= pos) break;
+        pos = next;
 
         /* copy clause into a NUL-terminated buffer */
-        size_t len = (size_t)(p - clauseStart);
+        size_t len = (size_t)(clauseEnd - clauseStart);
         if (len == 0) continue;
 
         char *clause = (char *)malloc(len + 1);
         if (!clause) continue;
-        memcpy(clause, clauseStart, len);
+        memcpy(clause, text + clauseStart, len);
         clause[len] = '\0';
 
         /* Pre-eSpeak text normalization: compound splitting, date ordinals, etc. */
@@ -417,17 +366,8 @@ static void synthesizeClauses(TgsbEngine *engine,
             );
         }
 
-        /* Punctuation pause — matches NVDA driver durations.
-         * Short: 35 ms sentence-final, 25 ms comma
-         * Long:  60 ms sentence-final, 50 ms comma */
-        if (engine->pauseMode > 0 && ctx->frameCount > 0) {
-            double pauseMs = 0.0;
-            if (clauseType == '.' || clauseType == '!' ||
-                clauseType == '?' || clauseType == ':' || clauseType == ';') {
-                pauseMs = engine->pauseMode == 2 ? 60.0 : 35.0;
-            } else if (clauseType == ',') {
-                pauseMs = engine->pauseMode == 2 ? 50.0 : 25.0;
-            }
+        /* The pause after the clause, as every host leaves it. */
+        if (ctx->frameCount > 0) {
             if (pauseMs > 0.0) {
                 unsigned int samples = (unsigned int)(
                     pauseMs * engine->sampleRate / 1000.0 + 0.5);

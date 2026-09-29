@@ -1184,66 +1184,21 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    // Clause-splitting loop (same algorithm as tgsb_bridge.cpp / tgsb_jni.cpp).
-    // Split text at sentence boundaries, feed each clause to espeak individually,
-    // tag with correct clause type for prosody.
-    const char *p = opt.text.c_str();
-    while (*p) {
-      // Skip leading whitespace
-      while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-      if (!*p) break;
-
-      const char *clauseStart = p;
+    // Clauses as every host splits them: the frontend's splitter (#133).
+    // Feed each clause to eSpeak on its own, tagged with its clause type.
+    // (No pauses here: this path renders what the frontend queues.)
+    const int textLen = (int)opt.text.size();
+    int pos = 0;
+    while (pos < textLen) {
+      int clauseStart = 0, clauseEnd = 0;
       char clauseType = '.';
+      const int next = nvspFrontend_nextClause(opt.text.c_str(), textLen, pos, 0,
+                                               &clauseStart, &clauseEnd, &clauseType, nullptr);
+      if (next <= pos) break;
+      pos = next;
+      if (clauseEnd <= clauseStart) continue;
 
-      while (*p) {
-        char c = *p;
-        if (c == '?' || c == '!') {
-          clauseType = c;
-          p++;
-          break;
-        }
-        // comma/period between digits = thousands separator / decimal
-        if (c == ',' || c == '.') {
-          bool prevDigit = (p > clauseStart) &&
-              (unsigned char)(*(p - 1) - '0') <= 9;
-          bool nextDigit = *(p + 1) &&
-              (unsigned char)(*(p + 1) - '0') <= 9;
-          if (prevDigit && nextDigit) { p++; continue; }
-          // Ordinal dot: "3. Mai" (German/Swedish/Czech/Finnish)
-          if (c == '.' && prevDigit && *(p+1) == ' ' && *(p+2) &&
-              ((unsigned char)(*(p+2) - 'A') <= 25 || (unsigned char)(*(p+2) - 'a') <= 25)) {
-            p++; continue;
-          }
-          clauseType = c;
-          p++;
-          break;
-        }
-        // U+2026 ellipsis (UTF-8: E2 80 A6)
-        if ((unsigned char)c == 0xE2 &&
-            (unsigned char)*(p+1) == 0x80 &&
-            (unsigned char)*(p+2) == 0xA6) {
-          clauseType = '.';
-          p += 3;
-          break;
-        }
-        // colon/semicolon only split when followed by whitespace
-        if (c == ';' || c == ':') {
-          char next = *(p + 1);
-          if (next == ' ' || next == '\t' || next == '\r' ||
-              next == '\n' || next == '\0') {
-            clauseType = ',';
-            p++;
-            break;
-          }
-        }
-        p++;
-      }
-
-      size_t len = (size_t)(p - clauseStart);
-      if (len == 0) continue;
-
-      std::string clause(clauseStart, len);
+      std::string clause(opt.text, (size_t)clauseStart, (size_t)(clauseEnd - clauseStart));
 
       // Text normalization: compound splitting, date ordinals, etc.
       char *prepared = nvspFrontend_prepareText(fe, clause.c_str());
