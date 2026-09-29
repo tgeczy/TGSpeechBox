@@ -98,6 +98,13 @@ class AudioThread(threading.Thread):
         self._wake = threading.Event()
         self._init = threading.Event()
         self._framesReady = threading.Event()  # BgThread signals when new frames are queued
+        # Held around every synthesize() call, so drainDsp() on the BgThread
+        # never runs the DLL at the same time as this thread.
+        self._synthLock = threading.Lock()
+        # Bumped by every cancel().  A synthesis pass that started before a
+        # cancel never feeds audio after it, even when the next utterance has
+        # already set isSpeaking again by the time its synthesize() returns.
+        self.cancelSeq = 0
 
         self._wavePlayer = None
         self._outputDevice = None
@@ -206,6 +213,19 @@ class AudioThread(threading.Thread):
         self.utteranceSeq = getattr(self, "utteranceSeq", 0) + 1
         self.isSpeaking = True
 
+    def drainDsp(self):
+        """Render away what a cancel left in the DSP (#135).
+
+        cancel() can only purge the frame queue: this thread may still be
+        inside synthesize().  The purge leaves the old voice fading out plus
+        a little silence queued, and the next utterance used to start with
+        them.  The BgThread calls this after a cancel, before it queues the
+        next utterance, so that one starts from a DSP with nothing in it."""
+        with self._synthLock:
+            for _ in range(64):  # a cancel leaves a few ms; never loop forever
+                if not self._player.synthesize(8192):
+                    break
+
     def stopPlayback(self):
         """Stop the WavePlayer immediately. Thread-safe (called from main thread)."""
         wp = self._wavePlayer  # single read — atomic for CPython
@@ -293,15 +313,17 @@ class AudioThread(threading.Thread):
             isFirstChunk = True
             didSpeak = False
             seqAtPassStart = getattr(self, "utteranceSeq", 0)
+            cancelAtPassStart = self.cancelSeq
 
             while self._keepAlive and self.isSpeaking:
                 didSpeak = True
                 try:
-                    if useIndexAware:
-                        data, idxHit = player.synthesizeIndexAware(8192)
-                    else:
-                        data = player.synthesize(8192)
-                        idxHit = None
+                    with self._synthLock:
+                        if useIndexAware:
+                            data, idxHit = player.synthesizeIndexAware(8192)
+                        else:
+                            data = player.synthesize(8192)
+                            idxHit = None
                 except Exception:
                     if not self._synthErrorLogged:
                         log.error("nvSpeechPlayer: speechPlayer.synthesize failed", exc_info=True)
@@ -314,7 +336,7 @@ class AudioThread(threading.Thread):
                 # the WavePlayer *after* cancel()'s stop(), restarting
                 # playback and causing overlap with the next synth
                 # (the MultiLang simultaneous-speaking bug).
-                if not self.isSpeaking:
+                if not self.isSpeaking or self.cancelSeq != cancelAtPassStart:
                     break
 
                 if data:

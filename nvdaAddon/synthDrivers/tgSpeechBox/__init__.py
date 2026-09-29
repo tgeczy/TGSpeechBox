@@ -727,6 +727,7 @@ class SynthDriver(
             # AudioThread's inner loop exits at the next iteration and
             # the post-synthesize isSpeaking re-check prevents it from
             # feeding any more audio to the WavePlayer.
+            self._audio.cancelSeq += 1  # a pass already running feeds nothing more
             self._audio.allFramesQueued = True  # stop AudioThread polling
             self._audio._framesReady.set()      # wake if waiting on Event
             self._audio.isSpeaking = False

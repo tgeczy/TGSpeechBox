@@ -346,6 +346,8 @@ class SpeechPipelineMixin:
         if getattr(self, "_newStreamPending", False):
             self._newStreamPending = False
             self._frontend.beginStream()
+            # And nothing of the cut-off audio is left in the DSP (#135).
+            self._audio.drainDsp()
         hadRealSpeech = False
         hadKickedAudio = False  # streaming: kick AudioThread after first chunk
         hasIndex = bool(IndexCommand) and any(isinstance(i, IndexCommand) for i in speakList)
