@@ -63,9 +63,6 @@ targets:
       - target: TGSpeechBoxSynthExtension
         embed: true
         codeSign: true
-      - target: TGSBPhonemizerService
-        embed: true
-        codeSign: true
 
   TGSpeechBoxSynthExtension:
     type: app-extension
@@ -102,35 +99,6 @@ targets:
         OTHER_LDFLAGS:
           - -ltgspeechbox_static
           - -ltgsbFrontend_static
-          - -lespeak_phonemizer
-          - -lucd
-          - -lc++
-          - -lm
-
-  TGSBPhonemizerService:
-    type: xpc-service
-    platform: macOS
-    sources:
-      - path: phonemizer-ext
-        type: group
-      - path: ../../../resources/espeak-ng-data
-        type: folder
-        buildPhase: resources
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tgspeechbox.app.phonemizer
-        GENERATE_INFOPLIST_FILE: YES
-        MARKETING_VERSION: "3.10.0"
-        CURRENT_PROJECT_VERSION: "67"
-        CODE_SIGN_ENTITLEMENTS: phonemizer-ext/TGSBPhonemizerService.entitlements
-        SWIFT_OBJC_BRIDGING_HEADER: phonemizer-ext/PhonemizerBridgingHeader.h
-        HEADER_SEARCH_PATHS:
-          - $(PROJECT_DIR)/../../../espeak-phonemizer
-          - $(PROJECT_DIR)/../../../../espeak-ng/src/include
-        LIBRARY_SEARCH_PATHS:
-          - $(PROJECT_DIR)/build/desktop/espeak_phonemizer
-          - $(PROJECT_DIR)/build/desktop/ucd-tools
-        OTHER_LDFLAGS:
           - -lespeak_phonemizer
           - -lucd
           - -lc++

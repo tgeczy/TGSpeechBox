@@ -810,32 +810,6 @@ char *tgsb_get_available_languages(TgsbEngine *engine);
 void tgsb_free_string(char *str);
 ```
 
-### iOS synthesis-only (`src/platforms/ios/bridge/tgsb_synth.h`)
-
-MIT licensed. Takes IPA strings, produces PCM. No eSpeak — phonemization happens in the XPC service.
-
-```c
-TgsbSynth *tgsb_synth_create(const char *packDir, int sampleRate);
-void tgsb_synth_destroy(TgsbSynth *synth);
-int tgsb_synth_set_language(TgsbSynth *synth, const char *tgsbLang);
-int tgsb_synth_set_voice(TgsbSynth *synth, const char *voiceName);
-void tgsb_synth_queue_ipa(TgsbSynth *synth, const char *ipa,
-                            double speed, double pitch);
-int tgsb_synth_pull_audio(TgsbSynth *synth, int16_t *outBuffer, int maxSamples);
-void tgsb_synth_stop(TgsbSynth *synth);
-```
-
-### iOS phonemizer XPC (`src/platforms/ios/phonemizer-ext/tgsb_phonemizer.h`)
-
-GPL-3.0. Isolates eSpeak behind a process boundary so the AU extension stays MIT.
-
-```c
-int tgsb_phonemizer_init(const char *espeakDataPath);
-void tgsb_phonemizer_terminate(void);
-int tgsb_phonemizer_set_language(const char *espeakLang);
-char *tgsb_phonemizer_phonemize(const char *text);  // caller free()s
-```
-
 ### Android JNI (`src/platforms/android/jni/tgsb_jni.cpp`)
 
 Two JNI paths exist and must both be updated when adding new parameters:
