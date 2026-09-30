@@ -1007,6 +1007,16 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         default: break
         }
 
+        // Decibels, relative to normal: VoiceOver's speech volume rotor
+        // arrives this way and only this way -- 100% is "+0.0dB", 50% is
+        // "-6.0206003dB", 30% "-10.457574dB", i.e. exactly 20*log10 of the
+        // rotor's amplitude (#119). Unparsed, every rotor step read as 1.0.
+        if val.lowercased().hasSuffix("db") {
+            val.removeLast(2)
+            if let db = Double(val.trimmingCharacters(in: .whitespaces)) {
+                return max(0.0, min(pow(10.0, db / 20.0), 2.0))
+            }
+        }
         if val.hasSuffix("%") {
             val.removeLast()
             if let pct = Double(val) { return max(0.0, min(pct / 100.0, 2.0)) }
