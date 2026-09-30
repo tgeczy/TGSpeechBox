@@ -39,7 +39,7 @@ object TgsbAssets {
      * Bump on every release that changes shipped packs or espeak data. Devices
      * carrying an older marker re-extract once, then skip until the next bump.
      */
-    private const val ASSET_VERSION = 34
+    private const val ASSET_VERSION = 35
 
     /**
      * Extract the bundled data into [TgsbStorage.dataDir] unless this version has
