@@ -37,7 +37,7 @@ targets:
         PRODUCT_NAME: TGSpeechBox
         INFOPLIST_KEY_CFBundleDisplayName: TGSpeechBox
         MARKETING_VERSION: "3.10.0"
-        CURRENT_PROJECT_VERSION: "67"
+        CURRENT_PROJECT_VERSION: "68"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.utilities"
@@ -84,7 +84,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: au-extension/Info.plist
         MARKETING_VERSION: "3.10.0"
-        CURRENT_PROJECT_VERSION: "67"
+        CURRENT_PROJECT_VERSION: "68"
         SWIFT_OBJC_BRIDGING_HEADER: bridge/BridgingHeader.h
         CODE_SIGN_ENTITLEMENTS: au-extension/TGSpeechBoxSynthExtension.entitlements
         HEADER_SEARCH_PATHS:
@@ -129,7 +129,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "3.10.0"
-        CURRENT_PROJECT_VERSION: "67"
+        CURRENT_PROJECT_VERSION: "68"
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -173,7 +173,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: au-extension/TGSpeechBoxSynthExtension-iOS.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         MARKETING_VERSION: "3.10.0"
-        CURRENT_PROJECT_VERSION: "67"
+        CURRENT_PROJECT_VERSION: "68"
         HEADER_SEARCH_PATHS:
           - $(PROJECT_DIR)/../../../espeak-phonemizer
           - $(PROJECT_DIR)/../../../../espeak-ng/src/include
