@@ -89,6 +89,7 @@ jobs:
           chmod +x "$DIST/bin/tgsp"
           cp tools/linux/install.sh "$DIST/"
           chmod +x "$DIST/install.sh"
+          cp tools/linux/speechd-setup.sh "$DIST/"
 
           # Packs
           cp -r packs "$DIST/share/tgspeechbox/packs"

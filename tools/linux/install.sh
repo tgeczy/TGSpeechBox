@@ -175,200 +175,63 @@ fi
 # ============================================================================
 
 configure_speech_dispatcher() {
-    local sd_conf_file=""
-    local sd_modules_dir=""
-
-    # --- Locate speechd.conf and modules directory ---
-
-    # Check user-level config first
-    local user_conf="$HOME/.config/speech-dispatcher/speechd.conf"
-    local user_modules="$HOME/.config/speech-dispatcher/modules"
-
-    # Check system-level config
-    local sys_conf="/etc/speech-dispatcher/speechd.conf"
-    local sys_modules="/etc/speech-dispatcher/modules"
-
-    # Prefer user config if it exists; otherwise fall back to system
-    if [ -f "$user_conf" ]; then
-        sd_conf_file="$user_conf"
-        sd_modules_dir="$user_modules"
-    elif [ -f "$sys_conf" ]; then
-        sd_conf_file="$sys_conf"
-        sd_modules_dir="$sys_modules"
-    else
-        echo ""
-        echo "  Could not find speechd.conf in:"
-        echo "    $user_conf"
-        echo "    $sys_conf"
-        echo ""
-        echo "  If your speechd.conf is elsewhere, configure manually."
-        echo "  See: $PREFIX/share/tgspeechbox/extras/speech-dispatcher/README.md"
-        return 1
-    fi
+    # Install the module where Speech Dispatcher finds it by itself, and leave
+    # speechd.conf alone (see speechd-setup.sh).
+    # shellcheck source=speechd-setup.sh
+    . "$SCRIPT_DIR/speechd-setup.sh"
+    local extras="$PREFIX/share/tgspeechbox/extras/speech-dispatcher"
 
     echo ""
-    echo "  Found config: $sd_conf_file"
-    echo "  Modules dir:  $sd_modules_dir"
+    tgsb_sd_install "$SCRIPT_DIR/bin" "$extras"
 
-    # --- Install module binary and config ---
-    mkdir -p "$sd_modules_dir"
-
-    # Prefer native module (sd_tgsb) over sd_generic if binary is available
-    local use_native=false
-    local sd_modules_bin="/usr/lib/speech-dispatcher-modules"
-    if [ -f "$SCRIPT_DIR/bin/sd_tgsb" ] && [ -d "$sd_modules_bin" ]; then
-        cp "$SCRIPT_DIR/bin/sd_tgsb" "$sd_modules_bin/sd_tgsb"
-        chmod +x "$sd_modules_bin/sd_tgsb"
-        echo "  Installed native module: $sd_modules_bin/sd_tgsb"
-        use_native=true
-    fi
-
-    # Install both config files (native + generic fallback)
-    local src_conf="$PREFIX/share/tgspeechbox/extras/speech-dispatcher/tgsb-generic.conf"
-    local src_native="$PREFIX/share/tgspeechbox/extras/speech-dispatcher/tgsb-native.conf"
-    if [ -f "$src_native" ]; then
-        cp "$src_native" "$sd_modules_dir/tgsb-native.conf"
-    fi
-    if [ -f "$src_conf" ]; then
-        cp "$src_conf" "$sd_modules_dir/tgsb-generic.conf"
-    fi
-    echo "  Installed module config: $sd_modules_dir/"
-
-    # Copy config template to per-user location (don't overwrite existing)
+    # Take back what earlier installers added, wherever they added it: the
+    # system speechd.conf, or that of the user running sudo.
     local _home="${SUDO_USER:+$(eval echo ~$SUDO_USER)}"
     _home="${_home:-$HOME}"
-    if [ -n "$_home" ] && [ -f "$src_native" ]; then
+    local user_sd_conf="$_home/.config/speech-dispatcher/speechd.conf"
+    local sd_conf
+    sd_conf="$(tgsb_sd_config_dir)/speechd.conf"
+    tgsb_sd_cleanup_conf "$sd_conf"
+    if [ "$user_sd_conf" != "$sd_conf" ]; then
+        tgsb_sd_cleanup_conf "$user_sd_conf"
+    fi
+
+    # Speech Dispatcher reads the user's speechd.conf when there is one.
+    local effective_conf="$sd_conf"
+    if [ -f "$user_sd_conf" ]; then
+        effective_conf="$user_sd_conf"
+    fi
+    tgsb_sd_check_explicit_list "$effective_conf" "$TGSB_SD_MODULE_NAME"
+
+    # Copy the module's settings template to the per-user location (don't overwrite)
+    local src_native="$extras/tgsb-native.conf"
+    if [ -n "$_home" ] && [ -f "$src_native" ] && [ "$TGSB_SD_MODULE_NAME" = "tgsb" ]; then
         local user_conf_dir="$_home/.config/tgspeechbox"
         local user_conf="$user_conf_dir/sd_tgsb.conf"
         if [ ! -f "$user_conf" ]; then
             mkdir -p "$user_conf_dir"
             cp "$src_native" "$user_conf"
-            # Fix ownership if running as sudo
             if [ -n "$SUDO_USER" ]; then
                 chown -R "$SUDO_USER:$SUDO_USER" "$user_conf_dir"
             fi
-            echo "  Per-user config template: $user_conf"
-            echo "  (Uncomment lines to customize — see comments in file)"
+            echo "  Per-user settings template: $user_conf"
+            echo "  (Uncomment lines to customize; see the comments in the file)"
         else
-            echo "  Per-user config exists: $user_conf (not overwritten)"
+            echo "  Per-user settings exist: $user_conf (not overwritten)"
         fi
     fi
 
-    # --- Ensure espeak-ng module is enabled ---
-    # Many distros ship speechd.conf with all AddModule lines commented out.
-    # If espeak-ng is commented out, uncomment it so users always have a
-    # working fallback synthesizer.
-    if grep -q '^#.*AddModule "espeak-ng".*"sd_espeak-ng"' "$sd_conf_file" 2>/dev/null; then
-        if ! grep -q '^AddModule "espeak-ng".*"sd_espeak-ng"' "$sd_conf_file" 2>/dev/null; then
-            # Uncomment the first commented espeak-ng line
-            sed -i '0,/^#.*AddModule "espeak-ng".*"sd_espeak-ng"/{s/^#\s*//}' "$sd_conf_file"
-            echo "  Enabled espeak-ng module (was commented out)."
-        fi
-    fi
-
-    # If there's still no espeak-ng AddModule at all, add one
-    if ! grep -q '^AddModule "espeak-ng"' "$sd_conf_file" 2>/dev/null; then
-        if command -v sd_espeak-ng >/dev/null 2>&1 || [ -f "$sd_modules_dir/espeak-ng.conf" ] || [ -f "/usr/lib/speech-dispatcher-modules/sd_espeak-ng" ]; then
-            sed -i '/# --- TGSpeechBox/i AddModule "espeak-ng" "sd_espeak-ng" "espeak-ng.conf"' "$sd_conf_file" 2>/dev/null || \
-                echo 'AddModule "espeak-ng" "sd_espeak-ng" "espeak-ng.conf"' >> "$sd_conf_file"
-            echo "  Added espeak-ng module (was missing)."
-        fi
-    fi
-
-    # --- Enable the TGSpeechBox module ---
-
-    # Check if tgsb module is already configured
-    if grep -q '^AddModule "tgsb"' "$sd_conf_file" 2>/dev/null; then
-        # Update existing entry to use native module if available
-        if [ "$use_native" = true ]; then
-            sed -i 's|^AddModule "tgsb" "sd_generic" "tgsb-generic.conf"|AddModule "tgsb" "sd_tgsb" "tgsb-native.conf"|' "$sd_conf_file"
-            echo "  TGSpeechBox module upgraded to native."
-        else
-            echo "  TGSpeechBox module already present."
-        fi
-    else
-        {
-            echo ""
-            echo "# --- TGSpeechBox (added by install.sh) ---"
-            if [ "$use_native" = true ]; then
-                echo 'AddModule "tgsb" "sd_tgsb" "tgsb-native.conf"'
-            else
-                echo 'AddModule "tgsb" "sd_generic" "tgsb-generic.conf"'
-            fi
-        } >> "$sd_conf_file"
-        echo "  Added TGSpeechBox module."
-    fi
-
-    # --- Ensure there is an active DefaultModule ---
-    # If no DefaultModule is set (all commented out), set espeak-ng as default
-    # so the user always has a working voice.
-    if ! grep -q '^DefaultModule' "$sd_conf_file" 2>/dev/null; then
-        echo 'DefaultModule espeak-ng' >> "$sd_conf_file"
-        echo "  Set espeak-ng as default (no default was configured)."
-    fi
-
-    # --- Ask if they want TGSpeechBox as default ---
-    echo ""
-    echo "  Your current default synthesizer:"
-    local current_default
-    current_default=$(grep '^DefaultModule' "$sd_conf_file" 2>/dev/null | tail -1 | awk '{print $2}')
-    echo "    $current_default"
-    echo ""
-    echo "  You can set TGSpeechBox as the default, or keep $current_default."
-    echo "  Either way, both will be available — you can switch in Orca's settings."
-    echo ""
-    read -r -p "  Set TGSpeechBox as the default synthesizer? [y/N] " set_default
-    case "$set_default" in
-        [yY]|[yY][eE][sS])
-            # Set DefaultModule to tgsb (skip if already set)
-            if grep -q '^DefaultModule tgsb$' "$sd_conf_file" 2>/dev/null; then
-                echo "  DefaultModule already set to tgsb."
-            else
-                # Comment out any existing DefaultModule line and add ours
-                if grep -q '^DefaultModule' "$sd_conf_file" 2>/dev/null; then
-                    sed -i 's/^DefaultModule/# DefaultModule/' "$sd_conf_file"
-                fi
-                echo 'DefaultModule tgsb' >> "$sd_conf_file"
-                echo "  Set DefaultModule to tgsb."
-            fi
-            echo ""
-            echo "  Tip: If you ever need to switch back, run:"
-            echo "    sudo sed -i 's/^DefaultModule.*/DefaultModule espeak-ng/' $sd_conf_file"
-            echo "    killall speech-dispatcher"
-            ;;
-        *)
-            echo "  Kept $current_default as default."
-            echo "  You can select TGSpeechBox in Orca: Preferences → Speech → Speech Synthesizer."
-            ;;
-    esac
-
-    # --- Final summary ---
     echo ""
     echo "--------------------------------------------"
     echo "  Speech Dispatcher setup complete!"
     echo "--------------------------------------------"
     echo ""
-    echo "  Modules enabled:"
-    grep '^AddModule' "$sd_conf_file" | while read -r line; do
-        local name
-        name=$(echo "$line" | sed 's/AddModule "\([^"]*\)".*/\1/')
-        echo "    - $name"
-    done
+    echo "  TGSpeechBox is the \"$TGSB_SD_MODULE_NAME\" synthesizer. Your default"
+    echo "  synthesizer and the others you have are unchanged."
     echo ""
-    echo "  Default: $(grep '^DefaultModule' "$sd_conf_file" | tail -1 | awk '{print $2}')"
-    echo ""
-    echo "  To apply changes:"
-    echo "    killall speech-dispatcher"
-    echo ""
-    echo "  To test:"
-    echo "    spd-say 'Hello from TGSpeechBox'"
-    echo ""
-    echo "  To switch synthesizer in Orca:"
-    echo "    Orca Preferences → Speech → Speech Synthesizer"
-    echo ""
-    echo "  If you ever lose your voice, run:"
-    echo "    sudo sed -i 's/^DefaultModule.*/DefaultModule espeak-ng/' $sd_conf_file"
-    echo "    killall speech-dispatcher"
+    echo "  To apply:  killall speech-dispatcher"
+    echo "  To test:   spd-say -o $TGSB_SD_MODULE_NAME 'Hello from TGSpeechBox'"
+    echo "  To use it: Orca Preferences > Speech > Speech Synthesizer"
     echo ""
 
     return 0

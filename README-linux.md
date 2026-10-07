@@ -299,34 +299,30 @@ killall speech-dispatcher
 ```
 
 The installer:
-- Copies `sd_tgsb` to `/usr/lib/speech-dispatcher-modules/`
-- Installs config files to `/etc/speech-dispatcher/modules/`
-- Adds `AddModule "tgsb" "sd_tgsb" "tgsb-native.conf"` to `speechd.conf`
-- Copies a per-user config template to `~/.config/tgspeechbox/sd_tgsb.conf`
-- Ensures espeak-ng is enabled as a fallback
+- Copies `sd_tgsb` into Speech Dispatcher's module folder (`/usr/lib/speech-dispatcher-modules/` on most distributions)
+- Installs its settings as `/etc/speech-dispatcher/modules/tgsb.conf`
+- Copies a per-user settings template to `~/.config/tgspeechbox/sd_tgsb.conf`
+- **Leaves `speechd.conf` alone.** Speech Dispatcher finds every `sd_*` module by itself, so TGSpeechBox appears next to the synthesizers you already have, and your default synthesizer stays the one you chose. (Earlier installers added an `AddModule` line, which turned that autodetection off; the installer now takes those lines back. If your `speechd.conf` lists modules itself, the installer tells you and asks before changing anything.)
 
 Test with: `spd-say -o tgsb "Hello from TGSpeechBox"`
 
 ### Manual setup
 
-If you prefer to configure manually:
+If you prefer to set it up by hand:
 
 ```bash
-# Copy the native module binary
+# Copy the native module where Speech Dispatcher looks for modules
 sudo cp bin/sd_tgsb /usr/lib/speech-dispatcher-modules/
 sudo chmod +x /usr/lib/speech-dispatcher-modules/sd_tgsb
 
-# Copy the config
-sudo cp share/tgspeechbox/extras/speech-dispatcher/tgsb-native.conf \
-       /etc/speech-dispatcher/modules/
-
-# Add to speechd.conf
-echo 'AddModule "tgsb" "sd_tgsb" "tgsb-native.conf"' | \
-    sudo tee -a /etc/speech-dispatcher/speechd.conf
+# Its settings: the module "tgsb" reads tgsb.conf
+sudo cp share/tgspeechbox/extras/speech-dispatcher/tgsb-native.conf        /etc/speech-dispatcher/modules/tgsb.conf
 
 # Restart
 killall speech-dispatcher
 ```
+
+There is no need to touch `speechd.conf`: Speech Dispatcher loads every module it finds as long as `speechd.conf` has no `AddModule` lines. If yours does list modules, add `AddModule "tgsb" "sd_tgsb" "tgsb.conf"` to that list.
 
 ### Configuration
 
@@ -334,7 +330,7 @@ The native module reads settings from a config file. Two locations are checked (
 
 | Location | Purpose |
 |----------|---------|
-| `/etc/speech-dispatcher/modules/tgsb-native.conf` | System-wide (login screen, all users) |
+| `/etc/speech-dispatcher/modules/tgsb.conf` | System-wide (login screen, all users) |
 | `~/.config/tgspeechbox/sd_tgsb.conf` | Per-user (personal voice preferences) |
 
 The config file ships as a commented-out template showing all defaults. Uncomment any line to override:
@@ -365,13 +361,14 @@ Five built-in voices are available: Adam, Benjamin, Caleb, David, Robert. YAML v
 
 ### Recovery
 
-If you lose your voice after switching synthesizers:
+TGSpeechBox doesn't change your default synthesizer. If you set it as the default yourself and lose your voice, switch back from a console:
 
 ```bash
 sudo killall -9 speech-dispatcher orca
-sudo sed -i 's/^DefaultModule.*/DefaultModule espeak-ng/' /etc/speech-dispatcher/speechd.conf
-orca --replace &
+spd-say -o espeak-ng "Back to eSpeak"
 ```
+
+and choose eSpeak NG again in Orca (Preferences > Speech), or set `DefaultModule espeak-ng` in your `speechd.conf`.
 
 ## Supported Languages
 

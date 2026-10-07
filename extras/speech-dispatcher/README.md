@@ -59,17 +59,17 @@ For a more "system" install, a common layout is:
 2. Edit `tgsb-generic.conf` and set the `--packdir` path to where you installed
    the packs.
 
-3. Enable it in `speechd.conf` by adding a module line similar to:
-
-   ```
-   AddModule "tgsb" "sd_generic" "tgsb-generic.conf"
-   DefaultModule tgsb
-   ```
+3. That's all: Speech Dispatcher finds `*-generic.conf` files by itself and
+   offers this one as the synthesizer `tgsb-generic`, next to the ones you
+   already have. Don't add an `AddModule` line to `speechd.conf`: one such
+   line turns that autodetection off, and Speech Dispatcher then loads only
+   what is listed. (If your `speechd.conf` already lists modules, add
+   `AddModule "tgsb-generic" "sd_generic" "tgsb-generic.conf"` to the list.)
 
 4. Restart Speech Dispatcher and test:
 
    ```sh
-   spd-say "Hello from TGSpeechBox"
+   spd-say -o tgsb-generic "Hello from TGSpeechBox"
    ```
 
 ## Migrating from nvsp-generic.conf
