@@ -593,6 +593,25 @@ std::string splitYears(const std::string& text, const std::string& ohDigit) {
   return result;
 }
 
+std::string initialYBeforeConsonantAsI(const std::string& text) {
+  auto isAsciiLetter = [](unsigned char c) { return (c | 0x20) >= 'a' && (c | 0x20) <= 'z'; };
+  std::string out = text;
+  for (size_t i = 0; i + 1 < out.size(); ++i) {
+    const unsigned char c = static_cast<unsigned char>(out[i]);
+    if (c != 'y' && c != 'Y') continue;
+    // Word-initial: nothing before it that belongs to a word.
+    if (i > 0) {
+      const unsigned char p = static_cast<unsigned char>(out[i - 1]);
+      if (isAsciiLetter(p) || (p >= '0' && p <= '9') || p >= 0x80 || p == '\'' || p == '-') continue;
+    }
+    const unsigned char n = static_cast<unsigned char>(out[i + 1]);
+    if (n < 'a' || n > 'z') continue;  // a lowercase ASCII letter follows...
+    if (n == 'a' || n == 'e' || n == 'i' || n == 'o' || n == 'u' || n == 'y') continue;  // ...a consonant
+    out[i] = (c == 'Y') ? 'I' : 'i';
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Clause splitting (#133)
 // ---------------------------------------------------------------------------

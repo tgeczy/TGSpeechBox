@@ -1,6 +1,10 @@
 # Spanish.
 
 settings:
+  # A word-initial "y" before a consonant is the vowel i ("Yndio" = "indio",
+  # "Ybarra", "Yrigoyen"); eSpeak reads it as the stop [ɟ] and stresses the
+  # wrong syllable (#145).  Rewritten in the text before eSpeak.
+  initialYBeforeConsonantAsI: true
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 

@@ -715,6 +715,9 @@ struct LanguagePack {
   // vowel with a semivowel (e.g. i/ɪ -> j, u/ʊ -> w) when those phonemes exist
   // in phonemes.yaml. This can make diphthong movement more obvious.
   bool autoDiphthongOffglideToSemivowel = false;
+  // Spanish spelling: a word-initial "y" before a consonant is the vowel i
+  // ("Yndio", "Ybarra"); eSpeak reads it as the stop [ɟ] (#145).
+  bool initialYBeforeConsonantAsI = false;
 
   // Semivowel offglide shortening (optional).
   //

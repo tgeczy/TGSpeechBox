@@ -663,6 +663,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
 
   getBool("autoTieDiphthongs", lp.autoTieDiphthongs);
   getBool("autoDiphthongOffglideToSemivowel", lp.autoDiphthongOffglideToSemivowel);
+  getBool("initialYBeforeConsonantAsI", lp.initialYBeforeConsonantAsI);
   getNum("semivowelOffglideScale", lp.semivowelOffglideScale);
   getNum("nasalDiphthongOffglideScale", lp.nasalDiphthongOffglideScale);
 

@@ -54,6 +54,12 @@ std::string separateHyphenatedNumbers(const std::string& text);
 // "1995" -> "19 95" ("nineteen ninety-five").
 std::string splitYears(const std::string& text, const std::string& ohDigit);
 
+// Spanish spelling (#145): a word-initial "y"/"Y" followed by a lowercase
+// consonant is the vowel i ("Yndio" -> "Indio", "Ybarra" -> "Ibarra"),
+// which eSpeak reads as the stop [ɟ] with the stress on the wrong syllable.
+// All-caps words ("YPF") are left alone: they are spelled out.
+std::string initialYBeforeConsonantAsI(const std::string& text);
+
 // One clause of host text (#133): where it starts and ends (bytes, trailing
 // whitespace excluded), where the next one starts, the clause type the
 // frontend's pitch passes read ('.', ',', '?', '!', ':' or ';'), and the pause

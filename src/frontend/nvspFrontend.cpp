@@ -1143,6 +1143,10 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
     }
   }
 
+  if (h->pack.lang.initialYBeforeConsonantAsI) {
+    input = initialYBeforeConsonantAsI(input);
+  }
+
   // Get disabled dict types for current language (empty set if none disabled).
   const auto& disabled = h->disabledDictTypes.count(h->langTag)
       ? h->disabledDictTypes.at(h->langTag) : std::unordered_set<std::string>{};
