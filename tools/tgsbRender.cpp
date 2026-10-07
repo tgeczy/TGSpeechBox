@@ -191,9 +191,10 @@ struct BuiltinVoice {
 };
 
 static const BuiltinVoice kBuiltinVoices[] = {
-  // Adam: slightly wider cb1, boosted pa6, reduced frication, lowered pitch (-8%)
+  // Adam: slightly wider cb1, boosted pa6, reduced frication (pitch as every
+  // platform has it: the Linux-only -8% from #92 left Adam below Benjamin, #144)
   {"Adam",
-    0.92, 0.92,                                       // pitch (lowered for more natural male baseline on Linux)
+    1.0, 1.0,                                         // pitch
     1.0, 1.0, 1.0, 1.0, 1.0, 1.0,                   // cf
     1.3, 1.0, 1.0, 1.0, 1.0, 1.0,                   // cb
     1.0, 1.0, 1.0, 1.0, 1.0, 1.0,                   // pb
