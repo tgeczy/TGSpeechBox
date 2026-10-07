@@ -721,10 +721,18 @@ void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
       // erases the /ɪ/, swallowing the entire "-ing".
       const bool prevIsNasal = tokenIsNasal(prev);
 
+      // A phoneme with its own glide built in (end formant targets: ɑj, ɑw,
+      // ɔj, en-gb's əw_gb) is a whole diphthong already.  Tying the next
+      // vowel to it took the [ɪ] of "going" for GOAT's offglide (#142): en-gb
+      // made it [j], collapse folded it in, and the word lost a syllable.
+      const bool prevIsWholeDiphthong =
+          prev.def && (prev.def->hasEndCf1 || prev.def->hasEndCf2 || prev.def->hasEndCf3);
+
       // Only consider within-syllable vowel-like sequences.
       // If the current token starts a new syllable (explicit stress, word start,
       // etc.), treat it as hiatus instead.
-      if (prevVowelLike && !prevIsRColored && !prevIsNasal && curVowelLike && !cur.wordStart && !cur.syllableStart) {
+      if (prevVowelLike && !prevIsRColored && !prevIsNasal && !prevIsWholeDiphthong && curVowelLike &&
+          !cur.wordStart && !cur.syllableStart) {
         // Skip if the IPA already encoded tying, or either vowel is explicitly long.
         // A lengthened onset (e.g. oː from GOAT monophthongization) is a monophthong,
         // not a diphthong candidate — tying it with the next vowel creates a false
