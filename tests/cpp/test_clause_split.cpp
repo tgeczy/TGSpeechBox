@@ -96,6 +96,38 @@ TEST_CASE("parentheses and brackets set off what they hold (#133)") {
     CHECK(split("word(s) and f(x) = 2") == std::vector<Clause>{{"word(s) and f(x) = 2", '.', N}});
 }
 
+// #141 (Greg): with a comma inside the parentheses, the clause that reaches
+// the closing one no longer starts with "(", and it ran on into the text
+// after it.  A closing parenthesis ends the clause whenever its opening one
+// set something off, however many clauses ago.
+TEST_CASE("a parenthesis closes with a pause even after a comma inside it (#141)") {
+    CHECK(split("Hola (como est\xC3\xA1s, te escribo esto) espero que bien") ==
+          std::vector<Clause>{{"Hola", ',', C},
+                              {"(como est\xC3\xA1s,", ',', C},
+                              {"te escribo esto)", ',', C},
+                              {"espero que bien", '.', N}});
+    CHECK(split("muchas gracias por escribir (me he encontrado muy bien durante todos estos d\xC3\xAD" "as) viajando") ==
+          std::vector<Clause>{{"muchas gracias por escribir", ',', C},
+                              {"(me he encontrado muy bien durante todos estos d\xC3\xAD" "as)", ',', C},
+                              {"viajando", '.', N}});
+    // Its opening one set nothing off: still no pause.
+    CHECK(split("f(a, b) = 2") == std::vector<Clause>{{"f(a,", ',', C}, {"b) = 2", '.', N}});
+}
+
+// #141 (Greg): "01. Cast me into oblivion. 02. Blue, blue" ran each number
+// into its line, where eSpeak pauses after it.  A number that opens a clause
+// and ends in a dot is a list number; a dot after a number inside a clause
+// stays an ordinal ("am 3. Mai").
+TEST_CASE("a list number pauses before its line (#141)") {
+    CHECK(split("01. Cast me into oblivion. 02. Blue, blue") ==
+          std::vector<Clause>{{"01.", '.', S}, {"Cast me into oblivion.", '.', S},
+                              {"02.", '.', S}, {"Blue,", ',', C}, {"blue", '.', N}});
+    CHECK(split("1. first 2. second") ==
+          std::vector<Clause>{{"1.", '.', S}, {"first 2. second", '.', N}});
+    CHECK(split("am 3. Mai") == std::vector<Clause>{{"am 3. Mai", '.', N}});
+    CHECK(split("It costs 3.50 today") == std::vector<Clause>{{"It costs 3.50 today", '.', N}});
+}
+
 TEST_CASE("dashes between words pause like a comma (#133)") {
     const std::vector<Clause> want{{"wait \xE2\x80\x94", ',', C}, {"what now", '.', N}};
     CHECK(split("wait \xE2\x80\x94 what now") == want);                                       // em dash

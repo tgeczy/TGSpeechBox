@@ -644,6 +644,28 @@ bool isEndMark(char32_t c) {
   return c == '.' || c == '?' || c == '!' || c == ',' || c == ':' || c == ';' || c == 0x2026;
 }
 
+// Whether the bracket closing at byte i closes one that set something off:
+// an opening bracket at the start of the text or after a space, however many
+// clauses back (#141: a comma inside the parentheses starts a new clause).
+// "f(x)" and "word(s)" set nothing off.
+bool closesSetOffBracket(std::string_view text, size_t i) {
+  std::vector<bool> open;  // one per unclosed bracket: did it set something off?
+  char32_t prev = kEnd;
+  size_t k = 0;
+  size_t len = 0;
+  while (k < i) {
+    const char32_t c = decodeAt(text, k, len);
+    if (c == '(' || c == '[') {
+      open.push_back(prev == kEnd || isClauseSpace(prev) || prev == '(' || prev == '[');
+    } else if ((c == ')' || c == ']') && !open.empty()) {
+      open.pop_back();
+    }
+    prev = c;
+    k += len;
+  }
+  return !open.empty() && open.back();
+}
+
 // A clause that ends in mark c: its type and pause class.
 char markType(char32_t c) { return c == 0x2026 ? '.' : static_cast<char>(c); }
 int markPause(char32_t c) { return c == ',' ? 1 : 2; }
@@ -657,9 +679,8 @@ bool nextClause(std::string_view text, size_t pos, ClauseSpan& out) {
   if (pos >= n) return false;
 
   const size_t start = pos;
-  const char32_t first = decodeAt(text, start, len);
-  const bool opensWithBracket = first == '(' || first == '[';
   bool hasContent = false;
+  bool onlyDigits = true;  // the clause so far is a number (a list number, with its dot)
   char32_t prev = kEnd;
 
   auto finish = [&](size_t end, size_t next, char type, int pauseClass) {
@@ -683,6 +704,10 @@ bool nextClause(std::string_view text, size_t pos, ClauseSpan& out) {
 
     if (isEndMark(c)) {
       const bool digitDot = c == '.' && isAsciiDigit(prev);
+      // A number that opens a clause and ends in a dot numbers a list
+      // ("01. Cast me into oblivion", #141); after anything else a digit's dot
+      // stays an ordinal ("am 3. Mai").
+      if (digitDot && onlyDigits && isClauseSpace(next)) return finish(j, j, '.', 2);
       if (!digitDot && !isEndMark(next)) {
         size_t k = j;
         size_t kLen = 0;
@@ -715,13 +740,14 @@ bool nextClause(std::string_view text, size_t pos, ClauseSpan& out) {
     } else if (c == '(' || c == '[') {
       if (hasContent && isClauseSpace(prev)) return finish(i, i, ',', 1);
     } else if (c == ')' || c == ']') {
-      if (opensWithBracket && i > start && (next == kEnd || isClauseSpace(next)))
+      if (i > start && (next == kEnd || isClauseSpace(next)) && closesSetOffBracket(text, i))
         return finish(j, j, ',', 1);
     } else if (c == 0xBF || c == 0xA1) {  // Spanish inverted question and exclamation marks
       if (hasContent) return finish(i, i, ',', 1);
     }
 
     if (isWordCodepoint(c)) hasContent = true;
+    if (!isAsciiDigit(c)) onlyDigits = false;
     prev = c;
     i = j;
   }
