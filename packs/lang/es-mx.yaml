@@ -14,6 +14,8 @@ normalization:
       to: x_es
     - from: s
       to: s_es
+    - from: "ɾs"
+      to: "ɾᵊs_es"
 
   preReplacements:
     # Mexican yeísmo: espeak es-419 emits "jj" for intervocalic ll
@@ -24,6 +26,10 @@ normalization:
       to: "ʝ"
 
   replacements:
+    # The tap cluster's /s/ is the Mexican one too (es.yaml writes s_es there;
+    # #143).  Before s → s_mx, or that would take the /s/ out of "ɾs" first.
+    - from: "ɾs"
+      to: "ɾᵊs_mx"
     # Mexican laminal /s/ — brighter and more diffuse than Castilian apical.
     - from: s
       to: s_mx

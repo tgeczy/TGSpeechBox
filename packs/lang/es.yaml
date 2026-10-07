@@ -154,6 +154,13 @@ normalization:
       to: "t͡s"
 
   preReplacements:
+    # eSpeak writes "zz" in loans ("pizza") as the affricate t͡s, which Spanish
+    # doesn't have (see skipReplacements above) and which skipped the dialect
+    # /s/: "pizza" sounded neither Castilian nor Mexican (#143, #81).  Untie it,
+    # so the /s/ becomes s_es (s_mx in es-mx) like any other.
+    - from: "t͡s"
+      to: "ts"
+
     # eSpeak number expansion concatenates morphemes, creating geminate /ss/
     # at boundaries (e.g. "200" → "dossjentos" from dos+cientos with seseo).
     # Spanish has no geminate /ss/ — deduplicate before dialect s→s_es/s_mx.
@@ -306,8 +313,12 @@ normalization:
       to: "ɾᵊn"
     - from: "ɾp"
       to: "ɾᵊp"
+    # The /s/ is written as the dialect's own: a replacement's output is
+    # protected from later ones, so s → s_es below never reached this one and
+    # "versión", "persona", "torso" played the plain base /s/ (#143, #81).
+    # es-mx swaps it for ɾᵊs_mx.
     - from: "ɾs"
-      to: "ɾᵊs"
+      to: "ɾᵊs_es"
     # Todo: I don't know why this doesn't work. Proper r with micro schwa for words like "archivo"
     - from: "ɾt͡ʃ"
       to: "ɾᵊt͡ʃ"
