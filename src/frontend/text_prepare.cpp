@@ -593,6 +593,136 @@ std::string splitYears(const std::string& text, const std::string& ohDigit) {
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Spanish capitals and "tw" (#146)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+bool isSpanishVowel(char32_t c) {
+  switch (c) {
+    case U'a': case U'e': case U'i': case U'o': case U'u':
+    case U'\u00E1': case U'\u00E9': case U'\u00ED': case U'\u00F3': case U'\u00FA': case U'\u00FC':
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool isLetterCodepoint(char32_t c) {
+  return c != 0 && !isPunctOrSpaceCodepoint(c) && !(c >= U'0' && c <= U'9');
+}
+
+bool isUpperCodepoint(char32_t c) { return foldCodepointLower(c) != c; }
+
+// Spanish syllable onsets of two letters.
+bool isTwoLetterOnset(char32_t a, char32_t b) {
+  static const char* const kOnsets[] = {"ch", "ll", "rr", "qu", "gu", "pl", "pr", "bl", "br", "fl",
+                                        "fr", "cl", "cr", "gl", "gr", "tr", "dr", "kl", "kr", "tl"};
+  for (const char* o : kOnsets)
+    if (a == static_cast<char32_t>(o[0]) && b == static_cast<char32_t>(o[1])) return true;
+  return false;
+}
+
+// Two consonants that may close a Spanish syllable.
+bool isTwoLetterCoda(char32_t a, char32_t b) {
+  static const char* const kCodas[] = {"ns", "bs", "rs", "ls", "ds", "ps", "ks", "st"};
+  for (const char* o : kCodas)
+    if (a == static_cast<char32_t>(o[0]) && b == static_cast<char32_t>(o[1])) return true;
+  return false;
+}
+
+// Can Spanish syllables carry this lowercase word?  Each syllable: an onset of
+// none, one consonant or a two-letter onset; vowels; then the consonants up to
+// the next vowel split into a coda (none, one, or a two-letter coda) and the
+// next onset.  The word's last coda: one consonant or a two-letter coda.
+bool spanishCanPronounce(const std::u32string& w) {
+  const size_t n = w.size();
+  size_t i = 0;
+  auto consonantRun = [&](size_t from) {
+    size_t k = from;
+    while (k < n && !isSpanishVowel(w[k])) ++k;
+    return k - from;
+  };
+  // The word's onset.
+  const size_t lead = consonantRun(0);
+  if (lead > 2 || (lead == 2 && !isTwoLetterOnset(w[0], w[1]))) return false;
+  i = lead;
+  bool sawVowel = false;
+  while (i < n) {
+    if (!isSpanishVowel(w[i])) return false;
+    while (i < n && isSpanishVowel(w[i])) ++i;
+    sawVowel = true;
+    const size_t run = consonantRun(i);
+    if (i + run == n) {  // the word's last coda
+      if (run == 0 || run == 1) return true;
+      return run == 2 && isTwoLetterCoda(w[i], w[i + 1]);
+    }
+    // Between vowels: coda + onset.
+    bool ok = false;
+    for (size_t coda = 0; coda <= 2 && coda <= run && !ok; ++coda) {
+      const size_t onset = run - coda;
+      const bool codaOk = coda < 2 || isTwoLetterCoda(w[i], w[i + 1]);
+      const bool onsetOk = onset <= 1 || (onset == 2 && isTwoLetterOnset(w[i + coda], w[i + coda + 1]));
+      ok = codaOk && onsetOk;
+    }
+    if (!ok) return false;
+    i += run;
+  }
+  return sawVowel;
+}
+
+bool isRomanNumeral(const std::u32string& w) {
+  for (char32_t c : w)
+    if (c != U'I' && c != U'V' && c != U'X' && c != U'L' && c != U'C' && c != U'D' && c != U'M') return false;
+  return true;
+}
+
+}  // namespace
+
+std::string twBeforeVowelAsTu(const std::string& text) {
+  std::u32string u = utf8ToU32(text);
+  bool changed = false;
+  for (size_t i = 0; i + 2 < u.size(); ++i) {
+    const char32_t t = u[i], w = u[i + 1], v = u[i + 2];
+    if ((t == U't' || t == U'T') && (w == U'w' || w == U'W') && isSpanishVowel(foldCodepointLower(v))) {
+      u[i + 1] = (w == U'W') ? U'U' : U'u';
+      changed = true;
+    }
+  }
+  return changed ? u32ToUtf8(u) : text;
+}
+
+std::string pronounceableCapsAsWords(const std::string& text) {
+  std::u32string u = utf8ToU32(text);
+  bool changed = false;
+  size_t i = 0;
+  while (i < u.size()) {
+    if (!isLetterCodepoint(u[i])) {
+      ++i;
+      continue;
+    }
+    size_t end = i;
+    while (end < u.size() && isLetterCodepoint(u[end])) ++end;
+    // The all-caps tail of the word: the whole word, or what follows its last
+    // lowercase letter ("WinRAR" -> "RAR").
+    size_t capsStart = end;
+    while (capsStart > i && isUpperCodepoint(u[capsStart - 1])) --capsStart;
+    const size_t capsLen = end - capsStart;
+    if (capsLen >= 2) {
+      const std::u32string caps = u.substr(capsStart, capsLen);
+      std::u32string lower;
+      for (char32_t c : caps) lower.push_back(foldCodepointLower(c));
+      if (!isRomanNumeral(caps) && spanishCanPronounce(lower)) {
+        u.replace(capsStart, capsLen, lower);
+        changed = true;
+      }
+    }
+    i = end;
+  }
+  return changed ? u32ToUtf8(u) : text;
+}
+
 std::string initialYBeforeConsonantAsI(const std::string& text) {
   auto isAsciiLetter = [](unsigned char c) { return (c | 0x20) >= 'a' && (c | 0x20) <= 'z'; };
   std::string out = text;

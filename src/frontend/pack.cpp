@@ -664,6 +664,8 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getBool("autoTieDiphthongs", lp.autoTieDiphthongs);
   getBool("autoDiphthongOffglideToSemivowel", lp.autoDiphthongOffglideToSemivowel);
   getBool("initialYBeforeConsonantAsI", lp.initialYBeforeConsonantAsI);
+  getBool("pronounceableCapsAsWords", lp.pronounceableCapsAsWords);
+  getBool("twBeforeVowelAsTu", lp.twBeforeVowelAsTu);
   getNum("semivowelOffglideScale", lp.semivowelOffglideScale);
   getNum("nasalDiphthongOffglideScale", lp.nasalDiphthongOffglideScale);
 

@@ -60,6 +60,17 @@ std::string splitYears(const std::string& text, const std::string& ohDigit);
 // All-caps words ("YPF") are left alone: they are spelled out.
 std::string initialYBeforeConsonantAsI(const std::string& text);
 
+// Spanish (#146): "tw" before a vowel becomes "tu" ("Twain" -> "Tuain"),
+// keeping the case of the letters.
+std::string twBeforeVowelAsTu(const std::string& text);
+
+// Spanish (#146): an all-caps word, or the all-caps tail of a word
+// ("WinRAR"), that Spanish syllables could carry is lowercased so eSpeak
+// reads it as a word instead of spelling it ("MAS", "UN", "WEB").  Words
+// Spanish couldn't pronounce ("PC", "DNI", "BBC", "ONG") and Roman
+// numerals are left to be spelled.
+std::string pronounceableCapsAsWords(const std::string& text);
+
 // One clause of host text (#133): where it starts and ends (bytes, trailing
 // whitespace excluded), where the next one starts, the clause type the
 // frontend's pitch passes read ('.', ',', '?', '!', ':' or ';'), and the pause

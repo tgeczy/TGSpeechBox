@@ -5,6 +5,12 @@ settings:
   # "Ybarra", "Yrigoyen"); eSpeak reads it as the stop [ɟ] and stresses the
   # wrong syllable (#145).  Rewritten in the text before eSpeak.
   initialYBeforeConsonantAsI: true
+  # eSpeak spells most short all-caps words ("MAS", "UN", "WEB", the "RAR" of
+  # "WinRAR") and splits "tw" ("Twain" -> "T wain"); read them as Eloquence
+  # and OneCore do: as words when Spanish could pronounce them, "tw" as "tu"
+  # (#146).  "PC", "DNI", "BBC" and Roman numerals are still spelled.
+  pronounceableCapsAsWords: true
+  twBeforeVowelAsTu: true
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 

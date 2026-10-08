@@ -1146,6 +1146,12 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   if (h->pack.lang.initialYBeforeConsonantAsI) {
     input = initialYBeforeConsonantAsI(input);
   }
+  if (h->pack.lang.twBeforeVowelAsTu) {
+    input = twBeforeVowelAsTu(input);
+  }
+  if (h->pack.lang.pronounceableCapsAsWords) {
+    input = pronounceableCapsAsWords(input);
+  }
 
   // Get disabled dict types for current language (empty set if none disabled).
   const auto& disabled = h->disabledDictTypes.count(h->langTag)

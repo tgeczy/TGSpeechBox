@@ -718,6 +718,11 @@ struct LanguagePack {
   // Spanish spelling: a word-initial "y" before a consonant is the vowel i
   // ("Yndio", "Ybarra"); eSpeak reads it as the stop [ɟ] (#145).
   bool initialYBeforeConsonantAsI = false;
+  // Spanish (#146): an all-caps word Spanish could pronounce is read as a
+  // word ("MAS", "WEB", the "RAR" of "WinRAR"), not spelled; and "tw"
+  // before a vowel is read "tu" ("Twain").  eSpeak spells and splits them.
+  bool pronounceableCapsAsWords = false;
+  bool twBeforeVowelAsTu = false;
 
   // Semivowel offglide shortening (optional).
   //
