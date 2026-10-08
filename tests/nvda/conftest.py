@@ -245,6 +245,30 @@ class _Conf(dict):
         pass
 
 
+class _Action:
+    """extensionPoints.Action: register handlers, notify them all."""
+
+    def __init__(self):
+        self._handlers = []
+
+    def register(self, handler):
+        if handler not in self._handlers:
+            self._handlers.append(handler)
+
+    def unregister(self, handler):
+        if handler in self._handlers:
+            self._handlers.remove(handler)
+
+    def notify(self, **kwargs):
+        import inspect
+        for handler in list(self._handlers):
+            params = inspect.signature(handler).parameters
+            if any(p.kind == p.VAR_KEYWORD for p in params.values()):
+                handler(**kwargs)
+            else:
+                handler(**{k: v for k, v in kwargs.items() if k in params})
+
+
 class _AutoPropertyType(type):
     """NVDA's baseObject.AutoPropertyType where it bites: `_get_x`/`_set_x`
     become a property `x`, found through the bases as well."""
@@ -277,6 +301,11 @@ def _install_fake_nvda() -> None:
 
     cfg = types.ModuleType("config")
     cfg.conf = _Conf()
+    # NVDA's extension points for a saved configuration and a reverted one
+    # (NVDA+Ctrl+C / NVDA+Ctrl+R): extensionPoints.Action, handlers called
+    # with the keyword arguments they take.
+    cfg.post_configSave = _Action()
+    cfg.post_configReset = _Action()
     sys.modules["config"] = cfg
 
     gv = types.ModuleType("globalVars")
@@ -540,12 +569,16 @@ def harness():
     config.conf["speech"]["tgSpeechBox"] = {}
     driver = tgSpeechBox.SynthDriver()
     pump_main_loop()
+    import synthDriverHandler
+    synthDriverHandler.getSynth = lambda: driver  # NVDA's active synthesizer
     h = Harness(driver)
     try:
         yield h
     finally:
         driver.terminate()
         pump_main_loop()
+        from synthDrivers.tgSpeechBox import langPackYaml
+        langPackYaml.commitUnsavedChanges()  # the next test starts from a saved state
         config.conf["speech"].pop("tgSpeechBox", None)
         _restore_lang_files()
 

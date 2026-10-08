@@ -101,9 +101,57 @@ def _readFileText(path: str) -> str:
 
 
 def _writeFileText(path: str, text: str) -> None:
+    _rememberUnsavedOriginal(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
+
+
+# ---- Unsaved changes (#140) ----
+#
+# A language file changes the moment a setting does, but NVDA keeps a change
+# only once it saves its configuration: NVDA+Ctrl+R ("revert to saved
+# configuration") is meant to take back everything since.  So the first write
+# to a file after a save remembers the file as it was; NVDA's save forgets
+# that (commitUnsavedChanges), NVDA's revert puts it back
+# (revertUnsavedChanges).  The driver connects both to NVDA's
+# config.post_configSave and config.post_configReset.
+
+_unsavedOriginals: Dict[str, Optional[bytes]] = {}
+
+
+def _rememberUnsavedOriginal(path: str) -> None:
+    key = os.path.normcase(os.path.abspath(path))
+    if key in _unsavedOriginals:
+        return
+    try:
+        with open(path, "rb") as f:
+            _unsavedOriginals[key] = f.read()
+    except FileNotFoundError:
+        _unsavedOriginals[key] = None  # the write creates it; a revert removes it
+
+
+def commitUnsavedChanges() -> None:
+    """NVDA saved its configuration: the language files as they are now are kept."""
+    _unsavedOriginals.clear()
+
+
+def revertUnsavedChanges() -> bool:
+    """NVDA reverted to its saved configuration: put every language file
+    written since the last save back as it was.  True if any was."""
+    changed = bool(_unsavedOriginals)
+    for path, original in list(_unsavedOriginals.items()):
+        try:
+            if original is None:
+                if os.path.isfile(path):
+                    os.remove(path)
+            else:
+                with open(path, "wb") as f:
+                    f.write(original)
+        except OSError:
+            pass
+    _unsavedOriginals.clear()
+    return changed
 
 
 def _getIndentLevel(line: str) -> int:

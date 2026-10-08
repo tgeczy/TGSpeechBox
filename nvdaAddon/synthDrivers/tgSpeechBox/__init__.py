@@ -62,6 +62,43 @@ def _volumeSettingAt100():
     return s
 
 
+def _onConfigSaved():
+    """NVDA saved its configuration: keep the language files as they are (#140)."""
+    from . import langPackYaml
+    langPackYaml.commitUnsavedChanges()
+
+
+def _onConfigReset(factoryDefaults=False):
+    """NVDA reverted to its saved configuration (NVDA+Ctrl+R): put back the
+    language files as they were at the last save, and let the active driver
+    read them again (#140).  Language-file settings change the files the
+    moment they change, so without this a revert left them in place and the
+    driver synced the unsaved values right back into NVDA's config."""
+    from . import langPackYaml
+    if not langPackYaml.revertUnsavedChanges():
+        return
+    try:
+        import synthDriverHandler
+        synth = synthDriverHandler.getSynth()
+    except Exception:
+        synth = None
+    if isinstance(synth, SynthDriver):
+        try:
+            synth.reloadLanguagePack()
+            synth._syncLangPackSettingsToConfig()
+        except Exception:
+            log.debug("TGSpeechBox: could not reload after reverting the language files", exc_info=True)
+
+
+def _registerConfigHandlers():
+    try:
+        import config
+        config.post_configSave.register(_onConfigSaved)
+        config.post_configReset.register(_onConfigReset)
+    except Exception:
+        log.debug("TGSpeechBox: NVDA's config save/reset notifications are unavailable", exc_info=True)
+
+
 class SynthDriver(
     LangPackSettingsMixin,
     VoicingToneMixin,
@@ -1011,3 +1048,6 @@ class SynthDriver(
         if _name.startswith(("_get_", "_set_")) and _name not in locals():
             locals()[_name] = vars(LangPackSettingsMixin)[_name]
     del _name
+
+
+_registerConfigHandlers()
