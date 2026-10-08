@@ -61,10 +61,11 @@ normalization:
     # --- BR vowel/consonant fixes (moved from pt.yaml in v2.97) ---
     # These are Brazilian-specific and were incorrectly in the shared pack.
 
-    # Brazilian R: eSpeak pt-br emits "x" for coda R (barra, porta).
-    # Map to /h/ for the typical Rio/São Paulo realization.
+    # Brazilian strong R: eSpeak pt-br writes x (resumo, carro, porta).  It was
+    # /h/, the breathy Rio/São Paulo realization, which sounded close to "ch";
+    # Cleverson (a native speaker) found the throat fricative he wanted in x_es.
     - from: "x"
-      to: "h"
+      to: "x_es"
 
     # eSpeak NG 1.53 writes the "ou" diphthong as oʊ where 1.52 wrote ow;
     # keep the offglide a glide, and keep this ahead of the ʊ→u rule.
@@ -78,6 +79,11 @@ normalization:
     - from: "ɔ"
       to: "ɒ"
 
+    # "oi" (foi, boi, dois) is the close o plus the glide, like "ai" and "ei".
+    # Left to the o → ɔ rule below, "oj" became "ɔj", the English "boy"
+    # diphthong with its own glide built in (Cleverson).  Must come first.
+    - from: "oj"
+      to: "o_esj"
     # Brazilian mid-o: o → ɔ (more open than European).
     - from: "o"
       to: "ɔ"
