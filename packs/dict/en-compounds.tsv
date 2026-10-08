@@ -6,6 +6,8 @@
 # Splits derived from CMU Pronouncing Dictionary entries cross-referenced
 # with parsed linguistic data. Curated and supplemented by the TGSpeechBox
 # community. Add missing compounds as needed.
+# CMU Pronouncing Dictionary: Copyright (C) 1993-2015 Carnegie Mellon University,
+# BSD 2-clause license: see LICENSE-CMUdict.txt.
 #
 # Used by the text parser to phonemize compound halves independently,
 # preserving vowel quality that eSpeak's compound reduction destroys.

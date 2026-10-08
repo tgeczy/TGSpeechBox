@@ -110,7 +110,7 @@ photography	0 1 0 0
 - **word** — lowercase lookup key
 - **stress pattern** — space-separated digits: `0` = unstressed, `1` = primary stress, `2` = secondary stress. One digit per vowel nucleus.
 
-The en-us stress dictionary (`en-us-stress.tsv`) contains ~109,000 entries derived from the CMU Pronouncing Dictionary.
+The en-us stress dictionary (`en-us-stress.tsv`) contains ~109,000 entries derived from the CMU Pronouncing Dictionary (Copyright (C) 1993-2015 Carnegie Mellon University, BSD 2-clause license; the full text is in `packs/dict/LICENSE-CMUdict.txt`, which ships with the packs).
 
 ## Compound Dictionary
 
