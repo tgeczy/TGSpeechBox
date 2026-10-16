@@ -22,6 +22,12 @@ settings:
 
   # English: insert short aspiration after unvoiced stops in the right contexts.
   postStopAspirationEnabled: true
+  # ...but not after s in the same word: spin, stop, skin, mistake (#26).
+  postStopAspirationAfterSibilant: false
+  # Before an unstressed vowel inside a word (happy, ticket, apple) the puff
+  # is about half as long as at the start of a stressed syllable (Lisker &
+  # Abramson 1967; Docherty 1992).
+  postStopAspirationUnstressedScale: 0.5
 
   # Keep your existing English long /uː/ shortening behavior (matches your Python logic).
   englishLongUShortenEnabled: true

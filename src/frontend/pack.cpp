@@ -623,6 +623,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
 
   getBool("postStopAspirationEnabled", lp.postStopAspirationEnabled);
   getBool("postStopAspirationAfterSibilant", lp.postStopAspirationAfterSibilant);
+  getNum("postStopAspirationUnstressedScale", lp.postStopAspirationUnstressedScale);
   {
     const yaml_min::Node* n = settings.get("postStopAspirationPhoneme");
     if (n && n->isScalar()) lp.postStopAspirationPhoneme = utf8ToU32(n->scalar);

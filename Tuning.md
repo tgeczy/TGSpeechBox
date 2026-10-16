@@ -603,7 +603,7 @@ These values control the base duration of each phoneme type (ms at speed=1.0). T
 | Voiced consonant | 30 | `voicedConsonantDurationMs` — default for all voiced non-vowels |
 | Vowel before liquid | 30 | `vowelBeforeLiquidDurationMs` — unstressed V before L/R |
 | Affricate | 24 | `affricateDurationMs` — /t͡ʃ/, /d͡ʒ/ |
-| Post-stop aspiration | 20 | `postStopAspirationDurationMs` |
+| Post-stop aspiration | 20 | `postStopAspirationDurationMs`; times `postStopAspirationUnstressedScale` before an unstressed vowel inside a word; none after s/sh in the same word when `postStopAspirationAfterSibilant: false` |
 | Tied-from vowel | 20 | `tiedFromVowelDurationMs` (diphthong end) |
 | Tap | 14 | `tapDurationMs` — /ɾ/ |
 | Default crossfade | 10 | `defaultFadeMs` |

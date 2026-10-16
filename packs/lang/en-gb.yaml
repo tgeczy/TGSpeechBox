@@ -233,17 +233,6 @@ settings:
             targetHz: 900.0
             blend: 0.2
 
-    # ── Post-sibilant aspiration suppression ─────────────────────
-    # "style" vs "tile", "spin" vs "pin", "skin" vs "kin".
-      - name: post_sibilant_aspiration_suppress
-        tokenType: aspiration
-        after: ["s", "ʃ"]
-        action: scale
-        durationScale: 0.05
-        fieldScales:
-          aspirationAmplitude: 0.05
-          fricationAmplitude: 0.05
-
     # ── Voiceless stop burst rebalance ─────────────────────────────
     # Base phonemes have very high frication relative to burst energy:
     #   /t/ fricationAmplitude=0.92 vs /t͡ʃ/ fricationAmplitude=0.88

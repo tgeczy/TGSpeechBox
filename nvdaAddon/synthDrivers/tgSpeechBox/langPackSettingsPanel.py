@@ -686,9 +686,11 @@ def _getPanelClass():
                 "phraseFinalLengtheningStatementScale",
 
                 # --- Post-stop aspiration ---
+                "postStopAspirationAfterSibilant",
                 "postStopAspirationDurationMs",
                 "postStopAspirationEnabled",
                 "postStopAspirationPhoneme",
+                "postStopAspirationUnstressedScale",
 
                 # --- Segment boundary ---
                 "segmentBoundaryFadeMs",

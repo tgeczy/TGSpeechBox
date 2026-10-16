@@ -721,6 +721,10 @@ struct LanguagePack {
   // Post-stop aspiration also after s/sh in the same word (sp, st, sk).  On by
   // default, as it always was; Danish turns it off (spiser, stå, skal).
   bool postStopAspirationAfterSibilant = true;
+  // The puff's length before an unstressed vowel inside a word (happy,
+  // ticket), as a fraction of postStopAspirationDurationMs.  Word-initial
+  // stops and stressed onsets keep the whole puff.  1.0 = no change.
+  double postStopAspirationUnstressedScale = 1.0;
   // Spanish (#146): an all-caps word Spanish could pronounce is read as a
   // word ("MAS", "WEB", the "RAR" of "WinRAR"), not spelled; and "tw"
   // before a vowel is read "tu" ("Twain").  eSpeak spells and splits them.

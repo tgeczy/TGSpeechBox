@@ -141,6 +141,24 @@ static void applyTransforms(const LanguagePack& lang, std::vector<Token>& tokens
   }
 }
 
+// Does the puff after the stop before token i belong to an unstressed
+// syllable inside a word (the p of happy, the k of ticket)?  Word-initial
+// stops and the onsets of stressed syllables (pin, appear, apply) do not.
+// The syllable's stress sits on its first token, so walk back from the
+// next vowel to the nearest syllable start.
+static bool aspirationIsUnstressedMedial(const std::vector<Token>& tokens, size_t i) {
+  if (i == 0 || tokens[i - 1].wordStart) return false;
+  size_t v = i + 1;
+  while (v < tokens.size() && !tokens[v].wordStart && !tokenIsVowel(tokens[v])) ++v;
+  if (v >= tokens.size() || tokens[v].wordStart) return false;
+  for (size_t k = v + 1; k-- > 0;) {
+    const Token& s = tokens[k];
+    if (s.syllableStart || s.wordStart) return s.stress == 0;
+    if (k + 1 == i) break;  // nothing between the stop and the vowel started it
+  }
+  return tokens[i - 1].stress == 0;
+}
+
 static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, double baseSpeed) {
   const LanguagePack& lang = pack.lang;
   Token* last = nullptr;
@@ -207,6 +225,9 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
       }
     } else if (t.postStopAspiration) {
       dur = lang.postStopAspirationDurationMs / curSpeed;
+      if (lang.postStopAspirationUnstressedScale != 1.0 && aspirationIsUnstressedMedial(tokens, i)) {
+        dur *= lang.postStopAspirationUnstressedScale;
+      }
     } else if (tokenIsTap(t) || tokenIsTrill(t)) {
       if (tokenIsTrill(t)) {
         // Use trillModulationMs as the base duration for trills (at speed=1.0).
