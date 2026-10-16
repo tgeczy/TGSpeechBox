@@ -1747,6 +1747,58 @@ phonemes:
     pf5: 3392
     pf6: 4200
     voiceAmplitude: 0
+  k_ptbr:
+    # Brazilian Portuguese k (Cleverson, a native speaker, tuned by ear in the
+    # phoneme editor): k with a longer burst and its energy low, so "ca" and
+    # "cu" stay apart from "ta" and "tu".  pt-br maps k here.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: true
+    burstDurationMs: 18
+    burstDecayRate: 0.4
+    burstSpectralTilt: -0.15
+    durationScale: 1.3
+    _isVoiced: false
+    _isVowel: false
+    aspirationAmplitude: 0.25
+    caNP: 0
+    cb1: 275
+    cb2: 120
+    cb3: 200
+    cb4: 450
+    cb5: 800
+    cb6: 1500
+    cbN0: 100
+    cbNP: 100
+    cf1: 300
+    cf2: 1800
+    cf3: 2400
+    cf4: 3498
+    cf5: 3975
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.72
+    pa1: 0.03
+    pa2: 0.80
+    pa3: 0.85
+    pa4: 0.38
+    pa5: 0.10
+    pa6: 0
+    parallelBypass: 0
+    pb1: 250
+    pb2: 130
+    pb3: 200
+    pb4: 450
+    pb5: 1040
+    pb6: 2100
+    pf1: 300
+    pf2: 1500
+    pf3: 2100
+    pf4: 3498
+    pf5: 3392
+    pf6: 4200
+    voiceAmplitude: 0
   l:
     _isLiquid: true
     _isNasal: false

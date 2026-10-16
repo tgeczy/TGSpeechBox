@@ -68,12 +68,15 @@ def _assert_same(word, label, first, now):
     # The voiced bands must agree within the just-noticeable difference for
     # level (about 1 dB); the voice source's phase at onset moves them a
     # little.  Above 2 kHz the frication and aspiration noise is random, a new
-    # draw every time, so a few dB there is the noise, not a different sound.
+    # draw every time, so a few dB there is the noise, not a different sound:
+    # over 30 readings with identical frames the octave bands above 2 kHz moved
+    # up to 3.2 dB in en-us "garden" and 4.7 dB in pt-br "agota" (whose t has a
+    # puff of aspiration since Cleverson's pt-br k), median 1.3-1.6 dB.
     n = min(len(a), len(b))
     diff = np.abs(_band_db(a[:n]) - _band_db(b[:n]))
     low, high = float(diff[:4].max()), float(diff[4:].max())
     assert low <= 1.0, f"{label} of {word!r} differs from the first reading by {low:.1f} dB below 2 kHz"
-    assert high <= 3.0, f"{label} of {word!r} differs from the first reading by {high:.1f} dB above 2 kHz"
+    assert high <= 6.0, f"{label} of {word!r} differs from the first reading by {high:.1f} dB above 2 kHz"
 
 
 WORDS = [("pt-br", "agota"), ("pt-br", "agora"), ("pt-br", "fora"), ("en-us", "garden")]

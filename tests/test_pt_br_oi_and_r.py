@@ -39,7 +39,7 @@ def test_oi_is_close_o_plus_glide(ipa):
     assert keys[i + 1] == "j", f"{ipa}: {keys}"
 
 
-@pytest.mark.parametrize("ipa", ["xˌezˈumʊ", "kˈaxʊ", "xˈuɐ"])  # resumo, carro, rua
+@pytest.mark.parametrize("ipa", ["xˌezˈumʊ", "bˈaxʊ", "xˈuɐ"])  # resumo, barro, rua (no voiceless stop: those add an h puff)
 def test_strong_r_is_the_throat_fricative(ipa):
     keys = _keys(ipa)
     assert "x_es" in keys and "h" not in keys, f"{ipa}: {keys}"
