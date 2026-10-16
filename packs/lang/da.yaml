@@ -77,6 +77,12 @@ normalization:
     - from: "ʔ"
       to: "ˀ"
 
+    # Danish v: eSpeak writes the labiodental approximant ʋ, which no phoneme
+    # defines, so every v was dropped ("vi" said "i", "hvad" said "a").  Map it
+    # to /v/ as Dutch does, until ʋ has a phoneme of its own.
+    - from: "ʋ"
+      to: "v"
+
   replacements:
     # eSpeak da sometimes outputs Greek epsilon (ε) where IPA would normally use ɛ.
     - from: "ε"
