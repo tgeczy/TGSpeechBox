@@ -467,7 +467,7 @@ settings:
       liquidMs: 15
       affricateMs: 12
       semivowelMs: 30
-      tapMs: 4
+      tapMs: 12
       trillMs: 12
       voicedConsonantMs: 10
     wordFinalBonusMs: 5

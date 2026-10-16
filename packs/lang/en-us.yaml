@@ -809,7 +809,7 @@ settings:
       liquidMs: 15           # /ɹ/ and /l/ need F3 transition time
       affricateMs: 15        # modest bump from 12, preserves some frication
       semivowelMs: 30        # glide IS the trajectory — needs full sweep
-      tapMs: 4               # quick by nature, don't over-protect
+      tapMs: 12              # a flap is one tongue flick; it barely shrinks with rate, and under ~8 ms it smears into the vowels ("accessibility")
       trillMs: 12            # needs at least one modulation cycle
       voicedConsonantMs: 10  # catch-all for voiced C's not matched above
 
