@@ -31,7 +31,14 @@ settings:
   spellingDiphthongMode: none
   stopClosureAfterNasalsEnabled: false
   segmentBoundarySkipVowelToLiquid: false
-  postStopAspirationEnabled: false
+  # p, t, k are strongly aspirated; the aspiration, not the burst, is what tells
+  # them from b, d, g, which are voiceless too (Fischer-Jorgensen 1972), and it
+  # runs longer than English's (en-us uses 35).  Was off (Fubsepude: "major
+  # issues").
+  postStopAspirationEnabled: true
+  postStopAspirationDurationMs: 45
+  # ...but not after s: spiser, stå, skal (as in English speak, stop, sky).
+  postStopAspirationAfterSibilant: false
   coarticulationEnabled: false
   coarticulationFadeIntoConsonants: false
   coarticulationVelarPinchEnabled: false

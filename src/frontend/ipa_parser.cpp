@@ -516,7 +516,20 @@ bool parseToTokens(const PackSet& pack, const std::u32string& text, std::vector<
       const bool curIsStop = tokenIsStop(t);
       const bool curIsAfricate = tokenIsAfricate(t);
 
-      if (lastIsStop && !lastIsVoiced && curIsVoiced && !curIsStop && !curIsAfricate) {
+      // A stop right after s or sh in the same word (speak, stå, Stein) is
+      // unaspirated in the aspirating languages; packs that model that say so.
+      bool afterSibilant = false;
+      if (!lang.postStopAspirationAfterSibilant && !outTokens[lastIndex].wordStart) {
+        // The nearest sound before the stop, past any closure silence.
+        int i = lastIndex - 1;
+        while (i >= 0 && outTokens[i].silence) --i;
+        if (i >= 0) {
+          const char32_t c = outTokens[i].baseChar;
+          afterSibilant = (c == U's' || c == U'ʃ');
+        }
+      }
+
+      if (lastIsStop && !lastIsVoiced && curIsVoiced && !curIsStop && !curIsAfricate && !afterSibilant) {
         const PhonemeDef* asp = findPhoneme(pack, lang.postStopAspirationPhoneme);
         if (asp) {
           Token a;

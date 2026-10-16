@@ -718,6 +718,9 @@ struct LanguagePack {
   // Spanish spelling: a word-initial "y" before a consonant is the vowel i
   // ("Yndio", "Ybarra"); eSpeak reads it as the stop [ɟ] (#145).
   bool initialYBeforeConsonantAsI = false;
+  // Post-stop aspiration also after s/sh in the same word (sp, st, sk).  On by
+  // default, as it always was; Danish turns it off (spiser, stå, skal).
+  bool postStopAspirationAfterSibilant = true;
   // Spanish (#146): an all-caps word Spanish could pronounce is read as a
   // word ("MAS", "WEB", the "RAR" of "WinRAR"), not spelled; and "tw"
   // before a vowel is read "tu" ("Twain").  eSpeak spells and splits them.
