@@ -148,6 +148,22 @@ std::wstring get_user_settings_path()
 // Settings struct
 // -----------------------------
 
+// Pitch modes: the ini name the SAPI engine reads, and the label in the
+// list.  Index 0 is the language's own mode.  Everything that fills, reads,
+// loads or saves the pitch mode goes through this table (#148: Arató was
+// listed but OK only accepted the first six).
+struct PitchModeEntry { const wchar_t* ini; const wchar_t* label; };
+static const PitchModeEntry kPitchModes[] = {
+    { L"", L"Use Language Default" },
+    { L"espeak_style", L"eSpeak Style" },
+    { L"fujisaki_style", L"Fujisaki" },
+    { L"impulse_style", L"Impulse" },
+    { L"klatt_style", L"Klatt" },
+    { L"legacy", L"Classic" },
+    { L"arato_style", L"Arató (BraiLab)" },
+};
+static const int kPitchModeCount = (int)(sizeof(kPitchModes) / sizeof(kPitchModes[0]));
+
 struct Settings {
     bool logging_enabled = false;
     std::unordered_set<std::wstring> excluded;
@@ -155,7 +171,7 @@ struct Settings {
     int sample_rate = 22050;
     int pauseMode = 1; // 0=off, 1=short, 2=long
 
-    // Pitch mode: 0 = language default, 1-5 = specific mode.
+    // Pitch mode: an index into kPitchModes (0 = language default).
     int pitchMode = 0;
     int pitchInflectionScale = 50; // 0-100, maps to 0.0-2.0
 
@@ -211,13 +227,10 @@ Settings load_settings(const std::wstring& ini_path)
         wchar_t pmBuf[64] = {};
         GetPrivateProfileStringW(L"Audio", L"pitchMode", L"", pmBuf, 64, ini_path.c_str());
         std::wstring pm(pmBuf);
-        if (pm == L"espeak_style")    s.pitchMode = 1;
-        else if (pm == L"fujisaki_style") s.pitchMode = 2;
-        else if (pm == L"impulse_style")  s.pitchMode = 3;
-        else if (pm == L"klatt_style")    s.pitchMode = 4;
-        else if (pm == L"legacy")         s.pitchMode = 5;
-        else if (pm == L"arato_style")    s.pitchMode = 6;
-        else s.pitchMode = 0;
+        s.pitchMode = 0;
+        for (int i = 1; i < kPitchModeCount; ++i) {
+            if (pm == kPitchModes[i].ini) { s.pitchMode = i; break; }
+        }
     }
     s.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", 50, ini_path.c_str());
 
@@ -270,16 +283,8 @@ bool save_settings(const std::wstring& ini_path, const Settings& s)
 
     // Pitch mode: map index to string.
     {
-        const wchar_t* pmStr = L"";
-        switch (s.pitchMode) {
-            case 1: pmStr = L"espeak_style"; break;
-            case 2: pmStr = L"fujisaki_style"; break;
-            case 3: pmStr = L"impulse_style"; break;
-            case 4: pmStr = L"klatt_style"; break;
-            case 5: pmStr = L"legacy"; break;
-            case 6: pmStr = L"arato_style"; break;
-            default: pmStr = L""; break;
-        }
+        const wchar_t* pmStr = (s.pitchMode > 0 && s.pitchMode < kPitchModeCount)
+            ? kPitchModes[s.pitchMode].ini : L"";
         WritePrivateProfileStringW(L"Audio", L"pitchMode", pmStr, ini_path.c_str());
     }
     write_ini_int(ini_path, L"Audio", L"pitchInflectionScale", s.pitchInflectionScale);
@@ -558,15 +563,10 @@ INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
         // Pitch mode combo.
         {
             HWND pm = GetDlgItem(hDlg, IDC_PITCH_MODE);
-            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Use Language Default");
-            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"eSpeak Style");
-            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Fujisaki");
-            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Impulse");
-            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Klatt");
-            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Classic");
-            SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)L"Arató (BraiLab)");
+            for (int i = 0; i < kPitchModeCount; ++i)
+                SendMessageW(pm, CB_ADDSTRING, 0, (LPARAM)kPitchModes[i].label);
             int pmSel = st->settings.pitchMode;
-            if (pmSel < 0 || pmSel > 6) pmSel = 0;
+            if (pmSel < 0 || pmSel >= kPitchModeCount) pmSel = 0;
             SendMessageW(pm, CB_SETCURSEL, pmSel, 0);
         }
 
@@ -622,7 +622,7 @@ INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 
             // Pitch mode.
             int pitchSel = (int)SendDlgItemMessageW(hDlg, IDC_PITCH_MODE, CB_GETCURSEL, 0, 0);
-            if (pitchSel >= 0 && pitchSel <= 5)
+            if (pitchSel >= 0 && pitchSel < kPitchModeCount)
                 st->settings.pitchMode = pitchSel;
             st->settings.pitchInflectionScale = get_slider(hDlg, IDC_SL_INFLECTION);
 
