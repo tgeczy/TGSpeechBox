@@ -378,8 +378,14 @@ normalization:
     # (fric=0.14) — schwa masked it. With /ɣ_es/ retuned as a salient
     # fricative (fric=0.45), schwa+fricative noise should provide its own
     # perceptual boundary. Mirrors the precedent set by /sɣ/ on 2026-04-26.
+    # #149 (Greg): no schwa.  b8 kept one ("without it the F2 jump reads
+    # as a tap"), but since b801 every ᵊ is shaped as a tap's echo vowel
+    # (15 ms, colored like the vowel before it), and THAT read as the tap:
+    # "algunos"/"alguien" with an r in "alg".  Whisper large-v2: "algo" →
+    # "abró", "alguien" → "abre bien"; without the schwa it hears
+    # "algunos", "algunas".  Spanish says [alˈɣunos].
     - from: "lɣ"
-      to: "lᵊɣ_cls"   # b8: tight cluster event; schwa KEPT — without it the F2 jump reads as a tap ("algro")
+      to: "lɣ_cls"
     - from: "ɾɡ"
       to: "ɾᵊɡ"
     # Note: ɾɣ handled above (line ~228, also collapses to /ɡ/).
@@ -482,3 +488,62 @@ normalization:
     # Non-initial /r/ as double-tap trill for words like "perro", "madre".
     - from: "r"
       to: "ɾᵊɾ"
+
+# #149 (Greg: "seguro" as "seguto"): the Spanish tap with little release
+# noise.  A tap is one quick touch and builds up almost no air pressure, so
+# it has little or no burst (Ladefoged & Maddieson 1996).  The base tap's
+# noise (0.25) was masked by full voicing until b801's intensity dip took
+# the tap's voicing to 0.55; then it read as a t.  Whisper large-v2 heard
+# "toro", "coro" as "todo" before and "toró" after, "caro" as "cae" before
+# and "cargó" after, with no losses.  The word-final ɾ_wf keeps its release (#53).  This replaces the
+# whole base definition, so it is copied from phonemes.yaml with only the
+# noise changed.
+phonemes:
+  "ɾ":
+    _isLiquid: false
+    _isNasal: false
+    _isSemivowel: false
+    _isStop: false
+    _isTap: true
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 80
+    cb2: 100
+    cb3: 150
+    cb4: 320
+    cb5: 400
+    cb6: 1400
+    cbN0: 100
+    cbNP: 100
+    cf1: 300
+    cf2: 1650
+    cf3: 2200
+    cf4: 4028
+    cf5: 3975
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    voiceAmplitude: 0.90
+    fricationAmplitude: 0.10   # base 0.25; #149
+    pa1: 0.20
+    pa2: 0.40
+    pa3: 0.45
+    pa4: 0.50
+    pa5: 0.28
+    pa6: 0.14
+    parallelBypass: 0
+    pb1: 70
+    pb2: 110
+    pb3: 170
+    pb4: 320
+    pb5: 400
+    pb6: 1400
+    pf1: 220
+    pf2: 1650
+    pf3: 2600
+    pf4: 3498
+    pf5: 3975
+    pf6: 4900
+    voiceAmplitude: 1.0
