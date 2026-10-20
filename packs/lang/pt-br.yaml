@@ -73,9 +73,10 @@ normalization:
 
     # Brazilian strong R: eSpeak pt-br writes x (resumo, carro, porta).  It was
     # /h/, the breathy Rio/São Paulo realization, which sounded close to "ch";
-    # Cleverson (a native speaker) found the throat fricative he wanted in x_es.
+    # Cleverson (a native speaker) found the throat fricative he wanted in x_es,
+    # then made it his own: x_ptbr, voiced and lighter (x_es's rr was too strong).
     - from: "x"
-      to: "x_es"
+      to: "x_ptbr"
 
     # eSpeak NG 1.53 writes the "ou" diphthong as oʊ where 1.52 wrote ow;
     # keep the offglide a glide, and keep this ahead of the ʊ→u rule.

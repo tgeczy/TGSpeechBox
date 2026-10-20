@@ -553,6 +553,54 @@ phonemes:
     pf5: 3975
     pf6: 4900
     voiceAmplitude: 0
+  x_ptbr:
+    # Brazilian strong R ("carro", "rato", "terra"): x_es voiced, with
+    # lighter noise.  Cleverson (a native speaker) found x_es's rr too strong.
+    _isAfricate: false
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0.45
+    caNP: 0
+    cb1: 160
+    cb2: 180
+    cb3: 250
+    cb4: 500
+    cb5: 1000
+    cb6: 1800
+    cbN0: 100
+    cbNP: 100
+    cf1: 250
+    cf2: 1400
+    cf3: 2600
+    cf4: 3498
+    cf5: 3975
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.40
+    pa1: 0.05
+    pa2: 1.0
+    pa3: 0.40
+    pa4: 0.40
+    pa5: 0
+    pa6: 0.25
+    parallelBypass: 0
+    pb1: 130
+    pb2: 160
+    pb3: 220
+    pb4: 500
+    pb5: 1000
+    pb6: 1980
+    pf1: 400
+    pf2: 1050
+    pf3: 2400
+    pf4: 3498
+    pf5: 3975
+    pf6: 4900
+    voiceAmplitude: 0.7
   a:
     _isLiquid: false
     _isNasal: false

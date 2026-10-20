@@ -6,7 +6,9 @@
   and "ei" are a vowel plus j.
 - The strong r ("resumo", "carro", "rua"), which eSpeak writes as x, was
   mapped to a breathy "h" and sounded close to "ch"; Cleverson, a native
-  speaker, found the throat fricative he wanted in x_es.
+  speaker, found the throat fricative he wanted in x_es.  Then the "rr" in
+  "carro" was too strong, and he made his own: x_ptbr, x_es voiced
+  (voiceAmplitude 0.7) with lighter noise (fricationAmplitude 0.40, was 0.80).
 
 Rendered through the frontend with the Python package on this tree's build.
 """
@@ -42,7 +44,19 @@ def test_oi_is_close_o_plus_glide(ipa):
 @pytest.mark.parametrize("ipa", ["xˌezˈumʊ", "bˈaxʊ", "xˈuɐ"])  # resumo, barro, rua (no voiceless stop: those add an h puff)
 def test_strong_r_is_the_throat_fricative(ipa):
     keys = _keys(ipa)
-    assert "x_es" in keys and "h" not in keys, f"{ipa}: {keys}"
+    assert "x_ptbr" in keys and "h" not in keys, f"{ipa}: {keys}"
+
+
+@pytest.mark.parametrize("ipa", ["xˌezˈumʊ", "kˈaxʊ", "tˈɛxæ", "xˈatʊ"])  # resumo, carro, terra, rato
+def test_strong_r_is_voiced_and_lighter(ipa):
+    u = tgspeechbox.render(ipa, "pt-br")
+    tr = u.frame_trace
+    n = next(i for i, e in enumerate(tr) if e["phonemeKey"] == "x_ptbr")
+    end = tr[n + 1]["frameIndex"] if n + 1 < len(tr) else len(u.frames)
+    body = [f.params for f in u.frames[tr[n]["frameIndex"]:end] if f.params]
+    peak = max(body, key=lambda f: f["fricationAmplitude"])
+    assert peak["voiceAmplitude"] >= 0.3, f"{ipa}: the strong r is voiceless"
+    assert peak["fricationAmplitude"] <= 0.5, f"{ipa}: the strong r's noise is too strong"
 
 
 def test_ai_and_ei_unchanged():
