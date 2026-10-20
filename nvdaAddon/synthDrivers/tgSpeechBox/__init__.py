@@ -729,6 +729,14 @@ class SynthDriver(
                 self._refreshLangPackSettingsCache()
             except Exception:
                 log.debug("TGSpeechBox: could not refresh language-pack cache after reload", exc_info=True)
+            # The settings panel saved into the language file: NVDA's copy
+            # must follow, or its next replay writes the old value back
+            # ("this option always re-enables itself", #140).
+            if want == self._getCurrentLangTag():
+                try:
+                    self._syncLangPackSettingsToConfig()
+                except Exception:
+                    log.debug("TGSpeechBox: could not sync NVDA's copy after reload", exc_info=True)
         return ok
 
     # ---- Background thread helpers ----

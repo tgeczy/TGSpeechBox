@@ -88,3 +88,27 @@ def test_a_change_made_in_the_voice_panel_still_sticks(harness, nvda_replay_sett
     driver_config_section()["stopClosureMode"] = "none"  # and NVDA saves it
     nvda_replay_settings(d)
     assert d.stopClosureMode == "none"
+
+
+@pytest.mark.parametrize("lang", ["es", "en-us"])
+def test_a_change_saved_in_the_language_pack_panel_sticks(harness, nvda_replay_settings,
+                                                          driver_config_section, lang):
+    """Edu (#140): "this option always re-enables itself".  The TGSpeechBox
+    settings panel saves year splitting into the language file, but NVDA's
+    copy still said on, and the next replay (a profile switch, a restart)
+    wrote it back."""
+    from synthDrivers.tgSpeechBox import langPackYaml
+    from synthDrivers.tgSpeechBox.langPackSettingsPanel import _getPacksDir
+    d = harness.driver
+    d.language = lang
+    d.yearSplitting = True
+    driver_config_section()["yearSplitting"] = True  # saved while it was on
+
+    # The panel's Save: write the file, reload the pack.
+    langPackYaml.upsertSetting(_getPacksDir(), lang, "yearSplittingEnabled", False)
+    d.reloadLanguagePack()
+    assert d.yearSplitting is False
+
+    nvda_replay_settings(d)
+    assert d.yearSplitting is False, f"{lang}: NVDA's old copy turned year splitting back on"
+    assert driver_config_section()["yearSplitting"] is False
