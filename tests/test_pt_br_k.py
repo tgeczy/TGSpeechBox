@@ -24,11 +24,12 @@ sys.path.insert(0, str(REPO / "python"))
 import tgspeechbox  # noqa: E402
 
 
+@pytest.mark.parametrize("speed", [0.5, 1.0, 1.6, 2.0, 3.0])
 @pytest.mark.parametrize("ipa", ["kˈazɐ", "kˈumɪ", "kˈe͡ɪʒʊ"])  # casa, cume, queijo
-def test_k_is_the_pt_br_k_with_a_short_puff(ipa):
-    u = tgspeechbox.render(ipa, "pt-br")
+def test_k_is_the_pt_br_k_with_a_short_puff(ipa, speed):
+    u = tgspeechbox.render(ipa, "pt-br", speed=speed)
     keys = [e["phonemeKey"] for e in u.frame_trace]
-    assert keys[0] == "k_ptbr" and keys[1] == "h", f"{ipa}: {keys}"
+    assert keys[0] == "k_ptbr" and keys[1] == "h", f"{ipa} @{speed}: {keys}"
     burst = u.frames[0].params
     assert (burst["pa2"], burst["pa3"], burst["pa5"], burst["pa6"]) == pytest.approx((0.80, 0.85, 0.10, 0.0), abs=0.06)
 

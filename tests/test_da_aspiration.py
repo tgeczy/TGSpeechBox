@@ -26,14 +26,15 @@ sys.path.insert(0, str(REPO / "python"))
 import tgspeechbox  # noqa: E402
 
 
-def _keys(ipa):
-    return [e["phonemeKey"] for e in tgspeechbox.render(ipa, "da").frame_trace]
+def _keys(ipa, speed=1.0):
+    return [e["phonemeKey"] for e in tgspeechbox.render(ipa, "da", speed=speed).frame_trace]
 
 
+@pytest.mark.parametrize("speed", [0.5, 1.0, 1.6, 2.0, 3.0])
 @pytest.mark.parametrize("word,ipa", [("pære", "pˈɛʔ͡ʌ"), ("tale", "tˈalə"), ("kaffe", "kˈ?͡ɑfə"), ("Tak", "tˈ?͡ɑk")])
-def test_p_t_k_are_aspirated(word, ipa):
-    keys = _keys(ipa)
-    assert keys[1] == "h", f"{word}: {keys}"
+def test_p_t_k_are_aspirated(word, ipa, speed):
+    keys = _keys(ipa, speed)
+    assert keys[1] == "h", f"{word} @{speed}: {keys}"
 
 
 @pytest.mark.parametrize("word,ipa", [("bære", "bˈɛʔ͡ʌ"), ("dale", "dˈalə"), ("gaffel", "ɡˈ?͡ɑfəl"),

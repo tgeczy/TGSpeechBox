@@ -47,16 +47,17 @@ def test_strong_r_is_the_throat_fricative(ipa):
     assert "x_ptbr" in keys and "h" not in keys, f"{ipa}: {keys}"
 
 
+@pytest.mark.parametrize("speed", [0.5, 1.0, 1.6, 2.0, 3.0])
 @pytest.mark.parametrize("ipa", ["xˌezˈumʊ", "kˈaxʊ", "tˈɛxæ", "xˈatʊ"])  # resumo, carro, terra, rato
-def test_strong_r_is_voiced_and_lighter(ipa):
-    u = tgspeechbox.render(ipa, "pt-br")
+def test_strong_r_is_voiced_and_lighter(ipa, speed):
+    u = tgspeechbox.render(ipa, "pt-br", speed=speed)
     tr = u.frame_trace
     n = next(i for i, e in enumerate(tr) if e["phonemeKey"] == "x_ptbr")
     end = tr[n + 1]["frameIndex"] if n + 1 < len(tr) else len(u.frames)
     body = [f.params for f in u.frames[tr[n]["frameIndex"]:end] if f.params]
     peak = max(body, key=lambda f: f["fricationAmplitude"])
-    assert peak["voiceAmplitude"] >= 0.3, f"{ipa}: the strong r is voiceless"
-    assert peak["fricationAmplitude"] <= 0.5, f"{ipa}: the strong r's noise is too strong"
+    assert peak["voiceAmplitude"] >= 0.3, f"{ipa} @{speed}: the strong r is voiceless"
+    assert peak["fricationAmplitude"] <= 0.5, f"{ipa} @{speed}: the strong r's noise is too strong"
 
 
 def test_ai_and_ei_unchanged():
