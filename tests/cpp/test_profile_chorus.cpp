@@ -47,10 +47,12 @@ struct ChorusPack {
         ss << in.rdbuf();
         std::string text = ss.str();
         in.close();
-        const std::string anchor = "voiceProfiles:\n";
-        const size_t at = text.find(anchor);
+        // The line may end in \r\n: a Windows checkout with autocrlf.
+        const size_t at = text.find("voiceProfiles:");
         REQUIRE(at != std::string::npos);
-        text.insert(at + anchor.size(),
+        const size_t eol = text.find('\n', at);
+        REQUIRE(eol != std::string::npos);
+        text.insert(eol + 1,
                     "  ChorusProbe:\n"
                     "    voicingTone:\n"
                     "      voicedTiltDbPerOct: -4.0\n"
