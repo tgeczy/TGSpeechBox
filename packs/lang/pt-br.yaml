@@ -74,7 +74,8 @@ normalization:
     # Brazilian strong R: eSpeak pt-br writes x (resumo, carro, porta).  It was
     # /h/, the breathy Rio/São Paulo realization, which sounded close to "ch";
     # Cleverson (a native speaker) found the throat fricative he wanted in x_es,
-    # then made it his own: x_ptbr, voiced and lighter (x_es's rr was too strong).
+    # then made it his own: x_ptbr, lighter (x_es's rr was too strong); voiceless,
+    # since voiced it was a v ("cavo", #150).
     - from: "x"
       to: "x_ptbr"
 
@@ -90,11 +91,12 @@ normalization:
     - from: "ɔ"
       to: "ɒ"
 
-    # "oi" (foi, boi, dois) is the close o plus the glide, like "ai" and "ei".
+    # "oi" (foi, boi, dois) is one gliding vowel from the close o, oj_ptbr.
     # Left to the o → ɔ rule below, "oj" became "ɔj", the English "boy"
-    # diphthong with its own glide built in (Cleverson).  Must come first.
+    # (Cleverson); as the close o plus a separate j it was a held o, "doois"
+    # (#150, Edu).  Must come first.
     - from: "oj"
-      to: "o_esj"
+      to: "oj_ptbr"
     # Brazilian mid-o: o → ɔ (more open than European).
     - from: "o"
       to: "ɔ"
