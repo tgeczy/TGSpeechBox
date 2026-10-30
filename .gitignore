@@ -55,7 +55,7 @@ AuthKey_*.p8
 *.raw
 # Local Codex project memory
 /.codex-memory/
-/AGENTS.md
+/AGENTS.override.md
 # Tool caches (HuggingFace hub etc.)
 /.cache/
 # Root artifact zoo (release binaries live on GitHub releases; renders,
