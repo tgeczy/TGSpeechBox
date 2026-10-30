@@ -13,6 +13,20 @@ apps, a Linux Speech Dispatcher module, a phoneme editor, and a Python wheel.
 The people who use it are mostly blind screen reader users who listen to it all day, often at high rates. Clarity at
 speed, stability, and not surprising them matter more than any new feature.
 
+## The four rules
+
+Read these even if you read nothing else. A pull request that breaks one of them will not be merged.
+
+1. **No tests, no merge.** Without tests we have no ground to stand on. Every pull request comes with a
+   comprehensive set of tests covering the change: what it fixes, what it adds, and what it must leave alone.
+   "It sounded fine to me" is not a test.
+2. **Work only on languages you know.** Change a language only if you speak it natively or near-fluently *and* have
+   lived or worked among the people who speak it. A voice is part of a culture, and its speakers hear it every day.
+3. **Every feature is multilingual.** Nothing may be hard-coded for one language. We made that mistake early, we
+   learnt it the hard way, and we are still far from good localization in every corner of the apps. Do not add to it.
+4. **Back it up.** Cite research papers for how a language or a sound works. A claim without a source is a weak
+   claim, and a pull request built on one is weaker for it.
+
 ## How the repository is organized
 
 | Folder | What is there |
@@ -31,7 +45,7 @@ speed, stability, and not surprising them matter more than any new feature.
 
 ## Language lives in data, not in code
 
-This is the rule pull requests most often break, so it comes first.
+Rule 3 in practice. It is the one pull requests most often break.
 
 - **No words of any language in C++.** Unit names, number words, letter names, month names, joiners like "and" or
   "minus": all of it goes in the packs. The C++ supplies the mechanism; each language's pack supplies the words and
@@ -46,20 +60,46 @@ This is the rule pull requests most often break, so it comes first.
 - **Do not change other languages as a side effect.** A setting that is on for one language must leave every other
   language's output byte for byte the same, and a test should say so.
 
+## Languages and the people who speak them
+
+- **Native or near-fluent, and lived it.** Work on a language only if you speak it natively or near-fluently and
+  have spent time living or working among its speakers. Knowing the grammar is not the same as knowing how people
+  sound. If you are not that person for a language, find the person who is (below) instead of guessing.
+- **A change that touches many languages needs their speakers.** If your pull request changes more than the
+  languages you know, it is your job to ask for feedback from people who know the others. Look them up: go through
+  the issues, discussions and past pull requests, find the contributors who reported or fixed things in each affected
+  language, and mention them in your pull request asking them to listen. Do not leave it to the maintainer, and do not
+  skip it because it takes time. A pull request that changes a language nobody who speaks it has heard is not ready.
+- **Respect the language as it is spoken.** Regional varieties (Brazilian and European Portuguese, Mexican and
+  Castilian Spanish, American and British English) are languages in their own right, not variants of a "real" one.
+  Do not flatten one into another.
+
+## Research and citations
+
+- Cite your sources: phonetics papers, acoustic studies, reference grammars, a native speaker's report (link it).
+  Put the citation in the code comment or the yaml comment next to the change, and in the pull request.
+- Prefer measured data (formant studies, duration studies, published recordings) over impressions.
+- When no source exists, say so plainly. An uncited change can still be right, but it carries less weight, and
+  it will be held to a higher bar of listening.
+
 ## How we work: tests first, ears last
 
-**Test-driven.** A fix starts with a test that fails on the bug. A feature starts with the test that says what it
-must do. Run the test before your change and say in the pull request that it failed; a test that passes without your
-change is not testing it.
+**No tests, no ground to stand on.** Every bug this project has shipped could have been caught by a test, and every
+change without one is a guess that the next change can silently undo. A pull request without a comprehensive set of
+tests covering the change will not be approved, however good it sounds.
+
+**Test-driven.** A fix starts with a test that fails on the bug. A feature starts with the tests that say what it
+must do, including what it must leave alone (other languages, other settings, other platforms). Run the tests before
+your change and say in the pull request that they failed; a test that passes without your change is not testing it.
+Cover the edges, not just the example in the issue.
 
 **Every rate.** Anything that touches timing, duration or a phoneme's frames is checked at speeds 0.5, 1.0, 1.6, 2.0
 and 3.0 (`pytest.mark.parametrize("speed", [0.5, 1.0, 1.6, 2.0, 3.0])`). A rule that only works at 1.0 breaks for the
 people who use the engine most.
 
 **The human ear is the final gate.** Numbers can be right and the voice still wrong. A change to how anything sounds
-is not done until a person has listened to it on a real add-on or app. For a language you do not speak, say what the
-change rests on: published phonetics (cite it), a native speaker's report (link it), measurements. A speech
-recognizer's transcript is not evidence that a synthetic voice sounds right.
+is not done until a person who speaks the language has listened to it on a real add-on or app. A speech recognizer's
+transcript is not evidence that a synthetic voice sounds right.
 
 **Defaults are for everyone.** Turning a new behaviour on by default changes what thousands of people hear tomorrow.
 Say why it should be on, or leave it off.
@@ -87,7 +127,11 @@ copyright. Do not add a dependency without its licence and a reason.
 
 - **Open an issue first for anything bigger than a fix,** and wait for the maintainer to agree on the approach. An
   unasked-for feature in a pull request is likely to be turned down, however well made.
-- **Include new tests** in `tests/` (pytest) or `tests/cpp/` (doctest), at every rate where timing is involved.
+- **Include a comprehensive set of new tests** in `tests/` (pytest) or `tests/cpp/` (doctest), at every rate where
+  timing is involved. No tests, no approval.
+- **Say which languages you speak,** and for any other language the change touches, link where you asked its speakers
+  to listen.
+- **Cite your sources** for any change to how a language sounds or reads.
 - **Say exactly what you ran**: which suites, on which platform, which tests failed before the change, and what you did
   not run. Say whether anyone has listened to it.
 - **A human is in the loop for the final test.** A maintainer runs the suites and listens before merging. Write the
