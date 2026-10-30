@@ -6,9 +6,15 @@ anything or open a pull request.
 ## What this project is
 
 A formant speech synthesizer: a Klatt-style DSP engine with an LF glottal source, a frontend that turns IPA into
-timed frames (coarticulation, allophones, timing, intonation), and language packs for 26+ languages. eSpeak NG
-turns text into IPA; everything after that is ours. It ships as an NVDA add-on, a SAPI 5 engine, Android and iOS/macOS
-apps, a Linux Speech Dispatcher module, a phoneme editor, and a Python wheel.
+timed frames (coarticulation, allophones, timing, intonation), and language packs for 26+ languages. It ships as an
+NVDA add-on, a SAPI 5 engine, Android and iOS/macOS apps, a Linux Speech Dispatcher module, a phoneme editor, and a
+Python wheel.
+
+**The engine is phonemizer-agnostic.** It takes IPA, and anything that produces IPA can feed it. eSpeak NG is the
+default phonemizer today, and the only one on the phone apps for now; the desktop hosts and the Python wheel leave
+more room, and a contributor has already run it with Gruut. Keeping it that way is the goal: do not tie the engine
+or the frontend to one phonemizer. A quirk in one phonemizer's IPA (eSpeak writing "ɹɹ" for one r, say) is fixed in
+the language pack's normalization rules, and says which phonemizer it is for.
 
 The people who use it are mostly blind screen reader users who listen to it all day, often at high rates. Clarity at
 speed, stability, and not surprising them matter more than any new feature.
@@ -118,8 +124,8 @@ Say why it should be on, or leave it off.
 
 ## Licences
 
-The engine, frontend, packs and tools are MIT. eSpeak NG is GPL-3.0 and is linked only by the hosts that need it (see
-the readme). **No GPL code goes into the engine, the frontend or the packs.** Code ported from somewhere else says
+The engine, frontend, packs and tools are MIT. eSpeak NG, the default phonemizer, is GPL-3.0 and is linked only by
+the hosts that use it (see the readme). **No GPL code goes into the engine, the frontend or the packs.** Code ported from somewhere else says
 where it came from and under which licence; if you port your own code from a GPL project, say that you hold its
 copyright. Do not add a dependency without its licence and a reason.
 
