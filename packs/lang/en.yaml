@@ -93,6 +93,11 @@ settings:
   # "1995" → "19 95" (eSpeak says "nineteen ninety-five").
   yearSplittingEnabled: true
 
+  # Money amounts the way people say them (#83): "$1.25" → "1 dollar and
+  # 25 cents", "€5.99" → "5 euros and 99 cents", "20 USD" → "20 dollars".
+  # eSpeak reads "dollar one point two five", and "€5.99" with no unit.
+  moneyAsWords: true
+
   # Suffix stripping for dictionary lookup — inflected forms like
   # "launching" match the stem "launch" with the suffix reattached.
   # Sorted longest-first at load time; 3-char minimum stem.
