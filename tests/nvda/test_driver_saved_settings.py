@@ -112,3 +112,37 @@ def test_a_change_saved_in_the_language_pack_panel_sticks(harness, nvda_replay_s
     nvda_replay_settings(d)
     assert d.yearSplitting is False, f"{lang}: NVDA's old copy turned year splitting back on"
     assert driver_config_section()["yearSplitting"] is False
+
+
+def _nvda_save(driver, section):
+    """NVDA+Ctrl+C, or saving on exit: the voice panel's saveSettings reads
+    every setting back from the driver, then config.save notifies
+    post_configSave (NVDA 2026.2, autoSettings._saveSpecificSettings)."""
+    import config
+    for s in driver.supportedSettings:
+        section[s.id] = getattr(driver, s.id)
+    config.post_configSave.notify()
+
+
+@pytest.mark.parametrize("setting", ["yearSplitting", "thousandsSeparatorCommaToSpace"])
+@pytest.mark.parametrize("lang", ["es-mx", "es-es", "es", "en-us"])
+def test_a_voice_panel_checkbox_survives_a_restart(harness, driver_config_section, setting, lang):
+    """Greg (#151): a "Year splitting" or "Thousands separator" checkbox
+    changed in NVDA's voice panel, then NVDA+Ctrl+C and a restart, was back
+    the way it was."""
+    import conftest as H
+    d = harness.driver
+    d.language = lang
+    want = not getattr(d, setting)
+    setattr(d, setting, want)  # the checkbox sets the property as it changes
+    _nvda_save(d, driver_config_section())
+    saved = dict(driver_config_section())
+    d.terminate()
+    H.pump_main_loop()
+
+    again = _fresh_driver(saved)
+    try:
+        assert getattr(again, setting) is want, f"{lang}: {setting} went back to {not want} after a restart"
+    finally:
+        again.terminate()
+        H.pump_main_loop()
