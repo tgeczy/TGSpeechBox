@@ -140,7 +140,17 @@ def test_a_voice_panel_checkbox_survives_a_restart(harness, driver_config_sectio
     d.terminate()
     H.pump_main_loop()
 
-    again = _fresh_driver(saved)
+    # The restart, as NVDA 2026.2 does it: construct, then initSettings
+    # replays every saved setting (language first) before the main loop
+    # runs what the driver scheduled.
+    import config
+    from synthDrivers import tgSpeechBox
+    config.conf["speech"]["tgSpeechBox"] = dict(saved)
+    again = tgSpeechBox.SynthDriver()
+    for s in again.supportedSettings:
+        if s.id in saved:
+            setattr(again, s.id, saved[s.id])
+    H.pump_main_loop()
     try:
         assert getattr(again, setting) is want, f"{lang}: {setting} went back to {not want} after a restart"
     finally:
