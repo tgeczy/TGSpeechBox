@@ -9054,6 +9054,56 @@ phonemes:
     pf5: 3975
     pf6: 4900
     voiceAmplitude: 0.9
+  "ʎ_pt":
+    # Portuguese "lh" (#152, Edu: "batalha" as "bataia").  ʎ's shape held
+    # twice as long: at 30 ms it was all fade, the glide j.  Brazilian /ʎ/
+    # is one palatalized lateral, most often misheard as j (Wong 2017); its
+    # duration keeps it a lateral (Owens 2023).
+    durationScale: 2.0
+    _isLiquid: true
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0.12
+    caNP: 0
+    cb1: 55
+    cb2: 120
+    cb3: 210
+    cb4: 300
+    cb5: 350
+    cb6: 1300
+    cbN0: 100
+    cbNP: 100
+    cf1: 300
+    cf2: 1800
+    cf3: 3020
+    cf4: 3498
+    cf5: 3975
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 50
+    pb2: 150
+    pb3: 280
+    pb4: 300
+    pb5: 350
+    pb6: 1300
+    pf1: 300
+    pf2: 1800
+    pf3: 3020
+    pf4: 3498
+    pf5: 3975
+    pf6: 4900
+    voiceAmplitude: 0.9
   "ʎ_es":
     # This phoneme consonant is tuned for Spanish in a neutral scenario under the concept called "yeísmo", that means, it is not dialect dependent. Other dialects or variants makes it more clealy, but this tuned phoneme is acceptable for two espeak-ng supported language variants, both Castilian and Mexican.
     # Also, it includes a slightly breathiness, which is closer to natural speaking, keeping it neutral and distinguishable at same time.

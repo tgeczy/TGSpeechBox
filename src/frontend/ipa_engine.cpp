@@ -272,6 +272,12 @@ static void calculateTimes(std::vector<Token>& tokens, const PackSet& pack, doub
         if (tokenIsLiquid(t) || tokenIsSemivowel(t)) {
           fade = lang.liquidFadeMs / curSpeed;
         }
+        // A liquid may ask for more time (#152): Portuguese "lh" at 30 ms
+        // was all fade, heard as the glide j.  Liquids only: other voiced
+        // consonants carry durationScale values this branch never read.
+        if (tokenIsLiquid(t) && t.def && t.def->hasDurationScale) {
+          dur *= t.def->durationScale;
+        }
         // Universal nasal floor: place perception depends on formant
         // transitions that need real time (/ɲ/ vs /n/ vs /ŋ/).
         // Configurable per-pack; rate_compensation adds a second layer.

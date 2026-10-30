@@ -64,6 +64,7 @@ normalization:
       - d͡ʒ
       - l
       - ʎ
+      - ʎ_pt
       - r
       - ɾ
       - n
@@ -210,6 +211,10 @@ normalization:
       to: "ɾ"
 
     # --- Palatals ---
-    # Portuguese 'lh' can surface as "lj".
+    # "lh": eSpeak NG writes lj (Brazilian) or ʎ (European).  Both are the
+    # Portuguese palatal lateral, ʎ_pt, held long enough to be heard as a
+    # lateral rather than the "i" of "bataia" (#152, Edu).
     - from: "lj"
-      to: "ʎ"
+      to: "ʎ_pt"
+    - from: "ʎ"
+      to: "ʎ_pt"
