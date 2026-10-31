@@ -345,7 +345,6 @@ class SynthDriver(
         # _pushFrameExDefaultsToFrontend) because _initComplete was False.
         # Do one consolidated apply now with the final slider values.
 
-        self._scheduleEnableLangPackWrites()
         self._refreshLangPackSettingsCache()
         self._pushFrameExDefaultsToFrontend()
 

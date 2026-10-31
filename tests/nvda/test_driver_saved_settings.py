@@ -23,13 +23,14 @@ import pytest
 
 def _fresh_driver(saved):
     """A driver started with `saved` in NVDA's config, as NVDA starts it:
-    constructed (the start-up replay is ignored by design), then the main
-    loop runs what the driver scheduled."""
+    constructed, initSettings (the start-up replay is ignored by design),
+    then the main loop runs what the driver scheduled."""
     import config
     from synthDrivers import tgSpeechBox
     import conftest as H
     config.conf["speech"]["tgSpeechBox"] = dict(saved)
     d = tgSpeechBox.SynthDriver()
+    d.initSettings()
     H.pump_main_loop()
     return d
 
@@ -124,35 +125,106 @@ def _nvda_save(driver, section):
     config.post_configSave.notify()
 
 
+class _NvdaIniSection(dict):
+    """config.conf["speech"]["tgSpeechBox"] as NVDA starts with it: the values
+    are the strings nvda.ini holds ("False", "70").  NVDA turns a value into
+    its type when it is first read, if it knows the setting's type by then,
+    and caches what it read (config.AggregatedSection._cacheLeaf).  It learns
+    the types in initSettings, and learning them does not clear the cache, so
+    a value read before initSettings stays a string."""
+
+    def __init__(self, saved):
+        super().__init__({k: str(v) for k, v in saved.items()})
+        self._types = {}
+        self._cache = {}
+
+    def learnTypes(self, settings):
+        for s in settings:
+            if isinstance(s.defaultVal, bool):
+                self._types[s.id] = lambda v: v.strip().lower() in ("true", "1", "yes", "on")
+            elif isinstance(s.defaultVal, int):
+                self._types[s.id] = int
+
+    def __getitem__(self, key):
+        if key not in self._cache:
+            val = super().__getitem__(key)
+            if key in self._types and isinstance(val, str):
+                val = self._types[key](val)
+            self._cache[key] = val
+        return self._cache[key]
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __setitem__(self, key, val):
+        super().__setitem__(key, val)
+        self._cache[key] = val
+
+
+def _wx_not_up_yet(*a, **k):
+    # core.callLater before NVDA has made its wx.App: NVDANotInitializedError.
+    raise RuntimeError("Cannot schedule callable, wx.App is not initialized")
+
+
+@pytest.mark.parametrize("start", ["nvda_start", "synth_switch"])
+@pytest.mark.parametrize("want", [False, True])
 @pytest.mark.parametrize("setting", ["yearSplitting", "thousandsSeparatorCommaToSpace"])
 @pytest.mark.parametrize("lang", ["es-mx", "es-es", "es", "en-us"])
-def test_a_voice_panel_checkbox_survives_a_restart(harness, driver_config_section, setting, lang):
+def test_a_voice_panel_checkbox_survives_a_restart(harness, driver_config_section, monkeypatch,
+                                                   setting, lang, want, start):
     """Greg (#151): a "Year splitting" or "Thousands separator" checkbox
-    changed in NVDA's voice panel, then NVDA+Ctrl+C and a restart, was back
-    the way it was."""
+    unchecked in NVDA's voice panel was checked again after NVDA restarted.
+    His log: nvda.ini said yearSplitting = False, and during the start the
+    driver was handed True and wrote it into es-mx.yaml.
+
+    NVDA starts the synthesizer before it makes its wx.App (core.main:
+    speech.initialize, then _setUpWxApp), so core.callLater fails there.
+    The driver took that as "turn language-file writes on now", inside its
+    constructor; turning them on also reads NVDA's copy of the settings,
+    before initSettings has told the config their types, and the "False"
+    read then stayed a string: bool("False") is True.  A synthesizer
+    switch (the earlier version of this test) has wx up, and never failed."""
     import conftest as H
     d = harness.driver
     d.language = lang
-    want = not getattr(d, setting)
     setattr(d, setting, want)  # the checkbox sets the property as it changes
     _nvda_save(d, driver_config_section())
     saved = dict(driver_config_section())
     d.terminate()
     H.pump_main_loop()
 
-    # The restart, as NVDA 2026.2 does it: construct, then initSettings
-    # replays every saved setting (language first) before the main loop
-    # runs what the driver scheduled.
+    # The restart, as NVDA's getSynthInstance does it: construct, then
+    # initSettings replays every saved setting (language first), then the
+    # main loop runs what the driver scheduled.
     import config
+    import core
     from synthDrivers import tgSpeechBox
-    config.conf["speech"]["tgSpeechBox"] = dict(saved)
+    config.conf["speech"]["tgSpeechBox"] = _NvdaIniSection(saved) if start == "nvda_start" else dict(saved)
+    if start == "nvda_start":
+        monkeypatch.setattr(core, "callLater", _wx_not_up_yet)
     again = tgSpeechBox.SynthDriver()
-    for s in again.supportedSettings:
-        if s.id in saved:
-            setattr(again, s.id, saved[s.id])
+    again.initSettings()
+    monkeypatch.undo()
     H.pump_main_loop()
     try:
-        assert getattr(again, setting) is want, f"{lang}: {setting} went back to {not want} after a restart"
+        assert getattr(again, setting) is want, f"{lang}: {setting} came back {not want} after {start}"
+        assert str(config.conf["speech"]["tgSpeechBox"].get(setting)) == str(want)
     finally:
         again.terminate()
         H.pump_main_loop()
+
+
+@pytest.mark.parametrize("setting", ["yearSplitting", "thousandsSeparatorCommaToSpace"])
+@pytest.mark.parametrize("text,want", [("False", False), ("false", False), ("0", False),
+                                       ("True", True), ("1", True), (False, False), (True, True)])
+def test_a_checkbox_handed_a_string_reads_it(harness, setting, text, want):
+    """NVDA hands a setting over as nvda.ini's string when it has not been
+    told the type yet.  "False" is not a reason to check a box."""
+    d = harness.driver
+    d.language = "es-mx"
+    setattr(d, setting, not want)
+    setattr(d, setting, text)
+    assert getattr(d, setting) is want

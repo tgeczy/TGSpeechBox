@@ -5,7 +5,7 @@ Provides:
 - Mode OrderedDicts (stop closure, spelling diphthong, pitch modes, etc.)
 - _getLangPackBool / _getLangPackStr / _setLangPackSetting / _choiceToIdStr
 - _refreshLangPackSettingsCache
-- _enableLangPackWrites / _scheduleEnableLangPackWrites
+- _enableLangPackWrites, initSettings (writes off during NVDA's replay)
 - _getCurrentLangTag
 - Generated accessors for all _LANG_PACK_SPECS entries
 - Custom legacyPitchMode accessor (handles bool→enum migration)
@@ -114,12 +114,22 @@ class LangPackSettingsMixin:
             except Exception:
                 log.debug("TGSpeechBox: could not sync %s to NVDA's config", s.id, exc_info=True)
 
-    def _scheduleEnableLangPackWrites(self) -> None:
-        """Schedule re-enabling YAML writes after NVDA finishes config replay."""
+    def initSettings(self) -> None:
+        """NVDA calls this right after constructing the driver (synthDriverHandler
+        .getSynthInstance): it tells the config each setting's type, then
+        replays every saved setting into our setters.  The language files are
+        authoritative, so writes to them stay off through that replay and come
+        on as soon as it is done.
+
+        Not a core.callLater: NVDA starts the synthesizer before it has a
+        wx.App, so callLater fails there, and the fallback turned writes on
+        inside the constructor.  That also read NVDA's copy of the settings
+        before it knew their types; the "False" it read stayed a string and
+        the replay wrote True into the language file (#151, Greg).
+        """
         try:
-            import core
-            core.callLater(0, self._enableLangPackWrites)
-        except Exception:
+            super().initSettings()
+        finally:
             self._enableLangPackWrites()
 
     # ---- Language-pack (YAML) helpers ----
@@ -333,6 +343,10 @@ def _makeLangPackAccessors(attrName, yamlKey, kind="str", default=None, choices=
     def setter(self, val, _key=yamlKey, _kind=kind):
         try:
             if _kind == "bool":
+                # NVDA hands over nvda.ini's string ("False") for a setting
+                # whose type it has not been told yet; bool("False") is True.
+                if isinstance(val, str):
+                    val = val.strip().lower() in ("true", "1", "yes", "on")
                 self._setLangPackSetting(_key, bool(val))
             else:
                 self._setLangPackSetting(_key, self._choiceToIdStr(val))

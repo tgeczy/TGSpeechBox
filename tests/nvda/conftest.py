@@ -385,6 +385,19 @@ def _install_fake_nvda() -> None:
         def __init__(self):
             pass
 
+        def initSettings(self):
+            """autoSettings.initSettings, which NVDA's getSynthInstance calls
+            right after construction: tell the config each setting's type
+            (_initSpecificSettings, spec.update), then set every saved
+            setting on the driver (_loadSpecificSettings)."""
+            import config
+            section = config.conf["speech"].setdefault(self.name, {})
+            if hasattr(section, "learnTypes"):
+                section.learnTypes(self.supportedSettings)
+            for s in self.supportedSettings:
+                if section.get(s.id) is not None:
+                    setattr(self, s.id, section[s.id])
+
     class VoiceInfo:
         def __init__(self, id, displayName, language=None):
             self.id, self.displayName, self.language = id, displayName, language
@@ -568,6 +581,7 @@ def harness():
     # NVDA's initSettings creates the synth's (empty, on a first load) section.
     config.conf["speech"]["tgSpeechBox"] = {}
     driver = tgSpeechBox.SynthDriver()
+    driver.initSettings()
     pump_main_loop()
     import synthDriverHandler
     synthDriverHandler.getSynth = lambda: driver  # NVDA's active synthesizer
