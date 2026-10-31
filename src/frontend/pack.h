@@ -1012,6 +1012,11 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Off by default — English numberExpansion already handles commas.
   bool thousandsSeparatorCommaToSpace = false;
 
+  // English money amounts (#83): "$1.25" → "1 dollar and 25 cents",
+  // "20 USD" → "20 dollars".  eSpeak reads "dollar one point two five".
+  // The unit words are English, so only English packs turn it on.
+  bool moneyAsWords = false;
+
   // Dictionary suffix stripping — per-language list of suffixes to try
   // removing during dict lookup so inflected forms ("launching") inherit
   // their stem entry ("launch").  Pre-sorted longest-first at load time.

@@ -60,6 +60,17 @@ std::string splitYears(const std::string& text, const std::string& ohDigit);
 // All-caps words ("YPF") are left alone: they are spelled out.
 std::string initialYBeforeConsonantAsI(const std::string& text);
 
+// English money amounts (#83): "$1.25" -> "1 dollar and 25 cents",
+// "-$4" -> "minus 4 dollars", "€2.5M" -> "2.5 million euros", "20 USD" ->
+// "20 dollars".  The numbers stay digits for eSpeak to read; group commas
+// are dropped.  Dollars, euros, pounds, yen, rupees, won, bitcoin and cents,
+// by sign or ISO code.
+std::string moneyAsWords(const std::string& text);
+
+// True for a word that names money ("dollars", "USD", "Rs."), so a number
+// beside it is not split as a year.
+bool isMoneyToken(const std::string& word);
+
 // Spanish (#146): "tw" before a vowel becomes "tu" ("Twain" -> "Tuain"),
 // keeping the case of the letters.
 std::string twBeforeVowelAsTu(const std::string& text);

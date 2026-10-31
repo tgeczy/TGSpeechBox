@@ -528,8 +528,18 @@ std::string splitYears(const std::string& text, const std::string& ohDigit) {
     toks.push_back({text.substr(start, i - start), ws});
   }
 
+  // The word tokens either side of toks[t], or "".
+  auto wordNear = [&toks](size_t t, int dir) -> std::string {
+    for (size_t k = t; (dir < 0) ? k > 0 : k + 1 < toks.size();) {
+      k = (dir < 0) ? k - 1 : k + 1;
+      if (!toks[k].isWs) return toks[k].s;
+    }
+    return std::string();
+  };
+
   bool changed = false;
-  for (auto& tok : toks) {
+  for (size_t t = 0; t < toks.size(); ++t) {
+    auto& tok = toks[t];
     if (tok.isWs) continue;
 
     // Strip trailing punctuation to find the numeric core.
@@ -559,6 +569,10 @@ std::string splitYears(const std::string& text, const std::string& ohDigit) {
     // Don't split when the second pair is "00" — "4000" should be
     // "four thousand", not "forty oh zero".
     if (s[numStart + 2] == '0' && s[numStart + 3] == '0') continue;
+
+    // A price is not a year (#83): "$1995", "1995 dollars", "USD 1995".
+    if (s.find('$') < numStart) continue;
+    if (isMoneyToken(wordNear(t, +1)) || isMoneyToken(wordNear(t, -1))) continue;
 
     // Don't split "20XX" when XX is 01-09 — eSpeak says "two thousand one"
     // which is more natural than "twenty oh one".  But DO split other
@@ -740,6 +754,268 @@ std::string initialYBeforeConsonantAsI(const std::string& text) {
     out[i] = (c == 'Y') ? 'I' : 'i';
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Money amounts (#83)
+// ---------------------------------------------------------------------------
+//
+// eSpeak reads "$1.25" as "dollar one point two five" and "5€" as "five
+// euro"; read the way people say them, "1 dollar and 25 cents".  The
+// numbers stay digits, so eSpeak still says them in its own voice; only the
+// unit words and their order change.
+
+namespace {
+
+struct Currency {
+  const char* one;
+  const char* many;
+  const char* minorOne;   // nullptr: no minor unit is read ("¥1.5" -> "1.5 yen")
+  const char* minorMany;
+};
+
+const Currency kDollar  = {"dollar", "dollars", "cent", "cents"};
+const Currency kEuro    = {"euro", "euros", "cent", "cents"};
+const Currency kPound   = {"pound", "pounds", "penny", "pence"};
+const Currency kYen     = {"yen", "yen", nullptr, nullptr};
+const Currency kRupee   = {"rupee", "rupees", "paisa", "paise"};
+const Currency kWon     = {"won", "won", nullptr, nullptr};
+const Currency kBitcoin = {"bitcoin", "bitcoins", nullptr, nullptr};
+const Currency kCent    = {"cent", "cents", nullptr, nullptr};
+
+struct MoneyUnit {
+  const char32_t* text;
+  const Currency* currency;
+  bool before;  // may stand before the amount ("$5", "USD 5")
+  bool after;   // may stand after it ("5€", "5 USD")
+};
+
+// Longer spellings first, so "US$" wins over "$" and "Rs." over "Rs".
+// "$" and "£" are never read after an amount: "5$" is rare and "5 £" is
+// usually a table column.  NVDA hands ₹ ¥ ₩ ¢ over already named (its
+// English symbols put them at level none); SAPI, Android, iOS and Linux
+// pass them through.
+const MoneyUnit kMoneyUnits[] = {
+  {U"US$", &kDollar, true, false}, {U"A$", &kDollar, true, false},
+  {U"C$", &kDollar, true, false},  {U"$", &kDollar, true, false},
+  {U"USD", &kDollar, true, true},  {U"CAD", &kDollar, true, true},
+  {U"AUD", &kDollar, true, true},  {U"NZD", &kDollar, true, true},
+  {U"€", &kEuro, true, true},      {U"EUR", &kEuro, true, true},
+  {U"£", &kPound, true, false},    {U"GBP", &kPound, true, true},
+  {U"¥", &kYen, true, true},       {U"JPY", &kYen, true, true},
+  {U"₹", &kRupee, true, true},     {U"INR", &kRupee, true, true},
+  {U"Rs.", &kRupee, true, false},  {U"Rs", &kRupee, true, false},
+  {U"₩", &kWon, true, true},       {U"KRW", &kWon, true, true},
+  {U"₿", &kBitcoin, true, true},   {U"BTC", &kBitcoin, true, true},
+  {U"¢", &kCent, false, true},
+};
+
+bool isAsciiDigitCp(char32_t c) { return c >= U'0' && c <= U'9'; }
+// isLetterCodepoint counts everything that is not punctuation, which
+// includes the currency signs.
+bool isMoneyLetter(char32_t c) {
+  switch (c) {
+    case U'$': case U'€': case U'£': case U'¥': case U'₹':
+    case U'₩': case U'₿': case U'¢':
+      return false;
+    default:
+      return isLetterCodepoint(c);
+  }
+}
+bool isMoneyWordChar(char32_t c) { return isAsciiDigitCp(c) || c == U'_' || isMoneyLetter(c); }
+
+bool matchesAt(const std::u32string& u, size_t i, const char32_t* s, size_t& len) {
+  size_t n = 0;
+  while (s[n]) {
+    if (i + n >= u.size() || u[i + n] != s[n]) return false;
+    ++n;
+  }
+  len = n;
+  return true;
+}
+
+// The unit at u[i], or nullptr.  A unit spelled with letters ("USD", "Rs")
+// must not run on into a word.
+const MoneyUnit* unitAt(const std::u32string& u, size_t i, bool before, size_t& len) {
+  for (const MoneyUnit& m : kMoneyUnits) {
+    if ((before && !m.before) || (!before && !m.after)) continue;
+    size_t n = 0;
+    if (!matchesAt(u, i, m.text, n)) continue;
+    if (isMoneyLetter(m.text[n - 1]) && i + n < u.size() && isMoneyLetter(u[i + n])) continue;
+    len = n;
+    return &m;
+  }
+  return nullptr;
+}
+
+size_t digitRun(const std::u32string& u, size_t i) {
+  size_t j = i;
+  while (j < u.size() && isAsciiDigitCp(u[j])) ++j;
+  return j - i;
+}
+
+struct Amount {
+  std::string whole;     // digits only, group commas dropped
+  std::string fraction;  // digits after the point, or empty
+  std::string scale;     // "thousand", "million", ... or empty
+  size_t end = 0;
+};
+
+// "1,234,567", "1,23,456" (Indian grouping) or "1234", an optional decimal
+// part, and an optional scale ("2.5M", "5 million", "3 crore").  Commas
+// that are not thousands groups ("3,50", a decimal comma) are no amount.
+bool amountAt(const std::u32string& u, size_t i, Amount& a) {
+  const size_t lead = digitRun(u, i);
+  if (lead == 0) return false;
+  size_t p = i + lead;
+  if (p + 1 < u.size() && u[p] == U',' && isAsciiDigitCp(u[p + 1])) {
+    // Groups of three ("1,234,567"), or of two then three ("1,23,456").
+    std::vector<size_t> groups;
+    size_t q = p;
+    while (q + 1 < u.size() && u[q] == U',' && isAsciiDigitCp(u[q + 1])) {
+      const size_t g = digitRun(u, q + 1);
+      groups.push_back(g);
+      q += 1 + g;
+    }
+    if (lead > 3 || groups.back() != 3) return false;
+    const size_t inner = groups.size() > 1 ? groups.front() : 3;
+    for (size_t k = 0; k + 1 < groups.size(); ++k)
+      if (groups[k] != inner || (inner != 2 && inner != 3)) return false;
+    if (inner == 2 && lead > 2) return false;
+    p = q;
+  }
+  a.whole.clear();
+  for (size_t k = i; k < p; ++k)
+    if (u[k] != U',') a.whole.push_back(static_cast<char>(u[k]));
+  a.fraction.clear();
+  if (p + 1 < u.size() && u[p] == U'.' && isAsciiDigitCp(u[p + 1])) {
+    const size_t f = digitRun(u, p + 1);
+    for (size_t k = p + 1; k <= p + f; ++k) a.fraction.push_back(static_cast<char>(u[k]));
+    p += 1 + f;
+  }
+  // Part of something longer ("$1.2.3", "$5,1234", "$6:30").
+  if (p + 1 < u.size() && (u[p] == U'.' || u[p] == U',' || u[p] == U':') && isAsciiDigitCp(u[p + 1]))
+    return false;
+
+  a.scale.clear();
+  static const struct { const char32_t* text; const char* word; bool spaced; } kScales[] = {
+    {U"thousand", "thousand", true}, {U"million", "million", true}, {U"billion", "billion", true},
+    {U"trillion", "trillion", true}, {U"lakh", "lakh", true}, {U"crore", "crore", true},
+    {U"mn", "million", false}, {U"bn", "billion", false}, {U"k", "thousand", false},
+    {U"K", "thousand", false}, {U"m", "million", false}, {U"M", "million", false},
+    {U"B", "billion", false},
+  };
+  for (const auto& s : kScales) {
+    size_t at = p;
+    if (s.spaced && at < u.size() && u[at] == U' ') ++at;
+    size_t n = 0;
+    if (!matchesAt(u, at, s.text, n)) continue;
+    if (at + n < u.size() && isMoneyWordChar(u[at + n])) continue;
+    a.scale = s.word;
+    p = at + n;
+    break;
+  }
+  if (a.scale.empty() && p < u.size() && isMoneyWordChar(u[p])) return false;  // "$5abc"
+  a.end = p;
+  return true;
+}
+
+bool allZeros(const std::string& s) {
+  return !s.empty() && s.find_first_not_of('0') == std::string::npos;
+}
+
+std::string moneyWords(const Currency& c, const Amount& a) {
+  if (!a.scale.empty()) {
+    // "$2.5M" -> "2.5 million dollars"
+    return a.whole + (a.fraction.empty() ? "" : "." + a.fraction) + " " + a.scale + " " + c.many;
+  }
+  const char* major = (a.whole == "1") ? c.one : c.many;
+  if (a.fraction.empty() || allZeros(a.fraction)) return a.whole + " " + major;
+  if (!c.minorOne || a.fraction.size() > 2) {
+    // "¥1.5", "$3.499": eSpeak reads the decimal.
+    return a.whole + "." + a.fraction + " " + c.many;
+  }
+  const int minor = std::atoi((a.fraction.size() == 1 ? a.fraction + "0" : a.fraction).c_str());
+  const std::string minorWords = std::to_string(minor) + " " + (minor == 1 ? c.minorOne : c.minorMany);
+  if (allZeros(a.whole)) return minorWords;  // "$0.50" -> "50 cents"
+  return a.whole + " " + major + " and " + minorWords;
+}
+
+// One amount starting at u[i]: "$5.50", "-$4", "USD 20", "20 USD", "5€".
+bool moneyAt(const std::u32string& u, size_t i, std::string& words, size_t& end) {
+  if (i > 0 && isMoneyWordChar(u[i - 1])) return false;
+  size_t j = i;
+  bool minus = false;
+  // A minus only where a word could start: "$5-$10" is a range.
+  if (u[j] == U'-' || u[j] == U'−') {
+    minus = true;
+    ++j;
+    if (j < u.size() && u[j] == U' ') ++j;
+  }
+  size_t len = 0;
+  Amount a;
+  if (const MoneyUnit* m = (j < u.size()) ? unitAt(u, j, true, len) : nullptr) {
+    size_t k = j + len;
+    if (k < u.size() && u[k] == U' ') ++k;
+    if (!amountAt(u, k, a)) return false;
+    words = (minus ? "minus " : "") + moneyWords(*m->currency, a);
+    end = a.end;
+    return true;
+  }
+  // The amount first; "3,50 €" is left alone (a decimal comma is ambiguous).
+  if (j > 0 && (u[j - 1] == U'.' || u[j - 1] == U',')) return false;
+  if (!amountAt(u, j, a)) return false;
+  size_t k = a.end;
+  if (k < u.size() && u[k] == U' ') ++k;
+  const MoneyUnit* m = (k < u.size()) ? unitAt(u, k, false, len) : nullptr;
+  if (!m) return false;
+  if (k + len < u.size() && isMoneyWordChar(u[k + len])) return false;
+  words = (minus ? "minus " : "") + moneyWords(*m->currency, a);
+  end = k + len;
+  return true;
+}
+
+}  // namespace
+
+std::string moneyAsWords(const std::string& text) {
+  if (text.find_first_of("0123456789") == std::string::npos) return text;
+  const std::u32string u = utf8ToU32(text);
+  std::string out;
+  out.reserve(text.size() + 16);
+  bool changed = false;
+  size_t i = 0, copied = 0;
+  while (i < u.size()) {
+    std::string words;
+    size_t end = 0;
+    if (moneyAt(u, i, words, end)) {
+      out += u32ToUtf8(u.substr(copied, i - copied)) + words;
+      TPREP("  money: \"%s\" -> \"%s\"\n", u32ToUtf8(u.substr(i, end - i)).c_str(), words.c_str());
+      i = copied = end;
+      changed = true;
+      continue;
+    }
+    ++i;
+  }
+  if (!changed) return text;
+  out += u32ToUtf8(u.substr(copied));
+  return out;
+}
+
+bool isMoneyToken(const std::string& word) {
+  static const char* const kWords[] = {
+    "dollar", "dollars", "euro", "euros", "pound", "pounds", "yen", "rupee", "rupees",
+    "paise", "cent", "cents", "usd", "cad", "aud", "nzd", "eur", "gbp", "jpy", "inr",
+    "krw", "btc", "rs", "rs.",
+  };
+  std::string w;
+  for (char c : word) {
+    if (c == ',' || c == ';' || c == '!' || c == '?' || c == ')') continue;
+    w.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  }
+  if (!w.empty() && w.back() == '.' && w != "rs.") w.pop_back();
+  for (const char* k : kWords)
+    if (w == k) return true;
+  return false;
 }
 
 // ---------------------------------------------------------------------------
