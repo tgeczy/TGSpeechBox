@@ -295,15 +295,9 @@ msgstr "(de {}.yaml)"
 #. Update check failure dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Could not check for updates:
-{}
-
-Would you like to download the add-on anyway?"
+"Could not check for updates:\n{}\n\nWould you like to download the add-on anyway?"
 msgstr ""
-"Não foi possível verificar atualizações:
-{}
-
-Deseja baixar o complemento mesmo assim?"
+"Não foi possível verificar atualizações:\n{}\n\nDeseja baixar o complemento mesmo assim?"
 
 #. Update check failure dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -313,15 +307,9 @@ msgstr "Falha na verificação de versão"
 #. No update available dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"You already have the latest version installed.
-
-Installed version: {}
-Latest version: {}"
+"You already have the latest version installed.\n\nInstalled version: {}\nLatest version: {}"
 msgstr ""
-"Você já tem a versão mais recente instalada.
-
-Versão instalada: {}
-Versão mais recente: {}"
+"Você já tem a versão mais recente instalada.\n\nVersão instalada: {}\nVersão mais recente: {}"
 
 #. No update available dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -331,30 +319,16 @@ msgstr "Nenhuma atualização disponível"
 #. Update available dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"A new version is available!
-
-Installed version: {}
-Latest version: {}
-
-Download and install the update?"
+"A new version is available!\n\nInstalled version: {}\nLatest version: {}\n\nDownload and install the update?"
 msgstr ""
-"Uma nova versão está disponível!
-
-Versão instalada: {}
-Versão mais recente: {}
-
-Baixar e instalar a atualização?"
+"Uma nova versão está disponível!\n\nVersão instalada: {}\nVersão mais recente: {}\n\nBaixar e instalar a atualização?"
 
 #. Update available dialog message (version unknown)
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Latest version available: {}
-
-Download and install?"
+"Latest version available: {}\n\nDownload and install?"
 msgstr ""
-"Versão mais recente disponível: {}
-
-Baixar e instalar?"
+"Versão mais recente disponível: {}\n\nBaixar e instalar?"
 
 #. Update available dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -364,20 +338,16 @@ msgstr "Atualização disponível"
 #. Download failure dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Failed to download add-on:
-{}"
+"Failed to download add-on:\n{}"
 msgstr ""
-"Falha ao baixar o complemento:
-{}"
+"Falha ao baixar o complemento:\n{}"
 
 #. Download exception dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"An error occurred during download:
-{}"
+"An error occurred during download:\n{}"
 msgstr ""
-"Ocorreu um erro durante o download:
-{}"
+"Ocorreu um erro durante o download:\n{}"
 
 #. Download error dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -387,21 +357,9 @@ msgstr "Erro de download"
 #. Download success but install failure dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Download complete, but failed to launch installer:
-{}
-
-File saved to:
-{}
-
-Please install it manually by opening the file."
+"Download complete, but failed to launch installer:\n{}\n\nFile saved to:\n{}\n\nPlease install it manually by opening the file."
 msgstr ""
-"Download concluído, mas falha ao iniciar o instalador:
-{}
-
-Arquivo salvo em:
-{}
-
-Por favor, instale manualmente abrindo o arquivo."
+"Download concluído, mas falha ao iniciar o instalador:\n{}\n\nArquivo salvo em:\n{}\n\nPor favor, instale manualmente abrindo o arquivo."
 
 #. Warning dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -416,13 +374,9 @@ msgstr "Restaurar padrões de fábrica"
 #. Reset defaults dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"This will overwrite language pack YAML files in packs/lang/ with the factory default versions from packs/.defaults/.
-
-Any customizations you have made will be lost."
+"This will overwrite language pack YAML files in packs/lang/ with the factory default versions from packs/.defaults/.\n\nAny customizations you have made will be lost."
 msgstr ""
-"Isso substituirá os arquivos YAML de pacotes de idioma em packs/lang/ pelas versões padrão de fábrica de packs/.defaults/.
-
-Todas as personalizações feitas serão perdidas."
+"Isso substituirá os arquivos YAML de pacotes de idioma em packs/lang/ pelas versões padrão de fábrica de packs/.defaults/.\n\nTodas as personalizações feitas serão perdidas."
 
 #. Reset single language pack option
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -442,15 +396,9 @@ msgstr "Não"
 #. Factory defaults folder missing message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Factory defaults folder not found:
-{}
-
-Cannot reset language packs."
+"Factory defaults folder not found:\n{}\n\nCannot reset language packs."
 msgstr ""
-"Pasta de padrões de fábrica não encontrada:
-{}
-
-Não é possível restaurar os pacotes de idioma."
+"Pasta de padrões de fábrica não encontrada:\n{}\n\nNão é possível restaurar os pacotes de idioma."
 
 #. Error dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -460,31 +408,23 @@ msgstr "Erro"
 #. Failed to create directory message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Failed to create language pack directory:
-{}"
+"Failed to create language pack directory:\n{}"
 msgstr ""
-"Falha ao criar o diretório do pacote de idioma:
-{}"
+"Falha ao criar o diretório do pacote de idioma:\n{}"
 
 #. Failed to read defaults directory message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Failed to read defaults directory:
-{}"
+"Failed to read defaults directory:\n{}"
 msgstr ""
-"Falha ao ler o diretório de padrões:
-{}"
+"Falha ao ler o diretório de padrões:\n{}"
 
 #. No factory default for specific language pack message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"No factory default found for language pack '{}'.
-
-The file '{}.yaml' does not exist in the .defaults folder."
+"No factory default found for language pack '{}'.\n\nThe file '{}.yaml' does not exist in the .defaults folder."
 msgstr ""
-"Nenhum padrão de fábrica encontrado para o pacote de idioma '{}'.
-
-O arquivo '{}.yaml' não existe na pasta .defaults."
+"Nenhum padrão de fábrica encontrado para o pacote de idioma '{}'.\n\nO arquivo '{}.yaml' não existe na pasta .defaults."
 
 #. Not found dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -494,19 +434,9 @@ msgstr "Não encontrado"
 #. Reset completed with errors message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Reset completed with errors.
-
-Copied {} file(s).
-
-Errors:
-{}"
+"Reset completed with errors.\n\nCopied {} file(s).\n\nErrors:\n{}"
 msgstr ""
-"Restauração concluída com erros.
-
-Copiados {} arquivo(s).
-
-Erros:
-{}"
+"Restauração concluída com erros.\n\nCopiados {} arquivo(s).\n\nErros:\n{}"
 
 #. Single language pack reset success message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -551,47 +481,9 @@ msgstr "Não suportado"
 #. Save voice profile confirmation dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Save the following slider settings to profile '{}'?
-
-VoicingTone:
-  voicedTiltDbPerOct: {:.2f}
-  noiseGlottalModDepth: {:.2f}
-  pitchSyncF1DeltaHz: {:.1f}
-  pitchSyncB1DeltaHz: {:.1f}
-  speedQuotient: {:.2f}
-  aspirationTiltDbPerOct: {:.2f}
-
-  cascadeBwScale: {:.2f}
-
-FrameEx:
-  creakiness: {:.2f}
-  breathiness: {:.2f}
-  jitter: {:.2f}
-  shimmer: {:.2f}
-  sharpness: {:.2f}
-
-This will update packs/phonemes.yaml."
+"Save the following slider settings to profile '{}'?\n\nVoicingTone:\n  voicedTiltDbPerOct: {:.2f}\n  noiseGlottalModDepth: {:.2f}\n  pitchSyncF1DeltaHz: {:.1f}\n  pitchSyncB1DeltaHz: {:.1f}\n  speedQuotient: {:.2f}\n  aspirationTiltDbPerOct: {:.2f}\n\n  cascadeBwScale: {:.2f}\n\nFrameEx:\n  creakiness: {:.2f}\n  breathiness: {:.2f}\n  jitter: {:.2f}\n  shimmer: {:.2f}\n  sharpness: {:.2f}\n\nThis will update packs/phonemes.yaml."
 msgstr ""
-"Salvar as seguintes configurações de controles no perfil '{}'?
-
-VoicingTone:
-  voicedTiltDbPerOct: {:.2f}
-  noiseGlottalModDepth: {:.2f}
-  pitchSyncF1DeltaHz: {:.1f}
-  pitchSyncB1DeltaHz: {:.1f}
-  speedQuotient: {:.2f}
-  aspirationTiltDbPerOct: {:.2f}
-
-  cascadeBwScale: {:.2f}
-
-FrameEx:
-  creakiness: {:.2f}
-  breathiness: {:.2f}
-  jitter: {:.2f}
-  shimmer: {:.2f}
-  sharpness: {:.2f}
-
-Isso atualizará packs/phonemes.yaml."
+"Salvar as seguintes configurações de controles no perfil '{}'?\n\nVoicingTone:\n  voicedTiltDbPerOct: {:.2f}\n  noiseGlottalModDepth: {:.2f}\n  pitchSyncF1DeltaHz: {:.1f}\n  pitchSyncB1DeltaHz: {:.1f}\n  speedQuotient: {:.2f}\n  aspirationTiltDbPerOct: {:.2f}\n\n  cascadeBwScale: {:.2f}\n\nFrameEx:\n  creakiness: {:.2f}\n  breathiness: {:.2f}\n  jitter: {:.2f}\n  shimmer: {:.2f}\n  sharpness: {:.2f}\n\nIsso atualizará packs/phonemes.yaml."
 
 #. Save voice profile dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -601,13 +493,9 @@ msgstr "Salvar configurações do perfil de voz"
 #. Save success message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Successfully saved slider settings for profile '{}'.
-
-The frontend will reload the settings on next speech."
+"Successfully saved slider settings for profile '{}'.\n\nThe frontend will reload the settings on next speech."
 msgstr ""
-"Configurações de controles salvas com sucesso para o perfil '{}'.
-
-O frontend recarregará as configurações na próxima fala."
+"Configurações de controles salvas com sucesso para o perfil '{}'.\n\nO frontend recarregará as configurações na próxima fala."
 
 #. Save complete dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2933,3 +2821,461 @@ msgstr "Separador de milhares vírgula para espaço"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Thousands Separator Comma To Space"
 msgstr "Separador de Milhares Vírgula Para Espaço"
+
+# ============================================================================
+# Added in 3.10 (#154): interface strings no translator had seen yet.
+# ============================================================================
+
+#. Settings panel label for the language-pack setting aratoColonFlat
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Colon Flat"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoCommaFall
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Comma Fall"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoCommaRise
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Comma Rise"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoDeclFallEnd
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Decl Fall End"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoDeclFallToLastSyll
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Decl Fall To Last Syll"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoDeclLongFallEnd
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Decl Long Fall End"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoDeclLongFallToLastWord
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Decl Long Fall To Last Word"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoDeclOneSyllFall
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Decl One Syll Fall"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoFramesPerSyllable
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Frames Per Syllable"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoHumpCode
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Hump Code"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoInflectionRef
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Inflection Ref"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoPitchByteHz
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Pitch Byte (Hz)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoStartArticle
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Start Article"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoStartComma
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Start Comma"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoStartDecl
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Start Decl"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoStartWh
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Start Wh"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoWhFall
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Wh Fall"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoWhOneSyllFall
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Wh One Syll Fall"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoWhStartFrame
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Wh Start Frame"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoWhTail
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Wh Tail"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoWhTwoSyllFall
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Wh Two Syll Fall"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoYnCreep
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Yn Creep"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoYnFall
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Yn Fall"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoYnOneSyllRise1
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Yn One Syll Rise1"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoYnOneSyllRise2
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Yn One Syll Rise2"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoYnRise
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Yn Rise"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoYnTwoSyllFall
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Yn Two Syll Fall"
+msgstr ""
+
+#. Settings panel label for the language-pack setting aratoYnTwoSyllRise
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Arato Yn Two Syll Rise"
+msgstr ""
+
+#. Settings panel label for the language-pack setting clauseFinalHoldMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Clause Final Hold (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting diphthongCollapse.onsetSettleMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Settle (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting nasalDiphthongOffglideScale
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Nasal Diphthong Offglide Scale"
+msgstr ""
+
+#. Settings panel label for the language-pack setting postStopAspirationAfterSibilant
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration After Sibilant"
+msgstr ""
+
+#. Settings panel label for the language-pack setting postStopAspirationUnstressedScale
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Post Stop Aspiration Unstressed Scale"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.clusterMaxRatioShift
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Cluster Max Ratio Shift"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.clusterProportionGuard
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Cluster Proportion Guard"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.enabled
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Enabled"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.floorSpeedScale
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Floor Speed Scale"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.affricateMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations affricate (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.diphthongMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations diphthong (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.fricativeMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations fricative (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.liquidMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations liquid (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.nasalMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations nasal (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.semivowelMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations semivowel (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.stopMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations stop (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.tapMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations tap (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.trillMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations trill (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.voicedConsonantMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations voiced Consonant (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.minimumDurations.vowelMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Minimum Durations vowel (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.schwaReduction.enabled
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Schwa Reduction enabled"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.schwaReduction.scale
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Schwa Reduction scale"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.schwaReduction.threshold
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Schwa Reduction threshold"
+msgstr ""
+
+#. Settings panel label for the language-pack setting rateCompensation.wordFinalBonusMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Rate Compensation: Word Final Bonus (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting stopClosureNasalToStopFadeMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Stop Closure Nasal To Stop Fade (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting stopClosureNasalToStopGapMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Stop Closure Nasal To Stop Gap (ms)"
+msgstr ""
+
+#. Settings panel label for the language-pack setting trajectoryLimit.maxHzPerMs.cf1
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Trajectory Limit: Max Hz Per Ms cf1"
+msgstr ""
+
+#. Settings panel label for the language-pack setting wordBoundaryDipMs
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Word Boundary Dip (ms)"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/__init__.py:131
+msgid "Chorus depth (vocal fold asymmetry)"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/__init__.py:132
+msgid "Chorus variation (requires depth)"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/__init__.py:133
+msgid "Head size (pharynx length)"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/constants.py:68
+msgid "16000 Hz"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/constants.py:69
+msgid "22050 Hz (default)"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1353
+msgid ""
+"Save the following slider settings to profile '{}'?\n"
+"\n"
+"VoicingTone:\n"
+"  voicedTiltDbPerOct: {:.2f}\n"
+"  noiseGlottalModDepth: {:.2f}\n"
+"  pitchSyncF1DeltaHz: {:.1f}\n"
+"  pitchSyncB1DeltaHz: {:.1f}\n"
+"  speedQuotient: {:.2f}\n"
+"  aspirationTiltDbPerOct: {:.2f}\n"
+"\n"
+"  cascadeBwScale: {:.2f}\n"
+"  tremorDepth: {:.2f}\n"
+"\n"
+"FrameEx:\n"
+"  creakiness: {:.2f}\n"
+"  breathiness: {:.2f}\n"
+"  jitter: {:.2f}\n"
+"  shimmer: {:.2f}\n"
+"  sharpness: {:.2f}\n"
+"\n"
+"This will update packs/phonemes.yaml."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1462
+msgid "Cannot determine pack directory."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1463
+msgid "Export Error"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1475
+msgid "phonemes.yaml not found in pack directory."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1485
+msgid "Save Voice Profile Sliders to YAML As"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1496
+msgid ""
+"Saved to:\n"
+"{}"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1503
+msgid "Failed to export: {}"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1529
+msgid "Import Error"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1542
+msgid "Import Voice Profile Sliders"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1551
+msgid ""
+"Replace the current phonemes.yaml with:\n"
+"{}\n"
+"\n"
+"Your current voice profile settings will be overwritten.\n"
+"The voice will reload automatically."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1554
+msgid "Confirm Import"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1562
+msgid "Imported successfully. Reloading voice..."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1563
+msgid "Import Complete"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1580
+msgid "Failed to import: {}"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1612
+msgid ""
+"No user dictionary found at:\n"
+"{}"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1622
+msgid "Export User Dictionary"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1632
+msgid ""
+"User dictionary exported to:\n"
+"{}"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1633
+msgid "Export Complete"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1657
+msgid "Import User Dictionary"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1677
+msgid ""
+"This file does not appear to be a user pronunciation dictionary.\n"
+"\n"
+"Expected 5 tab-separated columns (from_text, to_text, from_ipa, to_ipa, category) but the first data row has {} column(s).\n"
+"\n"
+"Make sure you are importing a user dictionary TSV, not a stress or compound dictionary."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1692
+msgid "Failed to read file: {}"
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1702
+msgid ""
+"Replace the current user dictionary with:\n"
+"{}\n"
+"\n"
+"Existing user entries will be overwritten.\n"
+"The dictionary will reload automatically."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1714
+msgid "Imported successfully. Reloading..."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:255
+msgid "Save Voice Profile Sliders to YAML As..."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:261
+msgid "Import Voice Profile Sliders..."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:267
+msgid "Export User Dictionary..."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:272
+msgid "Import User Dictionary..."
+msgstr ""
+
+#: synthDrivers/tgSpeechBox/lang_pack_settings.py:68
+msgid "Arató (BraiLab)"
+msgstr ""
