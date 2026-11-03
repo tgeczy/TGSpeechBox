@@ -234,8 +234,8 @@ msgstr "44100 Hz"
 
 #. Settings panel title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "TGSpeechBox language packs"
-msgstr "TGSpeechBox nyelvi csomagok"
+msgid "TGSpeechBox"
+msgstr "TGSpeechBox"
 
 #. Settings panel description
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

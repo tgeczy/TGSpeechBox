@@ -220,3 +220,22 @@ def test_the_mo_is_the_compiled_po(lang):
         f"{len(set(want) - set(have))} translations missing from the .mo, "
         f"{len(set(have) - set(want))} in the .mo only, "
         f"{sum(1 for k in set(want) & set(have) if want[k] != have[k])} different")
+
+
+def _panel_title():
+    for node in ast.walk(ast.parse(_PANEL.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ClassDef) and node.name == "TGSpeechBoxLanguagePacksPanel":
+            for stmt in node.body:
+                if isinstance(stmt, ast.Assign) and any(getattr(t, "id", None) == "title" for t in stmt.targets):
+                    return stmt.value.args[0].value
+    raise AssertionError("the settings panel's title was not found")
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_settings_category_is_the_add_on_name(lang):
+    """Leonardo (#154): the category holds voice profiles, updates and the
+    source code link as well as the language packs, so it is called
+    TGSpeechBox, in every language."""
+    assert _panel_title() == "TGSpeechBox"
+    with open(_po_path(lang).with_suffix(".mo"), "rb") as f:
+        assert gettext.GNUTranslations(f).gettext("TGSpeechBox") == "TGSpeechBox"

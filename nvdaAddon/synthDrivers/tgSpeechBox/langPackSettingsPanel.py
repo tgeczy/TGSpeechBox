@@ -184,7 +184,7 @@ def _getPanelClass():
             return None
 
     class TGSpeechBoxLanguagePacksPanel(SettingsPanelBase):
-        title = _("TGSpeechBox language packs")
+        title = _("TGSpeechBox")
 
         def __init__(self, *args, **kwargs):
             # NOTE:
