@@ -152,6 +152,63 @@ def test_every_interface_string_is_in_the_po(lang):
         f"  {where}  {s!r}" for s, where in sorted(missing.items(), key=lambda kv: kv[1]))
 
 
+def _placeholders(s):
+    import re
+    return sorted(re.findall(r"\{[^{}]*\}|%[sdr]", s))
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_a_translation_keeps_its_placeholders(lang):
+    # The code fills {} with .format(); a translation without it drops the
+    # file name or the error message from the dialog.
+    bad = {k: v for k, (v, fuzzy) in _parse_po(lang).items()
+           if k and v and not fuzzy and _placeholders(k) != _placeholders(v)}
+    assert not bad, f"{lang}: placeholders lost or added:\n" + "\n".join(
+        f"  {k!r}\n    -> {v!r}" for k, v in bad.items())
+
+
+def _ini(path):
+    """NVDA's manifest.ini, enough of it for the checks below: top-level
+    keys, and the [symbolDictionaries] [[name]] subsections."""
+    top, dicts, section, sub = {}, {}, None, None
+    for n, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[["):
+            sub = line.strip("[]")
+            dicts.setdefault(sub, {})
+        elif line.startswith("["):
+            section, sub = line.strip("[]"), None
+        else:
+            assert "=" in line, f"{path}: line {n} is not key = value: {raw!r}"
+            k, v = (x.strip() for x in line.split("=", 1))
+            if section is None:
+                top[k] = v
+            else:
+                assert section == "symbolDictionaries" and sub, f"{path}: line {n} outside a known section"
+                dicts[sub][k] = v
+    return top, dicts
+
+
+MANIFEST_LANGS = sorted(p.parent.name for p in ADDON.glob("locale/*/manifest.ini"))
+
+
+@pytest.mark.parametrize("lang", MANIFEST_LANGS)
+def test_a_translated_manifest_says_only_what_nvda_reads(lang):
+    """NVDA takes summary, description and changelog from
+    locale/<lang>/manifest.ini, and a symbol dictionary's displayName
+    (addonHandler.AddonManifest, NVDA 2026.2); anything else there is
+    ignored, so it is a mistake."""
+    top, dicts = _ini(ADDON / "locale" / lang / "manifest.ini")
+    _, main_dicts = _ini(ADDON / "manifest.ini")
+    assert set(top) <= {"summary", "description", "changelog"}, f"{lang}: {sorted(top)}"
+    assert top.get("summary") and top.get("description"), f"{lang}: summary and description are needed"
+    assert set(dicts) <= set(main_dicts), f"{lang}: dictionaries the add-on does not have: {sorted(dicts)}"
+    for name, fields in dicts.items():
+        assert set(fields) == {"displayName"} and fields["displayName"], f"{lang} {name}: {fields}"
+
+
 @pytest.mark.parametrize("lang", LANGS)
 def test_the_mo_is_the_compiled_po(lang):
     # NVDA reads the .mo; a .po edited without recompiling changes nothing.

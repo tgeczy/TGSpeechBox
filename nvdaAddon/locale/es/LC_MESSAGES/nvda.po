@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TGSpeechBox\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 00:00+0000\n"
-"PO-Revision-Date: 2026-02-14 00:00+0000\n"
+"PO-Revision-Date: 2026-11-02 20:10-0500\n"
 "Last-Translator: \n"
 "Language-Team: Spanish\n"
 "Language: es\n"
@@ -15,11 +15,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.5\n"
 
 # ============================================================================
 # Category 0: Language auto-detect
 # ============================================================================
-
 #. Language choice label
 #: synthDrivers/tgspeechbox/constants.py
 msgid "Auto (match NVDA language)"
@@ -28,7 +28,6 @@ msgstr "Automático (coincidir con el idioma de NVDA)"
 # ============================================================================
 # Category 1: Setting labels from __init__.py
 # ============================================================================
-
 #. Synth driver setting label
 #: synthDrivers/tgspeechbox/__init__.py
 msgid "Voice tilt (brightness)"
@@ -132,7 +131,6 @@ msgstr "Modo de tono"
 # ============================================================================
 # Category 2: Combo box choices from __init__.py
 # ============================================================================
-
 #. Combo box choice
 #: synthDrivers/tgspeechbox/__init__.py
 msgid "Always"
@@ -211,7 +209,6 @@ msgstr "Clásico"
 # ============================================================================
 # Category 3: Pause modes and sample rates from constants.py
 # ============================================================================
-
 #. Pause mode choice
 #: synthDrivers/tgspeechbox/constants.py
 msgid "Off"
@@ -250,7 +247,6 @@ msgstr "44100 Hz"
 # ============================================================================
 # Category 4: Language pack settings panel UI from langPackSettingsPanel.py
 # ============================================================================
-
 #. Settings panel title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "TGSpeechBox language packs"
@@ -259,11 +255,11 @@ msgstr "Paquetes de idioma de TGSpeechBox"
 #. Settings panel description
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"Edit language-pack settings (packs/lang/*.yaml) without using Notepad. Only "
-"the YAML 'settings:' section is edited."
+"Edit language-pack settings (packs/lang/*.yaml) without using Notepad. Only the YAML 'settings:' "
+"section is edited."
 msgstr ""
-"Editar la configuración de paquetes de idioma (packs/lang/*.yaml) sin usar "
-"el Bloc de notas. Solo se edita la sección 'settings:' del YAML."
+"Editar la configuración de paquetes de idioma (packs/lang/*.yaml) sin usar el Bloc de notas. Solo "
+"se edita la sección 'settings:' del YAML."
 
 #. Language tag label
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -318,7 +314,6 @@ msgstr "(de {}.yaml)"
 # ============================================================================
 # Category 5: Dialog messages from langPackSettingsPanel.py
 # ============================================================================
-
 #. Update check failure dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
@@ -390,13 +385,21 @@ msgstr "Actualización disponible"
 
 #. Download failure dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Failed to download add-on:\n{}"
-msgstr "Error al descargar el complemento:\n{}"
+msgid ""
+"Failed to download add-on:\n"
+"{}"
+msgstr ""
+"Error al descargar el complemento:\n"
+"{}"
 
 #. Download exception dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "An error occurred during download:\n{}"
-msgstr "Se produjo un error durante la descarga:\n{}"
+msgid ""
+"An error occurred during download:\n"
+"{}"
+msgstr ""
+"Se produjo un error durante la descarga:\n"
+"{}"
 
 #. Download error dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -435,13 +438,13 @@ msgstr "Restablecer valores de fábrica"
 #. Reset defaults dialog message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid ""
-"This will overwrite language pack YAML files in packs/lang/ with the factory "
-"default versions from packs/.defaults/.\n"
+"This will overwrite language pack YAML files in packs/lang/ with the factory default versions from "
+"packs/.defaults/.\n"
 "\n"
 "Any customizations you have made will be lost."
 msgstr ""
-"Esto sobrescribirá los archivos YAML de paquetes de idioma en packs/lang/ "
-"con las versiones predeterminadas de fábrica de packs/.defaults/.\n"
+"Esto sobrescribirá los archivos YAML de paquetes de idioma en packs/lang/ con las versiones "
+"predeterminadas de fábrica de packs/.defaults/.\n"
 "\n"
 "Cualquier personalización que haya realizado se perderá."
 
@@ -480,13 +483,21 @@ msgstr "Error"
 
 #. Failed to create directory message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Failed to create language pack directory:\n{}"
-msgstr "Error al crear el directorio del paquete de idioma:\n{}"
+msgid ""
+"Failed to create language pack directory:\n"
+"{}"
+msgstr ""
+"Error al crear el directorio del paquete de idioma:\n"
+"{}"
 
 #. Failed to read defaults directory message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Failed to read defaults directory:\n{}"
-msgstr "Error al leer el directorio de valores predeterminados:\n{}"
+msgid ""
+"Failed to read defaults directory:\n"
+"{}"
+msgstr ""
+"Error al leer el directorio de valores predeterminados:\n"
+"{}"
 
 #. No factory default for specific language pack message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -538,11 +549,8 @@ msgstr "Se restablecieron correctamente {} archivo(s) de paquetes de idioma a lo
 
 #. Cannot save - wrong synthesizer message
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid ""
-"TGSpeechBox must be the active synthesizer to save voice profile settings."
-msgstr ""
-"TGSpeechBox debe ser el sintetizador activo para guardar la configuración "
-"del perfil de voz."
+msgid "TGSpeechBox must be the active synthesizer to save voice profile settings."
+msgstr "TGSpeechBox debe ser el sintetizador activo para guardar la configuración del perfil de voz."
 
 #. Cannot save dialog title
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -640,11 +648,9 @@ msgstr "Error al guardar la configuración: {}"
 msgid "Error saving to phonemes.yaml: {}"
 msgstr "Error al guardar en phonemes.yaml: {}"
 
-
 # ============================================================================
 # Setting key display names (auto-generated)
 # ============================================================================
-
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Affricate Duration (ms)"
@@ -2958,7 +2964,6 @@ msgstr "Coma de Separador de Miles a Espacio"
 # ============================================================================
 # Added in 3.10 (#154): interface strings no translator had seen yet.
 # ============================================================================
-
 #. Settings panel label for the language-pack setting aratoColonFlat
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
 msgid "Arato Colon Flat"
@@ -3286,11 +3291,11 @@ msgstr ""
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1462
 msgid "Cannot determine pack directory."
-msgstr ""
+msgstr "No se determinó el directorio del paquete."
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1463
 msgid "Export Error"
-msgstr ""
+msgstr "Error de exportación"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1475
 msgid "phonemes.yaml not found in pack directory."
@@ -3312,11 +3317,11 @@ msgstr ""
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1529
 msgid "Import Error"
-msgstr ""
+msgstr "Error de importación"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1542
 msgid "Import Voice Profile Sliders"
-msgstr ""
+msgstr "Importar deslizadores de perfiles de voz"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1551
 msgid ""
@@ -3329,7 +3334,7 @@ msgstr ""
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1554
 msgid "Confirm Import"
-msgstr ""
+msgstr "Confirmar importación"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1562
 msgid "Imported successfully. Reloading voice..."
@@ -3337,7 +3342,7 @@ msgstr ""
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1563
 msgid "Import Complete"
-msgstr ""
+msgstr "Importación completada"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1580
 msgid "Failed to import: {}"
@@ -3351,34 +3356,37 @@ msgstr ""
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1622
 msgid "Export User Dictionary"
-msgstr ""
+msgstr "Exportar diccionario de usuario"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1632
 msgid ""
 "User dictionary exported to:\n"
 "{}"
 msgstr ""
+"Diccionario de usuario exportado a:\n"
+"{}"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1633
 msgid "Export Complete"
-msgstr ""
+msgstr "Exportación completada"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1657
 msgid "Import User Dictionary"
-msgstr ""
+msgstr "Importar diccionario de usuario"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1677
 msgid ""
 "This file does not appear to be a user pronunciation dictionary.\n"
 "\n"
-"Expected 5 tab-separated columns (from_text, to_text, from_ipa, to_ipa, category) but the first data row has {} column(s).\n"
+"Expected 5 tab-separated columns (from_text, to_text, from_ipa, to_ipa, category) but the first "
+"data row has {} column(s).\n"
 "\n"
 "Make sure you are importing a user dictionary TSV, not a stress or compound dictionary."
 msgstr ""
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1692
 msgid "Failed to read file: {}"
-msgstr ""
+msgstr "Fallo en la lectura del archivo: {}"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1702
 msgid ""
@@ -3388,26 +3396,31 @@ msgid ""
 "Existing user entries will be overwritten.\n"
 "The dictionary will reload automatically."
 msgstr ""
+"Remplazar el diccionario de usuario actual por:\n"
+"{}\n"
+"\n"
+"Las entradas de usuario existentes se sobrescribirán.\n"
+"el diccionario se cargará automáticamente"
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1714
 msgid "Imported successfully. Reloading..."
-msgstr ""
+msgstr "Importado correctamente. Recargando..."
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:255
 msgid "Save Voice Profile Sliders to YAML As..."
-msgstr ""
+msgstr "Guardar deslizadores de perfil de voz en YAML como..."
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:261
 msgid "Import Voice Profile Sliders..."
-msgstr ""
+msgstr "Importar deslizadores de perfil de voz..."
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:267
 msgid "Export User Dictionary..."
-msgstr ""
+msgstr "Exportar diccionario de usuario..."
 
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:272
 msgid "Import User Dictionary..."
-msgstr ""
+msgstr "Importar diccionario de usuario..."
 
 #: synthDrivers/tgSpeechBox/lang_pack_settings.py:68
 msgid "Arató (BraiLab)"
