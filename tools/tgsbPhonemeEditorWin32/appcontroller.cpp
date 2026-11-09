@@ -2459,7 +2459,8 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
                L"  F5           Reload language YAML\n"
                L"  Shift+F5     Reload phonemes YAML\n\n"
                L"Notes:\n"
-               L"  - This editor rewrites YAML (comments are not preserved).\n"
+               L"  - Saving rewrites only what you changed; comments elsewhere are kept.\n"
+               L"  - See README-phoneme-editor.md for the full guide.\n"
                L"  - Preview audio uses speechPlayer.dll.\n"
                L"  - Text->IPA uses eSpeak if configured.",
                L"About", MB_OK | MB_ICONINFORMATION);
