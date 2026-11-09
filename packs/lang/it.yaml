@@ -25,8 +25,8 @@ settings:
   singleWordTuningEnabled: true
   singleWordFinalHoldMs: 45
   singleWordFinalFadeMs: 18
-  singleWordClauseTypeOverride: "."
-  singleWordClauseTypeOverrideCommaOnly: true
+  # No singleWordClauseTypeOverride: a one-word clause before a comma is a
+  # continuation, not a statement ("Inglés, Estados Unidos"; #155).
 
   thousandsSeparatorCommaToSpace: true
 
