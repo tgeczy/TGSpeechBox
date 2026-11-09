@@ -38,12 +38,15 @@ add_executable(tgsb_unit_tests
   ${FRONTEND_CPP_FOR_TESTS}
   ${FRONTEND_PASSES_CPP_FOR_TESTS}
   ${SPEECHPLAYER_CPP_FOR_TESTS}
+  # The phoneme editor's dictionary files (no Win32 in it).
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32/dict_tsv.cpp"
 )
 
 target_include_directories(tgsb_unit_tests PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"                         # for doctest.h
   "${CMAKE_CURRENT_SOURCE_DIR}/../../src"                # for speechPlayer.h, frame.h, sample.h
   "${CMAKE_CURRENT_SOURCE_DIR}/../../src/frontend"       # for frontend headers
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32"  # for dict_tsv.h
 )
 
 target_compile_features(tgsb_unit_tests PRIVATE cxx_std_17)

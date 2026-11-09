@@ -21,6 +21,8 @@ add_executable(tgsbPhonemeEditor WIN32
   RulesEditor.h
   DictionaryEditor.cpp
   DictionaryEditor.h
+  dict_tsv.cpp
+  dict_tsv.h
   WinUtils.cpp
   WinUtils.h
   AccessibilityUtils.cpp

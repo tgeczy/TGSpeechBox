@@ -14,15 +14,9 @@ Licensed under the MIT License. See LICENSE for details.
 #include <functional>
 #include <windows.h>
 
-namespace tgsb_editor {
+#include "dict_tsv.h"
 
-struct DictEntryData {
-  std::string fromText;
-  std::string toText;
-  std::string fromIpa;
-  std::string toIpa;
-  std::string category;
-};
+namespace tgsb_editor {
 
 struct PhonemeKeyInfo {
   std::string key;
@@ -66,15 +60,5 @@ struct DictEntryDialogState {
 };
 
 bool ShowDictionaryEditorDialog(HINSTANCE hInst, HWND parent, DictionaryEditorState& st);
-
-// TSV I/O
-bool loadDictTsv(const std::wstring& path, const std::string& dictType,
-                 std::vector<DictEntryData>& out, std::string& outError);
-bool saveDictTsv(const std::wstring& path, const std::string& dictType,
-                 const std::vector<DictEntryData>& entries, std::string& outError);
-
-// Path construction
-std::wstring dictTsvPath(const std::wstring& packDir, const std::string& langTag,
-                         const std::string& dictType);
 
 } // namespace tgsb_editor
