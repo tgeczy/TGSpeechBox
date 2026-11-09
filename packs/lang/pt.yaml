@@ -124,6 +124,13 @@ normalization:
       - ɾ
 
   replacements:
+    # r before a consonant (porta, verde, aguarde) has no vowel after it (#156, Edu).
+    # eSpeak gives that weak r a very short non-syllabic schwa (ph_pt_brazil @-,
+    # "used along with weak /r/ only"); older eSpeak builds print it (pˈɔɾətæ),
+    # newer ones don't (pˈɔɾtæ).  Played as our full ə it was a vowel of its own,
+    # "pó-rə-ta": drop it, so either eSpeak sounds the same.
+    - from: "ɾə"
+      to: "ɾ"
     # eSpeak NG 1.53 writes the "ou" diphthong as oʊ where 1.52 wrote ow.
     - from: "oʊ"
       to: "ow"
