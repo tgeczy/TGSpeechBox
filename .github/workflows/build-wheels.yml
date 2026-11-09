@@ -97,7 +97,9 @@ jobs:
 
   attach:
     needs: [windows, macos]
-    if: ${{ github.event.inputs.release_tag != '' || startsWith(github.ref, 'refs/tags/') }}
+    # Attach what built: a macOS job GitHub never starts (no Apple Silicon runner
+    # free, "capacity constraints") must not keep the Windows wheels off the release.
+    if: ${{ !cancelled() && needs.windows.result == 'success' && (github.event.inputs.release_tag != '' || startsWith(github.ref, 'refs/tags/')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
