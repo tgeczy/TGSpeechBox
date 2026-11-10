@@ -124,3 +124,41 @@ def test_year_normal_split_still_works_en_us(en_us):
     assert any(c.isdigit() for c in out), (
         f"Expected digits in year output; got: {out!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Money amounts (#83): read the way people say them, on for English packs.
+# ---------------------------------------------------------------------------
+# eSpeak reads "$1.25" as "dollar one point two five" and "€5.99" as "five
+# point nine nine" with no unit at all.  A price is also never split as a
+# year: "$1995" was "$19 95".
+
+def test_money_as_words_en_us(en_us):
+    fe, h = en_us
+    cases = {
+        "$1.25": "1 dollar and 25 cents",
+        "It costs €5.99.": "It costs 5 euros and 99 cents.",
+        "£3.50": "3 pounds and 50 pence",
+        "20 USD": "20 dollars",
+        "-$4": "minus 4 dollars",
+        "$2.5M": "2.5 million dollars",
+        "$1,995": "1995 dollars",
+        "In 1995 it was $1995.": "In 19 95 it was 1995 dollars.",
+    }
+    for text, want in cases.items():
+        out = fe.prepare_text(h, text)
+        assert out == want, f"{text!r}: expected {want!r}, got {out!r}"
+
+
+def test_money_as_words_en_gb(en_gb):
+    """en-gb inherits the setting from en.yaml."""
+    fe, h = en_gb
+    out = fe.prepare_text(h, "£1.01")
+    assert out == "1 pound and 1 penny", f"got {out!r}"
+
+
+def test_money_not_rewritten_outside_english(es_mx):
+    """The unit words are English, so other packs keep eSpeak's reading."""
+    fe, h = es_mx
+    out = fe.prepare_text(h, "$1.25")
+    assert "dollar" not in out, f"got {out!r}"
