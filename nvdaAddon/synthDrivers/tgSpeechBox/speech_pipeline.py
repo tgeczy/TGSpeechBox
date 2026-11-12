@@ -415,7 +415,12 @@ class SpeechPipelineMixin:
                     # unknown pair of engines.  (Speaking beats silence, so
                     # the block goes ahead even if this fails too.)
                     self._applySpeechLang(None)
-                for chunk, clauseType, punctPauseMs in self._splitClauses(text, pauseMode, _punctuationPauseMs):
+                clauses = self._splitClauses(text, pauseMode, _punctuationPauseMs)
+                # A lone letter is read by its name only when it is the whole
+                # text.  As one clause of many it is a word: Portuguese "Sim.
+                # É. Claro." is not "Sim. é agudo. Claro." (#158).
+                wholeText = len(clauses) == 1
+                for chunk, clauseType, punctPauseMs in clauses:
                     # Check again between chunks for fast cancellation
                     if generation != self._speakGen:
                         return
@@ -437,7 +442,7 @@ class SpeechPipelineMixin:
                                   chunk, core,
                                   getattr(self, "_frontendLangTag", "?"),
                                   getattr(self, "_packsDir", "?"))
-                    if len(core) == 1:
+                    if wholeText and len(core) == 1:
                         langTag = getattr(self, "_frontendLangTag", "") or ""
                         packsDir = getattr(self, "_packsDir", "") or ""
                         if packsDir and langTag:
@@ -450,7 +455,7 @@ class SpeechPipelineMixin:
                                 chunk = chunk[:lead] + replacement + chunk[lead + 1:]
 
                     # Pre-eSpeak text normalization: compound splitting, date ordinals, etc.
-                    chunk = self._frontend.prepareText(chunk)
+                    chunk = self._frontend.prepareText(chunk, wholeText)
 
                     ipaText = self._espeakTextToIPA_scriptAware(chunk)
                     if not ipaText:

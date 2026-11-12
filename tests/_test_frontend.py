@@ -187,6 +187,38 @@ class TestFrontend:
             self._dll.nvspFrontend_freeString(ptr)
         return result
 
+    def prepare_clause(self, handle: int, clause: str, whole_text: bool) -> str:
+        """prepare_text for one clause of a text split with split_clauses():
+        nvspFrontend_prepareClause, told whether the clause is the whole text."""
+        fn = self._dll.nvspFrontend_prepareClause
+        fn.argtypes = [c_void_p, c_char_p, c_int]
+        fn.restype = c_void_p
+        ptr = fn(handle, clause.encode("utf-8"), 1 if whole_text else 0)
+        if not ptr:
+            return clause
+        try:
+            return ctypes.string_at(ptr).decode("utf-8", "replace")
+        finally:
+            self._dll.nvspFrontend_freeString(ptr)
+
+    def split_clauses(self, text: str, pause_mode: int = 1) -> List[str]:
+        """The clauses of `text`, as every host splits it (nvspFrontend_nextClause)."""
+        fn = self._dll.nvspFrontend_nextClause
+        fn.argtypes = [c_char_p, c_int, c_int, c_int, POINTER(c_int), POINTER(c_int),
+                       c_char_p, POINTER(c_double)]
+        fn.restype = c_int
+        data = text.encode("utf-8")
+        start, end = c_int(), c_int()
+        clauses: List[str] = []
+        pos = 0
+        while pos < len(data):
+            nxt = fn(data, len(data), pos, pause_mode, ctypes.byref(start), ctypes.byref(end), None, None)
+            if nxt <= pos:
+                break
+            clauses.append(data[start.value:end.value].decode("utf-8"))
+            pos = nxt
+        return clauses
+
     # ---- IPA -> Frame stream capture ----
 
     def capture_frames(

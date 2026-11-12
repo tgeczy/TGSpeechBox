@@ -254,6 +254,19 @@ class NvspFrontend(object):
         except AttributeError:
             pass
 
+        # prepareClause: prepareText for one clause of a split text (#158)
+        self._hasPrepareClauseApi = False
+        try:
+            self._dll.nvspFrontend_prepareClause.argtypes = [
+                ctypes.c_void_p,  # handle
+                ctypes.c_char_p,  # clauseUtf8
+                ctypes.c_int,     # isWholeText
+            ]
+            self._dll.nvspFrontend_prepareClause.restype = ctypes.c_void_p
+            self._hasPrepareClauseApi = True
+        except AttributeError:
+            pass
+
         # beginStream (optional - may not exist in older DLLs)
         self._hasBeginStreamApi = False
         try:
@@ -794,12 +807,16 @@ class NvspFrontend(object):
         )
         return bool(ok)
 
-    def prepareText(self, text: str) -> str:
+    def prepareText(self, text: str, wholeText: bool = True) -> str:
         """Pre-eSpeak text normalization.
 
         Applies compound splitting, date ordinals, and other text-level
         transforms before eSpeak phonemization.  The caller should feed
         the result to eSpeak for correct phonemization.
+
+        wholeText is False for one clause of a text that splitClauses()
+        cut into several: a lone letter is then a word, not a letter to
+        name (#158).  An older DLL cannot be told, and names it.
 
         Returns the original text unchanged if no transforms apply or
         the API is unavailable.
@@ -807,9 +824,14 @@ class NvspFrontend(object):
         if not self._hasPrepareTextApi or not self._dll or not self._h:
             return text
         try:
-            ptr = self._dll.nvspFrontend_prepareText(
-                self._h, text.encode("utf-8")
-            )
+            if self._hasPrepareClauseApi:
+                ptr = self._dll.nvspFrontend_prepareClause(
+                    self._h, text.encode("utf-8"), 1 if wholeText else 0
+                )
+            else:
+                ptr = self._dll.nvspFrontend_prepareText(
+                    self._h, text.encode("utf-8")
+                )
             if ptr:
                 result = ctypes.string_at(ptr).decode("utf-8")
                 self._dll.nvspFrontend_freeString(ptr)

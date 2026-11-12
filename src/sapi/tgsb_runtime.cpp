@@ -889,7 +889,7 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
     std::wstring prepared_text = text;
     if (frontend_) {
         const std::string text_utf8 = utils::wstring_to_string(text);
-        char* prepared = nvspFrontend_prepareText(frontend_, text_utf8.c_str());
+        char* prepared = nvspFrontend_prepareClause(frontend_, text_utf8.c_str(), params.whole_text ? 1 : 0);
         if (prepared) {
             prepared_text = utils::string_to_wstring(std::string(prepared));
             nvspFrontend_freeString(prepared);

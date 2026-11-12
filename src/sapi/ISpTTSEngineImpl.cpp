@@ -694,6 +694,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             std::wstring clauseText = padEmojiWithSpacesW(
                 batch.text.substr(clause.start, clause.len));
             params.clause_type = clause.clause_type;
+            params.whole_text = clauses.size() == 1;
             hr = rt_->queue_text(clauseText, params);
             if (FAILED(hr)) {
                 DEBUG_LOG("TGSpeechSapi: queue_text failed 0x%08X", hr);

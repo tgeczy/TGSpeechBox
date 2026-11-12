@@ -42,6 +42,9 @@ struct speak_params {
     double base_pitch = 110.0;
     double inflection = 0.55;
     char clause_type = '.';
+    // The text is a whole fragment, not one clause of several: only then is
+    // a lone letter read by its name (#158).
+    bool whole_text = true;
     double volume = 1.0;
     std::wstring preset_name;
     int user_index_base = 0;

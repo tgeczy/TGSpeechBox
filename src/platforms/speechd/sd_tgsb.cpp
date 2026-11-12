@@ -487,13 +487,17 @@ static void synthesize(const std::string& text,
     const int next = nvspFrontend_nextClause(text.c_str(), textLen, pos, pauseMode,
                                              &clauseStart, &clauseEnd, &clauseType, &pauseMs);
     if (next <= pos) break;
+    // Is this clause the whole text?  Only then is a lone letter read by its
+    // name; as one clause of many it is a word (#158).
+    const int wholeText = pos == 0 &&
+        nvspFrontend_nextClause(text.c_str(), textLen, next, pauseMode, nullptr, nullptr, nullptr, nullptr) < 0;
     pos = next;
     if (clauseEnd <= clauseStart) continue;
 
     std::string clause(text, (size_t)clauseStart, (size_t)(clauseEnd - clauseStart));
 
     // Text normalization
-    char *prepared = nvspFrontend_prepareText(fe, clause.c_str());
+    char *prepared = nvspFrontend_prepareClause(fe, clause.c_str(), wholeText);
     if (prepared) { clause = prepared; nvspFrontend_freeString(prepared); }
 
     // Emoji padding

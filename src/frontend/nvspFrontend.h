@@ -550,6 +550,24 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
 #define nvspFrontend_splitCompounds nvspFrontend_prepareText
 
 /*
+  nvspFrontend_prepareText for one clause of a text that the host has split
+  with nvspFrontend_nextClause (#158).  isWholeText is 1 when the splitter
+  gave this clause alone for the text, and 0 when the text has other clauses.
+
+  A lone letter is read by its name from the letter dictionary only when it
+  is the whole text: character navigation, a typed character, a line that is
+  one letter next to a symbol ("y", "r?").  As one clause of a longer text it
+  is a word and is left to the phonemizer, as "y" is in the Spanish "Y, sin
+  embargo, se fue."  Nothing else depends on isWholeText, and
+  nvspFrontend_prepareText is this function with 1.
+*/
+NVSP_FRONTEND_API char* nvspFrontend_prepareClause(
+  nvspFrontend_handle_t handle,
+  const char* clauseUtf8,
+  int isWholeText
+);
+
+/*
   One clause splitter for every host (#133).  Finds the next clause of
   `textUtf8` (textLen bytes) at or after byte `pos`, skipping whitespace:
   its start and end in bytes (trailing whitespace excluded), its clause type

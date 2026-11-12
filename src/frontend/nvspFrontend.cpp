@@ -1097,6 +1097,14 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   nvspFrontend_handle_t handle,
   const char* textUtf8
 ) {
+  return nvspFrontend_prepareClause(handle, textUtf8, 1);
+}
+
+NVSP_FRONTEND_API char* nvspFrontend_prepareClause(
+  nvspFrontend_handle_t handle,
+  const char* textUtf8,
+  int isWholeText
+) {
   using namespace nvsp_frontend;
   Handle* h = asHandle(handle);
   if (!h || !textUtf8 || !textUtf8[0]) return nullptr;
@@ -1112,7 +1120,9 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   // return the description (e.g. "y" → "i griega" in Spanish).
   // This must happen before eSpeak phonemization so all platforms
   // (Android, iOS, Speech Dispatcher) get correct character names.
-  if (!h->pack.letterDict.empty()) {
+  // Only when the letter is the whole text: as one clause of a longer text
+  // it is a word ("Sim. É. Claro.", "Y, sin embargo, se fue.", #158).
+  if (isWholeText && !h->pack.letterDict.empty()) {
     auto u32 = utf8ToU32(input);
     // A lone letter may arrive wrapped in punctuation or whitespace --
     // "r?", "¿r", "ó." -- when a line or a typed sequence is a single

@@ -328,6 +328,10 @@ static void synthesizeClauses(TgsbEngine *engine,
         const int next = nvspFrontend_nextClause(text, textLen, pos, engine->pauseMode,
                                                  &clauseStart, &clauseEnd, &clauseType, &pauseMs);
         if (next <= pos) break;
+        /* Is this clause the whole text?  Only then is a lone letter read by
+         * its name; as one clause of many it is a word (#158). */
+        const int wholeText = pos == 0 &&
+            nvspFrontend_nextClause(text, textLen, next, engine->pauseMode, NULL, NULL, NULL, NULL) < 0;
         pos = next;
 
         /* copy clause into a NUL-terminated buffer */
@@ -340,7 +344,7 @@ static void synthesizeClauses(TgsbEngine *engine,
         clause[len] = '\0';
 
         /* Pre-eSpeak text normalization: compound splitting, date ordinals, etc. */
-        char *splitClause = nvspFrontend_prepareText(engine->frontend, clause);
+        char *splitClause = nvspFrontend_prepareClause(engine->frontend, clause, wholeText);
         if (splitClause) {
             free(clause);
             clause = splitClause;

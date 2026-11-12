@@ -547,6 +547,12 @@ char* nvspFrontend_prepareText(handle, const char* textUtf8);
 // Backwards-compatible alias:
 #define nvspFrontend_splitCompounds nvspFrontend_prepareText
 
+// prepareText for one clause of a text split with nvspFrontend_nextClause.
+// isWholeText: 1 when the splitter gave this clause alone for the text,
+// 0 when the text has other clauses.  A lone letter gets its letter name
+// only when it is the whole text; as one clause of many it is a word (#158).
+char* nvspFrontend_prepareClause(handle, const char* clauseUtf8, int isWholeText);
+
 void nvspFrontend_freeString(char* str);
 ```
 

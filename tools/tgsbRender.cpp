@@ -1204,13 +1204,17 @@ int main(int argc, char** argv) {
       const int next = nvspFrontend_nextClause(opt.text.c_str(), textLen, pos, 0,
                                                &clauseStart, &clauseEnd, &clauseType, nullptr);
       if (next <= pos) break;
+      // Is this clause the whole text?  Only then is a lone letter read by
+      // its name; as one clause of many it is a word (#158).
+      const int wholeText = pos == 0 &&
+          nvspFrontend_nextClause(opt.text.c_str(), textLen, next, 0, nullptr, nullptr, nullptr, nullptr) < 0;
       pos = next;
       if (clauseEnd <= clauseStart) continue;
 
       std::string clause(opt.text, (size_t)clauseStart, (size_t)(clauseEnd - clauseStart));
 
       // Text normalization: compound splitting, date ordinals, etc.
-      char *prepared = nvspFrontend_prepareText(fe, clause.c_str());
+      char *prepared = nvspFrontend_prepareClause(fe, clause.c_str(), wholeText);
       if (prepared) {
         clause = prepared;
         nvspFrontend_freeString(prepared);
