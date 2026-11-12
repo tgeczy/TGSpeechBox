@@ -37,9 +37,9 @@ def user_dict(frontend, pack_dir):
 
 @pytest.fixture(params=["C", "English_United States.1252"])
 def c_locale(request):
-    """The C runtime's character locale.  The tests start in "C"; NVDA's
-    Python sets the Windows code page, where byte-wise tolower() rewrites
-    the bytes of non-ASCII letters."""
+    """The C runtime's character locale: "C" as the phone apps, SAPI and
+    Linux run, and the Windows code page that NVDA's Python (and this one)
+    sets, where byte-wise tolower() rewrites the bytes of non-ASCII letters."""
     before = locale.setlocale(locale.LC_CTYPE)
     try:
         locale.setlocale(locale.LC_CTYPE, request.param)

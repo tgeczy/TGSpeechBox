@@ -124,6 +124,35 @@ static size_t lastCodepointsStart(const std::string& s, size_t n) {
   return pos;
 }
 
+// Strip leading/trailing punctuation for lookup: token[lo, hi) is the word.
+// Uses Unicode-aware check so curly quotes, inverted punctuation,
+// en/em dashes, and ellipsis are stripped alongside ASCII punctuation.
+static void wordCore(const std::string& token, size_t& lo, size_t& hi) {
+  lo = 0;
+  while (lo < token.size()) {
+    size_t plen = unicodePunctLen(token, lo);
+    if (!plen) break;
+    lo += plen;
+  }
+  hi = token.size();
+  while (hi > lo) {
+    // Scan backwards: find the start of the last UTF-8 character.
+    size_t back = hi - 1;
+    while (back > lo && (static_cast<uint8_t>(token[back]) & 0xC0) == 0x80)
+      --back;
+    size_t plen = unicodePunctLen(token, back);
+    if (!plen || back + plen != hi) break;
+    hi = back;
+  }
+}
+
+std::string dictWordKey(const std::string& token) {
+  size_t lo = 0;
+  size_t hi = token.size();
+  wordCore(token, lo, hi);
+  return lowerUtf8(std::string(token, lo, hi - lo));
+}
+
 std::string dictReplaceInText(const std::string& text, const PronDict& dict,
     const std::vector<std::string>& suffixes,
     std::unordered_map<std::string, std::string>* ipaOverrides) {
@@ -151,25 +180,9 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict,
     std::string token = text.substr(wordStart, i - wordStart);
     DLLOG("  token: \"%s\" (len=%zu)\n", token.c_str(), token.size());
 
-    // Strip leading/trailing punctuation for lookup.
-    // Uses Unicode-aware check so curly quotes, inverted punctuation,
-    // en/em dashes, and ellipsis are stripped alongside ASCII punctuation.
     size_t lo = 0;
-    while (lo < token.size()) {
-      size_t plen = unicodePunctLen(token, lo);
-      if (!plen) break;
-      lo += plen;
-    }
     size_t hi = token.size();
-    while (hi > lo) {
-      // Scan backwards: find the start of the last UTF-8 character.
-      size_t back = hi - 1;
-      while (back > lo && (static_cast<uint8_t>(token[back]) & 0xC0) == 0x80)
-        --back;
-      size_t plen = unicodePunctLen(token, back);
-      if (!plen || back + plen != hi) break;
-      hi = back;
-    }
+    wordCore(token, lo, hi);
 
     DLLOG("    lo=%zu hi=%zu core=\"%s\"\n", lo, hi,
           std::string(token, lo, hi - lo).c_str());

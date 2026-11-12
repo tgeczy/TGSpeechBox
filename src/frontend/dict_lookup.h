@@ -35,6 +35,11 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict,
     const std::vector<std::string>& suffixes = {},
     std::unordered_map<std::string, std::string>* ipaOverrides = nullptr);
 
+// The key dictReplaceInText records a word's IPA override under: the word
+// without the punctuation at its edges, lowercased in any alphabet.  Empty
+// for a token that is only punctuation.
+std::string dictWordKey(const std::string& token);
+
 }  // namespace nvsp_frontend
 
 #endif  // TGSB_FRONTEND_DICT_LOOKUP_H

@@ -243,11 +243,16 @@ class TestFrontend:
         base_pitch: float = 140.0,
         inflection: float = 0.5,
         clause_type: str = ".",
+        text: Optional[str] = None,
     ) -> List[FrameRecord]:
         """Synthesize IPA and capture every frame callback into a list.
 
         Returns a list of FrameRecord objects in emission order. Silence frames
         have is_silence=True and frame_dict=None.
+
+        With `text` (the clause as prepare_text returned it), the IPA goes
+        through nvspFrontend_queueIPA_ExWithText, as the hosts send it: the
+        text parser runs first (stress, compounds, IPA dictionary entries).
 
         Use this to test phoneme-level regressions (was a phoneme emitted at
         all? did its formants land in the expected range?) without playing audio.
@@ -265,12 +270,24 @@ class TestFrontend:
         cb = FrameExCallback(_cb)
         self._cb_keepalive.append(cb)
         try:
-            ok = self._dll.nvspFrontend_queueIPA_Ex(
-                handle, ipa.encode("utf-8"),
-                c_double(speed), c_double(base_pitch), c_double(inflection),
-                clause_type.encode("utf-8"),
-                c_int(0), cb, None,
-            )
+            if text is None:
+                ok = self._dll.nvspFrontend_queueIPA_Ex(
+                    handle, ipa.encode("utf-8"),
+                    c_double(speed), c_double(base_pitch), c_double(inflection),
+                    clause_type.encode("utf-8"),
+                    c_int(0), cb, None,
+                )
+            else:
+                fn = self._dll.nvspFrontend_queueIPA_ExWithText
+                fn.argtypes = [c_void_p, c_char_p, c_char_p, c_double, c_double, c_double,
+                               c_char_p, c_int, FrameExCallback, c_void_p]
+                fn.restype = c_int
+                ok = fn(
+                    handle, text.encode("utf-8"), ipa.encode("utf-8"),
+                    c_double(speed), c_double(base_pitch), c_double(inflection),
+                    clause_type.encode("utf-8"),
+                    c_int(0), cb, None,
+                )
             if not ok:
                 err = self._dll.nvspFrontend_getLastError(handle)
                 err_str = err.decode("utf-8", "replace") if err else "(unknown)"

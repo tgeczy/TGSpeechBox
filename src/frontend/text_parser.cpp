@@ -242,6 +242,32 @@ static std::string stripPunct(const std::string& s) {
   return s.substr(start, end - start);
 }
 
+// Whether a text word has a letter in it, of any script: an ASCII letter, or
+// a codepoint beyond ASCII that is not punctuation, a symbol or an emoji.
+// A word of only digits or symbols has none.
+static bool hasLetter(const std::string& word) {
+  for (char32_t c : utf8ToU32(word)) {
+    if (c < 0x80) {
+      if ((c | 0x20) >= 'a' && (c | 0x20) <= 'z') return true;
+      continue;
+    }
+    if (c < 0xC0) {  // Latin-1 signs, but for ª µ º
+      if (c == 0xAA || c == 0xB5 || c == 0xBA) return true;
+      continue;
+    }
+    if (c == 0xD7 || c == 0xF7) continue;          // × ÷
+    if (c >= 0x2000 && c <= 0x2BFF) continue;      // punctuation, currency, arrows, maths, symbols
+    if (c >= 0x3000 && c <= 0x303F) continue;      // CJK punctuation
+    if (c >= 0xE000 && c <= 0xF8FF) continue;      // private use
+    if (c >= 0xFE00 && c <= 0xFE0F) continue;      // variation selectors
+    if (c >= 0xFF00 && c <= 0xFF20) continue;      // fullwidth punctuation and digits
+    if (c == 0xFFFD) continue;                     // not UTF-8
+    if (c >= 0x1F000 && c <= 0x1FAFF) continue;    // emoji and pictographs
+    return true;
+  }
+  return false;
+}
+
 // ── Vowel nucleus counting ─────────────────────────────────────────────────
 
 struct NucleusInfo {
@@ -713,8 +739,13 @@ std::string runTextParser(
   if (!ipaOverrides.empty()) {
     size_t ipaIdx = 0;
     for (size_t i = 0; i < textWords.size(); ++i) {
-      std::string key = asciiLower(stripPunct(textWords[i]));
-      if (key.empty()) continue;  // punctuation-only word, no IPA chunk
+      // The key the dictionary recorded the override under, and a letter of
+      // any alphabet makes a word (#165).  asciiLower(stripPunct()) kept only
+      // what std::isalpha accepts: "é" or a Cyrillic word was skipped as
+      // punctuation and every later override landed one word early, and
+      // "você" lost its last letter and never found its own entry.
+      std::string key = dictWordKey(textWords[i]);
+      if (!hasLetter(key)) continue;  // punctuation-only word, no IPA chunk
       if (ipaIdx >= ipaChunks.size()) break;
       auto it = ipaOverrides.find(key);
       if (it != ipaOverrides.end()) {
