@@ -1084,6 +1084,12 @@ std::vector<SpecialCoarticRuleEntry> LanguageYaml::specialCoarticRules() const {
   for (const auto& item : rulesN->seq) {
     if (!item.isMap()) continue;
     SpecialCoarticRuleEntry r;
+    // A rule read from the file holds what the file holds: the frontend
+    // reads a missing vowelFilter, formant or side as empty, not as the
+    // value a new rule starts from.
+    r.vowelFilter.clear();
+    r.formant.clear();
+    r.side.clear();
     if (const Node* n = item.get("name")) if (n->isScalar()) r.name = n->scalar;
     r.triggers = readStringSeq(item.get("triggers"));
     if (const Node* n = item.get("vowelFilter")) if (n->isScalar()) r.vowelFilter = n->scalar;
@@ -1115,10 +1121,12 @@ void LanguageYaml::setSpecialCoarticRules(const std::vector<SpecialCoarticRuleEn
     item.type = Node::Type::Map;
     if (!r.name.empty()) mapSet(item, "name", makeScalar(r.name));
     if (!r.triggers.empty()) mapSet(item, "triggers", makeStringSeqNode(r.triggers));
-    if (r.vowelFilter != "all") mapSet(item, "vowelFilter", makeScalar(r.vowelFilter));
-    if (r.formant != "f2") mapSet(item, "formant", makeScalar(r.formant));
+    // vowelFilter, formant and side are always written: the frontend has no
+    // defaults for them, and drops or never applies a rule without them (#213).
+    if (!r.vowelFilter.empty()) mapSet(item, "vowelFilter", makeScalar(r.vowelFilter));
+    if (!r.formant.empty()) mapSet(item, "formant", makeScalar(r.formant));
     if (r.deltaHz != 0.0) mapSet(item, "deltaHz", makeScalarD(r.deltaHz));
-    if (r.side != "both") mapSet(item, "side", makeScalar(r.side));
+    if (!r.side.empty()) mapSet(item, "side", makeScalar(r.side));
     if (r.cumulative) mapSet(item, "cumulative", makeScalar("true"));
     if (r.unstressedScale != 1.0) mapSet(item, "unstressedScale", makeScalarD(r.unstressedScale));
     if (r.phraseFinalStressedScale != 1.0) mapSet(item, "phraseFinalStressedScale", makeScalarD(r.phraseFinalStressedScale));
