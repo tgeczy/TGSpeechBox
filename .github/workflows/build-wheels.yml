@@ -69,7 +69,10 @@ jobs:
           path: dist/*.whl
 
   macos:
-    runs-on: macos-15
+    # An Intel runner: GitHub's Apple Silicon runners have been out of capacity
+    # for days at a time (the job is cancelled before its first step).  The
+    # wheel is universal2 either way; clang builds both halves on either host.
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
