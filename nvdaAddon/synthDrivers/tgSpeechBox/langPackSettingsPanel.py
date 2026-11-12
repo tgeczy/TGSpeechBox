@@ -1414,10 +1414,12 @@ def _getPanelClass():
                         self,
                     )
 
-                    # Trigger frontend reload and re-apply voice profile
+                    # Trigger frontend reload and re-apply voice profile.
+                    # Through the driver, which knows the language "auto"
+                    # stands for: the frontend takes the literal "auto",
+                    # loads default.yaml alone and calls that a success (#194).
                     try:
-                        langTag = getattr(synth, "_language", "en-us")
-                        frontend.setLanguage(langTag)
+                        synth.reloadLanguagePack()
                         if curVoice.startswith(VOICE_PROFILE_PREFIX):
                             frontend.setVoiceProfile(profileName)
                             synth._applyVoicingTone(profileName)
@@ -1565,9 +1567,9 @@ def _getPanelClass():
                             self,
                         )
                         # Reload the pack so the imported settings take effect
+                        # (through the driver, for the language "auto", #194)
                         try:
-                            langTag = getattr(synth, "_language", "en-us")
-                            frontend.setLanguage(langTag)
+                            synth.reloadLanguagePack()
                             curVoice = getattr(synth, "_curVoice", "")
                             if curVoice.startswith("profile:"):
                                 profileName = curVoice[len("profile:"):]
