@@ -100,3 +100,104 @@ def test_a_suffix_with_an_accent_strips(user_dict, c_locale, text, expected):
 def test_without_an_entry_the_text_is_untouched(user_dict, c_locale, lang, text):
     _add, prepare = user_dict(lang)
     assert prepare(text) == text
+
+
+# ---------------------------------------------------------------------------
+# #168: an entry with a hyphen in its word is used.
+# ---------------------------------------------------------------------------
+# Text preparation turns a hyphen between letters or digits into a space
+# ("M5-series" -> "M5 series", #75) before the dictionary runs.  By then
+# "wi-fi" was the two words "wi" and "fi", and an entry for "wi-fi" could
+# never match: the editors took it, saved it and previewed it, and it did
+# nothing.
+
+EN_HYPHEN_ENTRIES = {"wi-fi": "why fy", "x-ray": "ex ray", "state-of-the-art": "stayt uv thee art"}
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("wi-fi", "why fy"),
+    ("Use wi-fi now", "Use why fy now"),
+    ("Wi-Fi is WI-FI.", "why fy is why fy."),
+    ("(wi-fi)", "( why fy )"),
+    ("an x-ray machine", "an ex ray machine"),
+    ("a state-of-the-art lab", "a stayt uv thee art lab"),
+    # With a suffix from the pack (en: "s", "ed", "'s"), as for any other word.
+    ("two x-rays", "two ex rays"),
+    ("the wi-fi's name", "the why fy's name"),
+    # Inside a longer hyphenated word: the entry's own hyphen is kept for it.
+    ("wi-fi-enabled", "why fy enabled"),
+    ("a non-x-ray scan", "a non ex ray scan"),
+])
+def test_an_entry_with_a_hyphen_is_used(user_dict, text, expected):
+    add, prepare = user_dict("en-us")
+    for word, to_text in EN_HYPHEN_ENTRIES.items():
+        add(word, to_text)
+    assert prepare(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("az e-mail", "az ímél"),
+    ("Az E-mail megjött.", "Az ímél megjött."),
+    ("az e-mailben", "az ímélben"),      # hu case ending "ben"
+    ("az e-mailből", "az ímélből"),      # "ből"
+])
+def test_a_hungarian_entry_with_a_hyphen_is_used(user_dict, c_locale, text, expected):
+    add, prepare = user_dict("hu")
+    add("e-mail", "ímél")
+    assert prepare(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("M5-series", "M5 series"),
+    ("an F-16 and COVID-19", "an F 16 and COVID 19"),
+    ("well-known wi-fi M5-series", "well known why fy M5 series"),
+    ("wi-fix and fi-wi", "wi fix and fi wi"),
+    ("-wi -fi wi- fi", "-wi -fi wi- fi"),
+    ("----------", "----------"),
+    ("a - b", "a - b"),
+    ("2024-2025", "20 24 20 25"),
+])
+def test_other_hyphens_are_split_as_before(user_dict, text, expected):
+    """#75 stays fixed with hyphenated entries in the dictionary."""
+    add, prepare = user_dict("en-us")
+    for word, to_text in EN_HYPHEN_ENTRIES.items():
+        add(word, to_text)
+    assert prepare(text) == expected
+
+
+def test_a_part_of_a_hyphenated_word_is_still_looked_up(user_dict):
+    add, prepare = user_dict("en-us")
+    add("pentagon", "PENTA")
+    assert prepare("pentagon") == "PENTA"
+    assert prepare("this-pentagon-official") == "this PENTA official"
+
+
+@pytest.mark.parametrize("lang, text, expected", [
+    ("en-us", "Use wi-fi now, x-ray the M5-series", "Use wi fi now, x ray the M5 series"),
+    ("en-gb", "a state-of-the-art e-mail", "a state of the art e mail"),
+    ("hu", "az e-mail és az e-mailben", "az e mail és az e mailben"),
+    ("de", "die E-Mail-Adresse", "die E Mail Adresse"),
+    ("es", "un e-mail hispano-americano", "un e mail hispano americano"),
+])
+def test_without_a_hyphenated_entry_the_shipped_output_is_unchanged(user_dict, lang, text, expected):
+    """No shipped pronunciation dictionary has a hyphen in a key: every
+    language's output is byte for byte what it was."""
+    _add, prepare = user_dict(lang)
+    assert prepare(text) == expected
+
+
+def test_a_masked_or_disabled_entry_does_not_hold_the_hyphen(frontend, pack_dir):
+    h = frontend.create_handle(pack_dir)
+    try:
+        frontend.set_language(h, "en-us")
+        frontend.set_dict_entry(h, "en-us", "wi-fi", '{"toText":"why fy"}')
+        assert frontend.prepare_text(h, "wi-fi") == "why fy"
+        # The pronunciation dictionary switched off for the language.
+        frontend.set_dict_entry(h, "en-us", "pronounce", "false", dict_type="config")
+        assert frontend.prepare_text(h, "wi-fi") == "wi fi"
+        frontend.set_dict_entry(h, "en-us", "pronounce", "true", dict_type="config")
+        # The entry masked.
+        frontend.set_dict_entry(h, "en-us", "wi-fi", '{"masked":true}')
+        assert frontend.prepare_text(h, "wi-fi") == "wi fi"
+    finally:
+        frontend.destroy_handle(h)

@@ -1125,11 +1125,19 @@ std::string prepareTextForEspeak(
   // "M5-series" → "M5 series", "F-16" → "F 16", "COVID-19" → "COVID 19".
   // eSpeak treats hyphenated compounds as single prosodic units, which can
   // cause resyllabification of unrelated words in the same utterance.
+  // A word the pronunciation dictionary has an entry for keeps its hyphens,
+  // or step 0 could never find "wi-fi" or "x-ray" (#168).
   {
+    std::vector<size_t> dictHyphens;
+    if (!pronDict.entries.empty() && disabledDictTypes.count("pronounce") == 0 &&
+        result.find('-') != std::string::npos) {
+      dictHyphens = dictWordHyphens(result, pronDict, dictSuffixes);
+    }
     std::string dehyph;
     dehyph.reserve(result.size());
     for (size_t i = 0; i < result.size(); ++i) {
-      if (result[i] == '-' && i > 0 && i + 1 < result.size()) {
+      if (result[i] == '-' && i > 0 && i + 1 < result.size() &&
+          !std::binary_search(dictHyphens.begin(), dictHyphens.end(), i)) {
         bool leftAlnum = std::isalnum(static_cast<unsigned char>(result[i - 1]));
         bool rightAlpha = std::isalpha(static_cast<unsigned char>(result[i + 1]))
                        || std::isdigit(static_cast<unsigned char>(result[i + 1]));

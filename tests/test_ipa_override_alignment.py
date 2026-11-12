@@ -165,3 +165,26 @@ def test_without_an_ipa_entry_in_the_clause_the_text_changes_no_frame(speak, c_l
     _keys, frames = speak(lang, {}, text, ipa, speed)
     _keys2, again = speak(lang, {"zzzunused": "ʔ"}, text, ipa, speed)
     assert frames == again
+
+
+# ---------------------------------------------------------------------------
+# #168: a word with a hyphen in it, and IPA entries.
+# ---------------------------------------------------------------------------
+# An entry for "wi-fi" or "x-ray" is now used through its respelling
+# (tests/test_user_dictionary.py).  One that gives IPA is still not used: the
+# IPA is swapped in word for word, and a hyphenated word does not always come
+# back from the phonemizer as one word with one stress (eSpeak NG gives
+# "x-ray" as "ˈɛksɹˈeɪ", which the text parser cuts in two).  With such an
+# entry in the dictionary the text and every frame are what they were.
+
+@pytest.mark.parametrize("speed", SPEEDS)
+@pytest.mark.parametrize("text, ipa", [
+    ("Use wi-fi now", "jˈuːz wˈaɪ fˈaɪ nˈaʊ"),
+    ("An X-ray, then wi-fi.", "ɐn ˈɛks ɹˈeɪ ðˈɛn wˈaɪ fˈaɪ"),
+    ("the well-known M5-series", "ðə wˈɛl nˈoʊn ˌɛm fˈaɪv sˈɪɹiːz"),
+])
+def test_an_ipa_entry_for_a_hyphenated_word_changes_nothing(speak, c_locale, speed, text, ipa):
+    keys, frames = speak("en-us", {"wi-fi": "ʔ ʔ ʔ", "x-ray": "ʔ ʔ ʔ"}, text, ipa, speed)
+    _plain_keys, plain_frames = speak("en-us", {}, text, ipa, speed)
+    assert "ʔ" not in keys
+    assert frames == plain_frames

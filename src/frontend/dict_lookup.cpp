@@ -7,6 +7,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "dict_lookup.h"
 #include "utf8.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <string>
@@ -151,6 +152,75 @@ std::string dictWordKey(const std::string& token) {
   size_t hi = token.size();
   wordCore(token, lo, hi);
   return lowerUtf8(std::string(token, lo, hi - lo));
+}
+
+// Whether dictReplaceInText would respell this token as one word: an entry in
+// its exact case or lowercased, or a stem with one of the suffixes.  Not an
+// entry that gives IPA: the word's IPA is swapped in later, word for word,
+// and a hyphenated word does not always come back from the phonemizer as one.
+static bool dictHasWord(const std::string& token, const PronDict& dict,
+                        const std::vector<std::string>& suffixes) {
+  size_t lo = 0;
+  size_t hi = token.size();
+  wordCore(token, lo, hi);
+  if (lo >= hi) return false;
+  const std::string core(token, lo, hi - lo);
+  const std::string lowerKey = lowerUtf8(core);
+  auto find = [&](const std::string& exact, const std::string& lower) {
+    auto it = dict.entries.find(exact);
+    if (it == dict.entries.end() || it->second.masked) it = dict.entries.find(lower);
+    return (it == dict.entries.end() || it->second.masked) ? nullptr : &it->second;
+  };
+  if (const DictEntry* whole = find(stripVariationSelectors(core), lowerKey)) return whole->toIpa.empty();
+  for (const auto& sfx : suffixes) {
+    if (lowerKey.size() <= sfx.size()) continue;
+    const size_t stemLen = lowerKey.size() - sfx.size();
+    if (stemLen < 3) continue;
+    if (lowerKey.compare(stemLen, sfx.size(), sfx) != 0) continue;
+    size_t sfxCodepoints = 0;
+    for (unsigned char c : sfx) sfxCodepoints += (c & 0xC0) != 0x80;
+    const size_t coreStemLen = lastCodepointsStart(core, sfxCodepoints);
+    const DictEntry* stem = find(stripVariationSelectors(core.substr(0, coreStemLen)),
+                                 lowerKey.substr(0, stemLen));
+    if (stem && !stem->toText.empty()) return true;
+  }
+  return false;
+}
+
+std::vector<size_t> dictWordHyphens(const std::string& text, const PronDict& dict,
+    const std::vector<std::string>& suffixes) {
+  std::vector<size_t> keep;
+  if (dict.entries.empty()) return keep;
+  auto isSpace = [](char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; };
+  // A word of more parts than this is not looked for.
+  const size_t kMaxParts = 8;
+
+  size_t i = 0;
+  while (i < text.size()) {
+    if (isSpace(text[i])) { ++i; continue; }
+    const size_t tokenStart = i;
+    std::vector<size_t> hyphens;
+    for (; i < text.size() && !isSpace(text[i]); ++i)
+      if (text[i] == '-') hyphens.push_back(i);
+    const size_t tokenEnd = i;
+    if (hyphens.empty()) continue;
+
+    // Part p of the token lies between hyphen p-1 and hyphen p.  From each
+    // part, the longest run of parts that is a dictionary word keeps the
+    // hyphens inside it.
+    const size_t parts = hyphens.size() + 1;
+    for (size_t a = 0; a + 1 < parts;) {
+      const size_t start = a == 0 ? tokenStart : hyphens[a - 1] + 1;
+      size_t b = std::min(parts - 1, a + kMaxParts - 1);
+      for (; b > a; --b) {
+        const size_t end = b == parts - 1 ? tokenEnd : hyphens[b];
+        if (dictHasWord(text.substr(start, end - start), dict, suffixes)) break;
+      }
+      for (size_t h = a; h < b; ++h) keep.push_back(hyphens[h]);
+      a = b + 1;
+    }
+  }
+  return keep;
 }
 
 std::string dictReplaceInText(const std::string& text, const PronDict& dict,

@@ -37,6 +37,8 @@ secondary	secondairy			adjective
 - **to_ipa** — (optional) IPA override sent directly to the speech pipeline, bypassing eSpeak entirely. Space-delimited phoneme keys matching `packs/phonemes.yaml`
 - **category** — (optional) organizational tag: `proper`, `noun`, `verb`, `adjective`, `fictional`, `technology`, `loanword`, `place`, `astrology`, `portmanteau`, etc.
 
+A word with a hyphen in it (`wi-fi`, `x-ray`, `e-mail`) can have an entry with a respelling in to_text. It is matched like any other word, inside a longer hyphenated word too (`wi-fi-enabled`). to_ipa is not used for a hyphenated word yet. Other hyphenated words are read as their parts (`M5-series` as "M5 series"), and each part is looked up on its own.
+
 ### Respelling vs IPA injection
 
 **Respelling** (to_text only): The simplest approach. Write a phonetic spelling that eSpeak already handles correctly. Example: `libra → leebra` fixes eSpeak saying "LYE-bra".

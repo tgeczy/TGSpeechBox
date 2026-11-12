@@ -35,6 +35,15 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict,
     const std::vector<std::string>& suffixes = {},
     std::unordered_map<std::string, std::string>* ipaOverrides = nullptr);
 
+// The hyphens of `text` (byte offsets, ascending) that lie inside a word
+// dictReplaceInText has a respelling for, such as "wi-fi" or "x-ray", with
+// a suffix too ("x-rays").  In a longer hyphenated word the longest entry
+// wins: "wi-fi-enabled" keeps the hyphen of "wi-fi".  Text preparation
+// splits words at the other hyphens before the dictionary runs (#168).
+// An entry that gives IPA for a hyphenated word is not counted.
+std::vector<size_t> dictWordHyphens(const std::string& text, const PronDict& dict,
+    const std::vector<std::string>& suffixes = {});
+
 // The key dictReplaceInText records a word's IPA override under: the word
 // without the punctuation at its edges, lowercased in any alphabet.  Empty
 // for a token that is only punctuation.
