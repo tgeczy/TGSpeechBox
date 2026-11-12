@@ -944,9 +944,13 @@ class SynthDriver(
 
     # ---- Core NVDA settings (rate, pitch, volume, inflection) ----
 
+    # The getters below round: the stored float can come out a hair under the
+    # whole number it was set from (rate 57 -> 56.99...), and int() then read
+    # it back, and NVDA saved it, one step lower than chosen (#199).
+
     def _get_rate(self):
         try:
-            return int(math.log(getattr(self, "_curRate", 1.0) / 0.25, 2) * 25.0)
+            return int(round(math.log(getattr(self, "_curRate", 1.0) / 0.25, 2) * 25.0))
         except Exception:
             return 50
 
@@ -980,7 +984,7 @@ class SynthDriver(
         # The historical /75 mapping made fresh installs report ~75% while
         # Android/Linux/SAPI default to 100; saved configs from that era
         # are rescaled once by migrate_config.rescale_volume().
-        return int(getattr(self, "_curVolume", 1.0) * 100)
+        return int(round(getattr(self, "_curVolume", 1.0) * 100))
 
     def _set_volume(self, val):
         try:
@@ -989,7 +993,7 @@ class SynthDriver(
             pass
 
     def _get_inflection(self):
-        return int(getattr(self, "_curInflection", 0.5) / 0.01)
+        return int(round(getattr(self, "_curInflection", 0.5) / 0.01))
 
     def _set_inflection(self, val):
         try:
