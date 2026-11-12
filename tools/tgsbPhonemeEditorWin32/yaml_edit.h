@@ -24,16 +24,28 @@ struct ReplacementWhen {
   std::string afterClass;
   std::string notBeforeClass; // negative condition: match only if next char NOT in class
   std::string notAfterClass;  // negative condition: match only if prev char NOT in class
+  // Cross-word conditions: the first sound of the next word, the last of
+  // the previous one.  The mapping dialog has no controls for them; they
+  // are carried so that changing a mapping does not drop them (#214).
+  std::string nextWordStartsClass;
+  std::string nextWordStartsNotClass;
+  std::string prevWordEndsClass;
+  std::string prevWordEndsNotClass;
 
   bool isEmpty() const {
     return (!atWordStart) && (!atWordEnd) && beforeClass.empty() && afterClass.empty()
-        && notBeforeClass.empty() && notAfterClass.empty();
+        && notBeforeClass.empty() && notAfterClass.empty()
+        && nextWordStartsClass.empty() && nextWordStartsNotClass.empty()
+        && prevWordEndsClass.empty() && prevWordEndsNotClass.empty();
   }
 };
 
 struct ReplacementRule {
   std::string from;
   std::string to;
+  // When the file's `to` is a list of candidates (the frontend takes the
+  // first one the phoneme table has), `to` is the first and these the rest.
+  std::vector<std::string> toMore;
   ReplacementWhen when;
 };
 

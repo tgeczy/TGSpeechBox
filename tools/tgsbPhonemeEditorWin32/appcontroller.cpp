@@ -257,6 +257,11 @@ static std::wstring whenToText(const ReplacementWhen& w) {
   if (w.atWordEnd) add(L"wordEnd");
   if (!w.beforeClass.empty()) add(L"before=" + utf8ToWide(w.beforeClass));
   if (!w.afterClass.empty()) add(L"after=" + utf8ToWide(w.afterClass));
+  // The mapping dialog cannot edit these; the list shows that a rule has them.
+  if (!w.nextWordStartsClass.empty()) add(L"nextWordStarts=" + utf8ToWide(w.nextWordStartsClass));
+  if (!w.nextWordStartsNotClass.empty()) add(L"nextWordStartsNot=" + utf8ToWide(w.nextWordStartsNotClass));
+  if (!w.prevWordEndsClass.empty()) add(L"prevWordEnds=" + utf8ToWide(w.prevWordEndsClass));
+  if (!w.prevWordEndsNotClass.empty()) add(L"prevWordEndsNot=" + utf8ToWide(w.prevWordEndsNotClass));
   return out;
 }
 

@@ -117,6 +117,8 @@ The language's `normalization: replacements:` rules, which rewrite eSpeak's IPA 
 - **Before class**, **After class**, **Not before class**, **Not after class**: limit the rule to sounds next to a class of phonemes (vowels, stops, a class you made);
 - **Edit Classes...**: the language's phoneme classes (see below).
 
+A rule's cross-word conditions (`nextWordStartsClass`, `nextWordStartsNotClass`, `prevWordEndsClass`, `prevWordEndsNotClass`) and the further candidates of a `to` written as a list have no fields in the dialog; the When column shows the conditions, and adding, editing or removing mappings keeps both. Change them in the YAML.
+
 **Remove mapping** deletes the selected rule. Order and conditions are explained in [Tuning.md, Normalization](Tuning.md#normalization).
 
 ### Skip inherited rules

@@ -278,6 +278,9 @@ std::vector<ReplacementRule> LanguageYaml::replacements() const {
       r.to = toN->scalar;
     } else if (toN->isSeq() && !toN->seq.empty() && toN->seq[0].isScalar()) {
       r.to = toN->seq[0].scalar;
+      for (size_t i = 1; i < toN->seq.size(); ++i) {
+        if (toN->seq[i].isScalar()) r.toMore.push_back(toN->seq[i].scalar);
+      }
     } else {
       continue;
     }
@@ -304,6 +307,18 @@ std::vector<ReplacementRule> LanguageYaml::replacements() const {
       if (const Node* n = whenN->get("notAfterClass")) {
         if (n->isScalar()) r.when.notAfterClass = n->scalar;
       }
+      if (const Node* n = whenN->get("nextWordStartsClass")) {
+        if (n->isScalar()) r.when.nextWordStartsClass = n->scalar;
+      }
+      if (const Node* n = whenN->get("nextWordStartsNotClass")) {
+        if (n->isScalar()) r.when.nextWordStartsNotClass = n->scalar;
+      }
+      if (const Node* n = whenN->get("prevWordEndsClass")) {
+        if (n->isScalar()) r.when.prevWordEndsClass = n->scalar;
+      }
+      if (const Node* n = whenN->get("prevWordEndsNotClass")) {
+        if (n->isScalar()) r.when.prevWordEndsNotClass = n->scalar;
+      }
     }
 
     out.push_back(std::move(r));
@@ -313,6 +328,12 @@ std::vector<ReplacementRule> LanguageYaml::replacements() const {
 }
 
 void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
+  // No rules, and no list in the file: leave the file without one.
+  if (rules.empty()) {
+    const Node* norm = m_root.get("normalization");
+    if (!norm || !norm->isMap() || !norm->get("replacements")) return;
+  }
+
   // Ensure root is a map.
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
@@ -340,6 +361,20 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
     Node to;
     to.type = Node::Type::Scalar;
     to.scalar = r.to;
+    if (!r.toMore.empty()) {
+      // A list of candidates stays a list, every item of it.
+      Node list;
+      list.type = Node::Type::Seq;
+      list.flowStyle = true;
+      list.seq.push_back(std::move(to));
+      for (const auto& more : r.toMore) {
+        Node n;
+        n.type = Node::Type::Scalar;
+        n.scalar = more;
+        list.seq.push_back(std::move(n));
+      }
+      to = std::move(list);
+    }
 
     mapSet(item, "from", std::move(from));
     mapSet(item, "to", std::move(to));
@@ -384,6 +419,17 @@ void LanguageYaml::setReplacements(const std::vector<ReplacementRule>& rules) {
         s.scalar = r.when.notAfterClass;
         mapSet(when, "notAfterClass", std::move(s));
       }
+      auto setClassCondition = [&](const char* key, const std::string& cls) {
+        if (cls.empty()) return;
+        Node s;
+        s.type = Node::Type::Scalar;
+        s.scalar = cls;
+        mapSet(when, key, std::move(s));
+      };
+      setClassCondition("nextWordStartsClass", r.when.nextWordStartsClass);
+      setClassCondition("nextWordStartsNotClass", r.when.nextWordStartsNotClass);
+      setClassCondition("prevWordEndsClass", r.when.prevWordEndsClass);
+      setClassCondition("prevWordEndsNotClass", r.when.prevWordEndsNotClass);
 
       mapSet(item, "when", std::move(when));
     }
