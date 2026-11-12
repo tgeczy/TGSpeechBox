@@ -439,7 +439,7 @@ class SpeechPipelineMixin:
                     # A variation selector after an emoji is no character
                     # of its own, and a key may be a short string such as
                     # a digraph ("ll"): all that is left is looked up (#170).
-                    plain = chunk.replace("︎", "").replace("️", "")
+                    plain = chunk.replace("\ufe0e", "").replace("\ufe0f", "")
                     core = plain.strip(_LETTER_EDGE_CHARS)
                     if len(core) <= 3:
                         log.debug("TGSpeechBox: short chunk=%r core=%r lang=%r packs=%r",
