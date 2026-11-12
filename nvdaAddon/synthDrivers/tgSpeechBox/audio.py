@@ -437,8 +437,12 @@ class AudioThread(threading.Thread):
                         log.debug("nvSpeechPlayer: WavePlayer.idle failed", exc_info=True)
                         self._idleErrorLogged = True
 
+                # A cancel() while the tail was still playing stops the
+                # player, which ends idle() early: that speech did not
+                # finish either, and gets no synthDoneSpeaking (#197).
                 s = synthRef()
-                if s:
+                if s and self.cancelSeq == cancelAtPassStart \
+                        and getattr(self, "utteranceSeq", 0) == seqAtPassStart:
                     synthDoneSpeaking.notify(synth=s)
 
             # Only clear the flag if it is still OURS.  If a newer
