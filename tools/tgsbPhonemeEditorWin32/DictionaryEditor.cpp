@@ -123,7 +123,9 @@ static void loadEntries(HWND hDlg, DictionaryEditorState* st) {
   st->filteredIndices.clear();
   st->modified = false;
 
-  std::wstring path = dictTsvPath(st->packDir, st->currentLang, st->currentType);
+  // The file this language reads the type from; every save goes back to it.
+  st->currentPath = dictTsvPathToEdit(st->packDir, st->currentLang, st->currentType);
+  const std::wstring& path = st->currentPath;
 
   if (fs::exists(path)) {
     std::string err;
@@ -213,6 +215,11 @@ static void updateStatusText(HWND hDlg, DictionaryEditorState* st) {
   if (!st->currentLang.empty()) {
     title += L" - " + utf8ToWide(st->currentLang);
   }
+  // Name the file: a regional language may be editing the one its whole
+  // language shares (en-us and en-compounds.tsv, #216).
+  if (!st->currentPath.empty()) {
+    title += L" - " + fs::path(st->currentPath).filename().wstring();
+  }
 
   size_t total = st->entries.size();
   size_t shown = st->filteredIndices.size();
@@ -240,7 +247,7 @@ static bool promptSaveIfModified(HWND hDlg, DictionaryEditorState* st) {
                         L"Dictionary Editor", MB_YESNOCANCEL | MB_ICONQUESTION);
   if (ret == IDCANCEL) return false;
   if (ret == IDYES) {
-    std::wstring path = dictTsvPath(st->packDir, st->currentLang, st->currentType);
+    const std::wstring& path = st->currentPath;
     std::string err;
     if (!saveDictTsv(path, st->currentType, st->entries, err)) {
       msgBox(hDlg, utf8ToWide(err), L"Dictionary Editor", MB_ICONERROR);
@@ -738,12 +745,12 @@ static INT_PTR CALLBACK DictEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
 
       // Save button.
       if (id == IDC_DICT_SAVE) {
-        std::wstring path = dictTsvPath(st->packDir, st->currentLang, st->currentType);
+        const std::wstring& path = st->currentPath;
         std::string err;
         if (saveDictTsv(path, st->currentType, st->entries, err)) {
           st->modified = false;
           updateStatusText(hDlg, st);
-          msgBox(hDlg, L"Dictionary saved.", L"Dictionary Editor", MB_ICONINFORMATION);
+          msgBox(hDlg, L"Saved " + fs::path(path).filename().wstring() + L".", L"Dictionary Editor", MB_ICONINFORMATION);
         } else {
           msgBox(hDlg, utf8ToWide(err), L"Dictionary Editor", MB_ICONERROR);
         }
@@ -811,7 +818,7 @@ static INT_PTR CALLBACK DictEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
                                 L"Dictionary Editor", MB_YESNOCANCEL | MB_ICONQUESTION);
           if (ret == IDCANCEL) return TRUE;
           if (ret == IDYES) {
-            std::wstring path = dictTsvPath(st->packDir, st->currentLang, st->currentType);
+            const std::wstring& path = st->currentPath;
             std::string err;
             if (!saveDictTsv(path, st->currentType, st->entries, err)) {
               msgBox(hDlg, utf8ToWide(err), L"Dictionary Editor", MB_ICONERROR);

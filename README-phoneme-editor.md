@@ -168,6 +168,8 @@ When you save `phonemes.yaml`, the editor checks that each phoneme's formants ri
 | Compound | `<lang>-compounds.tsv` | Word and the parts it splits into |
 | Character | `<lang>-letters.tsv` | Symbol and what to say for it (letter names, `#` as "hash") |
 
+Some dictionaries are shared by every regional variety of a language: English compounds are in `en-compounds.tsv`, Spanish and Portuguese letter names in `es-letters.tsv` and `pt-letters.tsv`. For Pronunciation, Compound and Character, a regional language (en-us, es-mx, pt-br) with no entries of its own opens the base language's file, which is where it speaks from; a change there is heard in every variety of the language. The window title names the file that is open. Once a regional file has entries, the frontend reads it *instead of* the shared one, and so does the editor.
+
 - **Search** narrows the list to entries starting with what you type.
 - **Add**, **Edit**, **Delete** change entries. For Pronunciation and User entries:
   - **From** is the word, **To** what to say instead (a respelling).

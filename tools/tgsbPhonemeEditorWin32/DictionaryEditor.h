@@ -42,6 +42,7 @@ struct DictionaryEditorState {
   // Working state (managed by dialog)
   std::string currentLang;
   std::string currentType;  // "pronounce", "stress", "compound", "character"
+  std::wstring currentPath; // the file open: a regional tag may edit the base language's (dictTsvPathToEdit)
   std::vector<DictEntryData> entries;
   std::vector<size_t> filteredIndices;  // indices into entries matching search
   bool modified = false;

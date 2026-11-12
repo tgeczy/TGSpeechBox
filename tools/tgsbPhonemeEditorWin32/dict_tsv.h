@@ -32,4 +32,9 @@ bool saveDictTsv(const std::wstring& path, const std::string& dictType,
 std::wstring dictTsvPath(const std::wstring& packDir, const std::string& langTag,
                          const std::string& dictType);
 
+// The file the dictionary dialog opens and saves for a language and type:
+// the one the frontend reads that language's entries from.
+std::wstring dictTsvPathToEdit(const std::wstring& packDir, const std::string& langTag,
+                               const std::string& dictType);
+
 } // namespace tgsb_editor

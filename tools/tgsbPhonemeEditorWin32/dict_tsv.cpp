@@ -87,6 +87,32 @@ std::wstring dictTsvPath(const std::wstring& packDir, const std::string& langTag
   return (base / (tag + "-dict.tsv")).wstring();  // "pronounce"
 }
 
+// Compound splits, letter names and pronunciations may be shared by every
+// regional variety of a language: en-us reads en-compounds.tsv, es-mx reads
+// es-letters.tsv.  The frontend (loadPackSet in pack.cpp) reads the base
+// language's file whenever the regional one has no entries, so a regional
+// file made for one new entry would hide the whole shared file from that
+// variety (#216).  The file to edit is therefore the one the frontend reads:
+// the regional file once it has entries, else the base language's if there
+// is one.  Stress dictionaries have no such fallback, and a language's user
+// file is read next to the base one, not instead of it.
+std::wstring dictTsvPathToEdit(const std::wstring& packDir, const std::string& langTag,
+                               const std::string& dictType) {
+  const std::wstring own = dictTsvPath(packDir, langTag, dictType);
+  if (dictType != "compound" && dictType != "character" && dictType != "pronounce") return own;
+  const size_t dash = langTag.find('-');
+  if (dash == std::string::npos) return own;
+
+  std::vector<DictEntryData> entries;
+  std::string err;
+  if (loadDictTsv(own, dictType, entries, err) && !entries.empty()) return own;
+
+  const std::wstring shared = dictTsvPath(packDir, langTag.substr(0, dash), dictType);
+  std::error_code ec;
+  if (fs::exists(fs::path(shared), ec)) return shared;
+  return own;
+}
+
 bool loadDictTsv(const std::wstring& path, const std::string& dictType,
                  std::vector<DictEntryData>& out, std::string& outError) {
   out.clear();
