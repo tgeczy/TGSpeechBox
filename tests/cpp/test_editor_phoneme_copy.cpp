@@ -176,6 +176,44 @@ TEST_CASE("copy for this language: an edit inside frameEx keeps the copy's other
   CHECK(field(*ex, "jitter") == "0.05");
 }
 
+// The reviewer's case: the shared phoneme has no frameEx block at all and the
+// copy has one (in phonemes.yaml: the palatal lateral and its Spanish copy).
+// The dialog creates the block when a frameEx field is first set, so the edit
+// arrives as "frameEx added"; that must add the one field to the copy's block,
+// not replace the block.
+TEST_CASE("copy for this language: a frameEx field added to a shared phoneme without the block keeps the copy's block") {
+  const fs::path dir = editorScratchDir("phoneme_copy_new_frameex");
+  const fs::path file = dir / "packs" / "phonemes.yaml";
+  writeAllBytes(file,
+      "phonemes:\n"
+      "  k:\n"
+      "    cf1: 500\n"
+      "  k_xx:\n"
+      "    cf1: 450\n"
+      "    frameEx:\n"
+      "      creakiness: 0.1\n"
+      "      breathiness: 0.6\n");
+  PhonemesYaml y = loadEditor(file);
+  const EditorNode sharedBefore = *y.getPhonemeNode("k");
+  EditorNode working = sharedBefore;
+  EditorNode block;
+  block.type = EditorNode::Type::Map;
+  block.map["jitter"] = scalar("0.05");
+  block.keyOrder.push_back("jitter");
+  working.map["frameEx"] = block;
+  working.keyOrder.push_back("frameEx");
+
+  REQUIRE(y.applyEditToPhoneme("k_xx", sharedBefore, working));
+  const EditorNode* after = y.getPhonemeNode("k_xx");
+  CHECK(field(*after, "cf1") == "450");
+  const EditorNode* ex = after->get("frameEx");
+  REQUIRE(ex != nullptr);
+  REQUIRE(ex->isMap());
+  CHECK(field(*ex, "jitter") == "0.05");
+  CHECK(field(*ex, "creakiness") == "0.1");
+  CHECK(field(*ex, "breathiness") == "0.6");
+}
+
 TEST_CASE("copy for this language: every language copy in phonemes.yaml takes a one-field edit as one field") {
   const fs::path dir = editorScratchDir("phoneme_copy_all");
   PhonemesYaml y = loadEditor(copyPhonemes(dir));

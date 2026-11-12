@@ -145,8 +145,13 @@ static void applyMapEdit(Node& target, const Node& original, const Node& working
     const Node* orig = original.isMap() ? original.get(kv.first) : nullptr;
     if (orig && ye::sameData(*orig, kv.second)) continue;
     auto it = target.map.find(kv.first);
-    if (it != target.map.end() && orig && orig->isMap() && kv.second.isMap() && it->second.isMap()) {
-      applyMapEdit(it->second, *orig, kv.second);
+    // A block the original did not have at all (the dialog makes frameEx
+    // when its first field is set) is an edit from an empty block: its
+    // fields are added to the target's own block.
+    static const Node kEmptyMap = [] { Node n; n.type = Node::Type::Map; return n; }();
+    const Node* from = orig ? orig : &kEmptyMap;
+    if (it != target.map.end() && from->isMap() && kv.second.isMap() && it->second.isMap()) {
+      applyMapEdit(it->second, *from, kv.second);
     } else {
       mapSet(target, kv.first, kv.second);
     }
