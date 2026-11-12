@@ -312,8 +312,9 @@ class LangPackSettingsMixin:
             raw = self._getLangPackStr("legacyPitchInflectionScale", default="")
             if raw:
                 fval = float(raw)
-                # Map 0.0–2.0 → 0–100
-                return int(max(0, min(100, fval / 2.0 * 100.0)))
+                # Map 0.0–2.0 → 0–100.  Rounded: 0.58 is 28.999... here, and
+                # cut off it read as 28 (#196).
+                return int(round(max(0, min(100, fval / 2.0 * 100.0))))
             return 29  # default 0.58
         except Exception:
             return 29
@@ -321,9 +322,14 @@ class LangPackSettingsMixin:
     def _set_legacyPitchInflectionScale(self, val):
         try:
             sliderVal = int(val)
-            if sliderVal == getattr(self, "_curLegacyPitchInflectionScale", 29):
+            # Nothing to write when the slider already reads this for the
+            # current language's file.  (It used to compare with the value
+            # last set, one for all languages: the same value set for a
+            # second language was dropped, and a replay of NVDA's saved 28
+            # wrote 0.56 over a file's 0.58, #196.)  This also leaves a
+            # hand-edited value between two slider steps as it is.
+            if sliderVal == self._get_legacyPitchInflectionScale():
                 return
-            self._curLegacyPitchInflectionScale = sliderVal
             # Map 0–100 → 0.0–2.0
             yamlVal = round(sliderVal / 100.0 * 2.0, 3)
             self._setLangPackSetting("legacyPitchInflectionScale", yamlVal)

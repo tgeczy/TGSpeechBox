@@ -202,7 +202,6 @@ class SynthDriver(
         self._curFrameExJitter = 0
         self._curFrameExShimmer = 0
         self._curFrameExSharpness = 50  # 50 = neutral (1.0x multiplier)
-        self._curLegacyPitchInflectionScale = 29  # 29 = 0.58 (pack.h default)
         self._initPerVoiceStorage()
         self._usingVoiceProfile = False
         self._activeProfileName = ""

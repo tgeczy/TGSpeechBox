@@ -122,6 +122,36 @@ def test_cancel_takes_back_a_language_file_setting(harness, record_frames, drive
     assert _other_files(d, lang) == others_before, "another language's file changed"
 
 
+@pytest.mark.parametrize("lang", LANGS)
+def test_cancel_takes_back_the_inflection_scale(harness, record_frames, driver_config_section, lang):
+    """The sixth setting, a slider (#196 made it read back what it wrote).
+    The classic pitch mode is the one that makes it heard."""
+    from synthDrivers.tgSpeechBox import langPackYaml
+    key, text = "legacyPitchInflectionScale", "agota"
+
+    def in_file():
+        return float(langPackYaml.getEffectiveSettingValue(d._packsDir, lang, key))
+
+    d = harness.driver
+    d.language = lang
+    d.legacyPitchMode = "legacy"
+    _ok(d)
+    before, file_before = d.legacyPitchInflectionScale, in_file()
+    others_before = _other_files(d, lang)
+    speech_before = _frames(harness, record_frames, text)
+
+    d.legacyPitchInflectionScale = 80
+    assert in_file() == 1.6
+    assert _frames(harness, record_frames, text) != speech_before  # the change is heard
+
+    _cancel(d)
+    assert d.legacyPitchInflectionScale == before
+    assert in_file() == file_before, f"{lang}: Cancel left the inflection scale changed in the language file"
+    assert driver_config_section()[key] == before
+    assert _frames(harness, record_frames, text) == speech_before
+    assert _other_files(d, lang) == others_before, "another language's file changed"
+
+
 @pytest.mark.parametrize("setting", sorted(SETTINGS))
 def test_ok_keeps_the_change(harness, driver_config_section, setting):
     key, _text = SETTINGS[setting]
