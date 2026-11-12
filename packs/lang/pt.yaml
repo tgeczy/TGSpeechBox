@@ -218,10 +218,10 @@ normalization:
       to: "ɾ"
 
     # --- Palatals ---
-    # "lh": eSpeak NG writes lj (Brazilian) or ʎ (European).  Both are the
-    # Portuguese palatal lateral, ʎ_pt, held long enough to be heard as a
-    # lateral rather than the "i" of "bataia" (#152, Edu).
-    - from: "lj"
-      to: "ʎ_pt"
+    # "lh": eSpeak NG writes ʎ, the Portuguese palatal lateral: ʎ_pt, held long
+    # enough to be heard as a lateral rather than the "i" of "bataia" (#152,
+    # Edu).  Brazilian Portuguese takes l + j instead (see pt-br.yaml).  "lj"
+    # is not touched here: it is also "li" before a vowel ("família",
+    # "Itália"), which is not "lh".
     - from: "ʎ"
       to: "ʎ_pt"

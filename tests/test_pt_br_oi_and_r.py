@@ -2,8 +2,12 @@
 
 - "oi" ("foi", "boi", "dois") played the English "boy" diphthong: pt-br.yaml
   opens every "o" to "ɔ", so "oj" became "ɔj", the English CHOICE phoneme with
-  its own glide built in.  It is now the close o plus the glide, the way "ai"
-  and "ei" are a vowel plus j.
+  its own glide built in.  It is the close o plus the glide, the way "ai" and
+  "ei" are a vowel plus j (Cleverson's report, release candidate 2).  Edu then
+  heard "dois" as "doois" (#150), and release candidate 3 made it one gliding
+  vowel; in the listening round on #150 (November 2026) all three Brazilian
+  listeners turned that one down, and two closer versions of it, for "too
+  much like ói instead of ôi", and asked for the close o plus the glide back.
 - The strong r ("resumo", "carro", "rua"), which eSpeak writes as x, was
   mapped to a breathy "h" and sounded close to "ch"; Cleverson, a native
   speaker, found the throat fricative he wanted in x_es.  Then the "rr" in
@@ -34,32 +38,24 @@ def _keys(ipa):
     return [e["phonemeKey"] for e in tgspeechbox.render(ipa, "pt-br").frame_trace]
 
 
-@pytest.mark.parametrize("ipa", ["fˈo͡ɪ", "bˈo͡ɪ", "dˈo͡ɪs"])  # foi, boi, dois (eSpeak NG's IPA)
-def test_oi_starts_on_the_close_o(ipa):
-    u = tgspeechbox.render(ipa, "pt-br")
-    keys = [e["phonemeKey"] for e in u.frame_trace]
-    assert "ɔj" not in keys, f"{ipa}: the English 'boy' diphthong: {keys}"
-    n = keys.index("oj_ptbr")
-    onset = u.frames[u.frame_trace[n]["frameIndex"]].params
-    assert onset["cf1"] <= 500, f"{ipa}: oi starts open ({onset['cf1']:.0f} Hz), like 'boy'"
+OI = {"oi": "ˈo͡ɪ", "foi": "fˈo͡ɪ", "boi": "bˈo͡ɪ", "dois": "dˈo͡ɪs", "pois": "pˈo͡ɪs"}  # eSpeak NG's IPA
+TIE = chr(0x361)
 
 
 @pytest.mark.parametrize("speed", [0.5, 1.0, 1.6, 2.0, 3.0])
-@pytest.mark.parametrize("ipa", ["dˈo͡ɪs", "pˈo͡ɪs"])  # dois, pois
-def test_oi_is_one_diphthong_not_a_held_o(ipa, speed):
-    # #150 (Edu): "dois" sounded like "doois".  A full o and then a separate
-    # glide is a long o; "oi" is one gliding vowel, about as long as "ɔj" was.
+@pytest.mark.parametrize("tied", [True, False])
+@pytest.mark.parametrize("word", list(OI))
+def test_oi_is_the_close_o_plus_the_glide(word, tied, speed):
+    # The version the listeners on #150 chose (Cleverson, Thiago, and Edu's
+    # "leave it as it was"): ôi, not the English "boy" and not ói.
+    ipa = OI[word] if tied else OI[word].replace(TIE, "")
     u = tgspeechbox.render(ipa, "pt-br", speed=speed)
     keys = [e["phonemeKey"] for e in u.frame_trace]
-    assert "j" not in keys, f"{ipa} @{speed}: o and a separate glide: {keys}"
-    ref = tgspeechbox.render(ipa.replace("o͡ɪ", "a"), "pt-br", speed=speed)
-    tr = u.frame_trace
-    n = keys.index("oj_ptbr")
-    ms = sum(f.duration_ms for f in u.frames[tr[n]["frameIndex"]:tr[n + 1]["frameIndex"]])
-    rtr = ref.frame_trace
-    m = [e["phonemeKey"] for e in rtr].index("a")
-    ref_ms = sum(f.duration_ms for f in ref.frames[rtr[m]["frameIndex"]:rtr[m + 1]["frameIndex"]])
-    assert ms <= 1.25 * ref_ms, f"{ipa} @{speed}: oi {ms:.0f} ms vs a plain vowel {ref_ms:.0f} ms"
+    assert "ɔj" not in keys, f"{word} @{speed}: the English 'boy' diphthong: {keys}"
+    n = keys.index("o_es")
+    assert keys[n + 1] == "j", f"{word} @{speed}: {keys}"
+    onset = u.frames[u.frame_trace[n]["frameIndex"]].params
+    assert onset["cf1"] <= 500, f"{word} @{speed}: oi starts open ({onset['cf1']:.0f} Hz), like 'boy'"
 
 
 @pytest.mark.parametrize("ipa", ["xˌezˈumʊ", "bˈaxʊ", "xˈuɐ"])  # resumo, barro, rua (no voiceless stop: those add an h puff)
