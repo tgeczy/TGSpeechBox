@@ -21,6 +21,12 @@ from __future__ import annotations
 
 from logHandler import log
 
+try:
+    import addonHandler
+    addonHandler.initTranslation()
+except Exception:
+    def _(s): return s
+
 OLD_SECTION = "nvSpeechPlayer"
 NEW_SECTION = "tgSpeechBox"
 
@@ -157,17 +163,17 @@ def _show_notice_deferred() -> None:
             try:
                 import gui
                 gui.messageBox(
-                    "TGSpeechBox has migrated your settings from the old "
-                    "NV Speech Player configuration.\n\n"
-                    "All your voice, pitch, rate, and language settings "
-                    "have been preserved.\n\n"
-                    "If you still have the old NV Speech Player add-on "
-                    "installed, you can safely remove it from:\n"
-                    "NVDA menu > Tools > Manage add-ons\n\n"
-                    "The original NV Access version (UK English only) "
-                    "is still available at:\n"
-                    "https://github.com/nvaccess/nvSpeechPlayer",
-                    "TGSpeechBox — Settings Migrated",
+                    _("TGSpeechBox has migrated your settings from the old "
+                      "NV Speech Player configuration.\n\n"
+                      "All your voice, pitch, rate, and language settings "
+                      "have been preserved.\n\n"
+                      "If you still have the old NV Speech Player add-on "
+                      "installed, you can safely remove it from:\n"
+                      "NVDA menu > Tools > Manage add-ons\n\n"
+                      "The original NV Access version (UK English only) "
+                      "is still available at:\n"
+                      "https://github.com/nvaccess/nvSpeechPlayer"),
+                    _("TGSpeechBox — Settings Migrated"),
                     wx.OK | wx.ICON_INFORMATION,
                 )
             except Exception:

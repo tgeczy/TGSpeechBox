@@ -3425,3 +3425,14 @@ msgstr "Importar diccionario de usuario..."
 #: synthDrivers/tgSpeechBox/lang_pack_settings.py:68
 msgid "Arató (BraiLab)"
 msgstr ""
+
+#. Settings migration notice (shown once, after moving from NV Speech Player)
+#: synthDrivers/tgSpeechBox/migrate_config.py:166
+msgid ""
+"TGSpeechBox has migrated your settings from the old NV Speech Player configuration.\n\nAll your voice, pitch, rate, and language settings have been preserved.\n\nIf you still have the old NV Speech Player add-on installed, you can safely remove it from:\nNVDA menu > Tools > Manage add-ons\n\nThe original NV Access version (UK English only) is still available at:\nhttps://github.com/nvaccess/nvSpeechPlayer"
+msgstr ""
+
+#. Settings migration notice dialog title
+#: synthDrivers/tgSpeechBox/migrate_config.py:176
+msgid "TGSpeechBox — Settings Migrated"
+msgstr ""
