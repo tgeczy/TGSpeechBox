@@ -625,7 +625,7 @@ static void onAddMapping(AppController& app, const std::string& defaultTo = {}) 
   ShowAddMappingDialog(app.hInst, app.wnd, st);
 
   // Refresh classNames in case classes were edited in dialog
-  if (st.classNames != app.classNames) {
+  if (st.classesChanged) {
     app.classNames = st.classNames;
     app.languageDirty = true;
   }
@@ -653,7 +653,7 @@ static void onEditSelectedMapping(AppController& app) {
   ShowAddMappingDialog(app.hInst, app.wnd, st);
 
   // Refresh classNames in case classes were edited in dialog
-  if (st.classNames != app.classNames) {
+  if (st.classesChanged) {
     app.classNames = st.classNames;
     app.languageDirty = true;
   }
@@ -690,6 +690,10 @@ static void onAddSkipRule(AppController& app) {
   st.classNames = app.classNames;
   st.language = &app.language;
   ShowAddMappingDialog(app.hInst, app.wnd, st);
+  if (st.classesChanged) {
+    app.classNames = st.classNames;
+    app.languageDirty = true;
+  }
   if (!st.ok) return;
 
   SkipRule sr;

@@ -207,7 +207,7 @@ static INT_PTR CALLBACK AddMappingDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
         HINSTANCE hInst = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hDlg, GWLP_HINSTANCE));
         if (ShowClassEditorDialog(hInst, hDlg, ceSt)) {
           // Write back to YAML and refresh comboboxes
-          st->language->setClasses(ceSt.classes);
+          if (st->language->setClasses(ceSt.classes)) st->classesChanged = true;
           st->classNames = st->language->classNamesSorted();
 
           // Refresh all class comboboxes
@@ -2011,6 +2011,18 @@ bool ShowPhonemizerSettingsDialog(HINSTANCE hInst, HWND parent, PhonemizerSettin
 // Class Editor Dialog
 // -------------------------------------------------------------------
 
+// A class's members for the members box, one per line.  A multi-line edit
+// control breaks lines at \r\n only.
+static std::wstring membersForEditBox(const std::string& members) {
+  std::wstring out;
+  for (wchar_t c : utf8ToWide(members)) {
+    if (c == L'\r') continue;
+    if (c == L'\n') out += L"\r\n";
+    else out.push_back(c);
+  }
+  return out;
+}
+
 static INT_PTR CALLBACK ClassEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
   ClassEditorDialogState* st = reinterpret_cast<ClassEditorDialogState*>(GetWindowLongPtrW(hDlg, GWLP_USERDATA));
 
@@ -2031,7 +2043,7 @@ static INT_PTR CALLBACK ClassEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
         SendMessageW(list, LB_SETCURSEL, 0, 0);
         // Show members of first class
         auto it = st->classes.begin();
-        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, utf8ToWide(it->second).c_str());
+        SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, membersForEditBox(it->second).c_str());
         std::wstring label = L"Members of \"" + utf8ToWide(it->first) + L"\":";
         SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_LABEL, label.c_str());
       }
@@ -2062,7 +2074,7 @@ static INT_PTR CALLBACK ClassEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
         // Update members edit
         auto it = st->classes.find(className);
         if (it != st->classes.end()) {
-          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, utf8ToWide(it->second).c_str());
+          SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, membersForEditBox(it->second).c_str());
         } else {
           SetDlgItemTextW(hDlg, IDC_CE_MEMBERS_EDIT, L"");
         }

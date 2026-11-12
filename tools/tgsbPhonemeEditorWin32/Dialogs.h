@@ -23,11 +23,12 @@ struct AddMappingDialogState {
   tgsb_editor::ReplacementRule rule;
   std::vector<std::string> classNames;
   tgsb_editor::LanguageYaml* language = nullptr;  // for class editing
+  bool classesChanged = false;  // out: Edit Classes changed the language's classes
   bool ok = false;
 };
 
 struct ClassEditorDialogState {
-  std::map<std::string, std::string> classes;  // className -> members string
+  std::map<std::string, std::string> classes;  // className -> members, one per line
   bool ok = false;
 };
 

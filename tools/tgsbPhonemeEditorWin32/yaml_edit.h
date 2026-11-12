@@ -141,8 +141,10 @@ public:
   std::vector<std::string> classNamesSorted() const;
 
   // Normalization classes: normalization.classes
+  // Each class's members as text, one per line.  setClasses writes the
+  // classes whose members differ (as lists) and returns whether any did.
   std::map<std::string, std::string> classes() const;
-  void setClasses(const std::map<std::string, std::string>& classes);
+  bool setClasses(const std::map<std::string, std::string>& classes);
 
   // Top-level settings: settings:
   // One row per plain value or list of plain values, sorted by key.  A

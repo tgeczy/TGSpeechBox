@@ -458,6 +458,25 @@ std::vector<std::string> LanguageYaml::classNamesSorted() const {
   return out;
 }
 
+// A class's members as the Class Editor's box holds them: one per line.
+// The box is a Win32 multi-line edit, so lines may end in \r\n.
+static std::vector<std::string> splitMemberLines(const std::string& text) {
+  std::vector<std::string> out;
+  std::string cur;
+  auto flush = [&]() {
+    while (!cur.empty() && (cur.front() == ' ' || cur.front() == '\t')) cur.erase(cur.begin());
+    while (!cur.empty() && (cur.back() == ' ' || cur.back() == '\t')) cur.pop_back();
+    if (!cur.empty()) out.push_back(cur);
+    cur.clear();
+  };
+  for (char c : text) {
+    if (c == '\n' || c == '\r') flush();
+    else cur.push_back(c);
+  }
+  flush();
+  return out;
+}
+
 std::map<std::string, std::string> LanguageYaml::classes() const {
   std::map<std::string, std::string> out;
   const Node* norm = m_root.get("normalization");
@@ -466,46 +485,73 @@ std::map<std::string, std::string> LanguageYaml::classes() const {
   if (!classesNode || !classesNode->isMap()) return out;
 
   for (const auto& kv : classesNode->map) {
-    if (kv.second.isScalar()) {
+    if (kv.second.isSeq()) {
+      // A class is a list of symbols (the only form the frontend reads).
+      std::string joined;
+      for (const auto& item : kv.second.seq) {
+        if (!item.isScalar()) continue;
+        if (!joined.empty()) joined += "\n";
+        joined += item.scalar;
+      }
+      out[kv.first] = joined;
+    } else if (kv.second.isScalar()) {
+      // What the editor wrote before #162; shown so it can be put right.
       out[kv.first] = kv.second.scalar;
+    } else {
+      out[kv.first] = "";
     }
   }
   return out;
 }
 
-void LanguageYaml::setClasses(const std::map<std::string, std::string>& classes) {
+// Only a class whose members differ from what is in the file is written, as
+// a list; a removed class is taken out; everything else stays as it is, so
+// OK with nothing changed changes nothing (#162).
+bool LanguageYaml::setClasses(const std::map<std::string, std::string>& classes) {
+  const std::map<std::string, std::string> before = this->classes();
+
+  bool anyChange = false;
+  for (const auto& kv : before) {
+    if (classes.find(kv.first) == classes.end()) anyChange = true;
+  }
+  for (const auto& kv : classes) {
+    auto it = before.find(kv.first);
+    if (it == before.end() || splitMemberLines(it->second) != splitMemberLines(kv.second)) anyChange = true;
+  }
+  if (!anyChange) return false;
+
   // Ensure normalization exists
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
     m_root.map.clear();
     m_root.keyOrder.clear();
+    m_root.seq.clear();
+    m_root.scalar.clear();
   }
+  Node* norm = getNestedMap(m_root, "normalization");
+  Node* classesNode = getNestedMap(*norm, "classes");
 
-  Node* norm = nullptr;
-  auto it = m_root.map.find("normalization");
-  if (it == m_root.map.end()) {
-    Node n;
-    n.type = Node::Type::Map;
-    mapSet(m_root, "normalization", std::move(n));
-    norm = &m_root.map["normalization"];
-  } else {
-    norm = &it->second;
-    if (norm->type != Node::Type::Map) {
-      norm->type = Node::Type::Map;
-      norm->map.clear();
-    }
+  for (const auto& kv : before) {
+    if (classes.find(kv.first) != classes.end()) continue;
+    classesNode->map.erase(kv.first);
+    auto& ko = classesNode->keyOrder;
+    ko.erase(std::remove(ko.begin(), ko.end(), kv.first), ko.end());
   }
-
-  // Build the classes node
-  Node classesNode;
-  classesNode.type = Node::Type::Map;
   for (const auto& kv : classes) {
-    Node val;
-    val.type = Node::Type::Scalar;
-    val.scalar = kv.second;
-    mapSet(classesNode, kv.first, std::move(val));
+    const std::vector<std::string> members = splitMemberLines(kv.second);
+    auto it = before.find(kv.first);
+    if (it != before.end() && splitMemberLines(it->second) == members) continue;
+    Node list;
+    list.type = Node::Type::Seq;
+    for (const auto& m : members) {
+      Node item;
+      item.type = Node::Type::Scalar;
+      item.scalar = m;
+      list.seq.push_back(std::move(item));
+    }
+    mapSet(*classesNode, kv.first, std::move(list));
   }
-  norm->map["classes"] = std::move(classesNode);
+  return true;
 }
 
 // One row of the Language settings dialog: the key it shows, its value, and
