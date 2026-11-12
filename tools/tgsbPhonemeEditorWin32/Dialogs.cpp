@@ -9,6 +9,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include "Dialogs.h"
 #include "VoiceProfileEditor.h"
+#include "voicing_sliders.h"
 
 #include "AccessibilityUtils.h"
 #include "WinUtils.h"
@@ -1090,7 +1091,7 @@ static int presetVoicingDefault(const std::string& voice, const std::string& par
 // the noise-modulation slider at 50 as "neutral"; its neutral is 0, so a
 // stored 50 from such a file reads as 0.
 static int builtInVoicingSlider(const std::string& voiceName, size_t i, const std::string& param) {
-  const int neutral = (i == 7 || i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
+  const int neutral = tgsb_editor::voicingSliderNeutral(static_cast<int>(i));
   const std::wstring key = L"voicing_" + utf8ToWide(param);
   const std::wstring section = L"voice_" + utf8ToWide(voiceName);
   int val = readIniInt(section.c_str(), key.c_str(), -1);
@@ -1136,7 +1137,7 @@ tgsb_editor::SpeechSettings loadSpeechSettingsFromIni() {
 std::wstring key = L"voicing_" + utf8ToWide(voicingNames[i]);
     // Try voice-specific section first, fallback to [speech] defaults
     // tremorDepth (13), chorusDepth (17) default to 0; chorusDetune (18) to 33
-    int defaultVal = (i == 7 || i == 13 || i == 17) ? 0 : (i == 18) ? 33 : 50;
+    int defaultVal = tgsb_editor::voicingSliderNeutral(static_cast<int>(i));
     int val;
     if (voiceSection != L"speech") {
       val = builtInVoicingSlider(s.voiceName, i, voicingNames[i]);
@@ -1523,11 +1524,13 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         int sel = lb ? static_cast<int>(SendMessageW(lb, LB_GETCURSEL, 0, 0)) : -1;
         if (sel < 0) sel = 0;
         if (sel >= 0 && sel < static_cast<int>(st->settings.voicingParams.size())) {
-          st->settings.voicingParams[static_cast<size_t>(sel)] = 50;
-          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_VOICING_SLIDER), 50);
-          setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, 50);
+          // Each slider back to its own neutral position, not always 50 (#218).
+          const int neutral = tgsb_editor::voicingSliderResetValue(sel);
+          st->settings.voicingParams[static_cast<size_t>(sel)] = neutral;
+          setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_VOICING_SLIDER), neutral);
+          setDlgIntText(hDlg, IDC_SPEECH_VOICING_VAL, neutral);
           if (sel < static_cast<int>(st->voicingParamNames.size())) {
-            refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], 50);
+            refreshParamListRow(lb, static_cast<size_t>(sel), st->voicingParamNames[static_cast<size_t>(sel)], neutral);
             SendMessageW(lb, LB_SETCURSEL, sel, 0);
           }
         }
@@ -1543,11 +1546,7 @@ static INT_PTR CALLBACK SpeechSettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam
         return TRUE;
       }
 if (id == IDC_SPEECH_VOICING_RESET_ALL) {
-        st->settings.voicingParams.assign(st->voicingParamNames.size(), 50);
-        // tremorDepth (13), chorusDepth (17) default to 0; chorusDetune (18) defaults to 33
-        if (st->settings.voicingParams.size() > 13) st->settings.voicingParams[13] = 0;
-        if (st->settings.voicingParams.size() > 17) st->settings.voicingParams[17] = 0;
-        if (st->settings.voicingParams.size() > 18) st->settings.voicingParams[18] = 33;
+        tgsb_editor::resetVoicingSliders(st->settings.voicingParams, st->voicingParamNames.size());
         HWND lb = GetDlgItem(hDlg, IDC_SPEECH_VOICING_LIST);
         populateParamList(lb, st->voicingParamNames, st->settings.voicingParams);
         syncSelectedVoicingParamToUi();

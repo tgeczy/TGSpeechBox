@@ -14,6 +14,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "DictionaryEditor.h"
 #include "VoiceProfileEditor.h"
 #include "RulesEditor.h"
+#include "voicing_sliders.h"
 #include "WinUtils.h"
 
 #include "process_util.h"
@@ -2318,7 +2319,7 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
           st.settings.frameParams.assign(st.paramNames.size(), 50);
         }
         if (st.settings.voicingParams.size() != st.voicingParamNames.size()) {
-          st.settings.voicingParams.assign(st.voicingParamNames.size(), 50);
+          tgsb_editor::resetVoicingSliders(st.settings.voicingParams, st.voicingParamNames.size());
         }
         if (st.settings.frameExParams.size() != st.frameExParamNames.size()) {
           // Default: creakiness/breathiness/jitter/shimmer=0, sharpness=50

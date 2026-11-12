@@ -226,7 +226,7 @@ Only the sliders you moved are written, so a profile keeps the values you didn't
 - **Voicing parameters**: the voice source (the same settings a profile's voice source holds). These are the sliders Save to Profile writes.
 - **Voice quality (FrameEx)**: creakiness, breathiness, jitter, shimmer, sharpness, added to every frame.
 
-Each group has **Reset parameter** and **Reset all**. The settings are kept in `tgsbPhonemeEditor.ini` under `[speech]`. The pause after punctuation follows `pauseMode` there (`off`, `short` or `long`, as in NVDA).
+Each group has **Reset parameter** and **Reset all**. A reset puts a slider where it has no effect: 50 for most, 0 for the voicing sliders noise modulation, tremor and chorus depth (33 for chorus detune), and 0 for the voice quality sliders except sharpness. The settings are kept in `tgsbPhonemeEditor.ini` under `[speech]`. The pause after punctuation follows `pauseMode` there (`off`, `short` or `long`, as in NVDA).
 
 ## Allophone rules
 

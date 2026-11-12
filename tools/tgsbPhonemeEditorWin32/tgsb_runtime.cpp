@@ -6,6 +6,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include "tgsb_runtime.h"
 #include "VoiceProfileEditor.h"
+#include "voicing_sliders.h"
 
 #include <algorithm>
 #include <cassert>
@@ -211,11 +212,8 @@ static void applyPhonemeMapToFrame(const Node& phonemeMap, speechPlayer_frame_t&
 TgsbRuntime::TgsbRuntime() {
   // No static layout assumptions: we convert frames field-by-field in the callback.
   m_speech.frameParams.assign(frameParamNames().size(), 50);
-  m_speech.voicingParams.assign(voicingParamNames().size(), 50);
-// tremorDepth (13), chorusDepth (17) default to 0; chorusDetune (18) defaults to 33
-if (m_speech.voicingParams.size() > 13) m_speech.voicingParams[13] = 0;
-if (m_speech.voicingParams.size() > 17) m_speech.voicingParams[17] = 0;
-if (m_speech.voicingParams.size() > 18) m_speech.voicingParams[18] = 33;
+  // Every voicing slider at its neutral position (not 50 for all: see voicing_sliders.h).
+  resetVoicingSliders(m_speech.voicingParams, voicingParamNames().size());
   // FrameEx params: creakiness/breathiness/jitter/shimmer default to 0, sharpness to 50
   m_speech.frameExParams.assign(frameExParamNames().size(), 0);
   if (m_speech.frameExParams.size() >= 5) m_speech.frameExParams[4] = 50; // sharpness default
@@ -239,9 +237,7 @@ void TgsbRuntime::setSpeechSettings(const SpeechSettings& s) {
     m_speech.frameParams.assign(frameParamNames().size(), 50);
   }
   if (m_speech.voicingParams.size() != voicingParamNames().size()) {
-    m_speech.voicingParams.assign(voicingParamNames().size(), 50);
-    // tremorDepth (index 13) defaults to 0, not 50
-    if (m_speech.voicingParams.size() > 13) m_speech.voicingParams[13] = 0;
+    resetVoicingSliders(m_speech.voicingParams, voicingParamNames().size());
   }
   if (m_speech.frameExParams.size() != frameExParamNames().size()) {
     m_speech.frameExParams.assign(frameExParamNames().size(), 0);
@@ -265,59 +261,8 @@ static double clampDouble(double v, double lo, double hi) {
   return v;
 }
 
-// Voicing sliders (0-100) to VoicingTone values: two straight pieces per
-// parameter, low end at 0, the value a built-in voice plays at the neutral
-// position (50) in the middle, high end at 100.  The middle values are the
-// DSP defaults and match the NVDA driver's sliders where it has them (speed
-// quotient, formant sharpness, head size), so a voice at neutral sliders
-// sounds the same in the editor and in NVDA, and a profile saved from
-// neutral sliders writes nothing.  (Before 3.10 beta 10 the first six were
-// straight lines whose midpoints were not the defaults: neutral sliders
-// wrote pre-emphasis 0.485 and a 0 dB high shelf into every saved profile.)
-struct VoicingSliderMap { double lo, mid, hi; };
-static const VoicingSliderMap kVoicingSliderMap[] = {
-  {0.85, 0.91, 0.95},     // 0 voicingPeakPos
-  {0.0, 0.92, 0.97},      // 1 voicedPreEmphA
-  {0.0, 0.35, 1.0},       // 2 voicedPreEmphMix
-  {-12.0, 4.0, 12.0},     // 3 highShelfGainDb
-  {500.0, 2000.0, 8000.0},// 4 highShelfFcHz
-  {0.3, 0.7, 2.0},        // 5 highShelfQ
-  {-24.0, 0.0, 24.0},     // 6 voicedTiltDbPerOct
-  {0.0, 0.5, 1.0},        // 7 noiseGlottalModDepth (neutral = slider 0)
-  {-60.0, 0.0, 60.0},     // 8 pitchSyncF1DeltaHz
-  {-50.0, 0.0, 50.0},     // 9 pitchSyncB1DeltaHz
-  {0.5, 2.0, 4.0},        // 10 speedQuotient (as NVDA)
-  {-12.0, 0.0, 12.0},     // 11 aspirationTiltDbPerOct
-  {2.0, 1.0, 0.3},        // 12 cascadeBwScale (as NVDA)
-  {0.0, 0.2, 0.4},        // 13 tremorDepth (neutral = slider 0)
-  {0.5, 1.0, 2.0},        // 14 nasalBwScale
-  {1.25, 1.0, 0.85},      // 15 f4FreqScale (as NVDA's head size)
-  {0.5, 1.0, 1.5},        // 16 nasalGainScale
-  {0.0, 0.5, 1.0},        // 17 chorusDepth (neutral = slider 0)
-  {0.5, 2.75, 5.0},       // 18 chorusDetuneHz (neutral = slider 33)
-};
-static constexpr int kVoicingSliderMapCount = static_cast<int>(sizeof(kVoicingSliderMap) / sizeof(kVoicingSliderMap[0]));
-
-static double mapVoicingSliderToValue(int paramIndex, int sliderValue) {
-  if (paramIndex < 0 || paramIndex >= kVoicingSliderMapCount) return 0.0;
-  const VoicingSliderMap& m = kVoicingSliderMap[paramIndex];
-  const double sv = static_cast<double>(clampInt(sliderValue, 0, 100));
-  if (sv <= 50.0) return m.lo + (sv / 50.0) * (m.mid - m.lo);
-  return m.mid + ((sv - 50.0) / 50.0) * (m.hi - m.mid);
-}
-
-// The slider position whose value is closest to v (the inverse of the above).
-static int mapVoicingValueToSlider(int paramIndex, double v) {
-  if (paramIndex < 0 || paramIndex >= kVoicingSliderMapCount) return 50;
-  const VoicingSliderMap& m = kVoicingSliderMap[paramIndex];
-  double s;
-  if ((v - m.mid) * (m.lo - m.mid) >= 0.0) {
-    s = (m.mid == m.lo) ? 0.0 : (v - m.lo) / (m.mid - m.lo) * 50.0;
-  } else {
-    s = (m.hi == m.mid) ? 100.0 : 50.0 + (v - m.mid) / (m.hi - m.mid) * 50.0;
-  }
-  return clampInt(static_cast<int>(std::lround(s)), 0, 100);
-}
+// The voicing slider map (slider position to VoicingTone value) is in
+// voicing_sliders.cpp.
 
 // Build VoicingTone struct with ABI header (v2+ layout, extended fields allowed)
 static EditorVoicingToneV2 buildVoicingToneV2(const std::vector<int>& sliders) {
