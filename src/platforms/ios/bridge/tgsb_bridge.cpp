@@ -38,6 +38,15 @@
 /* compare instead of a voice reload.                                  */
 /* ------------------------------------------------------------------ */
 
+/* How to ask eSpeak NG for IPA: IPA names (0x02) with a tie bar, U+0361
+ * (0x36100 + 0x80), joining the symbols of one sound (a͡ʊ, t͡ʃ).  This is the
+ * request the NVDA add-on and the SAPI engine make, and the form the language
+ * packs are tuned on; plain 0x02 writes the same sounds as bare symbol pairs
+ * (aʊ), which some pack rules do not take, so US English "now", "here" and
+ * "there" came out differently here than on NVDA.
+ * tests/test_espeak_ipa_request.py holds every host to it. */
+static const int kEspeakIpaMode = 0x36100 + 0x82;
+
 static int g_espeakRefCount = 0;
 static std::mutex g_espeakLock;
 static std::string g_espeakCurrentLang;
@@ -565,7 +574,7 @@ void tgsb_queue_text_ex(TgsbEngine *engine,
             espeakSetLanguageLocked(engine->espeakLang);
             while (ePtr && *(const char *)ePtr && !engine->stopRequested) {
                 const char *ipa = espeak_TextToPhonemes(
-                    &ePtr, espeakCHARS_UTF8, 0x02 /* IPA */);
+                    &ePtr, espeakCHARS_UTF8, kEspeakIpaMode);
                 if (!ipa || !*ipa) continue;
                 if (!combinedIpa.empty()) combinedIpa += ' ';
                 combinedIpa += ipa;
@@ -893,7 +902,7 @@ char *tgsb_text_to_ipa(TgsbEngine *engine, const char *text)
         espeakSetLanguageLocked(engine->espeakLang);
         while (ePtr && *(const char *)ePtr) {
             const char *chunk = espeak_TextToPhonemes(
-                &ePtr, espeakCHARS_UTF8, 0x02 /* IPA */);
+                &ePtr, espeakCHARS_UTF8, kEspeakIpaMode);
             if (!chunk || !*chunk) continue;
             if (!ipa.empty()) ipa += ' ';
             ipa += chunk;

@@ -353,6 +353,14 @@ static std::string padEmojiWithSpaces(const char *text) {
 // We only need 4 functions for phonemization (no audio synthesis).
 enum { ESPEAK_AUDIO_OUTPUT_SYNCH = 0x02 };
 enum { ESPEAK_CHARS_UTF8 = 1 };
+/* How to ask eSpeak NG for IPA: IPA names (0x02) with a tie bar, U+0361
+ * (0x36100 + 0x80), joining the symbols of one sound (a͡ʊ, t͡ʃ).  This is the
+ * request the NVDA add-on and the SAPI engine make, and the form the language
+ * packs are tuned on; plain 0x02 writes the same sounds as bare symbol pairs
+ * (aʊ), which some pack rules do not take, so US English "now", "here" and
+ * "there" came out differently here than on NVDA.
+ * tests/test_espeak_ipa_request.py holds every host to it. */
+static const int kEspeakIpaMode = 0x36100 + 0x82;
 enum { ESPEAK_INITIALIZE_DONT_EXIT = 0x8000 };
 enum { ESPEAK_EE_OK = 0 };
 
@@ -428,7 +436,7 @@ struct EspeakLib {
     std::string combined;
     const void *ptr = text;
     while (ptr && *(const char*)ptr) {
-      const char *ipa = TextToPhonemes(&ptr, ESPEAK_CHARS_UTF8, 0x02 /*IPA*/);
+      const char *ipa = TextToPhonemes(&ptr, ESPEAK_CHARS_UTF8, kEspeakIpaMode);
       if (!ipa || !*ipa) continue;
       if (!combined.empty()) combined += ' ';
       combined += ipa;
