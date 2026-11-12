@@ -151,6 +151,8 @@ Two tab-separated columns in `{lang}-letters.tsv`:
 - **key** — a single character (or short string) to match
 - **description** — the spoken replacement. This is what the synth will say when the character is read individually.
 
+A key is matched when it is the whole of what is read, with or without punctuation next to it (`ó`, `ó.`, `¿ll?`), and not inside a longer text. A capital matches a lowercase key, and an emoji matches with or without a variation selector (U+FE0F) after it.
+
 ### Use cases
 
 - **Symbol names**: Map `@` to "at sign", `#` to "hash", `€` to "euro" so they're spoken clearly in spelling mode

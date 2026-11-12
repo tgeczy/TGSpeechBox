@@ -183,7 +183,7 @@ def test_the_nvda_driver_names_a_letter_only_when_it_is_the_whole_text():
     frontend; both halves take the same answer to "is this clause the whole
     text?"."""
     src = (REPO / "nvdaAddon/synthDrivers/tgSpeechBox/speech_pipeline.py").read_text(encoding="utf-8")
-    assert re.search(r"if\s+wholeText\s+and\s+len\(core\)\s*==\s*1", src)
+    assert re.search(r"if\s+wholeText\s+and\s+core\s*:", src)
     assert re.search(r"wholeText\s*=\s*len\(clauses\)\s*==\s*1", src)
     assert re.search(r"self\._frontend\.prepareText\(chunk,\s*wholeText\)", src)
     fe = (REPO / "nvdaAddon/synthDrivers/tgSpeechBox/_frontend.py").read_text(encoding="utf-8")

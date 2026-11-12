@@ -6,6 +6,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include "frontend_handle.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -1124,6 +1125,12 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareClause(
   // it is a word ("Sim. É. Claro.", "Y, sin embargo, se fue.", #158).
   if (isWholeText && !h->pack.letterDict.empty()) {
     auto u32 = utf8ToU32(input);
+    // A variation selector (U+FE0E text, U+FE0F emoji) is no character of
+    // its own: keyboards put U+FE0F after an emoji, and the entry for "❤"
+    // was skipped for "❤" + U+FE0F (#170).
+    u32.erase(std::remove_if(u32.begin(), u32.end(),
+                             [](char32_t c) { return c == 0xFE0E || c == 0xFE0F; }),
+              u32.end());
     // A lone letter may arrive wrapped in punctuation or whitespace --
     // "r?", "¿r", "ó." -- when a line or a typed sequence is a single
     // letter next to a symbol (#122: Greg's "r" and "ó" next to
@@ -1133,9 +1140,12 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareClause(
     std::size_t b = 0, e = u32.size();
     while (b < e && isPunctOrSpaceCodepoint(u32[b])) ++b;
     while (e > b && isPunctOrSpaceCodepoint(u32[e - 1])) --e;
-    if (e - b == 1) {
-      const char32_t core = u32[b];
-      auto it = h->pack.letterDict.find(u32ToUtf8(std::u32string(1, core)));
+    if (e > b) {
+      // What is left is the key: one character, or a short string such as
+      // a digraph ("ll", Hungarian "gy"), which the dictionary allows but
+      // a one-codepoint lookup never found (#170).
+      const std::u32string core = u32.substr(b, e - b);
+      auto it = h->pack.letterDict.find(u32ToUtf8(core));
       if (it == h->pack.letterDict.end()) {
         // Case-fold retry (#122): dictionaries are authored in lowercase
         // ("á" -> "a acentuada"), but character navigation and typed-
@@ -1143,9 +1153,10 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareClause(
         // folded on its side; every other platform reaches the dict only
         // through here, so "Á" / "R" silently missed on SAPI, Android,
         // iOS and Linux.
-        const char32_t lower = foldCodepointLower(core);
+        std::u32string lower = core;
+        for (char32_t& c : lower) c = foldCodepointLower(c);
         if (lower != core) {
-          it = h->pack.letterDict.find(u32ToUtf8(std::u32string(1, lower)));
+          it = h->pack.letterDict.find(u32ToUtf8(lower));
         }
       }
       if (it != h->pack.letterDict.end()) {

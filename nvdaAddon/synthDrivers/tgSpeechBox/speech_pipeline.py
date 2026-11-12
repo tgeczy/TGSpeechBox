@@ -436,23 +436,28 @@ class SpeechPipelineMixin:
                     # A lone letter may sit next to punctuation ("r?", "¿r",
                     # "ó." -- #122): trim symbol/whitespace edges to find
                     # the core character and keep the edges around the name.
-                    core = chunk.strip(_LETTER_EDGE_CHARS)
+                    # A variation selector after an emoji is no character
+                    # of its own, and a key may be a short string such as
+                    # a digraph ("ll"): all that is left is looked up (#170).
+                    plain = chunk.replace("︎", "").replace("️", "")
+                    core = plain.strip(_LETTER_EDGE_CHARS)
                     if len(core) <= 3:
                         log.debug("TGSpeechBox: short chunk=%r core=%r lang=%r packs=%r",
                                   chunk, core,
                                   getattr(self, "_frontendLangTag", "?"),
                                   getattr(self, "_packsDir", "?"))
-                    if wholeText and len(core) == 1:
+                    if wholeText and core:
                         langTag = getattr(self, "_frontendLangTag", "") or ""
                         packsDir = getattr(self, "_packsDir", "") or ""
                         if packsDir and langTag:
                             letterNames = _loadLetterNames(packsDir, langTag)
                             replacement = letterNames.get(core) or letterNames.get(core.lower())
-                            log.debug("TGSpeechBox: letter lookup char=%r found=%r (dict has %d entries)",
-                                      core, replacement, len(letterNames))
+                            if len(core) <= 3:
+                                log.debug("TGSpeechBox: letter lookup char=%r found=%r (dict has %d entries)",
+                                          core, replacement, len(letterNames))
                             if replacement:
-                                lead = len(chunk) - len(chunk.lstrip(_LETTER_EDGE_CHARS))
-                                chunk = chunk[:lead] + replacement + chunk[lead + 1:]
+                                lead = len(plain) - len(plain.lstrip(_LETTER_EDGE_CHARS))
+                                chunk = plain[:lead] + replacement + plain[lead + len(core):]
 
                     # Pre-eSpeak text normalization: compound splitting, date ordinals, etc.
                     chunk = self._frontend.prepareText(chunk, wholeText)
