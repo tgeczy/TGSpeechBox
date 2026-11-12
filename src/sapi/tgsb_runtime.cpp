@@ -378,6 +378,16 @@ runtime::runtime()
         module_dir_.c_str(), base_dir_.c_str(), espeak_data_dir_.c_str());
 }
 
+// eSpeak NG is one per process, and every runtime in the process shares it:
+// the first one in initializes it and the last one out terminates it.  Each
+// runtime used to do both for itself, so with two engines alive the second
+// one released took eSpeak away from under the one kept in the runtime cache,
+// and the next engine crashed on its first word (#202).  The same lock keeps
+// one engine's voice selection and phonemization from interleaving with
+// another's.
+static std::mutex g_espeak_guard;
+static int g_espeak_users = 0;
+
 runtime::~runtime()
 {
     if (frontend_) {
@@ -391,7 +401,10 @@ runtime::~runtime()
     }
 
     if (espeak_initialized_) {
-        espeak_Terminate();
+        std::lock_guard<std::mutex> lock(g_espeak_guard);
+        if (--g_espeak_users == 0) {
+            espeak_Terminate();
+        }
         espeak_initialized_ = false;
     }
 }
@@ -437,6 +450,14 @@ HRESULT runtime::ensure_initialized()
 
 HRESULT runtime::init_espeak()
 {
+    std::lock_guard<std::mutex> lock(g_espeak_guard);
+    if (g_espeak_users > 0) {
+        // Another engine in this process has eSpeak up already.
+        ++g_espeak_users;
+        espeak_initialized_ = true;
+        return S_OK;
+    }
+
     if (!espeak_data_dir_.empty()) {
         auto data_utf8 = wide_to_utf8(espeak_data_dir_);
         // Strip the trailing "espeak-ng-data" from the path — espeak_Initialize
@@ -457,6 +478,7 @@ HRESULT runtime::init_espeak()
         return E_FAIL;
     }
 
+    ++g_espeak_users;
     espeak_initialized_ = true;
     DEBUG_LOG("init_espeak: OK (sr=%d)", sr);
     return S_OK;
@@ -492,7 +514,7 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
 
     // eSpeak voice selection.
     auto select_espeak_voice = [&](const std::string& desired) -> bool {
-        std::lock_guard<std::mutex> lock(espeak_guard_);
+        std::lock_guard<std::mutex> lock(g_espeak_guard);
 
         if (!current_espeak_voice_.empty() && _stricmp(current_espeak_voice_.c_str(), desired.c_str()) == 0) {
             return true;
@@ -794,7 +816,7 @@ void runtime::text_to_ipa_utf8(const std::wstring& text, std::string& out_ipa)
     }
 
     // Lock around SetVoiceByName + TextToPhonemes for atomicity.
-    std::lock_guard<std::mutex> lock(espeak_guard_);
+    std::lock_guard<std::mutex> lock(g_espeak_guard);
 
     // Re-apply voice under the same lock as TextToPhonemes.
     if (!resolved_espeak_identifier_.empty()) {

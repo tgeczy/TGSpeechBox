@@ -326,3 +326,73 @@ TEST_CASE("an aborted utterance leaves nothing behind for the next one (#135)") 
         }
     }
 }
+
+// #202: the host process crashed after two engine instances had been released.
+// eSpeak NG is one per process, but every runtime initialized it and every
+// runtime's destructor terminated it.  With two engines alive, the first one
+// released goes into the runtime cache and the second is destroyed, taking
+// eSpeak away from under the cached one, which still believed it was up: the
+// next engine picked that runtime up and crashed on its first word.  A host
+// does this whenever it holds two TGSpeechBox voices at once (a voice list
+// with a preview next to the speaking voice) and lets both go.
+TEST_CASE("an engine speaks after two others were released (#202)") {
+    ComScope com;
+    {
+        Engine first(L"en-us");
+        Engine second(L"en-gb");
+        HostSite a, b;
+        first.speak(L"Desktop", a);
+        second.speak(L"Documents", b);
+        REQUIRE(a.audio.size() > 0);
+        REQUIRE(b.audio.size() > 0);
+    }   // both released: one runtime is cached, the other destroyed
+    for (int round = 0; round < 3; ++round) {
+        CAPTURE(round);
+        Engine third(L"en-us");
+        HostSite c;
+        third.speak(L"Recycle Bin", c);
+        CHECK(c.audio.size() > 0);
+        CHECK(peakIn(c.audio, 0, c.audio.size()) > 1000);
+    }
+}
+
+// One engine released while another is still speaking must not take eSpeak
+// from it either.
+TEST_CASE("releasing one engine leaves the other one speaking (#202)") {
+    ComScope com;
+    Engine keeper(L"en-us");
+    HostSite warm;   // an engine's very first item is not the reference (see #135's test)
+    keeper.speak(L"Documents", warm);
+    HostSite before;
+    keeper.speak(L"Desktop", before);
+    REQUIRE(before.audio.size() > 0);
+    for (int round = 0; round < 2; ++round) {
+        CAPTURE(round);
+        {
+            Engine visitor(L"hu");
+            HostSite v;
+            visitor.speak(L"asztal", v);
+            CHECK(v.audio.size() > 0);
+        }   // the visitor goes; in round 0 it is cached, in round 1 an older cached one exists
+        {
+            Engine other(L"es");
+            Engine another(L"en-gb");
+            HostSite o;
+            other.speak(L"mesa", o);
+            CHECK(o.audio.size() > 0);
+        }   // two go at once: one of them is destroyed outright
+        HostSite after;
+        keeper.speak(L"Desktop", after);
+        CHECK(after.audio.size() > 0);
+        // The same word, as long as before and starting where it did.  (Not
+        // sample for sample: the noise source does not repeat itself.)
+        CHECK(after.audio.size() == before.audio.size());
+        const double shiftMs = (static_cast<double>(onset(after.audio, 400)) - static_cast<double>(onset(before.audio, 400)))
+                               * 1000.0 / keeper.fmt.nSamplesPerSec;
+        CHECK(std::fabs(shiftMs) <= 2.0);
+        const double level = static_cast<double>(peakIn(after.audio, 0, after.audio.size()))
+                             / std::max(1, peakIn(before.audio, 0, before.audio.size()));
+        CHECK(level > 0.7);
+        CHECK(level < 1.4);
+    }
+}

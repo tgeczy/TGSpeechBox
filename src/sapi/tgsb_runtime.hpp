@@ -109,7 +109,6 @@ private:
 
     // eSpeak is not thread-safe. Simple mutex for the static-linked case
     // (no cross-DLL sharing, just protects within this process).
-    std::mutex espeak_guard_;
 };
 
 } // namespace tgsb
