@@ -276,3 +276,90 @@ def test_other_times_read_as_before(prepare, lang, text, expected):
 def test_times_in_other_languages_are_untouched(prepare, lang, text):
     """Only English rewrites times."""
     assert prepare(lang, text) == text
+
+
+# ---------------------------------------------------------------------------
+# #167: a comma that cannot be a thousands separator is left alone.
+# ---------------------------------------------------------------------------
+# A digit, a comma and exactly three digits were always taken for a grouped
+# number: the comma became a space where the pack sets
+# thousandsSeparatorCommaToSpace, and was stripped elsewhere.  In a language
+# that writes decimals with a comma that turned three-place decimals into
+# thousands: German "0,125" was read "null tausend einhundertfünfundzwanzig".
+# "1,500" may be either and stays a grouped number (the 3.01 choice).  Three
+# shapes can never be one, in any language:
+#
+#   "0,125"      a lone zero before the comma
+#   "12345,678"  more than three digits before it
+#   "1.234,567"  a number already grouped with dots
+
+# Every pack that sets thousandsSeparatorCommaToSpace.
+COMMA_TO_SPACE = ["bg", "cs", "da", "de", "es", "fi", "fr", "hr", "hu", "it", "nl", "pl", "pt",
+                  "ro", "ru", "sk", "sv", "tr", "uk", "es-mx", "pt-br"]
+# Packs that strip a grouping comma, and split no years.
+COMMA_STRIPPED = ["zh"]
+
+NEVER_THOUSANDS = [
+    "0,125",
+    "Zinssatz 0,125 Prozent",
+    "0,375 liter",
+    "12345,678",
+    "1.234,567",
+    "1.234.567,891 Euro",
+    "(0,125)",
+    "0,125.",
+    "x 0,125, y 0,250",
+]
+
+
+@pytest.mark.parametrize("lang", COMMA_TO_SPACE + COMMA_STRIPPED + ENGLISH)
+@pytest.mark.parametrize("text", NEVER_THOUSANDS)
+def test_a_comma_that_cannot_group_thousands_is_kept(prepare, lang, text):
+    expected = text.replace("(", "( ").replace(")", " )")  # brackets are spaced out by an earlier step
+    assert prepare(lang, text) == expected
+
+
+GROUPED = [
+    # text, with the comma as a space, with the comma stripped
+    ("1,213", "1 213", "1213"),
+    ("1,500 Euro", "1 500 Euro", "1500 Euro"),
+    ("65,543", "65 543", "65543"),
+    ("10,000", "10 000", "10000"),
+    ("100,000 Ft", "100 000 Ft", "100000 Ft"),
+    ("1,234,567", "1 234 567", "1234567"),
+    ("1,000,000", "1 000 000", "1000000"),
+    ("999,999.", "999 999.", "999999."),
+    ("44,100 Hz", "44 100 Hz", "44100 Hz"),
+    ("20,000 and 0,125", "20 000 and 0,125", "20000 and 0,125"),
+    # Not grouped at all: fewer or more than three digits after the comma.
+    ("0,5", "0,5", "0,5"),
+    ("3,14", "3,14", "3,14"),
+    ("1,2345", "1,2345", "1,2345"),
+    ("a, b, 1, 2", "a, b, 1, 2", "a, b, 1, 2"),
+    ("3.14", "3.14", "3.14"),
+]
+
+
+@pytest.mark.parametrize("lang", COMMA_TO_SPACE)
+@pytest.mark.parametrize("text, spaced, _stripped", GROUPED)
+def test_grouped_numbers_are_spaced_as_before(prepare, lang, text, spaced, _stripped):
+    assert prepare(lang, text) == spaced
+
+
+@pytest.mark.parametrize("lang", COMMA_STRIPPED)
+@pytest.mark.parametrize("text, _spaced, stripped", GROUPED)
+def test_grouped_numbers_are_stripped_as_before(prepare, lang, text, _spaced, stripped):
+    assert prepare(lang, text) == stripped
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    ("0,125", "0,125"),
+    ("44,100 Hz", "44100 Hz"),
+    ("1,234", "1234"),
+    ("1,234,567", "1234567"),
+    ("10,000", "10000"),
+    ("0,5", "0,5"),
+])
+def test_english_grouped_numbers(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected

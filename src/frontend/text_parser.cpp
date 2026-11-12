@@ -1144,7 +1144,7 @@ std::string prepareTextForEspeak(
   }
 
   // -0.25. Thousands-separator commas: "44,100" → "44 100" or "44100".
-  // Pattern: digit + comma + exactly 3 digits + (non-digit or end).
+  // Pattern: 1-3 digits + comma + exactly 3 digits + (non-digit or end).
   // Keeps decimal commas like "3,14" (only 2 digits after comma).
   // For European locales (thousandsSeparatorCommaToSpace): → spaces,
   // because eSpeak recognizes space-separated digit groups as thousands.
@@ -1165,10 +1165,23 @@ std::string prepareTextForEspeak(
           std::isdigit(static_cast<unsigned char>(result[ci + 3])) &&
           (ci + 4 >= result.size() ||
            !std::isdigit(static_cast<unsigned char>(result[ci + 4])))) {
-        if (thousandsSeparatorCommaToSpace) cleaned += ' ';
-        else if (yearSplitting) cleaned += kGroupMark;
-        // else: strip comma entirely
-        continue;
+        // The digits before the comma must be able to open or continue a
+        // grouped number (#167).  A lone zero ("0,125"), more than three
+        // digits ("12345,678") and a group after a dot ("1.234,567", grouped
+        // with dots already) never do, in any language: there the comma is
+        // a decimal comma, and it is kept for the phonemizer.
+        size_t runStart = ci;
+        while (runStart > 0 && std::isdigit(static_cast<unsigned char>(result[runStart - 1]))) --runStart;
+        const size_t runLen = ci - runStart;
+        const bool loneZero = runLen == 1 && result[runStart] == '0';
+        const bool afterDot = runStart >= 2 && result[runStart - 1] == '.' &&
+                              std::isdigit(static_cast<unsigned char>(result[runStart - 2]));
+        if (runLen <= 3 && !loneZero && !afterDot) {
+          if (thousandsSeparatorCommaToSpace) cleaned += ' ';
+          else if (yearSplitting) cleaned += kGroupMark;
+          // else: strip comma entirely
+          continue;
+        }
       }
       cleaned += result[ci];
     }
