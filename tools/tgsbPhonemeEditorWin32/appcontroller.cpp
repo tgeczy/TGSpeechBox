@@ -1094,6 +1094,9 @@ static void onEditLanguageSettings(AppController& app) {
   ShowEditSettingsDialog(app.hInst, app.wnd, st);
   if (!st.ok) return;
 
+  // OK with nothing changed leaves the language as it is (#161).
+  if (st.settings == app.language.settings()) return;
+
   app.language.setSettings(st.settings);
   app.languageDirty = true;
   app.setStatus(L"Edited language settings in memory. Use File > Save language YAML (Ctrl+S) to write it.");

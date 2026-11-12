@@ -145,7 +145,11 @@ public:
   void setClasses(const std::map<std::string, std::string>& classes);
 
   // Top-level settings: settings:
-  // Only scalar values are represented here.
+  // One row per plain value or list of plain values, sorted by key.  A
+  // setting inside a block is shown under one joined name
+  // (rateCompensation.enabled -> rateCompensationEnabled).  setSettings
+  // takes the rows back and writes only what differs from them, into the
+  // node each row was read from; a new dotted name goes into its block.
   std::vector<std::pair<std::string, std::string>> settings() const;
   void setSettings(const std::vector<std::pair<std::string, std::string>>& settings);
   void setSetting(const std::string& key, const std::string& value);

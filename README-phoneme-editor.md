@@ -150,7 +150,7 @@ When you save `phonemes.yaml`, the editor checks that each phoneme's formants ri
 
 ## Language settings and classes
 
-**Language settings...** lists the language's `settings:` as key and value. **Add...** offers every known setting in a list (you can also type a new one), **Edit...** changes a value, **Remove** deletes it. The change is kept in the editor until you save (Ctrl+S). What each setting does is in [Tuning.md, Language pack settings reference](Tuning.md#language-pack-settings-reference).
+**Language settings...** lists the language's `settings:` as key and value. **Add...** offers every known setting in a list (you can also type a new one), **Edit...** changes a value, **Remove** deletes it. A setting inside a block is listed under the block's name and its own joined together (`rateCompensation:` `enabled:` is `rateCompensationEnabled`), and an edit goes back into the block. To add a setting inside a block, type its path with dots (`rateCompensation.minimumDurations.vowelMs`); a name without dots is written as a plain key. Rule lists are not shown here; they have their own editors. **OK** changes only the settings you added, edited or removed, and nothing at all if you changed nothing. The change is kept in the editor until you save (Ctrl+S). What each setting does is in [Tuning.md, Language pack settings reference](Tuning.md#language-pack-settings-reference).
 
 **Edit Classes...** (in the mapping dialog) lists the language's classes. Choose one to see its members, one IPA symbol per line; **Add...** and **Remove** make and delete classes.
 

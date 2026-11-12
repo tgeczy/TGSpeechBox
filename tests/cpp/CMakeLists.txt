@@ -40,6 +40,8 @@ add_executable(tgsb_unit_tests
   ${SPEECHPLAYER_CPP_FOR_TESTS}
   # The phoneme editor's dictionary files (no Win32 in it).
   "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32/dict_tsv.cpp"
+  # The phoneme editor's YAML model (no Win32 in it either).
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32/yaml_edit.cpp"
 )
 
 target_include_directories(tgsb_unit_tests PRIVATE

@@ -508,17 +508,28 @@ void LanguageYaml::setClasses(const std::map<std::string, std::string>& classes)
   norm->map["classes"] = std::move(classesNode);
 }
 
-// Helper to flatten nested settings into dotted/camelCase keys
+// One row of the Language settings dialog: the key it shows, its value, and
+// where under `settings:` the value lives.  The path is what an edit goes
+// back to; the shown key alone cannot say (rateCompensationEnabled is
+// rateCompensation.enabled, and the frontend reads no flat key of that name).
+struct SettingRow {
+  std::string key;
+  std::string value;
+  std::vector<std::string> path;
+};
+
+// Flatten nested settings into camelCase keys
 // e.g., trajectoryLimit.enabled -> trajectoryLimitEnabled
 // e.g., trajectoryLimit.maxHzPerMs.cf2 -> trajectoryLimitMaxHzPerMsCf2
 static void flattenSettings(const Node& node, const std::string& prefix,
-                            std::vector<std::pair<std::string, std::string>>& out) {
+                            std::vector<std::string>& path,
+                            std::vector<SettingRow>& out) {
   if (!node.isMap()) return;
-  
+
   for (const auto& kv : node.map) {
     const std::string& key = kv.first;
     const Node& v = kv.second;
-    
+
     // Build the flattened key name
     std::string flatKey;
     if (prefix.empty()) {
@@ -532,26 +543,57 @@ static void flattenSettings(const Node& node, const std::string& prefix,
         flatKey += key.substr(1);
       }
     }
-    
+
+    path.push_back(key);
     if (v.isScalar()) {
-      out.emplace_back(flatKey, v.scalar);
+      out.push_back({flatKey, v.scalar, path});
     } else if (v.isMap()) {
       // Recurse into nested maps
-      flattenSettings(v, flatKey, out);
+      flattenSettings(v, flatKey, path, out);
     } else if (v.isSeq()) {
-      // For sequences, join elements with commas (e.g., applyTo: [cf2, cf3] -> "cf2,cf3")
+      // For sequences, join elements with commas (e.g., applyTo: [cf2, cf3] -> "cf2,cf3").
+      // A list holding anything but plain values (the rule lists) has no
+      // row: it cannot be shown as one value, and is left to its own editor.
       std::string joined;
+      bool allScalars = true;
       for (size_t i = 0; i < v.seq.size(); ++i) {
-        if (v.seq[i].isScalar()) {
-          if (!joined.empty()) joined += ",";
-          joined += v.seq[i].scalar;
-        }
+        if (!v.seq[i].isScalar()) { allScalars = false; break; }
+        if (!joined.empty()) joined += ",";
+        joined += v.seq[i].scalar;
       }
-      if (!joined.empty()) {
-        out.emplace_back(flatKey, joined);
+      if (allScalars && !joined.empty()) {
+        out.push_back({flatKey, joined, path});
       }
     }
+    path.pop_back();
   }
+}
+
+// The rows of a `settings:` map, sorted by key, every key naming one row.
+static std::vector<SettingRow> settingRows(const Node& settingsNode) {
+  std::vector<SettingRow> rows;
+  std::vector<std::string> path;
+  flattenSettings(settingsNode, "", path, rows);
+
+  // Two settings can join to one name: Danish has a flat
+  // boundarySmoothingEnabled and a boundarySmoothing block with its own
+  // `enabled`.  The one inside a block is then shown by its dotted path
+  // (boundarySmoothing.enabled), so each row can be told apart and edited.
+  std::unordered_map<std::string, int> uses;
+  for (const auto& r : rows) uses[r.key]++;
+  for (auto& r : rows) {
+    if (uses[r.key] < 2 || r.path.size() < 2) continue;
+    std::string dotted;
+    for (const auto& p : r.path) {
+      if (!dotted.empty()) dotted += ".";
+      dotted += p;
+    }
+    r.key = dotted;
+  }
+
+  std::stable_sort(rows.begin(), rows.end(),
+                   [](const SettingRow& a, const SettingRow& b) { return a.key < b.key; });
+  return rows;
 }
 
 std::vector<std::pair<std::string, std::string>> LanguageYaml::settings() const {
@@ -559,209 +601,15 @@ std::vector<std::pair<std::string, std::string>> LanguageYaml::settings() const 
   const Node* s = m_root.get("settings");
   if (!s || !s->isMap()) return out;
 
-  flattenSettings(*s, "", out);
-  
-  std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+  for (auto& r : settingRows(*s)) out.emplace_back(std::move(r.key), std::move(r.value));
   return out;
-}
-
-// Map of flattened setting key prefixes to their nested paths.
-// This allows us to reconstruct the nested YAML structure from flattened keys.
-struct NestedKeyMapping {
-  const char* flatPrefix;      // e.g., "trajectoryLimit"
-  const char* nestedPath;      // e.g., "trajectoryLimit" (top-level nested map)
-  const char* subPath;         // e.g., nullptr or "lateralOnglide" for deeper nesting
-};
-
-// Known nested setting prefixes and their structure
-static const NestedKeyMapping kNestedMappings[] = {
-  // trajectoryLimit settings
-  {"trajectoryLimitEnabled", "trajectoryLimit", nullptr},
-  {"trajectoryLimitApplyTo", "trajectoryLimit", nullptr},
-  {"trajectoryLimitWindowMs", "trajectoryLimit", nullptr},
-  {"trajectoryLimitApplyAcrossWordBoundary", "trajectoryLimit", nullptr},
-  {"trajectoryLimitLiquidRateScale", "trajectoryLimit", nullptr},
-  {"trajectoryLimitMaxHzPerMsCf1", "trajectoryLimit", "maxHzPerMs"},
-  {"trajectoryLimitMaxHzPerMsCf2", "trajectoryLimit", "maxHzPerMs"},
-  {"trajectoryLimitMaxHzPerMsCf3", "trajectoryLimit", "maxHzPerMs"},
-  {"trajectoryLimitMaxHzPerMsPf2", "trajectoryLimit", "maxHzPerMs"},
-  {"trajectoryLimitMaxHzPerMsPf3", "trajectoryLimit", "maxHzPerMs"},
-  
-  // liquidDynamics settings
-  {"liquidDynamicsEnabled", "liquidDynamics", nullptr},
-  {"liquidDynamicsLateralOnglideF1Delta", "liquidDynamics", "lateralOnglide"},
-  {"liquidDynamicsLateralOnglideF2Delta", "liquidDynamics", "lateralOnglide"},
-  {"liquidDynamicsLateralOnglideDurationPct", "liquidDynamics", "lateralOnglide"},
-  {"liquidDynamicsRhoticF3DipEnabled", "liquidDynamics", "rhoticF3Dip"},
-  {"liquidDynamicsRhoticF3Minimum", "liquidDynamics", "rhoticF3Dip"},
-  {"liquidDynamicsRhoticF3DipDurationPct", "liquidDynamics", "rhoticF3Dip"},
-  {"liquidDynamicsLabialGlideTransitionEnabled", "liquidDynamics", "labialGlideTransition"},
-  {"liquidDynamicsLabialGlideStartF1", "liquidDynamics", "labialGlideTransition"},
-  {"liquidDynamicsLabialGlideStartF2", "liquidDynamics", "labialGlideTransition"},
-  {"liquidDynamicsLabialGlideTransitionPct", "liquidDynamics", "labialGlideTransition"},
-  
-  // boundarySmoothing settings (place-of-articulation scales)
-  {"boundarySmoothingAlveolarF1Scale", "boundarySmoothing", "alveolar"},
-  {"boundarySmoothingAlveolarF2Scale", "boundarySmoothing", "alveolar"},
-  {"boundarySmoothingAlveolarF3Scale", "boundarySmoothing", "alveolar"},
-  {"boundarySmoothingLabialF1Scale", "boundarySmoothing", "labial"},
-  {"boundarySmoothingLabialF2Scale", "boundarySmoothing", "labial"},
-  {"boundarySmoothingLabialF3Scale", "boundarySmoothing", "labial"},
-  {"boundarySmoothingPalatalF1Scale", "boundarySmoothing", "palatal"},
-  {"boundarySmoothingPalatalF2Scale", "boundarySmoothing", "palatal"},
-  {"boundarySmoothingPalatalF3Scale", "boundarySmoothing", "palatal"},
-  {"boundarySmoothingVelarF1Scale", "boundarySmoothing", "velar"},
-  {"boundarySmoothingVelarF2Scale", "boundarySmoothing", "velar"},
-  {"boundarySmoothingVelarF3Scale", "boundarySmoothing", "velar"},
-  {"boundarySmoothingWithinSyllableScale", "boundarySmoothing", nullptr},
-  {"boundarySmoothingWithinSyllableFadeScale", "boundarySmoothing", nullptr},
-
-  // boundarySmoothing settings (general)
-  {"boundarySmoothingEnabled", "boundarySmoothing", nullptr},
-  {"boundarySmoothingF1Scale", "boundarySmoothing", nullptr},
-  {"boundarySmoothingF2Scale", "boundarySmoothing", nullptr},
-  {"boundarySmoothingF3Scale", "boundarySmoothing", nullptr},
-  {"boundarySmoothingPlosiveSpansPhone", "boundarySmoothing", nullptr},
-  {"boundarySmoothingNasalF1Instant", "boundarySmoothing", nullptr},
-  {"boundarySmoothingNasalF2F3SpansPhone", "boundarySmoothing", nullptr},
-  {"boundarySmoothingFricToStopFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingFricToVowelFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingLiquidToStopFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingLiquidToVowelFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingNasalToStopFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingNasalToVowelFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingStopToFricFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingStopToVowelFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingVowelToFricFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingVowelToLiquidFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingVowelToNasalFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingVowelToStopFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingVowelToVowelFadeMs", "boundarySmoothing", nullptr},
-  {"boundarySmoothingAffricateToVowelHold", "boundarySmoothing", nullptr},
-  {"boundarySmoothingFricativeToVowelHold", "boundarySmoothing", nullptr},
-  {"boundarySmoothingStopToVowelHold", "boundarySmoothing", nullptr},
-  {"boundarySmoothingAffricateToVowelVoicingHold", "boundarySmoothing", nullptr},
-  {"boundarySmoothingStopToVowelVoicingHold", "boundarySmoothing", nullptr},
-
-  // clusterTiming settings
-  {"clusterTimingEnabled", "clusterTiming", nullptr},
-  {"clusterTimingFricBeforeStopScale", "clusterTiming", nullptr},
-  {"clusterTimingStopBeforeFricScale", "clusterTiming", nullptr},
-  {"clusterTimingFricBeforeFricScale", "clusterTiming", nullptr},
-  {"clusterTimingStopBeforeStopScale", "clusterTiming", nullptr},
-  {"clusterTimingTripleClusterMiddleScale", "clusterTiming", nullptr},
-  {"clusterTimingAffricateInClusterScale", "clusterTiming", nullptr},
-  {"clusterTimingWordMedialConsonantScale", "clusterTiming", nullptr},
-  {"clusterTimingWordFinalObstruentScale", "clusterTiming", nullptr},
-
-  // lengthContrast settings
-  // Note: nested keys are "shortVowelCeiling" / "longVowelFloor" (no Ms suffix),
-  // while flat keys in pack.cpp use "lengthContrastShortVowelCeilingMs". The
-  // flat key here omits "Ms" so extractLeafKey produces the correct nested key.
-  {"lengthContrastEnabled", "lengthContrast", nullptr},
-  {"lengthContrastShortVowelCeiling", "lengthContrast", nullptr},
-  {"lengthContrastLongVowelFloor", "lengthContrast", nullptr},
-  {"lengthContrastGeminateClosureScale", "lengthContrast", nullptr},
-  {"lengthContrastGeminateReleaseScale", "lengthContrast", nullptr},
-  {"lengthContrastPreGeminateVowelScale", "lengthContrast", nullptr},
-
-  // clusterBlend settings
-  {"clusterBlendEnabled", "clusterBlend", nullptr},
-  {"clusterBlendStrength", "clusterBlend", nullptr},
-  {"clusterBlendNasalToStopScale", "clusterBlend", nullptr},
-  {"clusterBlendFricToStopScale", "clusterBlend", nullptr},
-  {"clusterBlendStopToFricScale", "clusterBlend", nullptr},
-  {"clusterBlendNasalToFricScale", "clusterBlend", nullptr},
-  {"clusterBlendLiquidToStopScale", "clusterBlend", nullptr},
-  {"clusterBlendLiquidToFricScale", "clusterBlend", nullptr},
-  {"clusterBlendFricToFricScale", "clusterBlend", nullptr},
-  {"clusterBlendStopToStopScale", "clusterBlend", nullptr},
-  {"clusterBlendDefaultPairScale", "clusterBlend", nullptr},
-  {"clusterBlendHomorganicScale", "clusterBlend", nullptr},
-  {"clusterBlendWordBoundaryScale", "clusterBlend", nullptr},
-  {"clusterBlendF1Scale", "clusterBlend", nullptr},
-  {"clusterBlendForwardDriftStrength", "clusterBlend", nullptr},
-
-  // prominence settings
-  {"prominenceEnabled", "prominence", nullptr},
-  {"prominencePrimaryStressWeight", "prominence", nullptr},
-  {"prominenceSecondaryStressWeight", "prominence", nullptr},
-  {"prominenceSecondaryStressLevel", "prominence", nullptr},
-  {"prominenceLongVowelWeight", "prominence", nullptr},
-  {"prominenceLongVowelMode", "prominence", nullptr},
-  {"prominenceWordInitialBoost", "prominence", nullptr},
-  {"prominenceWordFinalReduction", "prominence", nullptr},
-  {"prominenceDurationProminentFloorMs", "prominence", nullptr},
-  {"prominenceDurationReducedCeiling", "prominence", nullptr},
-  {"prominenceAmplitudeBoostDb", "prominence", nullptr},
-  {"prominenceAmplitudeReductionDb", "prominence", nullptr},
-  {"prominencePitchFromProminence", "prominence", nullptr},
-
-  // rateCompensation settings
-  {"rateCompEnabled", "rateCompensation", nullptr},
-  {"rateCompVowelFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompFricativeFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompStopFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompNasalFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompLiquidFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompAffricateFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompSemivowelFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompTapFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompTrillFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompVoicedConsonantFloorMs", "rateCompensation", "minimumDurations"},
-  {"rateCompWordFinalBonusMs", "rateCompensation", nullptr},
-  {"rateCompFloorSpeedScale", "rateCompensation", nullptr},
-  {"rateCompClusterProportionGuard", "rateCompensation", nullptr},
-  {"rateCompClusterMaxRatioShift", "rateCompensation", nullptr},
-  {"rateCompSchwaReductionEnabled", "rateCompensation", "schwaReduction"},
-  {"rateCompSchwaThreshold", "rateCompensation", "schwaReduction"},
-  {"rateCompSchwaScale", "rateCompensation", "schwaReduction"},
-
-  // syllableDuration settings
-  {"syllableDurationEnabled", "syllableDuration", nullptr},
-  {"syllableDurationOnsetScale", "syllableDuration", nullptr},
-  {"syllableDurationCodaScale", "syllableDuration", nullptr},
-  {"syllableDurationUnstressedOpenNucleusScale", "syllableDuration", nullptr},
-
-  // allophoneRules settings (scalar fields only — rules array handled separately)
-  {"allophoneRulesEnabled", "allophoneRules", nullptr},
-
-  // specialCoarticulation settings (scalar fields only — rules array handled separately)
-  {"specialCoarticulationEnabled", "specialCoarticulation", nullptr},
-  {"specialCoarticMaxDeltaHz", "specialCoarticulation", nullptr},
-};
-
-// Extract the leaf key name from a flattened key given the prefix info
-// e.g., "trajectoryLimitEnabled" with prefix "trajectoryLimit" -> "enabled"
-// e.g., "trajectoryLimitMaxHzPerMsCf2" with prefix "trajectoryLimit" and subPath "maxHzPerMs" -> "cf2"
-static std::string extractLeafKey(const std::string& flatKey, const char* nestedPath, const char* subPath) {
-  std::string prefix = nestedPath;
-  if (subPath) {
-    // Capitalize first letter of subPath for camelCase
-    prefix += static_cast<char>(std::toupper(static_cast<unsigned char>(subPath[0])));
-    prefix += (subPath + 1);
-  }
-  
-  if (flatKey.size() <= prefix.size()) return flatKey;
-  
-  // The leaf key starts after the prefix, with first letter lowercased
-  std::string leaf = flatKey.substr(prefix.size());
-  if (!leaf.empty()) {
-    leaf[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(leaf[0])));
-  }
-  return leaf;
-}
-
-// Check if a value looks like a comma-separated list (for sequences like applyTo)
-static bool looksLikeList(const std::string& value) {
-  return value.find(',') != std::string::npos;
 }
 
 // Split a comma-separated string into a sequence node
 static Node makeSequenceFromCommaSeparated(const std::string& value) {
   Node seq;
   seq.type = Node::Type::Seq;
-  
+
   size_t start = 0;
   size_t pos;
   while ((pos = value.find(',', start)) != std::string::npos) {
@@ -787,11 +635,149 @@ static Node makeSequenceFromCommaSeparated(const std::string& value) {
     n.scalar = item;
     seq.seq.push_back(std::move(n));
   }
-  
+
   return seq;
 }
 
+// The node a row was read from, or nullptr.
+static Node* settingNodeAt(Node& settingsNode, const std::vector<std::string>& path) {
+  Node* n = &settingsNode;
+  for (const auto& p : path) {
+    if (!n->isMap()) return nullptr;
+    auto it = n->map.find(p);
+    if (it == n->map.end()) return nullptr;
+    n = &it->second;
+  }
+  return n;
+}
+
+// Write a row's value back into its own node: a list stays a list.
+static void writeSettingValue(Node& node, const std::string& value) {
+  if (node.isSeq()) {
+    const bool flow = node.flowStyle;
+    node = makeSequenceFromCommaSeparated(value);
+    node.flowStyle = flow;
+    return;
+  }
+  node.type = Node::Type::Scalar;
+  node.scalar = value;
+  node.map.clear();
+  node.keyOrder.clear();
+  node.seq.clear();
+}
+
+// Remove a row's node, and any block that held nothing else.
+static bool eraseSettingAt(Node& settingsNode, const std::vector<std::string>& path) {
+  if (path.empty()) return false;
+  std::vector<Node*> chain;
+  chain.push_back(&settingsNode);
+  for (size_t i = 0; i + 1 < path.size(); ++i) {
+    Node* n = chain.back();
+    if (!n->isMap()) return false;
+    auto it = n->map.find(path[i]);
+    if (it == n->map.end()) return false;
+    chain.push_back(&it->second);
+  }
+  if (!chain.back()->isMap()) return false;
+  bool erased = false;
+  for (size_t i = path.size(); i-- > 0;) {
+    Node* parent = chain[i];
+    if (parent->map.erase(path[i]) == 0) break;
+    auto& ko = parent->keyOrder;
+    ko.erase(std::remove(ko.begin(), ko.end(), path[i]), ko.end());
+    erased = true;
+    if (!parent->map.empty()) break;
+  }
+  return erased;
+}
+
+// Add a setting that has no row yet.  A plain name is written as a flat key,
+// which is how the frontend reads every name the dialog's key list offers; a
+// dotted name (rateCompensation.minimumDurations.vowelMs) goes into the
+// block it names.
+static void addSetting(Node& settingsNode, const std::string& key, const std::string& value) {
+  std::vector<std::string> path;
+  {
+    size_t start = 0;
+    size_t dot;
+    while ((dot = key.find('.', start)) != std::string::npos) {
+      path.push_back(key.substr(start, dot - start));
+      start = dot + 1;
+    }
+    path.push_back(key.substr(start));
+  }
+  // A name that does not lead through blocks (an empty part, or a part that
+  // is already a plain value) is kept as typed.
+  bool usable = true;
+  {
+    const Node* n = &settingsNode;
+    for (size_t i = 0; i < path.size(); ++i) {
+      if (path[i].empty()) { usable = false; break; }
+      if (!n) continue;
+      auto it = n->map.find(path[i]);
+      const Node* child = (it == n->map.end()) ? nullptr : &it->second;
+      if (child && i + 1 < path.size() && !child->isMap()) { usable = false; break; }
+      n = child;
+    }
+  }
+  if (!usable) path.assign(1, key);
+
+  Node* n = &settingsNode;
+  for (size_t i = 0; i + 1 < path.size(); ++i) {
+    if (n->map.find(path[i]) == n->map.end()) {
+      Node block;
+      block.type = Node::Type::Map;
+      mapSet(*n, path[i], std::move(block));
+    }
+    n = &n->map[path[i]];
+  }
+  auto it = n->map.find(path.back());
+  if (it != n->map.end()) {
+    // Something without a row of its own is already there.  A block or a
+    // rule list is not replaced by one value.
+    if (it->second.isMap()) return;
+    if (it->second.isSeq()) {
+      for (const auto& el : it->second.seq) if (!el.isScalar()) return;
+    }
+    writeSettingValue(it->second, value);
+    return;
+  }
+  Node v;
+  v.type = Node::Type::Scalar;
+  v.scalar = value;
+  mapSet(*n, path.back(), std::move(v));
+}
+
+// The dialog hands back every row.  Only what differs from the rows it was
+// given is written: a changed value goes into the node it was read from, a
+// missing row removes its node, a new row is added.  Everything else under
+// `settings:` (blocks, lists, rule lists, key order) stays as it is, so OK
+// with nothing changed changes nothing (#161).
 void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::string>>& settings) {
+  std::vector<SettingRow> before;
+  if (const Node* s = m_root.get("settings"); s && s->isMap()) before = settingRows(*s);
+
+  // Rows as wanted; a key given twice keeps its last value.
+  std::vector<std::string> wantedOrder;
+  std::unordered_map<std::string, std::string> wanted;
+  for (const auto& kv : settings) {
+    if (kv.first.empty()) continue;
+    if (wanted.find(kv.first) == wanted.end()) wantedOrder.push_back(kv.first);
+    wanted[kv.first] = kv.second;
+  }
+
+  std::unordered_set<std::string> beforeKeys;
+  bool anyChange = false;
+  for (const auto& r : before) {
+    beforeKeys.insert(r.key);
+    auto it = wanted.find(r.key);
+    if (it == wanted.end() || it->second != r.value) anyChange = true;
+  }
+  for (const auto& k : wantedOrder) {
+    if (beforeKeys.find(k) == beforeKeys.end()) anyChange = true;
+  }
+  if (!anyChange) return;
+
   // Ensure root is a map.
   if (m_root.type != Node::Type::Map) {
     m_root.type = Node::Type::Map;
@@ -800,214 +786,41 @@ void LanguageYaml::setSettings(const std::vector<std::pair<std::string, std::str
     m_root.seq.clear();
     m_root.scalar.clear();
   }
-
   Node* s = getNestedMap(m_root, "settings");
 
-  // Preserve complex sub-trees that contain sequence-of-maps data
-  // (the flatten/unflatten cycle would lose these).
-  Node savedAllophoneRules, savedSpecialCoartic;
-  if (const Node* ar = s->get("allophoneRules")) {
-    if (ar->isMap() && ar->get("rules")) savedAllophoneRules = *ar;
-  }
-  if (const Node* sc = s->get("specialCoarticulation")) {
-    if (sc->isMap() && sc->get("rules")) savedSpecialCoartic = *sc;
-  }
-
-  // Bug 5 fix: Save original key ordering (up to 2 levels deep) so that
-  // round-tripping through the editor preserves YAML file order.
-  auto origTopOrder = s->keyOrder;
-  std::unordered_map<std::string, std::vector<std::string>> origNestedOrder;
-  for (const auto& kv : s->map) {
-    if (kv.second.isMap() && !kv.second.keyOrder.empty()) {
-      origNestedOrder[kv.first] = kv.second.keyOrder;
-      for (const auto& kv2 : kv.second.map) {
-        if (kv2.second.isMap() && !kv2.second.keyOrder.empty()) {
-          origNestedOrder[kv.first + "/" + kv2.first] = kv2.second.keyOrder;
-        }
-      }
+  for (const auto& r : before) {
+    auto it = wanted.find(r.key);
+    if (it == wanted.end()) {
+      eraseSettingAt(*s, r.path);
+    } else if (it->second != r.value) {
+      if (Node* n = settingNodeAt(*s, r.path)) writeSettingValue(*n, it->second);
     }
   }
-
-  s->map.clear();
-  s->keyOrder.clear();
-  s->seq.clear();
-  s->scalar.clear();
-
-  for (const auto& kv : settings) {
-    if (kv.first.empty()) continue;
-    
-    // Check if this is a known nested key
-    bool handled = false;
-    for (const auto& mapping : kNestedMappings) {
-      if (kv.first == mapping.flatPrefix) {
-        // This is an exact match to a known nested key pattern
-        std::string leafKey = extractLeafKey(kv.first, mapping.nestedPath, mapping.subPath);
-        
-        // Ensure the top-level nested map exists
-        if (s->map.find(mapping.nestedPath) == s->map.end()) {
-          Node nm;
-          nm.type = Node::Type::Map;
-          mapSet(*s, mapping.nestedPath, std::move(nm));
-        }
-        Node* target = &s->map[mapping.nestedPath];
-
-        // If there's a subPath, ensure that nested map exists too
-        if (mapping.subPath) {
-          if (target->map.find(mapping.subPath) == target->map.end()) {
-            Node nm;
-            nm.type = Node::Type::Map;
-            mapSet(*target, mapping.subPath, std::move(nm));
-          }
-          target = &target->map[mapping.subPath];
-        }
-
-        // Set the leaf value
-        Node v;
-        // Check if this should be a sequence (like applyTo)
-        if (looksLikeList(kv.second) && leafKey == "applyTo") {
-          v = makeSequenceFromCommaSeparated(kv.second);
-        } else {
-          v.type = Node::Type::Scalar;
-          v.scalar = kv.second;
-        }
-        mapSet(*target, leafKey, std::move(v));
-        
-        handled = true;
-        break;
-      }
-    }
-    
-    if (!handled) {
-      // Regular flat setting
-      Node v;
-      v.type = Node::Type::Scalar;
-      v.scalar = kv.second;
-      mapSet(*s, kv.first, std::move(v));
-    }
-  }
-
-  // Restore complex sub-trees, merging with any scalar keys the loop just wrote.
-  if (!savedAllophoneRules.map.empty()) {
-    Node& ar = s->map["allophoneRules"];
-    // The loop may have written "enabled" into this map via kNestedMappings.
-    // Merge the saved "rules" key back in.
-    if (const Node* rules = savedAllophoneRules.get("rules")) {
-      mapSet(ar, "rules", *rules);
-    }
-  }
-  if (!savedSpecialCoartic.map.empty()) {
-    Node& sc = s->map["specialCoarticulation"];
-    if (const Node* rules = savedSpecialCoartic.get("rules")) {
-      mapSet(sc, "rules", *rules);
-    }
-  }
-
-  // Bug 5 fix: Restore original key ordering.  Keys that existed before
-  // the clear appear in their original positions; new keys are appended.
-  auto reorder = [](Node& node, const std::vector<std::string>& orig) {
-    if (orig.empty() || node.keyOrder.empty()) return;
-    std::unordered_set<std::string> remaining(node.keyOrder.begin(), node.keyOrder.end());
-    std::vector<std::string> result;
-    for (const auto& k : orig) {
-      if (remaining.erase(k)) result.push_back(k);
-    }
-    for (const auto& k : node.keyOrder) {
-      if (remaining.count(k)) result.push_back(k);
-    }
-    node.keyOrder = std::move(result);
-  };
-  reorder(*s, origTopOrder);
-  for (auto& kv : s->map) {
-    if (!kv.second.isMap()) continue;
-    auto it = origNestedOrder.find(kv.first);
-    if (it != origNestedOrder.end()) reorder(kv.second, it->second);
-    for (auto& kv2 : kv.second.map) {
-      if (!kv2.second.isMap()) continue;
-      auto it2 = origNestedOrder.find(kv.first + "/" + kv2.first);
-      if (it2 != origNestedOrder.end()) reorder(kv2.second, it2->second);
-    }
+  for (const auto& k : wantedOrder) {
+    if (beforeKeys.find(k) == beforeKeys.end()) addSetting(*s, k, wanted[k]);
   }
 }
 
 void LanguageYaml::setSetting(const std::string& key, const std::string& value) {
   if (key.empty()) return;
-  if (m_root.type != Node::Type::Map) {
-    m_root.type = Node::Type::Map;
-    m_root.map.clear();
-    m_root.keyOrder.clear();
-    m_root.seq.clear();
-    m_root.scalar.clear();
+  auto rows = settings();
+  bool found = false;
+  for (auto& kv : rows) {
+    if (kv.first == key) { kv.second = value; found = true; break; }
   }
-  Node* s = getNestedMap(m_root, "settings");
-  
-  // Check if this is a known nested key
-  for (const auto& mapping : kNestedMappings) {
-    if (key == mapping.flatPrefix) {
-      std::string leafKey = extractLeafKey(key, mapping.nestedPath, mapping.subPath);
-      
-      // Ensure the top-level nested map exists
-      if (s->map.find(mapping.nestedPath) == s->map.end()) {
-        s->map[mapping.nestedPath].type = Node::Type::Map;
-      }
-      Node* target = &s->map[mapping.nestedPath];
-      
-      // If there's a subPath, ensure that nested map exists too
-      if (mapping.subPath) {
-        if (target->map.find(mapping.subPath) == target->map.end()) {
-          target->map[mapping.subPath].type = Node::Type::Map;
-        }
-        target = &target->map[mapping.subPath];
-      }
-      
-      // Set the leaf value
-      Node v;
-      if (looksLikeList(value) && leafKey == "applyTo") {
-        v = makeSequenceFromCommaSeparated(value);
-      } else {
-        v.type = Node::Type::Scalar;
-        v.scalar = value;
-      }
-      target->map[leafKey] = std::move(v);
-      return;
-    }
-  }
-  
-  // Regular flat setting
-  Node v;
-  v.type = Node::Type::Scalar;
-  v.scalar = value;
-  s->map[key] = std::move(v);
+  if (!found) rows.emplace_back(key, value);
+  setSettings(rows);
 }
 
 bool LanguageYaml::removeSetting(const std::string& key) {
   if (key.empty()) return false;
-  if (m_root.type != Node::Type::Map) return false;
-
-  auto it = m_root.map.find("settings");
-  if (it == m_root.map.end()) return false;
-  Node& s = it->second;
-  if (!s.isMap()) return false;
-
-  // Check if this is a known nested key
-  for (const auto& mapping : kNestedMappings) {
-    if (key == mapping.flatPrefix) {
-      std::string leafKey = extractLeafKey(key, mapping.nestedPath, mapping.subPath);
-      
-      auto topIt = s.map.find(mapping.nestedPath);
-      if (topIt == s.map.end()) return false;
-      
-      Node* target = &topIt->second;
-      if (mapping.subPath) {
-        auto subIt = target->map.find(mapping.subPath);
-        if (subIt == target->map.end()) return false;
-        target = &subIt->second;
-      }
-      
-      return target->map.erase(leafKey) > 0;
-    }
-  }
-
-  return s.map.erase(key) > 0;
+  auto rows = settings();
+  const size_t n = rows.size();
+  rows.erase(std::remove_if(rows.begin(), rows.end(),
+                            [&](const auto& kv) { return kv.first == key; }), rows.end());
+  if (rows.size() == n) return false;
+  setSettings(rows);
+  return true;
 }
 
 // -------------------------
