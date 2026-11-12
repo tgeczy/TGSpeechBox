@@ -554,6 +554,7 @@ class SynthDriver(
             self._language = requested
             resolved = requested
 
+        languageChanged = resolved != getattr(self, "_resolvedLang", None)
         self._resolvedLang = resolved
 
         # Skip cancel() during __init__ — audio system may not exist yet
@@ -627,8 +628,13 @@ class SynthDriver(
             except Exception:
                 log.debug("TGSpeechBox: could not refresh language-pack cache", exc_info=True)
             # NVDA's saved copy of the voice-panel settings now has to hold
-            # this language's values (#127).
-            self._syncLangPackSettingsToConfig()
+            # this language's values (#127).  Not when the language is set
+            # to what it already is: Cancel in the voice panel replays every
+            # saved setting, the language among the first, and syncing there
+            # overwrote the saved values the replay was about to put back
+            # (#160).
+            if languageChanged:
+                self._syncLangPackSettingsToConfig()
             self._scheduleSettingsPanelRefresh()
 
     # ---- Settings panel refresh ----
@@ -712,10 +718,12 @@ class SynthDriver(
         log.error("TGSpeechBox: frontend could not load pack for %r (tried %s). %s", tag, candidates, lastErr)
         return False
 
-    def reloadLanguagePack(self, tag: str | None = None) -> bool:
+    def reloadLanguagePack(self, tag: str | None = None, syncConfig: bool = True) -> bool:
         """Public helper (used by the settings panel) to reload frontend packs.
 
         If *tag* is omitted, reloads the currently selected driver language.
+        *syncConfig* is off for a voice-panel setter's own write: NVDA's copy
+        of that setting is NVDA's to save (OK) or to replay (Cancel, #160).
         """
         want = tag or self._getCurrentLangTag()
         ok = self._applyFrontendLangTag(want)
@@ -731,7 +739,7 @@ class SynthDriver(
             # The settings panel saved into the language file: NVDA's copy
             # must follow, or its next replay writes the old value back
             # ("this option always re-enables itself", #140).
-            if want == self._getCurrentLangTag():
+            if syncConfig and want == self._getCurrentLangTag():
                 try:
                     self._syncLangPackSettingsToConfig()
                 except Exception:

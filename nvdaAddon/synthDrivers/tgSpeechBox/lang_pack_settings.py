@@ -245,8 +245,12 @@ class LangPackSettingsMixin:
                 key=key,
                 value=value,
             )
-            # Reload so the frontend re-reads updated YAML.
-            self.reloadLanguagePack(langTag)
+            # Reload so the frontend re-reads updated YAML.  NVDA's copy of
+            # the setting is left as it was: the voice panel sets us as each
+            # control changes, and Cancel undoes that by replaying the copy.
+            # Synced here, the copy already held the new value and the
+            # cancelled change stayed in the file (#160).
+            self.reloadLanguagePack(langTag, syncConfig=False)
         except Exception:
             log.error("TGSpeechBox: failed to update language-pack setting %s", key, exc_info=True)
 

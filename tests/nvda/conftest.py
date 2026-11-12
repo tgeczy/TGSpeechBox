@@ -398,6 +398,34 @@ def _install_fake_nvda() -> None:
                 if section.get(s.id) is not None:
                     setattr(self, s.id, section[s.id])
 
+        def saveSettings(self):
+            """autoSettings.saveSettings: OK or Apply in the voice panel, and a
+            first load.  Every setting is read back from the driver into the
+            config."""
+            import config
+            section = config.conf["speech"].setdefault(self.name, {})
+            for s in self.supportedSettings:
+                section[s.id] = getattr(self, s.id)
+
+        def loadSettings(self, onlyChanged=False):
+            """synthDriverHandler.SynthDriver.loadSettings (NVDA 2026.2): the
+            voice first (changeVoice), then every other saved setting in
+            supportedSettings order, `language` among the first.  Cancel in
+            the voice panel is loadSettings() (VoiceSettingsPanel.onDiscard);
+            a config profile switch is loadSettings(onlyChanged=True)."""
+            import config
+            section = config.conf["speech"][self.name]
+            voice = section.get("voice")
+            if voice and (not onlyChanged or self.voice != voice):
+                self.voice = voice
+            for s in self.supportedSettings:
+                if s.id == "voice" or section.get(s.id) is None:
+                    continue
+                val = section[s.id]
+                if onlyChanged and getattr(self, s.id) == val:
+                    continue
+                setattr(self, s.id, val)
+
     class VoiceInfo:
         def __init__(self, id, displayName, language=None):
             self.id, self.displayName, self.language = id, displayName, language
