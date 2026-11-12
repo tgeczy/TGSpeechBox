@@ -19,6 +19,7 @@ from ctypes import (
 from typing import Callable, List, Optional
 
 # Data domain constants (must match NVSP_DATA_* in src/frontend/nvspFrontend.h).
+NVSP_DATA_DICTIONARY = 2
 NVSP_DATA_FRAMETRACE = 3
 NVSP_DATA_PASSTRACE  = 4
 
@@ -186,6 +187,19 @@ class TestFrontend:
         finally:
             self._dll.nvspFrontend_freeString(ptr)
         return result
+
+    def set_dict_entry(self, handle: int, lang: str, key: str, value: str, dict_type: str = "") -> None:
+        """Add a dictionary entry the way the editors do, through
+        nvspFrontend_setData.  dict_type "" is the pronunciation dictionary
+        (value: JSON such as {"toText":"..."} or {"toIpa":"..."});
+        "character" is the letter-name dictionary (value: the name)."""
+        fn = self._dll.nvspFrontend_setData
+        fn.argtypes = [c_void_p, c_int, c_char_p, c_char_p, c_char_p]
+        fn.restype = c_int
+        tag = f"{dict_type}:{lang}" if dict_type else lang
+        ok = fn(handle, NVSP_DATA_DICTIONARY, tag.encode("utf-8"), key.encode("utf-8"), value.encode("utf-8"))
+        if not ok:
+            raise RuntimeError(f"setData({tag!r}, {key!r}) failed")
 
     def prepare_clause(self, handle: int, clause: str, whole_text: bool) -> str:
         """prepare_text for one clause of a text split with split_clauses():

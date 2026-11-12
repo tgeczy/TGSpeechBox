@@ -5,6 +5,7 @@ Licensed under the MIT License. See LICENSE for details.
 */
 
 #include "dict_lookup.h"
+#include "utf8.h"
 
 #include <cctype>
 #include <cstdint>
@@ -84,6 +85,45 @@ static size_t unicodePunctLen(const std::string& s, size_t i) {
   return 0;
 }
 
+// Lowercase a UTF-8 word for lookup (#164).  Byte-wise std::tolower folds
+// only A to Z, so "Ész" never reached the entry for "ész"; and it follows
+// the C locale, which NVDA's Python sets to the Windows code page, where it
+// rewrites the bytes of every non-ASCII letter.  Malformed bytes are kept.
+static std::string lowerUtf8(const std::string& s) {
+  std::string out;
+  out.reserve(s.size());
+  for (size_t i = 0; i < s.size();) {
+    const auto b = static_cast<uint8_t>(s[i]);
+    size_t n = b < 0x80 ? 1 : (b >> 5) == 0x6 ? 2 : (b >> 4) == 0xE ? 3 : (b >> 3) == 0x1E ? 4 : 0;
+    if (i + n > s.size()) n = 0;
+    char32_t cp = n == 1 ? b : n == 2 ? (b & 0x1F) : n == 3 ? (b & 0x0F) : (b & 0x07);
+    for (size_t k = 1; k < n; ++k) {
+      const auto cc = static_cast<uint8_t>(s[i + k]);
+      if ((cc & 0xC0) != 0x80) { n = 0; break; }
+      cp = (cp << 6) | (cc & 0x3F);
+    }
+    if (n == 0) {  // not UTF-8: keep the byte
+      out.push_back(s[i++]);
+      continue;
+    }
+    const char32_t lower = foldCodepointLower(cp);
+    if (lower != cp) out += u32ToUtf8(std::u32string(1, lower));
+    else out.append(s, i, n);
+    i += n;
+  }
+  return out;
+}
+
+// The byte in `s` where its last `n` codepoints begin.
+static size_t lastCodepointsStart(const std::string& s, size_t n) {
+  size_t pos = s.size();
+  for (; n > 0 && pos > 0; --n) {
+    --pos;
+    while (pos > 0 && (static_cast<uint8_t>(s[pos]) & 0xC0) == 0x80) --pos;
+  }
+  return pos;
+}
+
 std::string dictReplaceInText(const std::string& text, const PronDict& dict,
     const std::vector<std::string>& suffixes,
     std::unordered_map<std::string, std::string>* ipaOverrides) {
@@ -146,11 +186,7 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict,
     // Strip variation selectors so "🦯\uFE0F" matches dict key "🦯".
     std::string exactKey = stripVariationSelectors(
         std::string(token, lo, hi - lo));
-    std::string lowerKey;
-    lowerKey.reserve(hi - lo);
-    for (size_t k = lo; k < hi; ++k)
-      lowerKey.push_back(static_cast<char>(
-          std::tolower(static_cast<unsigned char>(token[k]))));
+    const std::string lowerKey = lowerUtf8(std::string(token, lo, hi - lo));
 
     auto it = dict.entries.find(exactKey);
     if (it == dict.entries.end() || it->second.masked) {
@@ -169,8 +205,14 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict,
             if (stemLen < 3) continue;
             if (lowerKey.compare(stemLen, sfx.size(), sfx) != 0) continue;
 
+            // The suffix as written is as many codepoints as the lowercase
+            // one, not always as many bytes ("İ" is two, its "i" one).
+            size_t sfxCodepoints = 0;
+            for (unsigned char c : sfx) sfxCodepoints += (c & 0xC0) != 0x80;
+            const size_t coreStemLen = lastCodepointsStart(core, sfxCodepoints);
+
             std::string stemExact = stripVariationSelectors(
-                core.substr(0, stemLen));
+                core.substr(0, coreStemLen));
             std::string stemLower = lowerKey.substr(0, stemLen);
 
             auto sit = dict.entries.find(stemExact);
@@ -184,7 +226,7 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict,
             // skipped — they need explicit suffixed dict entries.
             if (sit->second.toText.empty()) continue;
 
-            std::string origSuffix = core.substr(stemLen);
+            std::string origSuffix = core.substr(coreStemLen);
             std::string rep;
             rep.reserve(sit->second.toText.size() + origSuffix.size());
             for (char c : sit->second.toText)
@@ -215,11 +257,7 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict,
             if (dash == std::string::npos) dash = core.size();
             std::string part = core.substr(pos, dash - pos);
             if (!part.empty()) {
-              std::string partLower;
-              partLower.reserve(part.size());
-              for (char c : part)
-                partLower.push_back(static_cast<char>(
-                    std::tolower(static_cast<unsigned char>(c))));
+              const std::string partLower = lowerUtf8(part);
               std::string partExact = stripVariationSelectors(part);
               auto pit = dict.entries.find(partExact);
               if (pit == dict.entries.end() || pit->second.masked)
