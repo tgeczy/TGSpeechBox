@@ -821,22 +821,40 @@ bool isEndMark(char32_t c) {
 // an opening bracket at the start of the text or after a space, however many
 // clauses back (#141: a comma inside the parentheses starts a new clause).
 // "f(x)" and "word(s)" set nothing off.
+//
+// Found by walking back from the closing bracket to the one it closes, over
+// the pairs in between.  Reading forward from the start of the text for
+// every closing bracket made a long text with many of them slow to split, by
+// the square of its length (#171).  Brackets are ASCII and an ASCII byte is
+// never part of a longer character, so the walk back is over bytes.
 bool closesSetOffBracket(std::string_view text, size_t i) {
-  std::vector<bool> open;  // one per unclosed bracket: did it set something off?
-  char32_t prev = kEnd;
-  size_t k = 0;
-  size_t len = 0;
-  while (k < i) {
-    const char32_t c = decodeAt(text, k, len);
-    if (c == '(' || c == '[') {
-      open.push_back(prev == kEnd || isClauseSpace(prev) || prev == '(' || prev == '[');
-    } else if ((c == ')' || c == ']') && !open.empty()) {
-      open.pop_back();
+  size_t closed = 0;  // closing brackets passed whose opening ones are further back
+  size_t k = i;
+  while (k > 0) {
+    const char b = text[--k];
+    if (b == ')' || b == ']') {
+      ++closed;
+    } else if (b == '(' || b == '[') {
+      if (closed > 0) {
+        --closed;
+        continue;
+      }
+      // The opening bracket.  What stands before it, as the text reads from
+      // its start: the nearest ASCII byte back is a place to read on from.
+      if (k == 0) return true;
+      size_t p = k;
+      while (p > 0 && static_cast<unsigned char>(text[p - 1]) >= 0x80) --p;
+      char32_t prev = static_cast<unsigned char>(text[k - 1]);
+      size_t len = 0;
+      while (p < k) {
+        prev = decodeAt(text, p, len);
+        p += len;
+      }
+      // (kEnd is also what a NUL byte reads as; it counted as the start.)
+      return prev == kEnd || isClauseSpace(prev) || prev == '(' || prev == '[';
     }
-    prev = c;
-    k += len;
   }
-  return !open.empty() && open.back();
+  return false;
 }
 
 // A clause that ends in mark c: its type and pause class.
