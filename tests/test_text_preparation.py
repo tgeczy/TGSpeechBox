@@ -202,3 +202,77 @@ def test_grouped_numbers_in_other_languages_are_unchanged(prepare, lang, text, e
     """These languages turn the comma into a space and split no years: their
     output is byte for byte what it was."""
     assert prepare(lang, text) == expected
+
+
+# ---------------------------------------------------------------------------
+# #166: English clock times.
+# ---------------------------------------------------------------------------
+# English rewrites "6:03" as "6 oh 3" and "5:00" as "5 o'clock" before the
+# phonemizer.  Two cases came out worse than eSpeak NG reads them unaided:
+#
+# * the hour kept its leading zero: "08:15" became "08 15", "zero eight
+#   fifteen", where eSpeak NG alone says "eight fifteen";
+# * a time with seconds was taken for hours and minutes with something after
+#   it: "10:00:00" became "10 o'clock:00", "ten o'clock colon zero zero".
+
+@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    ("Train at 08:15", "Train at 8 15"),
+    ("07:05", "7 oh 5"),
+    ("09:00", "9 o'clock"),
+    ("01:30 and 09:59.", "1 30 and 9 59."),
+    # As NVDA sends it when it speaks the colon.
+    ("08 colon 15", "8 15"),
+    ("07 colon 05", "7 oh 5"),
+])
+def test_a_leading_zero_on_the_hour_is_not_read(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("text", [
+    "10:00:00",
+    "1:00:30",
+    "12:34:56",
+    "Elapsed 0:05:09 so far",
+    "08:15:00",
+    "100:00:00",
+    "1:02:03:04",
+    "10 colon 00 colon 00",
+    "1 colon 00 colon 30",
+])
+def test_a_time_with_seconds_is_left_to_the_phonemizer(prepare, lang, text):
+    out = prepare(lang, text)
+    assert out == text
+    assert "o'clock" not in out and " oh " not in out
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    ("6:03", "6 oh 3"),
+    ("12:45", "12 45"),
+    ("5:00", "5 o'clock"),
+    ("At 5:44 today", "At 5 44 today"),
+    ("5:00: we left", "5 o'clock: we left"),
+    ("10:30, then 11:00.", "10 30, then 11 o'clock."),
+    ("6 colon 03", "6 oh 3"),
+    ("23:59", "23 59"),
+    ("24:00", "24:00"),
+    ("5:60", "5:60"),
+    ("ratio 3:1", "ratio 3:1"),
+    # Midnight's hour is not touched: how "00" should be read is not decided here.
+    ("00:30", "00 30"),
+    ("00:00", "00 o'clock"),
+    # Not changed by #166: "o'clock" before AM or PM.
+    ("10:00 AM", "10 o'clock A. M."),
+    ("5:00 PM", "5 o'clock PM"),
+])
+def test_other_times_read_as_before(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+@pytest.mark.parametrize("lang", ["de", "hu", "es", "pt-br", "fr", "ru", "pl"])
+@pytest.mark.parametrize("text", ["08:15", "07:05", "10:00:00", "1:00:30", "5:00", "08 colon 15"])
+def test_times_in_other_languages_are_untouched(prepare, lang, text):
+    """Only English rewrites times."""
+    assert prepare(lang, text) == text

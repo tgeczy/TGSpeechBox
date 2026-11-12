@@ -407,9 +407,31 @@ std::string insertDateOrdinals(const std::string& text) {
 //   "6 colon 03" -> "6 oh 3"    (NVDA-expanded punctuation)
 //   "12:45"      -> "12 45"     (two-digit minute)
 //   "5:00"       -> "5 o'clock"
+//   "08:15"      -> "8 15"      (the hour's leading zero is not read, #166)
+//   "10:00:00"   unchanged      (seconds: left to the phonemizer, #166)
 // Handles both raw ":" and NVDA's "colon" expansion.
 
 std::string expandTimes(const std::string& text, const std::string& ohDigit) {
+  auto isDigitAt = [&](size_t p) {
+    return p < text.size() && std::isdigit(static_cast<unsigned char>(text[p]));
+  };
+  // A further field after the minutes that end at p, or before the hour that
+  // starts at p: "10:00:00" and "1:02:03" are a time with seconds or a
+  // duration, not hours and minutes with something after them (#166).
+  auto fieldAfter = [&](size_t p) {
+    if (p < text.size() && text[p] == ':') return isDigitAt(p + 1);
+    return p < text.size() && text.compare(p, 7, " colon ") == 0 && isDigitAt(p + 7);
+  };
+  auto fieldBefore = [&](size_t p) {
+    if (p >= 2 && text[p - 1] == ':') return isDigitAt(p - 2);
+    return p >= 8 && text.compare(p - 7, 7, " colon ") == 0 && isDigitAt(p - 8);
+  };
+  // "08" is read "8"; midnight's "00" stays as written.
+  auto hourText = [&](size_t start, size_t len, int hour) {
+    if (len == 2 && text[start] == '0' && hour != 0) return text.substr(start + 1, 1);
+    return text.substr(start, len);
+  };
+
   std::string result;
   result.reserve(text.size() + 16);
   size_t i = 0;
@@ -419,17 +441,18 @@ std::string expandTimes(const std::string& text, const std::string& ohDigit) {
       while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i]))) ++i;
       size_t hourLen = i - numStart;
 
-      if (hourLen <= 2) {
+      if (hourLen <= 2 && !fieldBefore(numStart)) {
         // Try raw colon: "6:03"
         if (i < text.size() && text[i] == ':' &&
             i + 2 < text.size() &&
             std::isdigit(static_cast<unsigned char>(text[i + 1])) &&
             std::isdigit(static_cast<unsigned char>(text[i + 2])) &&
-            (i + 3 >= text.size() || !std::isdigit(static_cast<unsigned char>(text[i + 3])))) {
+            (i + 3 >= text.size() || !std::isdigit(static_cast<unsigned char>(text[i + 3]))) &&
+            !fieldAfter(i + 3)) {
           int hour = std::atoi(text.substr(numStart, hourLen).c_str());
           int min  = (text[i + 1] - '0') * 10 + (text[i + 2] - '0');
           if (hour <= 23 && min <= 59) {
-            std::string hourStr = text.substr(numStart, hourLen);
+            std::string hourStr = hourText(numStart, hourLen, hour);
             result += expandTimeCore(hourStr, min, text[i + 1], text[i + 2], ohDigit);
             TPREP("  timeExpand(raw): \"%s\" -> ...\n",
                   text.substr(numStart, (i + 3) - numStart).c_str());
@@ -443,11 +466,12 @@ std::string expandTimes(const std::string& text, const std::string& ohDigit) {
             text.substr(i, 7) == " colon " &&
             std::isdigit(static_cast<unsigned char>(text[i + 7])) &&
             std::isdigit(static_cast<unsigned char>(text[i + 8])) &&
-            (i + 9 >= text.size() || !std::isdigit(static_cast<unsigned char>(text[i + 9])))) {
+            (i + 9 >= text.size() || !std::isdigit(static_cast<unsigned char>(text[i + 9]))) &&
+            !fieldAfter(i + 9)) {
           int hour = std::atoi(text.substr(numStart, hourLen).c_str());
           int min  = (text[i + 7] - '0') * 10 + (text[i + 8] - '0');
           if (hour <= 23 && min <= 59) {
-            std::string hourStr = text.substr(numStart, hourLen);
+            std::string hourStr = hourText(numStart, hourLen, hour);
             result += expandTimeCore(hourStr, min, text[i + 7], text[i + 8], ohDigit);
             TPREP("  timeExpand(nvda): \"%s\" -> ...\n",
                   text.substr(numStart, (i + 9) - numStart).c_str());
