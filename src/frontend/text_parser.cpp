@@ -242,27 +242,34 @@ static std::string stripPunct(const std::string& s) {
   return s.substr(start, end - start);
 }
 
-// Whether a text word has a letter in it, of any script: an ASCII letter, or
-// a codepoint beyond ASCII that is not punctuation, a symbol or an emoji.
-// A word of only digits or symbols has none.
+// Whether a text word takes a word of the phonemizer's IPA: it has an ASCII
+// letter, or a codepoint beyond ASCII that is not a mark the phonemizer passes
+// over in silence.  Letters of any script count, and so do the signs it says
+// as words ("°" is "degrees", "×" "times", "€" "euro"; checked against eSpeak
+// NG 1.52 and 1.53 in five languages).  Silent: Latin-1 punctuation and
+// spacing accents, the General Punctuation block (dashes, quotes, bullets,
+// daggers, the ellipsis), CJK punctuation, variation selectors.  A word of
+// only ASCII digits or symbols is not counted, as before.
 static bool hasLetter(const std::string& word) {
   for (char32_t c : utf8ToU32(word)) {
     if (c < 0x80) {
       if ((c | 0x20) >= 'a' && (c | 0x20) <= 'z') return true;
       continue;
     }
-    if (c < 0xC0) {  // Latin-1 signs, but for ª µ º
-      if (c == 0xAA || c == 0xB5 || c == 0xBA) return true;
-      continue;
+    switch (c) {
+      case 0xA0: case 0xA1: case 0xA6: case 0xA8: case 0xAB: case 0xAD:
+      case 0xAF: case 0xB4: case 0xB7: case 0xB8: case 0xBB: case 0xBF:
+        continue;                                  // nbsp ¡ ¦ ¨ « shy ¯ ´ · ¸ » ¿
+      default: break;
     }
-    if (c == 0xD7 || c == 0xF7) continue;          // × ÷
-    if (c >= 0x2000 && c <= 0x2BFF) continue;      // punctuation, currency, arrows, maths, symbols
+    if (c >= 0x0300 && c <= 0x036F) continue;      // combining marks on their own
+    if (c >= 0x2000 && c <= 0x206F) continue;      // general punctuation
     if (c >= 0x3000 && c <= 0x303F) continue;      // CJK punctuation
     if (c >= 0xE000 && c <= 0xF8FF) continue;      // private use
     if (c >= 0xFE00 && c <= 0xFE0F) continue;      // variation selectors
-    if (c >= 0xFF00 && c <= 0xFF20) continue;      // fullwidth punctuation and digits
+    if (c >= 0xFF00 && c <= 0xFF0F) continue;      // fullwidth punctuation
+    if (c >= 0xFF1A && c <= 0xFF20) continue;
     if (c == 0xFFFD) continue;                     // not UTF-8
-    if (c >= 0x1F000 && c <= 0x1FAFF) continue;    // emoji and pictographs
     return true;
   }
   return false;

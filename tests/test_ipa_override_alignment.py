@@ -142,6 +142,33 @@ def test_cyrillic_words_are_words(speak, plain_c_locale, speed, entries, expecte
 
 
 @pytest.mark.parametrize("speed", SPEEDS)
+@pytest.mark.parametrize("text, ipa, expected", [
+    # A sign the phonemizer says as a word takes that word's IPA.  eSpeak NG
+    # (1.52 and 1.53, pt-br): "° edu" is "ɡrˈaʊ edˈu" (grau edu), "× edu" is
+    # "vˈezyz edˈu" (vezes edu), "€ edu" is "ˈeʊro edˈu".
+    ("° edu", "ɡɾˈaw ˈedu", ["ɡ", "ᵊ", "ɾ", "a", "w"] + STOP3),
+    ("× edu", "vˈezis ˈedu", ["v", "e", "z", "i", "s"] + STOP3),
+    ("€ edu", "ˈewro ˈedu", None),
+    ("§ edu", "paɾˈaɡɾafo ˈedu", None),
+    # Marks it does not say are still no word: guillemets, inverted marks, a
+    # middle dot, a no-break space, a bullet, a dagger.
+    ("« edu »", "ˈedu", STOP3),
+    ("¿ edu ?", "ˈedu", STOP3),
+    ("Ele • edu", "ˈeli ˈedu", ["e", "l", "i"] + STOP3),
+    ("Ele † edu", "ˈeli ˈedu", ["e", "l", "i"] + STOP3),
+])
+def test_a_spoken_sign_is_a_word_and_a_silent_mark_is_not(speak, c_locale, speed, text, ipa, expected):
+    # Found in review of #165: a standalone non-ASCII sign before the entry's
+    # word put the entry on the sign's word and left "edu" spoken (it worked
+    # by accident under NVDA's code-page locale before).
+    keys, _frames = speak("pt-br", PT_ENTRIES, text, ipa, speed)
+    assert keys[-3:] == STOP3, f"{text!r}: the entry did not replace its own word: {keys}"
+    assert keys.count("ʔ") == 3, f"{text!r}: {keys}"
+    if expected is not None:
+        assert keys == expected
+
+
+@pytest.mark.parametrize("speed", SPEEDS)
 @pytest.mark.parametrize("text, ipa", [
     # Digits and symbols take no IPA word in this walk, as before.
     ("Ele 25 edu", "ˈeli ˈedu"),
