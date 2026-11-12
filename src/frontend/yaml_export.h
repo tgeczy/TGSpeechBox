@@ -59,6 +59,12 @@ void findPhonemeRanges(const std::vector<std::string>& lines,
 std::string stripForComparison(const std::vector<std::string>& lines,
                                size_t start, size_t end);
 
+/// True when two trees hold the same data: node types, scalar text, list
+/// items in order, map keys and their values.  Key order, flow style and
+/// how the text was spelled (quotes, comments) are not data.  A surgical
+/// save keeps a block's original lines when its data is unchanged.
+bool sameData(const Node& a, const Node& b);
+
 // ── Surgical merge ────────────────────────────────────────────────
 
 /// Read a base YAML file, apply key-value overrides at the Node level,

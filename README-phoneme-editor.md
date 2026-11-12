@@ -281,7 +281,7 @@ TGSpeechBox works with any phonemizer that writes IPA; eSpeak NG is the default.
 | Dictionary entries | Save in the dictionary editor | `packs\dict\<language>-<type>.tsv` |
 | Speech, phonemizer and folder settings | as you change them | `tgsbPhonemeEditor.ini` |
 
-- **Comments are kept** where you didn't change anything. A YAML save rewrites only the sections and phonemes you changed; the rest of the file, comments included, stays as it was. Comments *inside* a phoneme you changed are lost.
+- **Comments are kept** where you didn't change anything. A YAML save rewrites only the sections and phonemes you changed; the rest of the file, comments included, stays as it was, and a save with no changes leaves the file's text alone. Comments *inside* a phoneme you changed are lost; so are the comments inside a language file's top-level section (`settings:`, `normalization:`) when you change anything in it.
 - A dictionary save keeps the comments at the top of the file (where the entries come from and under which licence) and rewrites the entries below them.
 - **Reload** (F5, Shift+F5) reads the file again from disk and asks first if you have unsaved changes. Saving `phonemes.yaml` also reloads it, so changes you made in a text editor meanwhile show up.
 - Use git (or a copy of the `packs` folder) so you can see and undo what changed.

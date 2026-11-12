@@ -49,6 +49,33 @@ static bool looksLikeBool(const std::string& s) {
             t == "on" || t == "off" || t == "0" || t == "1");
 }
 
+// A plain decimal number: optional sign, digits with at most one dot, and an
+// optional exponent.  Stricter than looksLikeNumber, which takes anything
+// with an 'e' in it; this one decides whether a leading '-' is a minus sign.
+static bool isPlainNumber(const std::string& s) {
+    size_t i = 0;
+    if (i < s.size() && (s[i] == '+' || s[i] == '-')) ++i;
+    size_t digits = 0;
+    bool dot = false;
+    for (; i < s.size(); ++i) {
+        const char c = s[i];
+        if (c >= '0' && c <= '9') { ++digits; continue; }
+        if (c == '.' && !dot) { dot = true; continue; }
+        break;
+    }
+    if (digits == 0) return false;
+    if (i == s.size()) return true;
+    if (s[i] != 'e' && s[i] != 'E') return false;
+    ++i;
+    if (i < s.size() && (s[i] == '+' || s[i] == '-')) ++i;
+    size_t expDigits = 0;
+    for (; i < s.size(); ++i) {
+        if (s[i] < '0' || s[i] > '9') return false;
+        ++expDigits;
+    }
+    return expDigits > 0;
+}
+
 static bool needsQuotes(const std::string& s) {
     if (s.empty()) return true;
     if (std::isspace(static_cast<unsigned char>(s.front())) ||
@@ -60,7 +87,10 @@ static bool needsQuotes(const std::string& s) {
         if (c == ':' || c == '#' || c == '\n' || c == '\r' || c == '\t') return true;
         if (c == '[' || c == ']' || c == '{' || c == '}' || c == ',') return true;
     }
-    if (s[0] == '-' || s[0] == '?' || s[0] == '!' || s[0] == '*') return true;
+    // A negative number is a number: -0.15 is written back as -0.15, not
+    // "-0.15" (#217).  Any other leading '-' could read as a list item.
+    if (s[0] == '-' && !isPlainNumber(s)) return true;
+    if (s[0] == '?' || s[0] == '!' || s[0] == '*') return true;
     if (s.find("//") != std::string::npos) return true;
     return false;
 }
@@ -89,7 +119,9 @@ static std::string dumpScalar(const std::string& s) {
 }
 
 static std::string dumpKeyStr(const std::string& s) {
-    if (needsQuotes(s)) return quote(s);
+    // A key keeps its quotes even when it is a negative number: `-1: x` at
+    // the start of a line reads as a list item.
+    if (needsQuotes(s) || s[0] == '-') return quote(s);
     return s;
 }
 
@@ -421,6 +453,30 @@ std::string stripForComparison(const std::vector<std::string>& lines,
     return out;
 }
 
+bool sameData(const Node& a, const Node& b) {
+    if (a.type != b.type) return false;
+    switch (a.type) {
+        case Node::Type::Scalar:
+            return a.scalar == b.scalar;
+        case Node::Type::Seq:
+            if (a.seq.size() != b.seq.size()) return false;
+            for (size_t i = 0; i < a.seq.size(); ++i) {
+                if (!sameData(a.seq[i], b.seq[i])) return false;
+            }
+            return true;
+        case Node::Type::Map:
+            if (a.map.size() != b.map.size()) return false;
+            for (const auto& kv : a.map) {
+                auto it = b.map.find(kv.first);
+                if (it == b.map.end() || !sameData(kv.second, it->second)) return false;
+            }
+            return true;
+        case Node::Type::Null:
+        default:
+            return true;
+    }
+}
+
 void findPhonemeRanges(const std::vector<std::string>& lines,
                               std::vector<PhonemeLineRange>& ranges,
                               size_t& phonemesBlockStart,
@@ -528,6 +584,11 @@ static std::string surgicalMergeSettings(
     Node& root,
     const std::vector<std::pair<std::string, std::string>>& overrides) {
 
+    // The file as it was read, before the overrides go in.  A section whose
+    // data the overrides did not change keeps its lines, however they are
+    // spelled (#217).
+    const Node pristine = root;
+
     // Apply overrides into the "settings" block of the Node tree.
     Node* settings = nullptr;
     for (auto& kv : root.map) {
@@ -558,11 +619,9 @@ static std::string surgicalMergeSettings(
         if (!memNode) continue;
 
         std::string serialized = dumpSingleTopLevelKey(range.key, *memNode);
-        std::string origStripped = stripForComparison(origLines, range.startLine, range.endLine);
-        std::string serStripped = serialized;
-        while (!serStripped.empty() && serStripped.back() == '\n') serStripped.pop_back();
+        const Node* origNode = pristine.get(range.key);
 
-        if (origStripped == serStripped) {
+        if (origNode && sameData(*origNode, *memNode)) {
             for (size_t i = range.startLine; i < range.endLine; ++i) {
                 output += origLines[i];
                 output += "\n";
@@ -594,6 +653,12 @@ static std::string surgicalMergePhonemes(
     const std::vector<std::string>& origLines,
     Node& root,
     const std::vector<std::pair<std::string, std::string>>& overrides) {
+
+    // The file as it was read, before the overrides go in.  A phoneme whose
+    // data the overrides did not change keeps its lines, however they are
+    // spelled: a quoted key, a negative number, its comments (#217).
+    const Node pristine = root;
+    const Node* pristinePhonemes = pristine.get("phonemes");
 
     // Apply overrides into the "phonemes" block of the Node tree.
     // Override keys are "phonemeKey.fieldName" or "phonemeKey.frameEx.fieldName".
@@ -655,11 +720,10 @@ static std::string surgicalMergePhonemes(
         if (!memNode) continue;
 
         std::string serialized = dumpSinglePhoneme(range.key, *memNode);
-        std::string origStripped = stripForComparison(origLines, range.startLine, range.endLine);
-        std::string serStripped = serialized;
-        while (!serStripped.empty() && serStripped.back() == '\n') serStripped.pop_back();
+        const Node* origNode = (pristinePhonemes && pristinePhonemes->isMap())
+            ? pristinePhonemes->get(range.key) : nullptr;
 
-        if (origStripped == serStripped) {
+        if (origNode && sameData(*origNode, *memNode)) {
             for (size_t i = range.startLine; i < range.endLine; ++i) {
                 output += origLines[i];
                 output += "\n";

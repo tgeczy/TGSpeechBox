@@ -133,26 +133,6 @@ bool PhonemesYaml::clonePhoneme(const std::string& fromKey, const std::string& n
   return true;
 }
 
-static bool sameNode(const Node& a, const Node& b) {
-  if (a.type != b.type) return false;
-  if (a.isScalar()) return a.scalar == b.scalar;
-  if (a.isSeq()) {
-    if (a.seq.size() != b.seq.size()) return false;
-    for (size_t i = 0; i < a.seq.size(); ++i) {
-      if (!sameNode(a.seq[i], b.seq[i])) return false;
-    }
-    return true;
-  }
-  if (a.isMap()) {
-    if (a.map.size() != b.map.size()) return false;
-    for (const auto& kv : a.map) {
-      auto it = b.map.find(kv.first);
-      if (it == b.map.end() || !sameNode(kv.second, it->second)) return false;
-    }
-  }
-  return true;
-}
-
 // Put what changed between original and working into target: fields added
 // or changed are set, fields removed are removed, and every other field of
 // target stays as it is.  A block (frameEx) is gone through field by field.
@@ -163,7 +143,7 @@ static void applyMapEdit(Node& target, const Node& original, const Node& working
   }
   for (const auto& kv : working.map) {
     const Node* orig = original.isMap() ? original.get(kv.first) : nullptr;
-    if (orig && sameNode(*orig, kv.second)) continue;
+    if (orig && ye::sameData(*orig, kv.second)) continue;
     auto it = target.map.find(kv.first);
     if (it != target.map.end() && orig && orig->isMap() && kv.second.isMap() && it->second.isMap()) {
       applyMapEdit(it->second, *orig, kv.second);
@@ -244,6 +224,15 @@ bool LanguageYaml::save(std::string& outError) const {
   size_t headerEnd = 0;
   ye::findTopLevelRanges(origLines, ranges, headerEnd);
 
+  // What the file holds now, as data.  A section whose data is what the
+  // file already has keeps its lines, however they are spelled (#217).
+  Node origRoot;
+  bool haveOrig = false;
+  {
+    std::string parseErr;
+    haveOrig = nvsp_frontend::yaml_min::loadFile(m_path, origRoot, parseErr);
+  }
+
   // Build output.
   std::string output;
 
@@ -269,12 +258,15 @@ bool LanguageYaml::save(std::string& outError) const {
     // Serialize in-memory version for comparison.
     std::string serialized = ye::dumpSingleTopLevelKey(range.key, *memNode);
 
-    // Strip both for comparison (ignore comments, trailing whitespace).
+    // Unchanged data, or (if the file would not parse) unchanged text
+    // once comments and trailing whitespace are stripped.
     std::string origStripped = ye::stripForComparison(origLines, range.startLine, range.endLine);
     std::string serStripped = serialized;
     while (!serStripped.empty() && serStripped.back() == '\n') serStripped.pop_back();
+    const Node* origNode = haveOrig ? origRoot.get(range.key) : nullptr;
+    const bool unchanged = origNode ? ye::sameData(*origNode, *memNode) : (origStripped == serStripped);
 
-    if (origStripped == serStripped) {
+    if (unchanged) {
       // Unchanged — keep original verbatim (preserves comments, spacing).
       for (size_t i = range.startLine; i < range.endLine; ++i) {
         output += origLines[i];
@@ -1293,6 +1285,19 @@ bool PhonemesYaml::save(std::string& outError) const {
     origKeyToRange[ranges[ri].key] = ri;
   }
 
+  // What the file holds now, as data.  A phoneme whose data is what the
+  // file already has keeps its lines, however they are spelled: a quoted
+  // key, a negative number, its comments (#217).
+  Node origRoot;
+  const Node* origPhonemes = nullptr;
+  {
+    std::string parseErr;
+    if (nvsp_frontend::yaml_min::loadFile(m_path, origRoot, parseErr)) {
+      origPhonemes = origRoot.get("phonemes");
+      if (origPhonemes && !origPhonemes->isMap()) origPhonemes = nullptr;
+    }
+  }
+
   // Get the in-memory phonemes map.
   const Node* phonemesNode = m_root.get("phonemes");
   if (!phonemesNode || !phonemesNode->isMap()) {
@@ -1342,7 +1347,8 @@ bool PhonemesYaml::save(std::string& outError) const {
       std::string serStripped = serialized;
       while (!serStripped.empty() && serStripped.back() == '\n') serStripped.pop_back();
 
-      bool changed = (origStripped != serStripped);
+      const Node* origNode = origPhonemes ? origPhonemes->get(pkey) : nullptr;
+      bool changed = origNode ? !ye::sameData(*origNode, memNode) : (origStripped != serStripped);
 
       if (!changed) {
         // Keep original lines verbatim (with comments, spacing, etc.).
