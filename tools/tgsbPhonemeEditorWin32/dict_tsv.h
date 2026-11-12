@@ -9,6 +9,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,15 @@ bool loadDictTsv(const std::wstring& path, const std::string& dictType,
                  std::vector<DictEntryData>& out, std::string& outError);
 bool saveDictTsv(const std::wstring& path, const std::string& dictType,
                  const std::vector<DictEntryData>& entries, std::string& outError);
+
+// The row holding a word (fromText, compared exactly, as the frontend's
+// loaders do), or kNoDictEntry.
+constexpr size_t kNoDictEntry = static_cast<size_t>(-1);
+size_t findDictEntry(const std::vector<DictEntryData>& entries, const std::string& fromText);
+
+// "Add" in the dictionary dialog.  Returns true if the word was already
+// there.
+bool putDictEntry(std::vector<DictEntryData>& entries, const DictEntryData& entry);
 
 // packs/dict/<lang>-<file>.tsv for a dictionary type.
 std::wstring dictTsvPath(const std::wstring& packDir, const std::string& langTag,

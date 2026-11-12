@@ -69,6 +69,31 @@ bool readLines(const fs::path& p, std::vector<std::string>& lines) {
 
 }  // namespace
 
+size_t findDictEntry(const std::vector<DictEntryData>& entries, const std::string& fromText) {
+  for (size_t i = 0; i < entries.size(); ++i) {
+    if (entries[i].fromText == fromText) return i;
+  }
+  return kNoDictEntry;
+}
+
+// A word has one row.  The frontend keeps the first row of a word in a
+// stress, compound or character dictionary and the last in a pronunciation
+// or user one, so a second row is either never used or leaves the first one
+// dead (#221).  The new entry takes the place of the word's first row, any
+// further rows of the word go, and a new word goes to the end.
+bool putDictEntry(std::vector<DictEntryData>& entries, const DictEntryData& entry) {
+  const size_t at = findDictEntry(entries, entry.fromText);
+  if (at == kNoDictEntry) {
+    entries.push_back(entry);
+    return false;
+  }
+  entries[at] = entry;
+  for (size_t i = entries.size(); i-- > at + 1;) {
+    if (entries[i].fromText == entry.fromText) entries.erase(entries.begin() + static_cast<std::ptrdiff_t>(i));
+  }
+  return true;
+}
+
 std::wstring dictTsvPath(const std::wstring& packDir, const std::string& langTag,
                          const std::string& dictType) {
   fs::path base = fs::path(packDir) / "dict";

@@ -683,7 +683,17 @@ static INT_PTR CALLBACK DictEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
                         DictEntryDlgProc, reinterpret_cast<LPARAM>(&des));
 
         if (des.ok) {
-          st->entries.push_back(des.entry);
+          // A word has one row: a second one would never be used, or would
+          // leave the first one dead (#221).  The list may not be showing
+          // the row that is already there, so ask.
+          if (findDictEntry(st->entries, des.entry.fromText) != kNoDictEntry) {
+            const std::wstring q = L"\"" + utf8ToWide(des.entry.fromText) +
+                L"\" is already in this dictionary. Replace its entry with this one?";
+            if (MessageBoxW(hDlg, q.c_str(), L"Dictionary Editor", MB_YESNO | MB_ICONQUESTION) != IDYES) {
+              return TRUE;
+            }
+          }
+          putDictEntry(st->entries, des.entry);
           st->modified = true;
           applyFilter(hDlg, st);
         }

@@ -171,7 +171,7 @@ When you save `phonemes.yaml`, the editor checks that each phoneme's formants ri
 Some dictionaries are shared by every regional variety of a language: English compounds are in `en-compounds.tsv`, Spanish and Portuguese letter names in `es-letters.tsv` and `pt-letters.tsv`. For Pronunciation, Compound and Character, a regional language (en-us, es-mx, pt-br) with no entries of its own opens the base language's file, which is where it speaks from; a change there is heard in every variety of the language. The window title names the file that is open. Once a regional file has entries, the frontend reads it *instead of* the shared one, and so does the editor.
 
 - **Search** narrows the list to entries starting with what you type.
-- **Add**, **Edit**, **Delete** change entries. For Pronunciation and User entries:
+- **Add**, **Edit**, **Delete** change entries. A word has one entry: **Add** on a word that is already in the dictionary asks first and then replaces its entry (the list shows the first 5,000 entries until you search, so the word may be there without being shown). For Pronunciation and User entries:
   - **From** is the word, **To** what to say instead (a respelling).
   - **From IPA** and **To IPA** are optional. Put IPA in **To IPA** to say the word with exactly those phonemes; it can use the pack's own keys (`a_es`, `ɾ_hu`).
   - **Convert to IPA** fills the IPA box from the text above it, through eSpeak.
