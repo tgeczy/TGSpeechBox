@@ -131,6 +131,10 @@ public:
 
   bool clonePhoneme(const std::string& fromKey, const std::string& newKey, std::string& outError);
 
+  // Carry an edit of one phoneme (original -> working) over to another, a
+  // language's own copy of it.  Returns false if targetKey is not there.
+  bool applyEditToPhoneme(const std::string& targetKey, const Node& original, const Node& working);
+
 private:
   Node m_root;
   std::string m_path;

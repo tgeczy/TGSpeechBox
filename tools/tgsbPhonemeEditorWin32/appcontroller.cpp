@@ -1270,7 +1270,8 @@ static std::string describeChanges(const Node& original, const Node& working) {
 
 // Build the full scope warning message for the dialog.
 static std::wstring buildScopeWarning(const std::string& key, const std::string& langTag,
-                                      const std::string& changes, const PhonemeUsageScan& usage) {
+                                      const std::string& changes, const PhonemeUsageScan& usage,
+                                      bool copyExists) {
   std::string msg;
   msg += "You modified \"" + key + "\" which is shared globally.\n\n";
 
@@ -1300,8 +1301,15 @@ static std::wstring buildScopeWarning(const std::string& key, const std::string&
     msg += "  Uses global definition directly: " + std::to_string(directUsers) + " packs\n";
   }
 
-  msg += "\nCreate \"" + key + makeLangSuffix(langTag) + "\" for " + langTag + " only?\n\n";
-  msg += "Yes = Create language-specific copy\n";
+  if (copyExists) {
+    // The copy keeps its own tuning; only these changes go into it (#215).
+    msg += "\n\"" + key + makeLangSuffix(langTag) + "\" already exists for " + langTag
+        + ". Apply these changes to it only?\n\n";
+    msg += "Yes = Apply the changes to the language-specific copy (its other values stay)\n";
+  } else {
+    msg += "\nCreate \"" + key + makeLangSuffix(langTag) + "\" for " + langTag + " only?\n\n";
+    msg += "Yes = Create language-specific copy\n";
+  }
   msg += "No = Apply globally (affects all languages)\n";
   msg += "Cancel = Discard changes";
 
@@ -1342,7 +1350,8 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
   if (langLoaded && !isLangSpecificKey(key)) {
     PhonemeUsageScan usage = scanPhonemeUsage(app.langDir, key);
     std::string changes = describeChanges(st.original, st.working);
-    std::wstring warning = buildScopeWarning(key, langTag, changes, usage);
+    const bool copyExists = app.phonemes.getPhonemeNode(key + makeLangSuffix(langTag)) != nullptr;
+    std::wstring warning = buildScopeWarning(key, langTag, changes, usage, copyExists);
 
     int res = MessageBoxW(app.wnd, warning.c_str(), L"Shared Phoneme Warning",
                           MB_YESNOCANCEL | MB_ICONWARNING | MB_DEFBUTTON1);
@@ -1354,9 +1363,8 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
       std::string newKey = key + makeLangSuffix(langTag);
 
       // If clone already exists, just apply edits to it.
-      Node* existing = app.phonemes.getPhonemeNode(newKey);
-      if (existing) {
-        *existing = st.working;
+      if (copyExists) {
+        app.phonemes.applyEditToPhoneme(newKey, st.original, st.working);
       } else {
         std::string cloneErr;
         if (!app.phonemes.clonePhoneme(key, newKey, cloneErr)) {
@@ -1395,7 +1403,7 @@ static void onEditSelectedPhoneme(AppController& app, bool fromLanguageList) {
       refreshLanguageDerivedLists(app);
       app.phonemesDirty = true;
 
-      msgBox(app.wnd, L"Created \"" + utf8ToWide(newKey) + L"\" for " + utf8ToWide(langTag)
+      msgBox(app.wnd, std::wstring(copyExists ? L"Updated \"" : L"Created \"") + utf8ToWide(newKey) + L"\" for " + utf8ToWide(langTag)
         + L".\nRemember to save both phonemes (Ctrl+P) and language (Ctrl+S).",
         L"TGSB Phoneme Editor", MB_ICONINFORMATION);
       return;

@@ -142,7 +142,7 @@ Speak uses the language's stress and compound dictionaries. It doesn't yet use t
 
 `phonemes.yaml` is shared by every language. When you change a phoneme while a language is loaded, the editor warns you first and lists the other languages that use it. You can then:
 
-- **Yes**: make a copy just for this language. The editor clones the phoneme with the language's suffix (`ɾ` becomes `ɾ_hu`, `a` in pt-br becomes `a_ptbr`), puts your change in the copy, and adds a mapping from the original to the copy in this language. Save both files (Ctrl+P and Ctrl+S).
+- **Yes**: make a copy just for this language. The editor clones the phoneme with the language's suffix (`ɾ` becomes `ɾ_hu`, `a` in pt-br becomes `a_ptbr`), puts your change in the copy, and adds a mapping from the original to the copy in this language. If the language already has its copy, only the fields you changed go into it; the rest of the copy's own tuning stays. Save both files (Ctrl+P and Ctrl+S).
 - **No**: change the shared phoneme, in every language.
 - **Cancel**: change nothing.
 

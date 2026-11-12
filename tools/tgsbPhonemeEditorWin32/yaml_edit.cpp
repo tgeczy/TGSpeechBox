@@ -133,6 +133,61 @@ bool PhonemesYaml::clonePhoneme(const std::string& fromKey, const std::string& n
   return true;
 }
 
+static bool sameNode(const Node& a, const Node& b) {
+  if (a.type != b.type) return false;
+  if (a.isScalar()) return a.scalar == b.scalar;
+  if (a.isSeq()) {
+    if (a.seq.size() != b.seq.size()) return false;
+    for (size_t i = 0; i < a.seq.size(); ++i) {
+      if (!sameNode(a.seq[i], b.seq[i])) return false;
+    }
+    return true;
+  }
+  if (a.isMap()) {
+    if (a.map.size() != b.map.size()) return false;
+    for (const auto& kv : a.map) {
+      auto it = b.map.find(kv.first);
+      if (it == b.map.end() || !sameNode(kv.second, it->second)) return false;
+    }
+  }
+  return true;
+}
+
+// Put what changed between original and working into target: fields added
+// or changed are set, fields removed are removed, and every other field of
+// target stays as it is.  A block (frameEx) is gone through field by field.
+static void applyMapEdit(Node& target, const Node& original, const Node& working) {
+  if (!target.isMap() || !working.isMap()) {
+    target = working;
+    return;
+  }
+  for (const auto& kv : working.map) {
+    const Node* orig = original.isMap() ? original.get(kv.first) : nullptr;
+    if (orig && sameNode(*orig, kv.second)) continue;
+    auto it = target.map.find(kv.first);
+    if (it != target.map.end() && orig && orig->isMap() && kv.second.isMap() && it->second.isMap()) {
+      applyMapEdit(it->second, *orig, kv.second);
+    } else {
+      mapSet(target, kv.first, kv.second);
+    }
+  }
+  if (!original.isMap()) return;
+  for (const auto& kv : original.map) {
+    if (working.map.find(kv.first) != working.map.end()) continue;
+    if (target.map.erase(kv.first) == 0) continue;
+    auto& ko = target.keyOrder;
+    ko.erase(std::remove(ko.begin(), ko.end(), kv.first), ko.end());
+  }
+}
+
+bool PhonemesYaml::applyEditToPhoneme(const std::string& targetKey, const Node& original, const Node& working) {
+  Node* target = getPhonemeNode(targetKey);
+  if (!target) return false;
+  // The copy keeps its own tuning; only the edit is carried over (#215).
+  applyMapEdit(*target, original, working);
+  return true;
+}
+
 // -------------------------
 // Language YAML
 // -------------------------
