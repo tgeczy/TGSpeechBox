@@ -13,6 +13,7 @@
 
 #include "doctest.h"
 #include "nvspFrontend.h"
+#include "utf8.h"
 
 namespace {
 
@@ -126,6 +127,78 @@ TEST_CASE("a list number pauses before its line (#141)") {
           std::vector<Clause>{{"1.", '.', S}, {"first 2. second", '.', N}});
     CHECK(split("am 3. Mai") == std::vector<Clause>{{"am 3. Mai", '.', N}});
     CHECK(split("It costs 3.50 today") == std::vector<Clause>{{"It costs 3.50 today", '.', N}});
+}
+
+// #159: Hungarian writes a dot after a year ("2024. március 15-én érkezett.",
+// "arrived on 15 March 2024").  The list-number rule cut the year off as its
+// own sentence, with a falling pitch and a sentence pause, wherever a date
+// opened a clause.  eSpeak NG reads the same text as one clause: after a
+// number's dot, a lowercase word carries the sentence on.  Four or more
+// digits before a lowercase word are a year, not a list number.
+TEST_CASE("a year before a lowercase word is not a list number (#159)") {
+    CHECK(split("2024. m\xC3\xA1rcius 15-\xC3\xA9n \xC3\xA9rkezett.") ==
+          std::vector<Clause>{{"2024. m\xC3\xA1rcius 15-\xC3\xA9n \xC3\xA9rkezett.", '.', S}});
+    CHECK(split("1848. m\xC3\xA1rcius 15-\xC3\xA9n kit\xC3\xB6rt a forradalom.") ==
+          std::vector<Clause>{{"1848. m\xC3\xA1rcius 15-\xC3\xA9n kit\xC3\xB6rt a forradalom.", '.', S}});
+    // After a comma or a colon the date opens a clause too.
+    CHECK(split("Budapest, 2024. m\xC3\xA1rcius 15.") ==
+          std::vector<Clause>{{"Budapest,", ',', C}, {"2024. m\xC3\xA1rcius 15.", '.', S}});
+    CHECK(split("D\xC3\xA1tum: 2024. \xC3\xA1prilis 3.") ==
+          std::vector<Clause>{{"D\xC3\xA1tum:", ':', S}, {"2024. \xC3\xA1prilis 3.", '.', S}});
+    // The second sentence of a text.
+    CHECK(split("Meg\xC3\xA9rkezett. 2024. m\xC3\xA1rcius 15-\xC3\xA9n j\xC3\xB6tt.") ==
+          std::vector<Clause>{{"Meg\xC3\xA9rkezett.", '.', S}, {"2024. m\xC3\xA1rcius 15-\xC3\xA9n j\xC3\xB6tt.", '.', S}});
+    // Cyrillic lowercase, and more than one space.
+    CHECK(split("2024.  \xD0\xB3\xD0\xBE\xD0\xB4") == std::vector<Clause>{{"2024.  \xD0\xB3\xD0\xBE\xD0\xB4", '.', N}});
+}
+
+TEST_CASE("list numbers and dates that eSpeak NG splits too still split (#159)") {
+    // A date written all in digits, and a German ordinal day before its
+    // capitalised month: eSpeak NG ends a clause at these as well.
+    CHECK(split("2024. 03. 15. p\xC3\xA9ntek") ==
+          std::vector<Clause>{{"2024.", '.', S}, {"03.", '.', S}, {"15.", '.', S}, {"p\xC3\xA9ntek", '.', N}});
+    CHECK(split("3. Oktober ist ein Feiertag.") ==
+          std::vector<Clause>{{"3.", '.', S}, {"Oktober ist ein Feiertag.", '.', S}});
+    // A capital after the year starts a new sentence.
+    CHECK(split("2024. M\xC3\xA1rcius volt.") ==
+          std::vector<Clause>{{"2024.", '.', S}, {"M\xC3\xA1rcius volt.", '.', S}});
+    CHECK(split("1999. The year") == std::vector<Clause>{{"1999.", '.', S}, {"The year", '.', N}});
+    // A list number of fewer than four digits, whatever follows.
+    CHECK(split("1. first 2. second") ==
+          std::vector<Clause>{{"1.", '.', S}, {"first 2. second", '.', N}});
+    CHECK(split("12. apples") == std::vector<Clause>{{"12.", '.', S}, {"apples", '.', N}});
+    CHECK(split("999. apples") == std::vector<Clause>{{"999.", '.', S}, {"apples", '.', N}});
+    // Text with no letter case (digits, symbols, CJK) is not lowercase.
+    CHECK(split("2024. \xE5\xB9\xB4") == std::vector<Clause>{{"2024.", '.', S}, {"\xE5\xB9\xB4", '.', N}});
+    CHECK(split("2024. (m\xC3\xA1rcius)") == std::vector<Clause>{{"2024.", '.', S}, {"(m\xC3\xA1rcius)", ',', C}});
+    // A year that ends the text.
+    CHECK(split("2024.") == std::vector<Clause>{{"2024.", '.', S}});
+    CHECK(split("2024. ") == std::vector<Clause>{{"2024.", '.', S}});
+}
+
+TEST_CASE("isLowerCodepoint agrees with foldCodepointLower (#159)") {
+    using nvsp_frontend::foldCodepointLower;
+    using nvsp_frontend::isLowerCodepoint;
+    // Every letter an uppercase one folds to is lowercase, and no lowercase
+    // letter folds further.
+    for (char32_t c = 0; c < 0x600; ++c) {
+        const char32_t lower = foldCodepointLower(c);
+        if (lower != c) {
+            CHECK_MESSAGE(isLowerCodepoint(lower), "U+", static_cast<unsigned>(lower));
+            CHECK_MESSAGE(!isLowerCodepoint(c), "U+", static_cast<unsigned>(c));
+        }
+    }
+    CHECK(isLowerCodepoint(U'm'));
+    CHECK(isLowerCodepoint(U'á'));   // á
+    CHECK(isLowerCodepoint(U'ő'));   // ő
+    CHECK(isLowerCodepoint(U'г'));   // г
+    CHECK(!isLowerCodepoint(U'M'));
+    CHECK(!isLowerCodepoint(U'Á'));  // Á
+    CHECK(!isLowerCodepoint(U'5'));
+    CHECK(!isLowerCodepoint(U'('));
+    CHECK(!isLowerCodepoint(U'÷'));  // ÷
+    CHECK(!isLowerCodepoint(U'年'));  // 年
+    CHECK(!isLowerCodepoint(0));
 }
 
 TEST_CASE("dashes between words pause like a comma (#133)") {

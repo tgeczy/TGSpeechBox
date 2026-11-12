@@ -302,6 +302,21 @@ char32_t foldCodepointLower(char32_t c) {
   return c;
 }
 
+// The lowercase side of the table above.
+bool isLowerCodepoint(char32_t c) {
+  if (c >= 0x61 && c <= 0x7A) return true;                           // a-z
+  if (c >= 0xE0 && c <= 0xFF && c != 0xF7) return true;              // Latin-1 (not ÷)
+  if ((c >= 0x100 && c <= 0x137) || (c >= 0x14A && c <= 0x177))     // Latin Ext-A, odd=lower
+    return c % 2 == 1;
+  if ((c >= 0x139 && c <= 0x148) || (c >= 0x179 && c <= 0x17E))     // Latin Ext-A, even=lower
+    return c % 2 == 0;
+  if (c >= 0x3B1 && c <= 0x3C9 && c != 0x3C2) return true;           // Greek
+  if (c >= 0x430 && c <= 0x45F) return true;                         // Cyrillic а-я, ѐ-џ
+  if ((c >= 0x460 && c <= 0x481) || (c >= 0x48A && c <= 0x4BF))     // Cyrillic Ext
+    return c % 2 == 1;
+  return false;
+}
+
 bool isPunctOrSpaceCodepoint(char32_t c) {
   if (c <= 0x20 || c == 0x7F) return true;                              // space/control
   if ((c >= 0x21 && c <= 0x2F) || (c >= 0x3A && c <= 0x40) ||

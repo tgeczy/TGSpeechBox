@@ -855,8 +855,21 @@ bool nextClause(std::string_view text, size_t pos, ClauseSpan& out) {
       const bool digitDot = c == '.' && isAsciiDigit(prev);
       // A number that opens a clause and ends in a dot numbers a list
       // ("01. Cast me into oblivion", #141); after anything else a digit's dot
-      // stays an ordinal ("am 3. Mai").
-      if (digitDot && onlyDigits && isClauseSpace(next)) return finish(j, j, '.', 2);
+      // stays an ordinal ("am 3. Mai").  Four or more digits before a
+      // lowercase word are a year in a sentence that goes on, as Hungarian
+      // writes its dates ("2024. március 15-én érkezett.", #159); eSpeak NG
+      // does not end a clause there either.
+      if (digitDot && onlyDigits && isClauseSpace(next)) {
+        size_t k = j;
+        size_t kLen = 0;
+        char32_t word = decodeAt(text, k, kLen);
+        while (isClauseSpace(word)) {
+          k += kLen;
+          word = decodeAt(text, k, kLen);
+        }
+        const bool year = i - start >= 4 && isLowerCodepoint(word);
+        if (!year) return finish(j, j, '.', 2);
+      }
       if (!digitDot && !isEndMark(next)) {
         size_t k = j;
         size_t kLen = 0;
