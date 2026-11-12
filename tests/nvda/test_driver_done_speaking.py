@@ -83,3 +83,33 @@ def test_a_cancel_then_new_speech_sends_done_for_the_new_speech_only(harness):
     _settle()
     assert harness.done.count == done_before + 1, "the cancelled speech was reported as done too"
     assert any(data for _, data in harness.player.feeds[feeds_before:]), "the new speech was not played"
+
+
+def test_utterances_read_on_without_a_cancel_each_send_done(harness, monkeypatch):
+    """Reading on is not a cancel.  NVDA's speech manager speaks the next
+    utterance as soon as the previous one's last index is reached, inside the
+    short tail the audio thread still waits out; the first version of the
+    #197 fix dropped the notification for every utterance but the last
+    (found in review: 1 notification for 4 utterances at real-time playback).
+    NVDA's own eSpeak driver notifies once per finished request."""
+    import conftest as H
+    from speech.commands import IndexCommand
+    monkeypatch.setattr(H, "PLAYBACK_SPEED", 1.0)
+    d = harness.driver
+    harness.speak(["Desktop"])
+    done_before = harness.done.count
+    texts = ["One.", "Two.", "Three.", "Four."]
+    real_notify = harness.index.notify
+
+    def on_index(**kw):
+        real_notify(**kw)
+        i = kw.get("index")
+        if isinstance(i, int) and 1 <= i < len(texts):
+            threading.Thread(target=lambda: d.speak([texts[i], IndexCommand(i + 1)]), daemon=True).start()
+
+    monkeypatch.setattr(harness.index, "notify", on_index)
+    d.speak([texts[0], IndexCommand(1)])
+    assert harness.done.wait_for_count(done_before + len(texts), 30.0), (
+        f"{harness.done.count - done_before} synthDoneSpeaking for {len(texts)} utterances read on")
+    _settle()
+    assert harness.done.count == done_before + len(texts)

@@ -440,9 +440,11 @@ class AudioThread(threading.Thread):
                 # A cancel() while the tail was still playing stops the
                 # player, which ends idle() early: that speech did not
                 # finish either, and gets no synthDoneSpeaking (#197).
+                # Only a cancel counts: when NVDA reads on, the next
+                # utterance begins inside this tail, and this one still
+                # finished and is reported, as before.
                 s = synthRef()
-                if s and self.cancelSeq == cancelAtPassStart \
-                        and getattr(self, "utteranceSeq", 0) == seqAtPassStart:
+                if s and self.cancelSeq == cancelAtPassStart:
                     synthDoneSpeaking.notify(synth=s)
 
             # Only clear the flag if it is still OURS.  If a newer
