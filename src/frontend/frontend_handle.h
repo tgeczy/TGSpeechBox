@@ -30,6 +30,10 @@ struct Handle {
   bool packLoaded = false;
   // Stamp of the pack files `pack` was loaded from (packFilesStamp()).
   std::uint64_t packStamp = 0;
+  // The voice profile `pack`'s own files name ("voiceProfileName:" in the
+  // language yaml; usually none), before the profile in use replaced it.
+  // A pack goes into packCache with this name again (#174).
+  std::string packOwnProfile;
   // Packs this handle loaded before, kept by nvspFrontend_setLanguageCached
   // so switching back to a language does not parse its YAML again (#131).
   // An entry is used only while the pack files still have its stamp;

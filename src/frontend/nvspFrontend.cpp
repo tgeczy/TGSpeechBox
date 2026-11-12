@@ -130,6 +130,7 @@ void adoptPack(nvsp_frontend::Handle* h, nvsp_frontend::PackSet&& pack, const st
   h->pack = std::move(pack);
   h->packLoaded = true;
   h->packStamp = stamp;
+  h->packOwnProfile = h->pack.lang.voiceProfileName;
   if (!savedProfile.empty()) {
     h->pack.lang.voiceProfileName = savedProfile;
   }
@@ -194,6 +195,10 @@ NVSP_FRONTEND_API int nvspFrontend_setLanguageCached(nvspFrontend_handle_t handl
     Handle::CachedPack& slot = h->packCache[h->langTag];
     slot.pack = std::move(h->pack);
     slot.stamp = h->packStamp;
+    // It is kept as its files gave it, not with the profile that was in use
+    // while it was current: taken out again it must get the profile in use
+    // then, as a load would, and none if the profile was turned off (#174).
+    slot.pack.lang.voiceProfileName = h->packOwnProfile;
   }
 
   adoptPack(h, std::move(next), lang, stamp, savedProfile);
