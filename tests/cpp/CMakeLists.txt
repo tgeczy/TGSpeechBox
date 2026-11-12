@@ -42,8 +42,9 @@ add_executable(tgsb_unit_tests
   "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32/dict_tsv.cpp"
   # The phoneme editor's YAML model (no Win32 in it either).
   "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32/yaml_edit.cpp"
-  # The phoneme editor's voicing sliders (no Win32).
+  # The phoneme editor's voicing sliders and "Save to Profile" (no Win32).
   "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32/voicing_sliders.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/tgsbPhonemeEditorWin32/profile_tone.cpp"
 )
 
 target_include_directories(tgsb_unit_tests PRIVATE

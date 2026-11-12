@@ -758,6 +758,8 @@ void setToneFieldIfExact(EditorVoicingToneV2& t, int i, double v) {
     case 14: t.nasalBwScale = v; break;
     case 15: t.f4FreqScale = v; break;
     case 16: t.nasalGainScale = v; break;
+    case 17: t.chorusDepth = v; break;
+    case 18: t.chorusDetuneHz = v; break;
     default: break;
   }
 }
@@ -1601,24 +1603,7 @@ bool TgsbRuntime::loadProfileToneSliders(const std::string& profileName,
     outError = "Profile \"" + profileName + "\" is not in phonemes.yaml.";
     return false;
   }
-  if (voicingSliders.size() < static_cast<size_t>(kProfileToneKeyCount))
-    voicingSliders.resize(static_cast<size_t>(kProfileToneKeyCount), 50);
-  const bool hasBlock = prof->hasVoicingTone && !prof->voicingTone.empty();
-  for (int i = 0; i < kProfileToneKeyCount; ++i) {
-    double v = profileToneFallback(i, hasBlock);
-    auto it = prof->voicingTone.find(kProfileToneKeys[i]);
-    if (it != prof->voicingTone.end()) {
-      char* end = nullptr;
-      const double parsed = std::strtod(it->second.c_str(), &end);
-      if (end != it->second.c_str() && std::isfinite(parsed)) v = parsed;
-    }
-    voicingSliders[static_cast<size_t>(i)] = mapVoicingValueToSlider(i, v);
-    if (outValues) {
-      if (outValues->size() < static_cast<size_t>(kProfileToneKeyCount))
-        outValues->resize(static_cast<size_t>(kProfileToneKeyCount), 0.0);
-      (*outValues)[static_cast<size_t>(i)] = v;
-    }
-  }
+  profileToneToSliders(*prof, voicingSliders, outValues);
   if (prof->hasInflectionScale) outInflectionScale = prof->inflectionScale;
   return true;
 }
@@ -1647,13 +1632,7 @@ bool TgsbRuntime::saveVoiceProfileSliders(const std::string& profileName,
   req.sourceProfile = sourceProfile;
   req.baseVoice = baseVoice;
   req.inflectionScale = inflectionScale;
-  const bool haveBaseline = !sourceProfile.empty() &&
-      sourceSliders.size() >= static_cast<size_t>(kProfileToneKeyCount);
-  for (int i = 0; i < kProfileToneKeyCount; ++i) {
-    const int s = (static_cast<size_t>(i) < voicingSliders.size()) ? voicingSliders[static_cast<size_t>(i)] : 50;
-    req.tone[i] = mapVoicingSliderToValue(i, s);
-    req.toneMoved[i] = !haveBaseline || s != sourceSliders[static_cast<size_t>(i)];
-  }
+  slidersToSaveRequest(voicingSliders, sourceProfile, sourceSliders, req);
   applyProfileSave(profiles, req, outNote);
   return saveVoiceProfilesToYaml(yamlPath, profiles, outError);
 }

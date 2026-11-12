@@ -25,6 +25,8 @@ add_executable(tgsbPhonemeEditor WIN32
   dict_tsv.h
   voicing_sliders.cpp
   voicing_sliders.h
+  profile_tone.cpp
+  profile_tone.h
   WinUtils.cpp
   WinUtils.h
   AccessibilityUtils.cpp
