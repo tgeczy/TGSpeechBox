@@ -124,3 +124,81 @@ def test_year_normal_split_still_works_en_us(en_us):
     assert any(c.isdigit() for c in out), (
         f"Expected digits in year output; got: {out!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# A handle per language, for tests that compare languages.
+# ---------------------------------------------------------------------------
+
+import pytest
+
+
+@pytest.fixture
+def prepare(frontend, pack_dir):
+    """prepare(lang, text): prepareText's output for `text` in language `lang`."""
+    handles = {}
+
+    def _prepare(lang, text):
+        if lang not in handles:
+            handles[lang] = frontend.create_handle(pack_dir)
+            frontend.set_language(handles[lang], lang)
+        return frontend.prepare_text(handles[lang], text)
+
+    yield _prepare
+    for h in handles.values():
+        frontend.destroy_handle(h)
+
+
+# ---------------------------------------------------------------------------
+# #157: a number grouped with a comma is a count, not a year.
+# ---------------------------------------------------------------------------
+# English strips the grouping comma ("1,234" -> "1234") so eSpeak reads one
+# number, and splits four-digit years into pairs ("1985" -> "19 85").  The
+# year step ran on the text with the comma already gone, so every count from
+# 1,001 to 9,999 was read as a year: "1,234 people" said "twelve thirty-four".
+
+ENGLISH = ["en-us", "en-gb", "en"]
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    ("1,234 people came", "1234 people came"),
+    ("Population 7,345", "Population 7345"),
+    ("$2,499", "$2499"),
+    ("2,019 votes", "2019 votes"),
+    ("in 1,066 AD", "in 1066 AD"),
+    ("(1,234)", "( 1234 )"),
+    ("1,234.", "1234."),
+    ("1,709 and 1709", "1709 and 17 oh 9"),
+    ("in 1985, and 1,985 more", "in 19 85, and 1985 more"),
+])
+def test_comma_grouped_number_is_not_a_year(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    ("1985", "19 85"),
+    ("1999-2004", "19 99 2004"),
+    ("4000", "4000"),
+    ("4,000 people", "4000 people"),
+    ("12,345 people", "12345 people"),
+    ("1,234,567 items", "1234567 items"),
+    ("3,14", "3,14"),
+])
+def test_years_and_other_numbers_read_as_before(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+@pytest.mark.parametrize("lang", ["hu", "de", "es", "es-mx", "pt-br", "fr", "ru"])
+@pytest.mark.parametrize("text, expected", [
+    ("1,234 people came", "1 234 people came"),
+    ("$2,499", "$2 499"),
+    ("2,019 votes", "2 019 votes"),
+    ("1985", "1985"),
+    ("1,234,567", "1 234 567"),
+])
+def test_grouped_numbers_in_other_languages_are_unchanged(prepare, lang, text, expected):
+    """These languages turn the comma into a space and split no years: their
+    output is byte for byte what it was."""
+    assert prepare(lang, text) == expected

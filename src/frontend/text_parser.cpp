@@ -1119,6 +1119,9 @@ std::string prepareTextForEspeak(
   // because eSpeak recognizes space-separated digit groups as thousands.
   // For all other locales: strip commas entirely so eSpeak sees "44100"
   // and handles it natively (e.g. "forty-four thousand one hundred").
+  // A stripped comma leaves kGroupMark until year splitting is done, so that
+  // "1,234" is a count and not the year 1234 ("12 34", #157).
+  const char kGroupMark = '\x1E';
   {
     std::string cleaned;
     cleaned.reserve(result.size());
@@ -1132,6 +1135,7 @@ std::string prepareTextForEspeak(
           (ci + 4 >= result.size() ||
            !std::isdigit(static_cast<unsigned char>(result[ci + 4])))) {
         if (thousandsSeparatorCommaToSpace) cleaned += ' ';
+        else if (yearSplitting) cleaned += kGroupMark;
         // else: strip comma entirely
         continue;
       }
@@ -1200,6 +1204,7 @@ std::string prepareTextForEspeak(
   // 6. Year splitting ("1995" → "19 95").
   if (yearSplitting) {
     result = splitYears(result, ohDigit);
+    result.erase(std::remove(result.begin(), result.end(), kGroupMark), result.end());
   }
 
   TPLOG("prepareTextForEspeak OUT: \"%s\"\n", result.c_str());
