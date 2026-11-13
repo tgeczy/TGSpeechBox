@@ -218,8 +218,9 @@ static const FrameOverride kRobertOverrides[] = {
     { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt, f4s }
 
 /* The presets are NVDA's (nvdaAddon/synthDrivers/tgSpeechBox/constants.py),
- * and NVDA's carry no voicing tilt: Robert had -6 dB/oct here, which NVDA and
- * SAPI never applied, so he was brighter on a phone than on Windows (#200). */
+ * and NVDA's carry no voicing tilt: Robert had -6 dB/oct here, which NVDA has
+ * not applied since 2.60 (and SAPI never did), so he was brighter on a phone
+ * than on Windows (#200). */
 static const VoicePreset kPresets[] = {
     PRESET("adam",     kAdamOverrides,     0.0,  0, 0),
     PRESET("benjamin", kBenjaminOverrides, 0.0,  0, 0),

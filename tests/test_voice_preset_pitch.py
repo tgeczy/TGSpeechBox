@@ -9,8 +9,9 @@ Linux module now matches NVDA for every voice (Benjamin 104.7 Hz on both),
 and Adam with it.
 
 #200: Robert's preset carried a -6 dB/oct voicing tilt.  The NVDA driver
-never applied it (a preset's keys reach the engine only as frame fields, and
-the tilt is not one), nor did SAPI; the Android and iOS bridges did, so
+has not applied it since 2.60 (a preset's keys reach the engine only as frame
+fields, and the tilt is not one; releases 1.85 to 2.50 looked it up and sent
+it), and SAPI never did; the Android and iOS bridges did, so
 Robert was brighter on a phone than on Windows.  NVDA is the reference: the
 tilt is gone from every host.
 

@@ -245,7 +245,8 @@ static const BuiltinVoice kBuiltinVoices[] = {
     0.0, true},
 
   // Robert: bright, crisp, synthetic — pressed glottis, narrow bandwidths (no
-  // voicing tilt: the NVDA driver never applied the -6 dB/oct he once listed, #200)
+  // voicing tilt: the NVDA driver has not applied the -6 dB/oct he once listed
+  // since 2.60, #200)
   {"Robert",
     1.10, 1.10,
     1.02, 1.06, 1.08, 1.08, 1.10, 1.05,             // cf

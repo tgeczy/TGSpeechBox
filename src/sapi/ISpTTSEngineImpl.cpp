@@ -493,8 +493,8 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
 
 	// Some SAPI hosts communicate "global" rate/volume via the engine site
 	// rather than populating SPVTEXTFRAG::State on every fragment. Others do
-	// the opposite. Grab the site values once and treat fragment values as
-	// overrides.
+	// the opposite. Grab the site values once; a fragment's own rate and
+	// volume markup combine with them (#206).
 	long siteRateAdj = 0;
 	USHORT siteVolume = 100;
 	if (FAILED(pOutputSite->GetRate(&siteRateAdj))) {

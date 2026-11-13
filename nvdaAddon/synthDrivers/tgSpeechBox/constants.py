@@ -91,8 +91,9 @@ sampleRates = OrderedDict(
 # Only frame fields reach the engine from here ("x" sets one, "x_mul" scales
 # it; profile_utils.buildVoiceOps drops any other key).  A preset carries no
 # voicing tone: a built-in voice starts from the engine's default tone and the
-# listener's settings.  Robert once listed a -6 dB/oct voicing tilt here that
-# was never applied, while the Android and iOS apps did apply theirs (#200);
+# listener's settings.  Robert once listed a -6 dB/oct voicing tilt here.
+# Releases 1.85 to 2.50 sent it to the engine; since 2.60 the driver has not,
+# while the Android and iOS apps went on applying theirs (#200);
 # no host has it now, and tests/test_voice_preset_pitch.py holds every host's
 # presets to these.
 #   - headSize: the voice's default for the head size setting (0-100, 50 when
