@@ -101,6 +101,12 @@ object TgsbStorage {
             }
             prefsMoved = true
         }
-        return protected.getSharedPreferences(TgsbTtsService.PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = protected.getSharedPreferences(TgsbTtsService.PREFS_NAME, Context.MODE_PRIVATE)
+        // Stored pack overrides are cleaned up once (#172), but only where
+        // the settings are known to be in their final place: a write made
+        // before the move above could land on top of the moved file.  The
+        // service filters what it applies until then.
+        if (!ctx.isDeviceProtectedStorage && unlocked(ctx)) PackOverrideMigration.run(prefs)
+        return prefs
     }
 }

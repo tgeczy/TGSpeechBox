@@ -15,6 +15,73 @@ import AVFoundation
 import Accelerate
 import CoreMedia
 
+/// One-time clean-up of stored language pack overrides (#172).
+///
+/// "Import pack" stores every setting of the imported file as an override
+/// ("pack_overrides_<language>"), the lines the shipped pack itself had among
+/// them.  Until 3.10 release candidate 4 the frontend read none of the sixteen
+/// phoneme timing settings below (src/frontend/pack.cpp), so a stored value
+/// for one of them did nothing and nobody ever heard it.  Now they are read:
+/// en-us shipped postStopAspirationDurationMs 35 from 3.01 on, so an English
+/// listener who once imported a pack would get a 35 ms puff after p, t and k
+/// where 20 ms had always played.  Every stored override for those settings
+/// is removed once; a value set after that is the listener's own and is kept.
+///
+/// The same function is in the app (TgsbEngine.swift) and in the system
+/// voice extension (TGSBAudioUnit.swift): after an update either may be the
+/// first to run.  The Android app does the same in PackOverrideMigration.kt,
+/// and tests/test_phone_override_migration.py holds the three lists to
+/// pack.cpp.
+func tgsbMigrateStoredPackOverrides(_ defaults: UserDefaults?) {
+    let schemaKey = "pack_overrides_schema"
+    guard let d = defaults, d.integer(forKey: schemaKey) < 1 else { return }
+    let unheard: Set<String> = [
+        "defaultVowelDurationMs",
+        "defaultFadeMs",
+        "postStopAspirationDurationMs",
+        "stopDurationMs",
+        "affricateDurationMs",
+        "voicelessFricativeDurationMs",
+        "voicedConsonantDurationMs",
+        "tapDurationMs",
+        "trillFallbackDurationMs",
+        "tiedVowelDurationMs",
+        "tiedFromVowelDurationMs",
+        "tiedFromVowelFadeMs",
+        "vowelBeforeLiquidDurationMs",
+        "vowelBeforeNasalDurationMs",
+        "fadeAfterLiquidMs",
+        "liquidFadeMs",
+    ]
+    var changed = false
+    for (name, value) in d.dictionaryRepresentation() {
+        // "pack_overrides_version" and the schema mark are numbers, not text.
+        guard name.hasPrefix("pack_overrides_"),
+              let json = value as? String,
+              let data = json.data(using: .utf8),
+              let stored = (try? JSONSerialization.jsonObject(with: data)) as? [String: String]
+        else { continue }
+        let kept = stored.filter { !unheard.contains($0.key) }
+        if kept.count == stored.count { continue }
+        if kept.isEmpty {
+            d.removeObject(forKey: name)
+        } else if let out = try? JSONSerialization.data(withJSONObject: kept),
+                  let text = String(data: out, encoding: .utf8) {
+            d.set(text, forKey: name)
+        } else {
+            continue
+        }
+        changed = true
+    }
+    if changed {
+        // The system voice reloads the pack when this counter moves, which
+        // is what takes an override that is already applied out again.
+        d.set(d.integer(forKey: "adv_settingsVersion") + 1, forKey: "adv_settingsVersion")
+    }
+    d.set(1, forKey: schemaKey)
+    d.synchronize()
+}
+
 public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     private var engine: OpaquePointer?    // TgsbEngine* (full pipeline)
@@ -661,6 +728,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private func applyStoredOverrides(_ tgsbLang: String) {
         guard let eng = engine else { return }
         let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        tgsbMigrateStoredPackOverrides(d)
         guard let json = d?.string(forKey: "pack_overrides_\(tgsbLang)"),
               let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String],

@@ -142,4 +142,8 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("junit:junit:4.13.2")
+
+    // Plain JVM tests of logic that needs no device (the stored-override migration, #172).
+    // JUnit 4, EPL-1.0, already used by the device tests above; test code only, not shipped.
+    testImplementation("junit:junit:4.13.2")
 }

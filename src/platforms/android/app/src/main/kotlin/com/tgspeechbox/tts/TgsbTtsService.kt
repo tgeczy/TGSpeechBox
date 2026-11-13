@@ -373,10 +373,17 @@ class TgsbTtsService : TextToSpeechService() {
         // Pack settings overrides (may not exist — that's OK).
         val json = prefs.getString("pack_overrides_$tgsbLang", null)
         if (json != null) {
-            val overrides = try {
+            val stored = try {
                 val obj = org.json.JSONObject(json)
                 obj.keys().asSequence().associateWith { obj.getString(it) }
             } catch (e: Exception) { emptyMap() }
+            // Until the one-time clean-up has run on these settings (it
+            // waits for the first unlock), the timing values nobody ever
+            // heard are left out here (#172, PackOverrideMigration).
+            val overrides =
+                if (prefs.getInt(PackOverrideMigration.SCHEMA_KEY, 0) < PackOverrideMigration.SCHEMA)
+                    PackOverrideMigration.withoutUnheardTimingKeys(stored)
+                else stored
             for ((k, v) in overrides) {
                 nativeSetData(nativeHandle, TgsbSpeakEngine.DATA_SETTINGS, tgsbLang, k, v)
             }
