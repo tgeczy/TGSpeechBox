@@ -524,3 +524,81 @@ TEST_CASE("bookmarks fire when their text makes no sound (#204)") {
     // The mark after "Desktop." comes after its audio, not at the start.
     CHECK(mixed.marks[1].offset > mixed.marks[0].offset);
 }
+
+// #206: the volume and rate a host sets (SetVolume, SetRate) and the ones the
+// text carries (<volume level>, <rate speed|absspeed>) combine.  SAPI's TTS
+// Engine Vendor Porting Guide: "the engine should combine these values with
+// values obtained through ISpTTSEngineSite::GetRate calls to arrive at a
+// final value", and the same for volume.  The markup used to replace the
+// host's value unless it was exactly 100 or 0, the two values a fragment
+// without markup also carries: at host volume 50 "level 100" played at 50
+// and "level 80" at 80, and at host rate +5 "speed 2" was slower than no
+// markup at all.
+TEST_CASE("volume and rate markup combine with the host's volume and rate (#206)") {
+    ComScope com;
+    Engine engine(L"en-us");
+    const std::wstring text = L"The quick brown fox jumps over the lazy dog.";
+    auto render = [&](USHORT siteVolume, ULONG markVolume, long siteRate, long markRate) {
+        HostSite site;
+        site.volume = siteVolume;
+        site.rate = siteRate;
+        engine.speak({{SPVA_Speak, text, markRate, markVolume}}, site);
+        REQUIRE(site.audio.size() > 0);
+        return site.audio;
+    };
+    auto rms = [](const std::vector<int16_t>& a) {
+        double sum = 0.0;
+        for (int16_t s : a) sum += static_cast<double>(s) * s;
+        return std::sqrt(sum / a.size());
+    };
+
+    SUBCASE("volume") {
+        const double plain50 = rms(render(50, 100, 0, 0));
+        const double mark100at50 = rms(render(50, 100, 0, 0));
+        const double mark80at50 = rms(render(50, 80, 0, 0));
+        const double mark50at100 = rms(render(100, 50, 0, 0));
+        const double mark80at100 = rms(render(100, 80, 0, 0));
+        const double plain100 = rms(render(100, 100, 0, 0));
+        const double plain40 = rms(render(40, 100, 0, 0));
+        MESSAGE("rms: host 50 " << plain50 << ", host 50 level 80 " << mark80at50 << ", host 100 level 50 "
+                                << mark50at100 << ", host 100 level 80 " << mark80at100 << ", host 100 " << plain100
+                                << ", host 40 " << plain40);
+        // The issue's case: at host volume 50, level 100 is not quieter than level 80.
+        CHECK(mark100at50 > mark80at50 * 1.05);
+        // Level 80 of host volume 50 is volume 40.
+        CHECK(mark80at50 == doctest::Approx(plain40).epsilon(0.03));
+        // The two multiply, whichever side carries which.
+        CHECK(mark50at100 == doctest::Approx(plain50).epsilon(0.03));
+        // Markup alone works as it did: quieter than none, louder than half.
+        CHECK(mark80at100 < plain100 * 0.95);
+        CHECK(mark80at100 > mark50at100 * 1.05);
+    }
+
+    SUBCASE("rate") {
+        const size_t plain5 = render(100, 100, 5, 0).size();
+        const size_t mark2at5 = render(100, 100, 5, 2).size();
+        const size_t markMinus2at5 = render(100, 100, 5, -2).size();
+        const size_t plain7 = render(100, 100, 7, 0).size();
+        const size_t plain3 = render(100, 100, 3, 0).size();
+        const size_t mark5at0 = render(100, 100, 0, 5).size();
+        const size_t plain0 = render(100, 100, 0, 0).size();
+        const size_t plain10 = render(100, 100, 10, 0).size();
+        const size_t mark5at10 = render(100, 100, 10, 5).size();
+        const size_t plainMinus10 = render(100, 100, -10, 0).size();
+        const size_t markMinus5atMinus10 = render(100, 100, -10, -5).size();
+        MESSAGE("samples: host +5 " << plain5 << ", host +5 speed 2 " << mark2at5 << ", host +5 speed -2 "
+                                    << markMinus2at5 << ", host +7 " << plain7 << ", host +3 " << plain3
+                                    << ", host 0 speed 5 " << mark5at0 << ", host 0 " << plain0);
+        // The issue's case: at host rate +5, markup that speeds up is not slower than none.
+        CHECK(mark2at5 < plain5);
+        // +5 and +2 are +7, +5 and -2 are +3.
+        CHECK(mark2at5 == plain7);
+        CHECK(markMinus2at5 == plain3);
+        // Markup alone works as it did.
+        CHECK(mark5at0 == plain5);
+        CHECK(mark5at0 < plain0);
+        // The sum stays inside SAPI's -10..+10.
+        CHECK(mark5at10 == plain10);
+        CHECK(markMinus5atMinus10 == plainMinus10);
+    }
+}

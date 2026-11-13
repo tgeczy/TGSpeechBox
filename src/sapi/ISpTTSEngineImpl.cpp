@@ -623,13 +623,22 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         // Build speak params from first fragment's state.
         tgsb::speak_params params;
         params.preset_name = preset_name.empty() ? L"Adam" : preset_name;
+        // The host's volume and rate (SetVolume, SetRate) combine with the
+        // fragment's (<volume>, <rate>), as SAPI asks of an engine ("the
+        // engine should combine these values with values obtained through
+        // ISpTTSEngineSite::GetRate calls to arrive at a final value", TTS
+        // Engine Vendor Porting Guide; likewise GetVolume).  A fragment
+        // without markup carries 100 and 0, so the fragment's value cannot
+        // replace the host's: at host volume 50 "level 100" came out
+        // quieter than "level 80", and at host rate +5 "speed 2" slower
+        // than no markup (#206).  The volume is a share of the host's, the
+        // rate adds to it.
         params.volume = std::clamp(static_cast<double>(siteVolume) / 100.0, 0.0, 1.0);
-        if (batch.has_state && batch.first_state.Volume != 100)
-            params.volume = std::clamp(static_cast<double>(batch.first_state.Volume) / 100.0, 0.0, 1.0);
+        if (batch.has_state)
+            params.volume *= std::clamp(static_cast<double>(batch.first_state.Volume) / 100.0, 0.0, 1.0);
         params.user_index_base = static_cast<int>(batch.first_text_src_offset);
 
-        long rateAdj = batch.has_state ? batch.first_state.RateAdj : 0;
-        if (rateAdj == 0) rateAdj = siteRateAdj;
+        long rateAdj = siteRateAdj + (batch.has_state ? std::clamp(batch.first_state.RateAdj, -10L, 10L) : 0L);
         rateAdj = std::clamp(rateAdj, -10L, 10L);
         params.speed = std::clamp(std::pow(2.0, static_cast<double>(rateAdj) / 5.0), 0.25, 4.0);
 
