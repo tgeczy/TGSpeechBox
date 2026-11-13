@@ -772,7 +772,8 @@ struct LanguagePack {
   //
   // - trillModulationMs: base trill duration in milliseconds (at speed=1.0).
   //   This also acts as the enable flag (> 0).
-  // - trillModulationFadeMs: fade duration (ms) between micro-frames (0 = auto).
+  // - The fade between micro-frames is fixed at 0.25 ms (frame_emit.cpp);
+  //   the pack setting that once set it did nothing and is gone (#183).
   //
   // NOTE: trillModulationMs is subject to normal speed scaling (like other durations).
   // The internal flutter cycle rate is fixed in code (see ipa_engine.cpp).
@@ -781,7 +782,6 @@ struct LanguagePack {
   // open-phase amplitude.  0 = full gating (square-wave envelope); a natural
   // apical trill keeps some low-frequency energy through each contact.
   double trillCloseVoicingFactor = 0.0;
-  double trillModulationFadeMs = 0.0;
 
   // Intra-word vowel hiatus break (optional).
   //

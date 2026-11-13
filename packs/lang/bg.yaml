@@ -31,7 +31,6 @@ settings:
   # === TRILLS ===
   # Bulgarian has a trilled /r/
   trillModulationMs: 48
-  trillModulationFadeMs: 2
 
   # === SMOOTHING ===
   boundarySmoothingEnabled: true

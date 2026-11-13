@@ -47,7 +47,6 @@ settings:
 
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 52
-  trillModulationFadeMs: 2
 
   # Single-word utterance smoothing (key echo / word-by-word navigation)
   singleWordTuningEnabled: true

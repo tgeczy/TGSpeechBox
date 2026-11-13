@@ -2371,9 +2371,9 @@ def _emit_trill(
         close_ms = K_MIN_PHASE_MS
         open_ms = max(K_MIN_PHASE_MS, cycle_ms - close_ms)
 
-    micro_fade = lp.trill_modulation_fade_ms
-    if micro_fade <= 0:
-        micro_fade = min(2.0, cycle_ms * 0.12)
+    # As frame_emit.cpp: a fixed fade, hard edges for the trill (the pack
+    # setting trillModulationFadeMs was dead there and is gone, #183).
+    micro_fade = 0.25
 
     base_voice_amp = base.voiceAmplitude
     base_fric_amp = base.fricationAmplitude

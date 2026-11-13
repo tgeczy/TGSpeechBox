@@ -10,7 +10,6 @@ settings:
 
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 50
-  trillModulationFadeMs: 2
 
   # Czech vowel length (short vs long) is phonemic.
   lengthenedScale: 1.4

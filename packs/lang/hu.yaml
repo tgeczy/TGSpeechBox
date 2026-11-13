@@ -248,7 +248,6 @@ settings:
 
   # === TRILL (rolled R) ===
   trillModulationMs: 28.0
-  trillModulationFadeMs: 0.0
 
   # === HUNGARIAN SHORT "A" ===
   # Hungarian short "a" is /ɒ/ (open back rounded), very distinct from

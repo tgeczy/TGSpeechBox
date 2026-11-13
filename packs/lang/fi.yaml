@@ -40,7 +40,6 @@ settings:
   # === TRILLS ===
   # Finnish has a trilled /r/
   trillModulationMs: 50
-  trillModulationFadeMs: 2
 
   # === SMOOTHING ===
   boundarySmoothingEnabled: true

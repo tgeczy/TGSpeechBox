@@ -743,7 +743,6 @@ def _getPanelClass():
                 "toneDigitsEnabled",
 
                 # --- Trill ---
-                "trillModulationFadeMs",
                 "trillModulationMs",
 
                 # --- Word boundary ---

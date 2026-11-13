@@ -36,7 +36,6 @@ settings:
   # === TRILLS ===
   # Russian has both /r/ and /rʲ/ (palatalized trill)
   trillModulationMs: 42
-  trillModulationFadeMs: 2
 
   # === SMOOTHING ===
   boundarySmoothingEnabled: true

@@ -4,7 +4,6 @@ settings:
 
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 50
-  trillModulationFadeMs: 2
 
   # Croatian eSpeak IPA uses the length mark (ː) for long vowels.
   # Per Pletikos 2007 (Acoustic description of Croatian accents),

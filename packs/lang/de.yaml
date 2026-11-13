@@ -64,7 +64,6 @@ settings:
 
   # German R - uvular in most standard accents
   trillModulationMs: 40
-  trillModulationFadeMs: 5
 
   # Single-word tuning
   singleWordTuningEnabled: true

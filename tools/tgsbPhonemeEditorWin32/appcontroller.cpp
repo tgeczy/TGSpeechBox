@@ -1153,7 +1153,6 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "trajectoryLimitWindowMs",
     "trillCloseVoicingFactor",
     "trillFallbackDurationMs",
-    "trillModulationFadeMs",
     "trillModulationMs",
     "twBeforeVowelAsTu",
     "voiceProfileName",

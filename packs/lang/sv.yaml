@@ -42,7 +42,6 @@ settings:
 
   # Swedish trill
   trillModulationMs: 35
-  trillModulationFadeMs: 3
 
   # Single-word tuning
   singleWordTuningEnabled: true

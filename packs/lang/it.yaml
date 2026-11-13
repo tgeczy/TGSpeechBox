@@ -12,7 +12,6 @@ settings:
 
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 50
-  trillModulationFadeMs: 2
 
   # Italian uses consonant gemination (eSpeak marks this with ː on consonants)
   lengthenedScale: 1.55

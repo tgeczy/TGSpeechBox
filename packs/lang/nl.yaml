@@ -40,7 +40,6 @@ settings:
   # Dutch R can be uvular or alveolar depending on region
   # Use moderate trill settings
   trillModulationMs: 36
-  trillModulationFadeMs: 4
 
   # Single-word tuning
   singleWordTuningEnabled: true

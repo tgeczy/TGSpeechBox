@@ -285,7 +285,6 @@ class LanguagePack:
     auto_diphthong_offglide_to_semivowel: bool = False
     semivowel_offglide_scale: float = 1.0
     trill_modulation_ms: float = 0.0
-    trill_modulation_fade_ms: float = 0.0
     stressed_vowel_hiatus_gap_ms: float = 0.0
     stressed_vowel_hiatus_fade_ms: float = 0.0
     word_boundary_dip_ms: float = 0.0
@@ -846,7 +845,6 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.auto_diphthong_offglide_to_semivowel = gb("autoDiphthongOffglideToSemivowel", lp.auto_diphthong_offglide_to_semivowel)
     lp.semivowel_offglide_scale = gn("semivowelOffglideScale", lp.semivowel_offglide_scale)
     lp.trill_modulation_ms = gn("trillModulationMs", lp.trill_modulation_ms)
-    lp.trill_modulation_fade_ms = gn("trillModulationFadeMs", lp.trill_modulation_fade_ms)
     lp.stressed_vowel_hiatus_gap_ms = gn("stressedVowelHiatusGapMs", lp.stressed_vowel_hiatus_gap_ms)
     lp.stressed_vowel_hiatus_fade_ms = gn("stressedVowelHiatusFadeMs", lp.stressed_vowel_hiatus_fade_ms)
     lp.word_boundary_dip_ms = gn("wordBoundaryDipMs", lp.word_boundary_dip_ms)

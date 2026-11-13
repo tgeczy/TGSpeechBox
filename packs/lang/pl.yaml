@@ -19,7 +19,6 @@ settings:
 
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 50
-  trillModulationFadeMs: 2
 
   # Coarticulation (helps clusters stay intelligible)
   coarticulationEnabled: true

@@ -40,7 +40,6 @@ settings:
   # === TRILLS ===
   # Ukrainian has a trilled /r/
   trillModulationMs: 45
-  trillModulationFadeMs: 2
 
   # === SMOOTHING ===
   boundarySmoothingEnabled: true
