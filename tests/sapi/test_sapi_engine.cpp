@@ -25,6 +25,12 @@
 #error "TGSB_SAPI_STAGE_DLL must name the staged TGSpeechSapi.dll"
 #endif
 
+// The settings app's own load and save code (settings_app_under_test.cpp).
+namespace settings_app_test {
+int inflectionSliderOnOpen(const std::wstring& iniPath);
+bool pressOk(const std::wstring& iniPath, int inflectionSlider);
+}
+
 namespace {
 
 // {70E56986-4B3C-4CE1-B1F1-C861EE906FFD}, ISpTTSEngineImpl in src/sapi.
@@ -1065,4 +1071,103 @@ TEST_CASE("a built-in voice chosen after a profile voice speaks with its own voi
     const std::vector<int16_t> firstHalf(two.audio.begin(), two.audio.begin() + two.audio.size() / 2);
     const std::vector<int16_t> firstHalfAgain(again.audio.begin(), again.audio.begin() + again.audio.size() / 2);
     CHECK(apart(brightness(firstHalf), brightness(firstHalfAgain)) < 0.08);
+}
+
+// #205: a fresh install has no settings.ini.  The first OK in the settings
+// app writes one, with every slider where the dialog shows it, and that must
+// not change the voice.  It did: the bandwidth slider's middle is 1.0 and the
+// engine without a setting played the DSP's 0.9, so the formants got about
+// 11% wider on the first save, whatever the user had come to change; and the
+// inflection slider's middle is 1.0 where the language packs say 0.56 or
+// 0.58, which is heard in the "legacy" and "fujisaki_style" pitch modes.
+// The file is written by the app's own code (settings_app_under_test.cpp).
+TEST_CASE("the first OK in the settings app leaves the voice as it was (#205)") {
+    ComScope com;
+    struct Restore { ~Restore() { writeSettings(""); } } restore;
+    const std::wstring text = L"We were away all year, and now we are home again.";
+    struct Heard { double rms; double bright; std::vector<double> pitch; };
+    auto hear = [&](Engine& engine) {
+        HostSite site;
+        engine.speak(text, site);
+        REQUIRE(site.audio.size() > 0);
+        double sum = 0.0;
+        for (int16_t s : site.audio) sum += static_cast<double>(s) * s;
+        return Heard{std::sqrt(sum / site.audio.size()), brightness(site.audio),
+                     pitchTrack(site.audio, engine.fmt.nSamplesPerSec)};
+    };
+    auto apart = [](double x, double y) { return std::fabs(x - y) / std::min(x, y); };
+    auto pressOk = [] { REQUIRE(settings_app_test::pressOk(settingsPath(), -1)); };
+    auto savedInflection = [] {
+        return static_cast<int>(GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", -7, settingsPath().c_str()));
+    };
+
+    SUBCASE("a built-in voice") {
+        writeSettings("");
+        Engine engine(L"en-us");
+        const Heard fresh = hear(engine);
+        const Heard freshAgain = hear(engine);
+        CHECK(apart(fresh.rms, freshAgain.rms) < 0.003);   // how alike two renders are
+        // The level does show a change of bandwidth: slider 40 is 1.2.
+        writeSettings("[VoicingTone]\ncascadeBwScale=40\n");
+        CHECK(apart(fresh.rms, hear(engine).rms) > 0.02);
+
+        writeSettings("");
+        pressOk();
+        const Heard saved = hear(engine);
+        MESSAGE("level before the first OK " << fresh.rms << ", after " << saved.rms);
+        CHECK(apart(fresh.rms, saved.rms) < 0.003);
+        CHECK(apart(fresh.bright, saved.bright) < 0.03);
+        CHECK(pitchDistance(fresh.pitch, saved.pitch) < 0.5);
+        // A second OK, on the file the first one wrote, changes nothing either.
+        pressOk();
+        CHECK(apart(fresh.rms, hear(engine).rms) < 0.003);
+    }
+
+    SUBCASE("the inflection scale, in a pitch mode that uses it") {
+        // The user picks Classic and nothing else: the inflection is the
+        // language pack's, as it is in NVDA with its slider left alone.
+        writeSettings("[Audio]\npitchMode=legacy\n");
+        Engine engine(L"en-us");
+        const Heard packs = hear(engine);
+        writeSettings("[Audio]\npitchMode=legacy\npitchInflectionScale=50\n");
+        CHECK(pitchDistance(packs.pitch, hear(engine).pitch) > 3.0);   // 1.0 is not the pack's 0.56
+        writeSettings("[Audio]\npitchMode=legacy\n");
+        pressOk();
+        CHECK(pitchDistance(packs.pitch, hear(engine).pitch) < 0.5);
+        CHECK(savedInflection() == -1);   // not set: each language's own
+        // The slider is where NVDA's rests, and moving it sets a scale.
+        const int shown = settings_app_test::inflectionSliderOnOpen(settingsPath());
+        CHECK(shown == 29);
+        REQUIRE(settings_app_test::pressOk(settingsPath(), 80));
+        CHECK(savedInflection() == 80);
+        CHECK(settings_app_test::inflectionSliderOnOpen(settingsPath()) == 80);
+        CHECK(pitchDistance(packs.pitch, hear(engine).pitch) > 3.0);
+        // A scale that was set stays set, also at the slider's resting place.
+        REQUIRE(settings_app_test::pressOk(settingsPath(), shown));
+        CHECK(savedInflection() == shown);
+    }
+
+    SUBCASE("a profile voice") {
+        writeSettings("");
+        Engine engine(L"en-us", L"profile:Beth");
+        hear(engine);
+        const Heard fresh = hear(engine);
+        pressOk();
+        const Heard saved = hear(engine);
+        CHECK(apart(fresh.rms, saved.rms) < 0.01);
+        CHECK(pitchDistance(fresh.pitch, saved.pitch) < 0.5);
+    }
+
+    SUBCASE("settings someone chose are kept by OK") {
+        // No migration: a file that already says 50 keeps saying 50.
+        writeSettings("[Audio]\npitchMode=legacy\npitchInflectionScale=50\n[VoicingTone]\ncascadeBwScale=40\nvoiceTilt=60\n");
+        Engine engine(L"en-us");
+        const Heard chosen = hear(engine);
+        pressOk();
+        const Heard saved = hear(engine);
+        CHECK(apart(chosen.rms, saved.rms) < 0.003);
+        CHECK(pitchDistance(chosen.pitch, saved.pitch) < 0.5);
+        CHECK(GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", -7, settingsPath().c_str()) == 50);
+        CHECK(GetPrivateProfileIntW(L"VoicingTone", L"cascadeBwScale", -7, settingsPath().c_str()) == 40);
+    }
 }

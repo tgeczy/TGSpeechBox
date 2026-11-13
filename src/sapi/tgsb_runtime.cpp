@@ -733,8 +733,12 @@ void runtime::apply_voicing_tone_if_available()
         if (s.aspirationTilt >= 0) {
             dsp_tone.aspirationTiltDbPerOct = (s.aspirationTilt - 50.0) * 0.24;
         }
-        if (s.cascadeBwScale >= 0) {
-            double bw = static_cast<double>(s.cascadeBwScale);
+        // Not set is the slider's middle, 1.0, which is what the settings
+        // app shows and saves on the first OK and what the NVDA driver plays
+        // at its default.  It used to be left at the DSP's 0.9, so the
+        // formants got wider the first time OK was pressed (#205).
+        {
+            double bw = s.cascadeBwScale >= 0 ? static_cast<double>(s.cascadeBwScale) : 50.0;
             if (bw <= 50.0)
                 dsp_tone.cascadeBwScale = 2.0 - (bw / 50.0) * 1.0;
             else

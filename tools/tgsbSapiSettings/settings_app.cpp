@@ -173,7 +173,7 @@ struct Settings {
 
     // Pitch mode: an index into kPitchModes (0 = language default).
     int pitchMode = 0;
-    int pitchInflectionScale = 50; // 0-100, maps to 0.0-2.0
+    int pitchInflectionScale = -1; // 0-100, maps to 0.0-2.0; -1 = not set, each language's own
 
     // Voicing tone (0-100, -1 = default).
     int voiceTilt       = 50;
@@ -200,6 +200,23 @@ struct Settings {
     bool overrideSystemRate = false;
     int globalRate = 50; // 0-100 slider, maps to 0.3-4.0x
 };
+
+// The inflection scale is each language pack's own until it is set here.
+// The slider has no "not set" position, so a scale that is not set shows at
+// 29 (0.58, where the NVDA add-on's slider rests) and stays not set unless
+// the slider is moved.  OK used to save the slider's old default of 50,
+// which is 1.0, for every language (#205).
+static const int kInflectionSliderUnset = 29;
+
+int inflection_slider_pos(int scale)
+{
+    return scale < 0 ? kInflectionSliderUnset : scale;
+}
+
+int inflection_from_slider(int pos, int scale_before)
+{
+    return (scale_before < 0 && pos == kInflectionSliderUnset) ? -1 : pos;
+}
 
 void write_ini_int(const std::wstring& path, const wchar_t* section, const wchar_t* key, int val)
 {
@@ -232,7 +249,7 @@ Settings load_settings(const std::wstring& ini_path)
             if (pm == kPitchModes[i].ini) { s.pitchMode = i; break; }
         }
     }
-    s.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", 50, ini_path.c_str());
+    s.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", -1, ini_path.c_str());
 
     auto rd = [&](const wchar_t* key, int def) {
         return GetPrivateProfileIntW(L"VoicingTone", key, def, ini_path.c_str());
@@ -503,7 +520,7 @@ void reset_sliders_to_defaults(HWND hDlg)
     SendDlgItemMessageW(hDlg, IDC_SAMPLE_RATE, CB_SETCURSEL, 2, 0);
     SendDlgItemMessageW(hDlg, IDC_PAUSE_MODE, CB_SETCURSEL, 1, 0);
     SendDlgItemMessageW(hDlg, IDC_PITCH_MODE, CB_SETCURSEL, 0, 0);
-    set_slider(hDlg, IDC_SL_INFLECTION, 50);
+    set_slider(hDlg, IDC_SL_INFLECTION, kInflectionSliderUnset);
 
     CheckDlgButton(hDlg, IDC_RATE_BOOST,   BST_UNCHECKED);
     CheckDlgButton(hDlg, IDC_OVERRIDE_RATE, BST_UNCHECKED);
@@ -571,7 +588,7 @@ INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
         }
 
         // Inflection scale slider.
-        init_slider(hDlg, IDC_SL_INFLECTION, st->settings.pitchInflectionScale);
+        init_slider(hDlg, IDC_SL_INFLECTION, inflection_slider_pos(st->settings.pitchInflectionScale));
 
         // Sliders.
         populate_sliders_from_settings(hDlg, st->settings);
@@ -584,6 +601,9 @@ INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (id == IDC_RESET_DEFAULTS) {
             reset_sliders_to_defaults(hDlg);
+            // The inflection scale goes back to each language's own.
+            if (auto* st = reinterpret_cast<DialogState*>(GetWindowLongPtrW(hDlg, DWLP_USER)))
+                st->settings.pitchInflectionScale = -1;
             return TRUE;
         }
 
@@ -624,7 +644,8 @@ INT_PTR CALLBACK MainDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
             int pitchSel = (int)SendDlgItemMessageW(hDlg, IDC_PITCH_MODE, CB_GETCURSEL, 0, 0);
             if (pitchSel >= 0 && pitchSel < kPitchModeCount)
                 st->settings.pitchMode = pitchSel;
-            st->settings.pitchInflectionScale = get_slider(hDlg, IDC_SL_INFLECTION);
+            st->settings.pitchInflectionScale = inflection_from_slider(
+                get_slider(hDlg, IDC_SL_INFLECTION), st->settings.pitchInflectionScale);
 
             // Sliders.
             read_sliders_to_settings(hDlg, st->settings);

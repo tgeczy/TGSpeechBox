@@ -11,7 +11,9 @@
 
 set(TGSB_SAPI_STAGE "${CMAKE_CURRENT_BINARY_DIR}/stage")
 
-add_executable(tgsb_sapi_tests test_sapi_engine.cpp)
+# settings_app_under_test.cpp is the settings app's own source (its load and
+# save code), so a test can press "OK" and hand the engine what it wrote.
+add_executable(tgsb_sapi_tests test_sapi_engine.cpp settings_app_under_test.cpp)
 add_dependencies(tgsb_sapi_tests TGSpeechSapi)
 target_include_directories(tgsb_sapi_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../cpp")
 target_compile_features(tgsb_sapi_tests PRIVATE cxx_std_17)
@@ -19,7 +21,7 @@ target_compile_definitions(tgsb_sapi_tests PRIVATE
   UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
   TGSB_SAPI_STAGE_DLL=L"${TGSB_SAPI_STAGE}/x64/TGSpeechSapi.dll"
 )
-target_link_libraries(tgsb_sapi_tests PRIVATE ole32 oleaut32 advapi32 sapi)
+target_link_libraries(tgsb_sapi_tests PRIVATE ole32 oleaut32 advapi32 sapi comctl32)
 
 add_custom_command(TARGET tgsb_sapi_tests POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${TGSB_SAPI_STAGE}/x64"
