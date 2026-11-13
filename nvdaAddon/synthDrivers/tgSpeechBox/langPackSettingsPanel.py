@@ -60,6 +60,11 @@ def _autoDisplayName(key: str) -> str:
     Sub-nested    → 'Category: Sub-Block Field'
     Flat camelCase → 'Title Cased Words'
     """
+    # Not "Legacy Pitch Inflection Scale": the scale works in every pitch
+    # mode since #177, and only its key keeps the old name.  The voice
+    # panel's slider has the same label, so there is one string to translate.
+    if key == "legacyPitchInflectionScale":
+        return "Inflection scale"
     if "." in key:
         parts = key.split(".")
         category = _splitCamelCase(parts[0]).title()

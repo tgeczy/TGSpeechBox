@@ -1,5 +1,5 @@
-"""The legacy pitch inflection scale slider writes what it is set to and
-reads what the file holds (#196).
+"""The inflection scale slider writes what it is set to and reads what the
+file holds (#196).
 
 The slider goes from 0 to 100; each language's file holds the value as 0.0
 to 2.0 (legacyPitchInflectionScale).  Two faults:
@@ -14,6 +14,10 @@ to 2.0 (legacyPitchInflectionScale).  Two faults:
 Together they changed a file nobody touched: NVDA's saved copy said 28, the
 driver remembered 29, and Escape in the voice panel (a replay of every saved
 setting) wrote 0.56 over the language's 0.58.
+
+Five packs shipped that 0.56 (en-us and hu among them) until #177 put 0.58
+back.  A file that holds 0.56 all the same, set by hand or with the slider
+at 28, is the case "written" below.
 """
 from __future__ import annotations
 
@@ -76,15 +80,16 @@ def test_the_pack_default_reads_as_29(harness):
     assert d.legacyPitchInflectionScale == 29
 
 
-@pytest.mark.parametrize("lang,held", [("de", 0.58), ("en-us", 0.58), ("hu", 0.58), ("en-us", 0.56), ("hu", 0.56)])
-def test_escape_leaves_the_value_in_the_file(harness, driver_config_section, lang, held):
+@pytest.mark.parametrize("lang,held,written", [
+    ("de", 0.58, False), ("en-us", 0.58, False), ("hu", 0.58, False),
+    ("en-us", 0.56, True), ("hu", 0.56, True),
+], ids=["de", "en-us", "hu", "en-us-written-0.56", "hu-written-0.56"])
+def test_escape_leaves_the_value_in_the_file(harness, driver_config_section, lang, held, written):
     """NVDA's saved settings replayed, as Escape in the voice panel does,
     with nothing changed in the dialog."""
     d = harness.driver
     d.language = lang
-    if held != 0.58:
-        # Every shipped pack has 0.58 since #177; 0.56 is what the old
-        # rounding left in five of them, and what a user's file may still hold.
+    if written:
         _write(d, lang, held)
     assert _in_file(d, lang) == held
     d.saveSettings()  # as NVDA saves them on a first load, or on OK

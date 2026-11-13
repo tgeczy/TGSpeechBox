@@ -95,11 +95,6 @@ msgstr "Nitidez glotal"
 
 #. Synth driver setting label
 #: synthDrivers/tgspeechbox/__init__.py
-msgid "Legacy pitch inflection scale (only active when pitch mode is classic)"
-msgstr "Escala de inflexión tonal heredada (solo activa cuando el modo de tono es clásico)"
-
-#. Synth driver setting label
-#: synthDrivers/tgspeechbox/__init__.py
 msgid "Pause mode"
 msgstr "Modo de pausa"
 
@@ -1800,11 +1795,6 @@ msgstr "Tecla de Vocal A Corta Húngara"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Hu Short A Vowel Scale"
 msgstr "Escala de Vocal A Corta Húngara"
-
-#. Setting key display name
-#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
-msgid "Legacy Pitch Inflection Scale"
-msgstr "Tono Heredado Escala de Inflexión"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -3639,4 +3629,9 @@ msgid ""
 "No newer add-on is available on the Stable update channel.\n"
 "\n"
 "Installed version: {}"
+msgstr ""
+
+#. The voice panel's slider, and the same setting in the settings panel's list: it works in every pitch mode (#177)
+#: synthDrivers/tgSpeechBox/__init__.py synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Inflection scale"
 msgstr ""

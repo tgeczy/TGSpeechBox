@@ -137,9 +137,10 @@ class SynthDriver(
         NumericDriverSetting("frameExJitter", _("Jitter (pitch variation)"), defaultVal=0),
         NumericDriverSetting("frameExShimmer", _("Shimmer (amplitude variation)"), defaultVal=0),
         NumericDriverSetting("frameExSharpness", _("Glottal sharpness"), defaultVal=50),
-        NumericDriverSetting("legacyPitchInflectionScale",
-            _("Legacy pitch inflection scale (only active when pitch mode is classic)"),
-            defaultVal=29),
+        # The id is historical: the scale was made for the classic pitch mode
+        # and works in every mode since #177.  NVDA's saved configurations
+        # and the language files name it, so only the label says what it is.
+        NumericDriverSetting("legacyPitchInflectionScale", _("Inflection scale"), defaultVal=29),
         DriverSetting("pauseMode", _("Pause mode")),
         DriverSetting("sampleRate", _("Sample rate")),
         # Runtime language adjustments (other settings are YAML-only now)
