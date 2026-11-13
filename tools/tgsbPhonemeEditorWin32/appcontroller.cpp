@@ -883,6 +883,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "codaNoiseTaperLateAspAmp",
     "codaNoiseTaperLateFricScale",
     "codaNoiseTaperPreGain",
+    "decimalSeparator",
     "defaultGlottalOpenQuotient",
     "defaultOutputGain",
     "defaultPreFormantGain",

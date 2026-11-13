@@ -196,7 +196,8 @@ def test_years_and_other_numbers_read_as_before(prepare, lang, text, expected):
     assert prepare(lang, text) == expected
 
 
-@pytest.mark.parametrize("lang", ["hu", "de", "es", "es-mx", "pt-br", "fr", "ru"])
+# Hungarian is not in this list: there one comma is a decimal comma (#167, below).
+@pytest.mark.parametrize("lang", ["de", "es", "es-mx", "pt-br", "fr", "ru"])
 @pytest.mark.parametrize("text, expected", [
     ("1,234 people came", "1 234 people came"),
     ("$2,499", "$2 499"),
@@ -526,7 +527,13 @@ GROUPED = [
 ]
 
 
-@pytest.mark.parametrize("lang", COMMA_TO_SPACE)
+# Packs whose decimalSeparator is the comma: one comma in a number is a
+# decimal comma there (below).
+DECIMAL_COMMA = ["hu"]
+COMMA_GROUPS = [lang for lang in COMMA_TO_SPACE if lang not in DECIMAL_COMMA] + ["es-es", "pt-pt"]
+
+
+@pytest.mark.parametrize("lang", COMMA_GROUPS)
 @pytest.mark.parametrize("text, spaced, _stripped", GROUPED)
 def test_grouped_numbers_are_spaced_as_before(prepare, lang, text, spaced, _stripped):
     assert prepare(lang, text) == spaced
@@ -538,7 +545,7 @@ def test_grouped_numbers_are_stripped_as_before(prepare, lang, text, _spaced, st
     assert prepare(lang, text) == stripped
 
 
-@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("lang", ALL_ENGLISH)
 @pytest.mark.parametrize("text, expected", [
     ("0,125", "0,125"),
     ("44,100 Hz", "44100 Hz"),
@@ -549,3 +556,142 @@ def test_grouped_numbers_are_stripped_as_before(prepare, lang, text, _spaced, st
 ])
 def test_english_grouped_numbers(prepare, lang, text, expected):
     assert prepare(lang, text) == expected
+
+
+# ---------------------------------------------------------------------------
+# #167: where the comma is the decimal mark, "1,500" is a decimal.
+# ---------------------------------------------------------------------------
+# What #167 left open.  A digit, a comma and three digits ("1,500") can be a
+# grouped number or a decimal, and which one is a matter of the language: the
+# pack says so with decimalSeparator.  Hungarian writes decimals with a comma
+# and groups thousands with a space, or a dot (A magyar helyesírás szabályai,
+# 12th edition, Akadémiai Kiadó 2015, rules 274, 291 b and 293: "3,16",
+# "20 611,413", "20 611 or 20.611"), so hu.yaml sets decimalSeparator: ",".
+# There "1,500" keeps its comma, and eSpeak NG reads "egy egész ötszáz ezred"
+# where the space it used to get made it "ezer ötszáz".  A number with several
+# commas ("1,234,567"), or with a dot and more digits after the group
+# ("1,234.56"), is a decimal in no language and is grouped as before.
+
+@pytest.mark.parametrize("lang", DECIMAL_COMMA)
+@pytest.mark.parametrize("text", [
+    "1,500",
+    "1,213",
+    "1,500 Ft",
+    "Az ára 1,500 Ft.",
+    "65,543",
+    "10,000",
+    "100,000 Ft",
+    "999,999.",
+    "44,100 Hz",
+    "250,000",
+    "$2,499",
+    "2,019 votes",
+    "1,234 people came",
+    "(1,500)",
+    "1,500, 2,750",
+    "20,000 and 0,125",
+    "1,500 és 2,750",
+    # A dot that ends the sentence, or an ordinal's, is no decimal point.
+    "Az ára 1,500.",
+    "1,500. Utána",
+    # The rule book's own example: thousands with a space, then the decimals.
+    "20 611,413",
+])
+def test_one_comma_is_a_decimal_comma_where_the_pack_says_so(prepare, lang, text):
+    expected = text.replace("(", "( ").replace(")", " )")  # brackets are spaced out by an earlier step
+    assert prepare(lang, text) == expected
+
+
+@pytest.mark.parametrize("lang", DECIMAL_COMMA)
+@pytest.mark.parametrize("text, expected", [
+    # Several commas: not a decimal, grouped as before.
+    ("1,234,567", "1 234 567"),
+    ("1,000,000", "1 000 000"),
+    ("12,345,678 Ft", "12 345 678 Ft"),
+    ("1,234,567,890", "1 234 567 890"),
+    ("(1,234,567)", "( 1 234 567 )"),
+    # A dot and more digits after the group: the dot is the decimal mark
+    # there (an English number), so the comma is not.
+    ("1,234.56", "1 234.56"),
+    ("$1,500.00", "$1 500.00"),
+    ("12,345,678.90", "12 345 678.90"),
+    # Decimals that were kept already.
+    ("3,14", "3,14"),
+    ("0,5", "0,5"),
+    ("1,2345", "1,2345"),
+    ("0,375 liter", "0,375 liter"),
+    ("12345,678", "12345,678"),
+    ("1.234,567", "1.234,567"),
+    # No comma in the number.
+    ("1 500", "1 500"),
+    ("1.500", "1.500"),
+    ("1500", "1500"),
+    ("1 234 567", "1 234 567"),
+    ("3.14", "3.14"),
+    ("a, b, 1, 2", "a, b, 1, 2"),
+    ("1985", "1985"),
+])
+def test_other_numbers_where_the_comma_is_the_decimal_mark_are_unchanged(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+def _packs_that_set(key):
+    return sorted(p.stem for p in (REPO / "packs" / "lang").glob("*.yaml")
+                  if any(line.startswith(f"  {key}:") for line in p.read_text(encoding="utf-8").splitlines()))
+
+
+def test_only_hungarian_sets_a_decimal_separator():
+    """Every other language keeps its reading until its speakers say otherwise."""
+    assert _packs_that_set("decimalSeparator") == DECIMAL_COMMA
+
+
+def _set_in_lang_yaml(packs_root, lang, line):
+    """Add a line to the settings of a copy of a pack."""
+    path = packs_root / "packs" / "lang" / f"{lang}.yaml"
+    text = path.read_text(encoding="utf-8")
+    assert text.count("\nsettings:\n") == 1
+    path.write_text(text.replace("\nsettings:\n", f"\nsettings:\n  {line}\n", 1), encoding="utf-8", newline="")
+
+
+@pytest.mark.parametrize("lang", ["de", "fr", "pt-br"])
+def test_any_pack_can_say_its_decimal_mark_is_the_comma(prepare_with_packs, lang):
+    """The setting is the pack's, not a list of languages in the code."""
+    base = {"pt-br": "pt"}.get(lang, lang)
+    prepare = prepare_with_packs(lambda root: _set_in_lang_yaml(root, base, 'decimalSeparator: ","'))
+    assert prepare(lang, "1,500 Euro") == "1,500 Euro"
+    assert prepare(lang, "65,543") == "65,543"
+    assert prepare(lang, "1,234,567") == "1 234 567"
+    assert prepare(lang, "0,125") == "0,125"
+    assert prepare(lang, "3,14") == "3,14"
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+def test_a_decimal_comma_in_a_pack_that_strips_grouping_commas(prepare_with_packs, lang):
+    """English strips a grouping comma and splits years; with the comma as its
+    decimal mark it would keep one comma, and still strip several."""
+    prepare = prepare_with_packs(lambda root: _set_in_lang_yaml(root, "en", 'decimalSeparator: ","'))
+    assert prepare(lang, "1,500 people") == "1,500 people"
+    assert prepare(lang, "1,234,567 items") == "1234567 items"
+    assert prepare(lang, "in 1985") == "in 19 85"
+
+
+def test_without_the_setting_hungarian_groups_as_it_did(prepare_with_packs):
+    taken = []
+    prepare = prepare_with_packs(lambda root: taken.extend(_lang_yaml_without(root, "hu", "decimalSeparator")))
+    assert len(taken) == 1, "packs/lang/hu.yaml does not set decimalSeparator"
+    assert prepare("hu", "1,500 Ft") == "1 500 Ft"
+    assert prepare("hu", "1,213") == "1 213"
+    assert prepare("hu", "1,234,567") == "1 234 567"
+    assert prepare("hu", "0,375 liter") == "0,375 liter"
+
+
+@pytest.mark.parametrize("value", ['"."', '""', '";"', '", "'])
+def test_only_the_comma_changes_how_commas_are_read(prepare_with_packs, value):
+    """A dot (or anything else) as the decimal mark leaves the comma a grouping comma."""
+    def edit(root):
+        _lang_yaml_without(root, "hu", "decimalSeparator")
+        _set_in_lang_yaml(root, "hu", f"decimalSeparator: {value}")
+
+    prepare = prepare_with_packs(edit)
+    assert prepare("hu", "1,500 Ft") == "1 500 Ft"
+    assert prepare("hu", "3,14") == "3,14"

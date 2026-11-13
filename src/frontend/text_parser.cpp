@@ -1099,7 +1099,8 @@ std::string prepareTextForEspeak(
     const std::string& ohDigit,
     const std::vector<std::string>& dictSuffixes,
     std::unordered_map<std::string, std::string>* ipaOverrides,
-    const std::vector<std::string>& twelveHourClockWords)
+    const std::vector<std::string>& twelveHourClockWords,
+    const std::string& decimalSeparator)
 {
   if (text.empty()) return text;
 
@@ -1161,7 +1162,8 @@ std::string prepareTextForEspeak(
 
   // -0.25. Thousands-separator commas: "44,100" → "44 100" or "44100".
   // Pattern: 1-3 digits + comma + exactly 3 digits + (non-digit or end).
-  // Keeps decimal commas like "3,14" (only 2 digits after comma).
+  // Keeps decimal commas like "3,14" (only 2 digits after comma), and
+  // "1,500" too where the pack's decimalSeparator is the comma (#167).
   // For European locales (thousandsSeparatorCommaToSpace): → spaces,
   // because eSpeak recognizes space-separated digit groups as thousands.
   // For all other locales: strip commas entirely so eSpeak sees "44100"
@@ -1192,7 +1194,27 @@ std::string prepareTextForEspeak(
         const bool loneZero = runLen == 1 && result[runStart] == '0';
         const bool afterDot = runStart >= 2 && result[runStart - 1] == '.' &&
                               std::isdigit(static_cast<unsigned char>(result[runStart - 2]));
-        if (runLen <= 3 && !loneZero && !afterDot) {
+        // Where the comma is the decimal mark (the pack's decimalSeparator),
+        // a number with one comma is a decimal as well: "1,500" is one and a
+        // half.  A number with several commas ("1,234,567"), or with a dot
+        // and more digits after the group ("1,234.56"), is a decimal in no
+        // language, and is grouped as before (#167).
+        const bool commaBefore =
+            runLen == 3 && runStart >= 2 && result[runStart - 1] == ',' &&
+            std::isdigit(static_cast<unsigned char>(result[runStart - 2]));
+        const bool commaAfter =
+            ci + 7 < result.size() && result[ci + 4] == ',' &&
+            std::isdigit(static_cast<unsigned char>(result[ci + 5])) &&
+            std::isdigit(static_cast<unsigned char>(result[ci + 6])) &&
+            std::isdigit(static_cast<unsigned char>(result[ci + 7])) &&
+            (ci + 8 >= result.size() ||
+             !std::isdigit(static_cast<unsigned char>(result[ci + 8])));
+        const bool dotAfter =
+            ci + 5 < result.size() && result[ci + 4] == '.' &&
+            std::isdigit(static_cast<unsigned char>(result[ci + 5]));
+        const bool decimalComma =
+            decimalSeparator == "," && !commaBefore && !commaAfter && !dotAfter;
+        if (runLen <= 3 && !loneZero && !afterDot && !decimalComma) {
           if (thousandsSeparatorCommaToSpace) cleaned += ' ';
           else if (yearSplitting) cleaned += kGroupMark;
           // else: strip comma entirely

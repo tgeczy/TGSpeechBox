@@ -749,6 +749,9 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Thousands-separator commas → spaces (per-language).
   getBool("thousandsSeparatorCommaToSpace", lp.thousandsSeparatorCommaToSpace);
 
+  // Decimal mark: "," keeps the comma of "1,500" as a decimal comma (per-language).
+  getStr("decimalSeparator", lp.decimalSeparator);
+
   // Dictionary suffix stripping (per-language).
   getStrListFrom(settings, "dictSuffixes", lp.dictSuffixes);
   std::sort(lp.dictSuffixes.begin(), lp.dictSuffixes.end(),

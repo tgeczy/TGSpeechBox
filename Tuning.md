@@ -376,6 +376,16 @@ settings:
     - "p.m."
 ```
 
+- `thousandsSeparatorCommaToSpace` (bool, default `false`): A comma between one to three digits and exactly three digits is taken for a thousands separator ("44,100"). With this on it becomes a space ("44 100"), which eSpeak NG reads as one number in the languages that group with a space; with it off the comma is removed ("44100"). A comma that cannot group thousands is always kept: "3,14", "0,125", "12345,678", "1.234,567".
+- `decimalSeparator` (string, default `""`): The language's decimal mark. Set it to `","` where decimals are written with a comma and thousands are not grouped with one: a number with one comma is then a decimal and keeps its comma for the phonemizer, so "1,500" is one and a half and not fifteen hundred. This comes before `thousandsSeparatorCommaToSpace`, which then only applies to a number with several commas ("1,234,567" → "1 234 567") or with a dot and more digits after the group ("1,234.56" → "1 234.56"), since those are decimals in no language. Any other value, `"."` included, changes nothing today. Hungarian sets it (A magyar helyesírás szabályai, 12th edition, Akadémiai Kiadó 2015, rules 274, 291 b and 293: "3,16", "20 611,413"); set it for another language once its speakers confirm how "1,500" should be read there.
+
+Example (Hungarian, in `hu.yaml`):
+```yaml
+settings:
+  decimalSeparator: ","
+  thousandsSeparatorCommaToSpace: true
+```
+
 ### Post-stop aspiration insertion (English-style)
 - `postStopAspirationEnabled` (bool, default `false`): Inserts a short aspiration phoneme after unvoiced stops in specific contexts.
 - `postStopAspirationPhoneme` (string/IPA key, default `"h"`): Which phoneme key to insert for aspiration.

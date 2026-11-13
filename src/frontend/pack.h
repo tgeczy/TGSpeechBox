@@ -1013,10 +1013,21 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   bool yearSplittingEnabled = false;
 
   // Thousands-separator commas → spaces: "1,213" → "1 213".
-  // Needed for languages where comma = decimal separator (Hungarian, etc.)
-  // so eSpeak reads the number as thousands, not decimal.
+  // Needed where eSpeak's voice reads a comma as the decimal mark, so that
+  // a number grouped with commas is read as thousands, not as a decimal.
+  // (A pack that wants "1,213" read as a decimal says so with
+  // decimalSeparator, below.)
   // Off by default — English numberExpansion already handles commas.
   bool thousandsSeparatorCommaToSpace = false;
+
+  // The language's decimal mark.  With "," a number with one comma is a
+  // decimal and keeps it for the phonemizer: "1,500" is one and a half, not
+  // "1 500" (#167).  This comes before thousandsSeparatorCommaToSpace, which
+  // then only groups a number with several commas ("1,234,567") or with a
+  // dot and more digits after the group ("1,234.56").
+  // Empty by default (and any other value): a comma before three digits
+  // groups thousands.
+  std::string decimalSeparator;
 
   // Dictionary suffix stripping — per-language list of suffixes to try
   // removing during dict lookup so inflected forms ("launching") inherit
