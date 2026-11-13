@@ -203,6 +203,7 @@ Profiles appear in the Voice list of every TGSpeechBox host (NVDA, SAPI, Android
    - Saving under the name of a *different* profile that already exists asks first, and then replaces only its voice source and inflection scale; its class scales and phoneme overrides stay.
    - The suggested inflection scale keeps the inflection you hear now: after the save the Inflection slider goes back to 50 and the profile's scale carries the difference (1 = the listener's own inflection, 1.3 = a third livelier).
 4. The profile is written to `phonemes.yaml` at once and selected in the Voice list.
+5. The save also takes effect for Speak at once, without **OK**: the saved profile is the voice, with its voice source as saved and Inflection at 50. **Cancel** after a save takes back only what you changed in the dialog after it, and cannot take back the save. Rate, Pitch, Volume, the frame sliders and the voice quality sliders are not part of a profile, so they still wait for **OK**.
 
 Only the sliders you moved are written, so a profile keeps the values you didn't touch. The **Voice quality** sliders (creakiness, breathiness, jitter, shimmer, sharpness) are listener settings, as in NVDA's voice panel, and are not saved into a profile. A profile name can't contain a colon.
 
@@ -226,7 +227,7 @@ Only the sliders you moved are written, so a profile keeps the values you didn't
 - **Voicing parameters**: the voice source (the same settings a profile's voice source holds). These are the sliders Save to Profile writes.
 - **Voice quality (FrameEx)**: creakiness, breathiness, jitter, shimmer, sharpness, added to every frame.
 
-Each group has **Reset parameter** and **Reset all**. A reset puts a slider where it has no effect: 50 for most, 0 for the voicing sliders noise modulation, tremor and chorus depth (33 for chorus detune), and 0 for the voice quality sliders except sharpness. The settings are kept in `tgsbPhonemeEditor.ini` under `[speech]`. The pause after punctuation follows `pauseMode` there (`off`, `short` or `long`, as in NVDA).
+Each group has **Reset parameter** and **Reset all**. A reset puts a slider where it has no effect: 50 for most, 0 for the voicing sliders noise modulation, tremor and chorus depth (33 for chorus detune), and 0 for the voice quality sliders except sharpness. The settings are kept in `tgsbPhonemeEditor.ini` under `[speech]`: **OK** applies and stores them, **Cancel** leaves them as they were, except for a Save to Profile, which applies and stores its profile and Inflection 50 when it saves (see [above](#from-the-sound-speech-settings--save-to-profile)). The pause after punctuation follows `pauseMode` there (`off`, `short` or `long`, as in NVDA).
 
 ## Allophone rules
 

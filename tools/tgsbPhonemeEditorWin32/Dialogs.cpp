@@ -9,6 +9,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include "Dialogs.h"
 #include "VoiceProfileEditor.h"
+#include "speech_settings.h"
 #include "voicing_sliders.h"
 
 #include "AccessibilityUtils.h"
@@ -1609,8 +1610,7 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
           std::string lerr;
           st->runtime->loadProfileToneSliders(sourceProfile, scratch, storedScale, lerr);
         }
-        double suggested = storedScale * static_cast<double>(st->settings.inflection) / 50.0;
-        if (suggested > 3.0) suggested = 3.0;
+        const double suggested = tgsb_editor::inflectionScaleKeepingSound(storedScale, st->settings.inflection);
 
         SaveProfileDialogState sp;
         sp.name = fromProfile ? sourceProfile : (voice + " variant");
@@ -1665,7 +1665,16 @@ if (id == IDC_SPEECH_VOICING_RESET_ALL) {
           syncSelectedVoicingParamToUi();
 
           // The scale now carries the inflection; the listener's slider is neutral.
-          st->settings.inflection = 50;
+          // The file is written, so the runtime and the INI take the saved
+          // profile, its voice source and the neutral slider now, not on OK:
+          // after Cancel, Speak would play the old slider position on top
+          // of the new scale (#220).  Cancel then drops only what changes
+          // after the save.
+          const tgsb_editor::SpeechSettings applied = tgsb_editor::speechSettingsAfterProfileSave(
+              st->settings, st->runtime->getSpeechSettings(),
+              std::string(tgsb_editor::TgsbRuntime::kVoiceProfilePrefix) + sp.name);
+          st->runtime->setSpeechSettings(applied);
+          saveSpeechSettingsToIni(applied);
           setTrackbarRangeAndPos(GetDlgItem(hDlg, IDC_SPEECH_INFLECTION_SLIDER), st->settings.inflection);
           setDlgIntText(hDlg, IDC_SPEECH_INFLECTION_VAL, st->settings.inflection);
         } else {

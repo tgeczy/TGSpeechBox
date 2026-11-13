@@ -13,6 +13,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <windows.h>
 
 #include "speechPlayer.h"
+#include "speech_settings.h"  // SpeechSettings
 #include "yaml_edit.h"
 
 // NOTE: We dynamically load speechPlayer.dll and nvspFrontend.dll.
@@ -20,24 +21,6 @@ Licensed under the MIT License. See LICENSE for details.
 #include "nvspFrontend.h"
 
 namespace tgsb_editor {
-
-// Mirrors the NVDA driver's public-facing speech settings.
-// - Voice: preset that applies multipliers/overrides to the generated frames.
-// - Rate/Pitch/Volume/Inflection: passed to nvspFrontend.dll (and/or applied to frames).
-// - frameParams: 0..100 sliders that act as multipliers on each speechPlayer frame field,
-//   with 50 meaning "neutral" (x1.0).
-// - voicingParams: 0..100 sliders for VoicingTone parameters.
-struct SpeechSettings {
-  std::string voiceName = "Adam";
-  int rate = 50;       // 0..100
-  int pitch = 50;      // 0..100
-  int volume = 90;     // 0..100
-  int inflection = 50; // 0..100; 50 = the NVDA, Android and iOS default, so the editor's neutral is the listener's
-  std::string pauseMode = "short"; // off | short | long
-  std::vector<int> frameParams;   // size == frameParamNames().size()
-  std::vector<int> voicingParams; // size == voicingParamNames().size()
-  std::vector<int> frameExParams; // size == frameExParamNames().size() - FrameEx voice quality
-};
 
 // -------------------------
 // Dynamic DLL function types

@@ -2399,6 +2399,10 @@ LRESULT AppController::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
         st.voiceProfiles = app.runtime.discoverVoiceProfiles();
 
         ShowSpeechSettingsDialog(app.hInst, hWnd, st);
+        // Cancel keeps what the runtime holds.  That is not always what it
+        // held before the dialog: a Save to Profile in the dialog has already
+        // applied itself (#220, speech_settings.h), so the settings from
+        // before the dialog must not be put back here.
         if (st.ok) {
           app.runtime.setSpeechSettings(st.settings);
           saveSpeechSettingsToIni(st.settings);
