@@ -879,10 +879,6 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
     HRESULT hr = ensure_initialized();
     if (FAILED(hr)) return hr;
 
-    // Re-apply voicing tone + FrameEx from settings on every utterance.
-    // get_settings_cached() inside checks mtime — cheap when file unchanged.
-    apply_voicing_tone_if_available();
-
     // Determine if this is a built-in preset or a voice profile.
     const std::wstring profilePrefix = L"profile:";
     const bool isProfile = params.preset_name.rfind(profilePrefix, 0) == 0;
@@ -901,6 +897,13 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
             has_voicing_tone_ = false;
         }
     }
+
+    // Re-apply voicing tone + FrameEx from settings on every utterance.
+    // get_settings_cached() inside checks mtime — cheap when file unchanged.
+    // After the voice is settled, not before: the tone is the frontend's
+    // current profile's, and applied first it was the profile's that had
+    // just been left, for the first clause of a built-in voice (#212).
+    apply_voicing_tone_if_available();
 
     // Pre-eSpeak text normalization: compound splitting, date ordinals, etc.
     std::wstring prepared_text = text;

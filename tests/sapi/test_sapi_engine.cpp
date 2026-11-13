@@ -302,6 +302,18 @@ double pitchDistance(const std::vector<double>& a, const std::vector<double>& b)
     return diff[diff.size() * 3 / 4];
 }
 
+// How bright `a` is: the energy of its sample-to-sample differences over its
+// energy.  The voice source's spectral tilt moves it a long way.
+double brightness(const std::vector<int16_t>& a) {
+    double diff = 0.0, total = 1.0;
+    for (size_t i = 1; i < a.size(); ++i) {
+        const double d = static_cast<double>(a[i]) - a[i - 1];
+        diff += d * d;
+        total += static_cast<double>(a[i]) * a[i];
+    }
+    return diff / total;
+}
+
 // First sample whose magnitude reaches `level`, or size() when none does.
 size_t onset(const std::vector<int16_t>& a, int level) {
     for (size_t i = 0; i < a.size(); ++i)
@@ -989,4 +1001,68 @@ TEST_CASE("a pitch mode set back to the language default is the language's own a
         CHECK(pitchDistance(ownEn, pitchOf(en, english, "[Audio]\npitchMode=\n")) < same);
         CHECK(pitchDistance(ownHu, pitchOf(hu, hungarian, "[Audio]\npitchMode=\n")) < same);
     }
+}
+
+// #212: going from a profile voice to a built-in one, the first clause the
+// built-in voice spoke still had the profile's voice source (its spectral
+// tilt, speed quotient, chorus): the tone was sent to the DSP before the
+// profile was cleared, and not again until the next clause.  It is what a
+// host reads out right after the change, usually the new voice's name.
+TEST_CASE("a built-in voice chosen after a profile voice speaks with its own voice source at once (#212)") {
+    ComScope com;
+    writeSettings("");
+    const std::wstring text = L"We were away all year.";   // voiced throughout: no noise to blur the measure
+    // The first two things a new voice object says.  The runtime of the
+    // voice object before it is cached and taken over, as in a host that
+    // switches voices.
+    struct FirstTwo { double first, second; };
+    auto firstTwo = [&](const wchar_t* voice) {
+        Engine engine(L"en-us", voice);
+        HostSite a, b;
+        engine.speak(text, a);
+        engine.speak(text, b);
+        REQUIRE(a.audio.size() > 0);
+        return FirstTwo{brightness(a.audio), brightness(b.audio)};
+    };
+    auto apart = [](double x, double y) { return std::fabs(x - y) / std::min(x, y); };
+
+    const double adam = firstTwo(L"Adam").second;
+    const double beth = firstTwo(L"profile:Beth").second;
+    const double bobby = firstTwo(L"profile:Bobby").second;
+    MESSAGE("brightness: Adam " << adam << ", Beth " << beth << ", Bobby " << bobby);
+    // The premise: the profiles do not sound like Adam, by a wide margin.
+    REQUIRE(apart(adam, beth) > 0.30);
+
+    struct Case { const wchar_t* before; const wchar_t* voice; double expected; };
+    const Case cases[] = {
+        {L"profile:Beth", L"Adam", adam},            // the issue
+        {L"profile:Bobby", L"Adam", adam},
+        {L"profile:Beth", L"David", 0.0},            // another built-in voice: as its own second item
+        {L"Adam", L"Adam", adam},                    // the switches that worked still do
+        {L"Adam", L"profile:Beth", beth},
+        {L"profile:Bobby", L"profile:Beth", beth},
+        {L"profile:Beth", L"profile:Bobby", bobby},
+    };
+    for (const Case& c : cases) {
+        const std::wstring names = std::wstring(c.before) + L" -> " + c.voice;
+        const std::string switched(names.begin(), names.end());   // ASCII names
+        CAPTURE(switched);
+        firstTwo(c.before);
+        const FirstTwo got = firstTwo(c.voice);
+        MESSAGE("first " << got.first << ", second " << got.second);
+        // The first thing the new voice says sounds like the second.
+        CHECK(apart(got.first, got.second) < 0.08);
+        if (c.expected > 0.0) CHECK(apart(got.first, c.expected) < 0.08);
+    }
+
+    // Two clauses in the first Speak() call: the first clause is not the
+    // odd one out.
+    firstTwo(L"profile:Beth");
+    Engine engine(L"en-us", L"Adam");
+    HostSite two, again;
+    engine.speak(text + L" " + text, two);
+    engine.speak(text + L" " + text, again);
+    const std::vector<int16_t> firstHalf(two.audio.begin(), two.audio.begin() + two.audio.size() / 2);
+    const std::vector<int16_t> firstHalfAgain(again.audio.begin(), again.audio.begin() + again.audio.size() / 2);
+    CHECK(apart(brightness(firstHalf), brightness(firstHalfAgain)) < 0.08);
 }
