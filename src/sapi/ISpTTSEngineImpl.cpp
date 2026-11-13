@@ -31,6 +31,10 @@ constexpr WORD k_audio_bits_per_sample = 16;
 
 constexpr double k_default_inflection = 0.55;
 
+// The highest speed the frontend is asked for; above it the DSP's time
+// stretch takes over (the same 2.0 on NVDA, Android, iOS and Linux).
+constexpr double k_synth_speed_cap = 2.0;
+
 struct speak_context {
     ISpTTSEngineSite* site = nullptr;
     ULONGLONG bytes_written = 0;
@@ -751,12 +755,20 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                 double t = std::clamp(stg.globalRate, 0, 100) / 100.0;
                 params.speed = 0.3 + t * (4.0 - 0.3);
             }
-            if (stg.rateBoostEnabled) {
-                time_stretch = 1.35;
-                rt_->set_time_stretch(1.35);
-            } else {
-                rt_->set_time_stretch(1.0);
+            // The frontend is asked for at most 2x; the rest of the speed is
+            // the DSP's time stretch, which plays the 2x speech faster
+            // without making any sound shorter.  Every other host splits
+            // the speed this way (the NVDA driver's _SYNTH_CAP).  Handed
+            // 4x, the frontend ran into its minimum durations: SAPI rate
+            // +10 was 2.7 times as fast as rate 0, not 4, and mushier (#203).
+            if (params.speed > k_synth_speed_cap) {
+                time_stretch = params.speed / k_synth_speed_cap;
+                params.speed = k_synth_speed_cap;
             }
+            if (stg.rateBoostEnabled) {
+                time_stretch *= 1.35;
+            }
+            rt_->set_time_stretch(time_stretch);
         }
 
         const double pitch_slider = std::clamp(

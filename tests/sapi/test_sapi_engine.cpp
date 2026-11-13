@@ -1267,3 +1267,126 @@ TEST_CASE("the logging switch writes a log, and only when it is on (#211)") {
     say(engine, L"Desktop");   // the engine drops the switch before the log is removed
     DeleteFileW(log.c_str());
 }
+
+// #203: every other host asks the frontend for at most 2x and takes the rest
+// from the DSP's time stretch, which speeds the output up without squeezing
+// each sound any shorter (the NVDA driver's _SYNTH_CAP in speech_pipeline.py).
+// SAPI handed the frontend the whole speed, up to 4x, where its minimum
+// durations take over: SAPI rate +10 came out 2.6 times as fast as rate 0
+// where its own mapping says 4, with the sounds crushed.
+TEST_CASE("above 2x the frontend stays at 2x and the DSP does the rest (#203)") {
+    ComScope com;
+    struct Restore { ~Restore() { writeSettings(""); } } restore;
+    writeSettings("");
+    Engine engine(L"en-us");
+    const std::wstring text = L"This is a test of the speech rate on the SAPI engine";
+    const double pad = static_cast<double>(engine.msToBytes(50.0) / sizeof(int16_t));
+    // The length of the speech itself, without the 50 ms that ends a call.
+    auto spoken = [&](long rate) {
+        HostSite site;
+        site.rate = rate;
+        engine.speak(text, site);
+        REQUIRE(site.audio.size() > pad);
+        return static_cast<double>(site.audio.size()) - pad;
+    };
+
+    SUBCASE("SAPI rates") {
+        std::vector<double> len;
+        for (long rate = -10; rate <= 10; ++rate) len.push_back(spoken(rate));
+        auto at = [&](long rate) { return len[static_cast<size_t>(rate + 10)]; };
+        MESSAGE("samples at rate -10 " << at(-10) << ", -5 " << at(-5) << ", 0 " << at(0) << ", +3 " << at(3) << ", +5 "
+                                       << at(5) << ", +6 " << at(6) << ", +8 " << at(8) << ", +10 " << at(10));
+        // Faster at every step.
+        for (long rate = -9; rate <= 10; ++rate) {
+            CAPTURE(rate);
+            CHECK(at(rate) < at(rate - 1));
+        }
+        // The issue's measure: +10 is at least three times as fast as 0.
+        CHECK(at(0) / at(10) >= 3.0);
+        // Above +5, which is 2x, the speech is the 2x speech played faster:
+        // +10 is twice as fast as +5, +8 is 2^(3/5) times as fast.
+        for (long rate = 6; rate <= 10; ++rate) {
+            CAPTURE(rate);
+            const double stretch = std::pow(2.0, static_cast<double>(rate - 5) / 5.0);
+            CHECK(at(5) / at(rate) == doctest::Approx(stretch).epsilon(0.02));
+        }
+    }
+
+    SUBCASE("the settings app's rate, at speeds 0.5, 1.0, 1.6, 2.0, 3.0 and 4.0") {
+        // "Override speech rate": slider 0-100 is 0.3x to 4.0x.
+        auto atSlider = [&](int slider) {
+            writeSettings("[Audio]\noverrideRate=1\nglobalRate=" + std::to_string(slider) + "\n");
+            return spoken(0);
+        };
+        const double half = atSlider(5), one = atSlider(19), onePointSix = atSlider(35), two = atSlider(46),
+                     three = atSlider(73), four = atSlider(100);
+        MESSAGE("samples at 0.5x " << half << ", 1.0x " << one << ", 1.6x " << onePointSix << ", 2.0x " << two
+                                   << ", 3.0x " << three << ", 4.0x " << four);
+        CHECK(half > one);
+        CHECK(one > onePointSix);
+        CHECK(onePointSix > two);
+        // Up to 2x the speed is the frontend's own, as it was: 1x from the
+        // slider is as long as SAPI rate 0, and 2x as SAPI rate +5.
+        writeSettings("");
+        CHECK(one == doctest::Approx(spoken(0)).epsilon(0.01));
+        CHECK(two == doctest::Approx(spoken(5)).epsilon(0.01));
+        // Past 2x it is the 2x speech played faster.
+        CHECK(two / three == doctest::Approx(1.5).epsilon(0.02));
+        CHECK(two / four == doctest::Approx(2.0).epsilon(0.02));
+    }
+
+    SUBCASE("rate boost is what it was up to 2x, and adds to the stretch above") {
+        std::vector<double> plain;
+        for (long rate : {-5L, 0L, 3L, 5L, 8L, 10L}) plain.push_back(spoken(rate));
+        writeSettings("[Audio]\nrateBoost=1\n");
+        size_t i = 0;
+        for (long rate : {-5L, 0L, 3L, 5L, 8L, 10L}) {
+            CAPTURE(rate);
+            CHECK(plain[i++] / spoken(rate) == doctest::Approx(1.35).epsilon(0.02));
+        }
+    }
+
+    SUBCASE("a bookmark in the middle of fast speech fires in the middle") {
+        for (long rate : {0L, 5L, 8L, 10L}) {
+            CAPTURE(rate);
+            HostSite site;
+            site.rate = rate;
+            engine.speak({{SPVA_Speak, L"This is a test of the speech rate"}, {SPVA_Bookmark, L"1"},
+                          {SPVA_Speak, L"on the SAPI engine"}, {SPVA_Bookmark, L"2"}}, site);
+            REQUIRE(site.marks.size() == 2);
+            const double where = static_cast<double>(site.marks[0].offset) / site.bytes;
+            MESSAGE("the bookmark after 33 of 52 characters is at " << where * 100.0 << "% of the audio");
+            CHECK(where > 0.35);
+            CHECK(where < 0.85);
+            CHECK(site.marks[0].offset % sizeof(int16_t) == 0);
+            CHECK(site.marks[1].offset <= site.bytes);
+        }
+    }
+
+    SUBCASE("fast speech is as loud as 2x speech, and an abort leaves nothing behind") {
+        auto level = [&](long rate) {
+            HostSite site;
+            site.rate = rate;
+            engine.speak(text, site);
+            double sum = 0.0;
+            for (int16_t s : site.audio) sum += static_cast<double>(s) * s;
+            return std::sqrt(sum / site.audio.size());
+        };
+        const double atTwo = level(5), atFour = level(10);
+        CHECK(atFour > atTwo * 0.7);
+        CHECK(atFour < atTwo * 1.4);
+        // As in the #135 test, at the top rate.
+        HostSite warm, reference, cut, next;
+        warm.rate = reference.rate = cut.rate = next.rate = 10;
+        engine.speak(L"Desktop", warm);
+        engine.speak(L"Documents", reference);
+        cut.abortAfterBytes = engine.msToBytes(60.0);
+        engine.speak(kLong, cut);
+        REQUIRE(cut.bytes >= cut.abortAfterBytes);
+        engine.speak(L"Documents", next);
+        const double shiftMs = (static_cast<double>(onset(next.audio, 400)) - static_cast<double>(onset(reference.audio, 400)))
+                               * 1000.0 / engine.fmt.nSamplesPerSec;
+        CHECK(std::fabs(shiftMs) <= 2.0);
+        CHECK(next.audio.size() == reference.audio.size());
+    }
+}
