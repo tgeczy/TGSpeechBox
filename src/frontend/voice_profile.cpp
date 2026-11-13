@@ -395,6 +395,51 @@ std::vector<std::string> getPhonemeClassKeys(const PhonemeDef* def, double frica
   return keys;
 }
 
+void getVoiceProfileTargetScales(
+  const double* field,
+  std::uint64_t setMask,
+  const PhonemeDef* phonemeDef,
+  const VoiceProfileSet* profileSet,
+  const std::string& profileName,
+  double* cfMul,
+  double* pfMul,
+  double* cbMul,
+  double* pbMul
+) {
+  for (int i = 0; i < 3; ++i) {
+    cfMul[i] = pfMul[i] = cbMul[i] = pbMul[i] = 1.0;
+  }
+
+  if (!profileSet) return;
+  if (profileName.empty()) return;
+
+  const VoiceProfile* profile = profileSet->getProfile(profileName);
+  if (!profile) return;
+
+  if (!phonemeDef) return;
+
+  // Class detection as in applyVoiceProfileToFields.
+  const int faIdx = static_cast<int>(FieldId::fricationAmplitude);
+  double fricationAmplitude = 0.0;
+  if ((setMask & (1ull << faIdx)) != 0) {
+    fricationAmplitude = field[faIdx];
+  }
+
+  for (const std::string& classKey : getPhonemeClassKeys(phonemeDef, fricationAmplitude)) {
+    auto it = profile->classScales.find(classKey);
+    if (it == profile->classScales.end()) continue;
+
+    const ClassScales& scales = it->second;
+    for (int i = 0; i < 3; ++i) {
+      const size_t n = static_cast<size_t>(i);
+      cfMul[i] *= scales.cf_mul[n];
+      pfMul[i] *= scales.pf_mul[n];
+      cbMul[i] *= scales.cb_mul[n];
+      pbMul[i] *= scales.pb_mul[n];
+    }
+  }
+}
+
 void applyVoiceProfileToFields(
   double* field,
   std::uint64_t& setMask,

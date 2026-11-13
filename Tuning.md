@@ -116,6 +116,8 @@ Class scales are *multipliers*:
 - `preFormantGain_mul`
 - `outputGain_mul`
 
+**Where a sound is heading (3.10 final):** `cf_mul` / `pf_mul` / `cb_mul` / `pb_mul` for F1..F3 also multiply the targets a phoneme moves toward inside itself: a diphthong's offglide, the vowel a consonant-coloured onset settles on, a phoneme's own `endCf`/`endPf` sweep, and the next vowel a stop's burst leans toward. Before, only the start values were multiplied, so a profile's vowels began on its formants and ended on the default voice's. `phonemeOverrides` are absolute values for the start of that phoneme and do not move these targets.
+
 **Scalar shorthand:** for `cf_mul` / `pf_mul` / `cb_mul` / `pb_mul` / `pa_mul`, you can provide a single number and it will be replicated across all 6 formants. Example: `cf_mul: 1.12` means `cf_mul: [1.12, 1.12, 1.12, 1.12, 1.12, 1.12]`.
 
 ### Per-phoneme overrides (`phonemeOverrides`)

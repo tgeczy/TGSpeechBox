@@ -648,6 +648,10 @@ bool convertIpaToTokens(
   if (pack.voiceProfiles && !pack.lang.voiceProfileName.empty()) {
     for (Token& t : outTokens) {
       if (!t.def || t.silence) continue;
+      // The formant multipliers, for the targets the passes have already set
+      // (#173).  Read before the fields are scaled.
+      getVoiceProfileTargetScales(t.field, t.setMask, t.def, pack.voiceProfiles.get(), pack.lang.voiceProfileName,
+                                  t.profileCfMul, t.profilePfMul, t.profileCbMul, t.profilePbMul);
       applyVoiceProfileToFields(t.field, t.setMask, t.def, pack.voiceProfiles.get(), pack.lang.voiceProfileName);
     }
   }

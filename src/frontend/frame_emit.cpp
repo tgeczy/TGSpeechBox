@@ -456,6 +456,19 @@ static void generateAcousticEvents(
                      t.hasEndPf3 ? t.endPf3 :
                      (t.def && t.def->hasEndCf3) ? t.def->endCf3 :
                      t.hasEndCf3 ? t.endCf3 : NAN;
+    // A voice profile has multiplied the formants this phoneme starts on.
+    // These targets were worked out before that, in the default voice's
+    // formants, so they get the same class multipliers here (1.0 without a
+    // profile; NAN stays NAN).  Without this a profile's vowel left its own
+    // vocal tract: Beth's "bye" started on 746/1482/2842 and ended on the
+    // default voice's 360/1900/2570, and every coarticulated vowel settled
+    // on the default voice's canonical formants (#173).
+    frameEx.endCf1 *= t.profileCfMul[0];
+    frameEx.endCf2 *= t.profileCfMul[1];
+    frameEx.endCf3 *= t.profileCfMul[2];
+    frameEx.endPf1 *= t.profilePfMul[0];
+    frameEx.endPf2 *= t.profilePfMul[1];
+    frameEx.endPf3 *= t.profilePfMul[2];
 
     // Voice amplitude end target (DSP v9).  The amplitude_contour pass
     // leaves a RATIO on the token; it is applied to the final base
@@ -585,12 +598,14 @@ static void generateAcousticEvents(
                               ? frameEx.endPf3 : endCascF3;
 
       // End bandwidths: use offset vowel's values if set, else hold onset.
-      const double endCascB1 = t.hasEndCb1 ? t.endCb1 : startCb1;
-      const double endCascB2 = t.hasEndCb2 ? t.endCb2 : startCb2;
-      const double endCascB3 = t.hasEndCb3 ? t.endCb3 : startCb3;
-      const double endParB1 = t.hasEndPb1 ? t.endPb1 : startPb1;
-      const double endParB2 = t.hasEndPb2 ? t.endPb2 : startPb2;
-      const double endParB3 = t.hasEndPb3 ? t.endPb3 : startPb3;
+      // The offset values predate the voice profile: same multipliers as
+      // the onset's (#173).
+      const double endCascB1 = t.hasEndCb1 ? t.endCb1 * t.profileCbMul[0] : startCb1;
+      const double endCascB2 = t.hasEndCb2 ? t.endCb2 * t.profileCbMul[1] : startCb2;
+      const double endCascB3 = t.hasEndCb3 ? t.endCb3 * t.profileCbMul[2] : startCb3;
+      const double endParB1 = t.hasEndPb1 ? t.endPb1 * t.profilePbMul[0] : startPb1;
+      const double endParB2 = t.hasEndPb2 ? t.endPb2 * t.profilePbMul[1] : startPb2;
+      const double endParB3 = t.hasEndPb3 ? t.endPb3 * t.profilePbMul[2] : startPb3;
 
       // Number of micro-frames scales with duration so each step stays
       // a consistent length regardless of speech rate.  At fast rates
@@ -851,9 +866,10 @@ static void generateAcousticEvents(
 
       const double dur = t.durationMs;
       const double onF1 = base[icf1], onF2 = base[icf2], onF3 = base[icf3];
-      const double stF1 = (t.steadyF1 > 0.0) ? t.steadyF1 : onF1;
-      const double stF2 = (t.steadyF2 > 0.0) ? t.steadyF2 : onF2;
-      const double stF3 = (t.steadyF3 > 0.0) ? t.steadyF3 : onF3;
+      // The canonical targets predate the voice profile (#173).
+      const double stF1 = (t.steadyF1 > 0.0) ? t.steadyF1 * t.profileCfMul[0] : onF1;
+      const double stF2 = (t.steadyF2 > 0.0) ? t.steadyF2 * t.profileCfMul[1] : onF2;
+      const double stF3 = (t.steadyF3 > 0.0) ? t.steadyF3 * t.profileCfMul[2] : onF3;
       const double exF1 = nvsp_isnan(frameEx.endCf1) ? stF1 : frameEx.endCf1;
       const double exF2 = nvsp_isnan(frameEx.endCf2) ? stF2 : frameEx.endCf2;
       const double exF3 = nvsp_isnan(frameEx.endCf3) ? stF3 : frameEx.endCf3;
@@ -1194,8 +1210,10 @@ static void generateAcousticEvents(
             for (size_t j = curIdx + 1; j < tokens.size(); ++j) {
               const Token& ahead = tokens[j];
               if (ahead.def && (ahead.def->flags & kIsVowel)) {
-                nextCf2 = ahead.def->field[cf2i];
-                nextCf3 = ahead.def->field[cf3i];
+                // From the phoneme table, so with the vowel's voice profile
+                // multipliers (#173).
+                nextCf2 = ahead.def->field[cf2i] * ahead.profileCfMul[1];
+                nextCf3 = ahead.def->field[cf3i] * ahead.profileCfMul[2];
                 break;
               }
               if (ahead.silence) break;  // don't blend across silence

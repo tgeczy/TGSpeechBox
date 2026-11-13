@@ -213,6 +213,25 @@ void applyVoiceProfileToFields(
   const std::string& profileName
 );
 
+// The multipliers a profile's classScales apply to formants 1-3 of a phoneme:
+// the product of cf_mul, pf_mul, cb_mul and pb_mul over its class keys, as
+// applyVoiceProfileToFields multiplies them into the fields.  Each array has 3
+// elements and comes back as 1.0 when no profile applies.  Call it with the
+// token's fields BEFORE applyVoiceProfileToFields: the fricative classes are
+// decided on the unscaled fricationAmplitude.  phonemeOverrides are absolute
+// values and are not reflected here.
+void getVoiceProfileTargetScales(
+  const double* field,
+  std::uint64_t setMask,
+  const PhonemeDef* phonemeDef,
+  const VoiceProfileSet* profileSet,
+  const std::string& profileName,
+  double* cfMul,
+  double* pfMul,
+  double* cbMul,
+  double* pbMul
+);
+
 // Determine which class keys apply to a phoneme based on its flags.
 // Returns a list of class keys in priority order (most general first).
 // The caller should apply class scales in order, letting later classes

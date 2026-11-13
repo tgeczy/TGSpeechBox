@@ -150,6 +150,18 @@ struct Token {
   bool hasCoarticSteady = false;
   double steadyF1 = 0.0, steadyF2 = 0.0, steadyF3 = 0.0;
 
+  // Voice profile multipliers for formants 1-3 of this token's phoneme
+  // classes (getVoiceProfileTargetScales; 1.0 = no profile).  The profile is
+  // applied to field[] after the passes have worked out where the token is
+  // heading (endCf*/endPf*, endCb*/endPb*, steadyF*), in the default voice's
+  // formants.  frame_emit gives those targets the same multipliers, so a
+  // profile's vowel does not leave its own vocal tract for the default
+  // voice's on the way (#173).
+  double profileCfMul[3] = {1.0, 1.0, 1.0};
+  double profilePfMul[3] = {1.0, 1.0, 1.0};
+  double profileCbMul[3] = {1.0, 1.0, 1.0};
+  double profilePbMul[3] = {1.0, 1.0, 1.0};
+
   // Set by the svarabhakti pass: this vocoid already carries its inherited
   // transition quality — the coarticulation pass must not reshape it.
   bool svarabhaktiShaped = false;
