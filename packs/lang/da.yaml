@@ -33,12 +33,15 @@ settings:
   segmentBoundarySkipVowelToLiquid: false
   # p, t, k are strongly aspirated; the aspiration, not the burst, is what tells
   # them from b, d, g, which are voiceless too (Fischer-Jorgensen 1972), and it
-  # runs longer than English's (en-us uses 35).  Was off (Fubsepude: "major
+  # runs longer than English's (en-us uses 20).  Was off (Fubsepude: "major
   # issues").
   postStopAspirationEnabled: true
-  # Not applied (#178): "postStopAspirationDurationMs: 45" stood here, but the
-  # frontend has never read that key (Tuning.md: built in, 20 ms), and en-us
-  # plays 20 ms as well, not 35.  The length is still to be given to Danish.
+  # A longer puff was written here ("postStopAspirationDurationMs: 45"), but
+  # the frontend did not read that key until #172, so Danish has always played
+  # the 20 ms default (25 ms in a stressed syllable), and that is what its
+  # listeners have heard.  The key works now.  45 would more than double the
+  # puff (56 ms in a stressed syllable), so it waits for a Danish speaker to
+  # hear it first.
   # ...but not after s: spiser, stå, skal (as in English speak, stop, sky).
   postStopAspirationAfterSibilant: false
   coarticulationEnabled: false

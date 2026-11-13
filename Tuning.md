@@ -630,10 +630,10 @@ These are "compat switches" for behavior that existed in the legacy Python pipel
 - `defaultVoiceTurbulenceAmplitude` (number, default `0.0`)
 - `defaultGlottalOpenQuotient` (number, default `0.0`)
 
-### Phoneme timing defaults (reference)
-These values control the base duration of each phoneme type (ms at speed=1.0). They are currently hardcoded in the engine and not configurable via YAML, but are listed here for reference:
+### Phoneme timing
+These settings give the base duration of each phoneme type (ms at speed=1.0; the engine divides by the speed, and a stressed syllable runs at a lower speed, the speed divided by its stress divisor, so its phonemes are longer). Each is a top-level key under `settings:`. Until 3.10 they were listed here and offered in the editors but never read from the packs (#172): every language ran on the defaults below, and was tuned on them. No shipped pack sets one yet; a pack that does now changes how its language sounds, so have a speaker of the language listen first.
 
-| Phoneme type | Default (ms) | Notes |
+| Phoneme type | Default (ms) | Setting |
 |--------------|-------------|-------|
 | Vowel | 60 | `defaultVowelDurationMs` |
 | Voiceless fricative | 45 | `voicelessFricativeDurationMs` — /s/, /f/, /ʃ/, /x/ |
@@ -644,8 +644,10 @@ These values control the base duration of each phoneme type (ms at speed=1.0). T
 | Vowel before liquid | 30 | `vowelBeforeLiquidDurationMs` — unstressed V before L/R |
 | Affricate | 24 | `affricateDurationMs` — /t͡ʃ/, /d͡ʒ/ |
 | Post-stop aspiration | 20 | `postStopAspirationDurationMs`; times `postStopAspirationUnstressedScale` before an unstressed vowel inside a word; none after s/sh in the same word when `postStopAspirationAfterSibilant: false` |
-| Tied-from vowel | 20 | `tiedFromVowelDurationMs` (diphthong end) |
+| Tied-from vowel | 20 | `tiedFromVowelDurationMs` (diphthong end); its crossfade is `tiedFromVowelFadeMs` (20) |
 | Tap | 14 | `tapDurationMs` — /ɾ/ |
+| Crossfade into a vowel after a liquid or semivowel | 25 | `fadeAfterLiquidMs` |
+| Crossfade of a liquid or semivowel | 20 | `liquidFadeMs` |
 | Default crossfade | 10 | `defaultFadeMs` |
 | Stop burst | 6 | `stopDurationMs` — /p/, /t/, /k/, /b/, /d/, /g/ |
 

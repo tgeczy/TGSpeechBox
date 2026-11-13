@@ -33,8 +33,11 @@ settings:
   # Diphthong offglide duration: default 20ms starves /ei/, /eu/ glides
   # ("rey", "rei", "reu" lose the final vowel).  30ms gives the formant
   # sweep time to settle at the offglide target.
-  # Not applied (#178): "tiedFromVowelDurationMs: 30" stood here, but the
-  # frontend has never read that key (Tuning.md: built in, 20 ms).
+  # "tiedFromVowelDurationMs: 30" stood here (part of the #62 fix), but the
+  # frontend did not read that key until #172, so Spanish has always played
+  # the 20 ms default.  The key times a diphthong end written as a full vowel
+  # ("rei" as e + i; eSpeak NG writes -áis and -éis that way).  It works now;
+  # 30 waits for a Spanish speaker to hear it.
   # Resist speed compression on diphthongs (0=none, 1=fully rate-invariant).
   diphthongRateCompensation: 0.3
 

@@ -462,6 +462,26 @@ auto getStrListFrom = [&](const yaml_min::Node& map, const char* k, std::vector<
 getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("secondaryStressDiv", lp.secondaryStressDiv);
   
+  // Phoneme timing (ms at speed=1.0; divided by current speed in the engine).
+  // The engine used these and the packs set them, but nothing read them
+  // until #172: every language ran on the defaults in pack.h.
+  getNum("defaultVowelDurationMs", lp.defaultVowelDurationMs);
+  getNum("defaultFadeMs", lp.defaultFadeMs);
+  getNum("postStopAspirationDurationMs", lp.postStopAspirationDurationMs);
+  getNum("stopDurationMs", lp.stopDurationMs);
+  getNum("affricateDurationMs", lp.affricateDurationMs);
+  getNum("voicelessFricativeDurationMs", lp.voicelessFricativeDurationMs);
+  getNum("voicedConsonantDurationMs", lp.voicedConsonantDurationMs);
+  getNum("tapDurationMs", lp.tapDurationMs);
+  getNum("trillFallbackDurationMs", lp.trillFallbackDurationMs);
+  getNum("tiedVowelDurationMs", lp.tiedVowelDurationMs);
+  getNum("tiedFromVowelDurationMs", lp.tiedFromVowelDurationMs);
+  getNum("tiedFromVowelFadeMs", lp.tiedFromVowelFadeMs);
+  getNum("vowelBeforeLiquidDurationMs", lp.vowelBeforeLiquidDurationMs);
+  getNum("vowelBeforeNasalDurationMs", lp.vowelBeforeNasalDurationMs);
+  getNum("fadeAfterLiquidMs", lp.fadeAfterLiquidMs);
+  getNum("liquidFadeMs", lp.liquidFadeMs);
+
   // Voice profile name (optional).
   // Set this to apply a voice profile to all phonemes.
   getStr("voiceProfileName", lp.voiceProfileName);

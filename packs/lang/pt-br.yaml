@@ -4,11 +4,11 @@
 settings:
   # A short puff after voiceless stops (Cleverson): Brazilian Portuguese velars
   # carry a short lag before the vowel, and with it k no longer passes for t.
-  # 15 ms, well under English's 35.
   postStopAspirationEnabled: true
-  # Not applied (#178): "postStopAspirationDurationMs: 15" stood here, but the
-  # frontend has never read that key (Tuning.md: built in, 20 ms).  The 20 ms
-  # puff is the one the listeners heard; en-us plays 20 ms as well, not 35.
+  # The puff is 20 ms, the engine's default: the length the listeners heard
+  # and approved.  "postStopAspirationDurationMs: 15" stood here, but the
+  # frontend did not read that key until #172.  The key works now; a shorter
+  # puff waits for a Brazilian listener to hear it.
   # -ão offglide at fast rates (#123, the 12-of-13 item): the glide after a
   # nasal vowel gets 1.6x its base so ~37 ms survive at 1.6x instead of 23.
   nasalDiphthongOffglideScale: 1.6

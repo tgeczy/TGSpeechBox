@@ -48,11 +48,13 @@ settings:
 
   # US: smoother overall, less breath noise on stop releases.
   postStopAspirationEnabled: true
-  # Lisker & Abramson (1964): English aspirated stops need 40-80ms VOT.
-  # Default 20ms is below the perceptual boundary (~25-35ms).
-  # Not applied (#178): "postStopAspirationDurationMs: 35" stood here, but the
-  # frontend has never read that key (Tuning.md: built in, 20 ms).  en-us was
-  # tuned and approved by ear with the 20 ms that plays.
+  # The puff is 20 ms, the engine's default, and en-us was tuned by ear on it.
+  # This file once said 35, but the frontend did not read
+  # postStopAspirationDurationMs until #172.  Measured English aspiration is
+  # longer: 28-43 ms for p, t, k at the start of a word in sentences, 58-80
+  # in isolated words (Lisker & Abramson 1964, Word 20: 384-422), 47-70 ms
+  # before a stressed vowel (Klatt 1975, J. Speech Hear. Res. 18: 686-706).
+  # Left at the default until a listening session picks a longer value.
 
   # Reduce hold time for word-final liquids (R, L) to avoid "pirate R" on
   # words like "star", "car", "far". The retroflex R with its low F3 sounds
