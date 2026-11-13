@@ -187,6 +187,16 @@ struct Token {
   double fujisakiPhraseAmp = 0.0;     // Phrase command amplitude (0 = no command)
   double fujisakiAccentAmp = 0.0;     // Accent command amplitude (0 = no command)
   double fujisakiAccentDurScale = 1.0; // Per-token accent duration multiplier (monosyllable shortening)
+  // Lengths the pass sets itself, in samples at 22050 Hz (0 = the pack's value).
+  double fujisakiAccentDur = 0.0;     // Accent command duration
+  double fujisakiAccentLen = 0.0;     // Accent filter rise time
+  double fujisakiPhraseLen = 0.0;     // Phrase filter rise time
+
+  // Set by a pitch pass: when frame emission cuts this token's start off as
+  // a word-boundary dip frame, the pitch ramp is cut with it, so the main
+  // frame goes on from where the dip frame ended.  Without it both frames
+  // carry the whole ramp, as they always have (#222).
+  bool pitchRampAcrossWordDip = false;
 
   // Prominence score (0.0–1.0), set by the prominence pass.
   // Used by pitch_fujisaki for accent scaling when prominencePitchFromProminence is true.

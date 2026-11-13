@@ -95,9 +95,10 @@ public:
         // Trigger phrase command (one-sample impulse)
         if (!(a > 0.0)) return;
         phr = a;
-        if (phraseLenSamples > 0) {
-            designPhrase(phraseLenSamples);
-        }
+        // 0 = the default, for every command: the filter used to keep the
+        // last length it was given, so a command without a length played
+        // with the length of whatever clause came before it (#155).
+        designPhrase((phraseLenSamples > 0) ? phraseLenSamples : defaultPhraseLen);
     }
 
     void accent(double a, int durationSamples, int accentLenSamples) {
@@ -105,9 +106,7 @@ public:
         if (!(a > 0.0)) return;
         acc = a;
         countdown = (durationSamples > 0) ? durationSamples : defaultAccentDur;
-        if (accentLenSamples > 0) {
-            designAccent(accentLenSamples);
-        }
+        designAccent((accentLenSamples > 0) ? accentLenSamples : defaultAccentLen);
     }
 
     double processMultiplier() {

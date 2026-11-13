@@ -524,7 +524,8 @@ NVSP_FRONTEND_API int nvspFrontend_setPitchMode(
   the scale itself (1.0 is the historical classic behaviour; 0.58 maps an
   inflection of 0.60 to 0.35).  In every other mode the melody is as
   designed at 0.58 and scales in proportion: half as wide at 0.29, twice as
-  wide at 1.16.  Range 0 to 2.  The name is historical.
+  wide at 1.16.  Range 0 to 2; 0 is flat in every mode (the "legacy" and
+  "fujisaki_style" modes read 0 as 1 before 3.10).  The name is historical.
 
   Persists until the next setLanguage() call (which reloads from YAML).
 */

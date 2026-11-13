@@ -534,9 +534,8 @@ static void setDefaultVoiceFields(const LanguagePack& lang, Token& t) {
   setIfUnset(FieldId::outputGain, lang.defaultOutputGain);
 }
 
-// The inflection scale's normal position: what the packs ship, and the value
-// at which the pitch modes that take the scale as a factor are unchanged.
-static constexpr double kNormalInflectionScale = 0.58;
+// (kNormalInflectionScale, the inflection scale's normal position, is in
+// passes/pitch_common.h.)
 
 bool convertIpaToTokens(
   const PackSet& pack,
@@ -583,6 +582,11 @@ bool convertIpaToTokens(
       if (inflScale > 2.0) inflScale = 2.0;
       inflection *= inflScale / kNormalInflectionScale;
       if (inflection > 1.5) inflection = 1.5;
+    } else if (pack.lang.legacyPitchInflectionScale == 0.0) {
+      // At 0 the classic and the Fujisaki mode are flat like the others
+      // (#155): no inflection reaches the pass, and the gate below takes
+      // the microprosody out with it.  Both passes used to read 0 as 1.
+      inflection = 0.0;
     }
   }
   if (clauseType == 0) clauseType = '.';

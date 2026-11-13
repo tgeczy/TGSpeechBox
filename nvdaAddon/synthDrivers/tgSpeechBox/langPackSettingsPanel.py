@@ -619,6 +619,7 @@ def _getPanelClass():
                 # --- Klatt hat-pattern pitch model ---
                 "klattContinuationRiseHz",
                 "klattDeclinationHzPerSec",
+                "klattExclamationAccentScale",
                 "klattFinalFallBelowBaseHz",
                 "klattGlottalLowerHz",
                 "klattHatRiseHz",
@@ -669,6 +670,7 @@ def _getPanelClass():
                 "lengthenedVowelFinalCodaScale",
 
                 # --- Legacy pitch ---
+                "legacyExclamationAccentScale",
                 "legacyPitchInflectionScale",
                 "legacyPitchMode",
 

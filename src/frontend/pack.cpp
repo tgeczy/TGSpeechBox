@@ -510,6 +510,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   }
   // Optional: scale applied to the caller-provided inflection (0..1) when legacyPitchMode is "legacy".
   getNum("legacyPitchInflectionScale", lp.legacyPitchInflectionScale);
+  getNum("legacyExclamationAccentScale", lp.legacyExclamationAccentScale);
 
   // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style")
   getNum("fujisakiPhraseAmp", lp.fujisakiPhraseAmp);
@@ -581,6 +582,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("klattContinuationRiseHz", lp.klattContinuationRiseHz);
   getNum("klattGlottalLowerHz", lp.klattGlottalLowerHz);
   getNum("klattSmoothAlpha", lp.klattSmoothAlpha);
+  getNum("klattExclamationAccentScale", lp.klattExclamationAccentScale);
 
   // Arató (BraiLab) intonation parameters (used when legacyPitchMode = "arato_style")
   getNum("aratoFramesPerSyllable", lp.aratoFramesPerSyllable);

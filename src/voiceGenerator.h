@@ -706,13 +706,19 @@ public:
             }
             lastFujisakiReset = resetVal;
 
+            // A length in a frame is in samples at 22050 Hz, like the defaults
+            // in pitchModel.h, which are scaled the same way: the frontend
+            // does not know the DSP's sample rate, and a command it sizes to
+            // a syllable must last that syllable at every rate (#155).
+            const double srScale = (double)sampleRate / 22050.0;
+
             // Phrase trigger: rising edge of fujisakiPhraseAmp.
             double phraseAmp = frameEx ? frameEx->fujisakiPhraseAmp : 0.0;
             if (!std::isfinite(phraseAmp)) phraseAmp = 0.0;
             if (phraseAmp > 0.0 && lastFujisakiPhraseAmp <= 0.0) {
                 double pl = frameEx ? frameEx->fujisakiPhraseLen : 0.0;
                 if (!std::isfinite(pl)) pl = 0.0;
-                int plSamples = (pl > 0.0) ? (int)floor(pl + 0.5) : 0;
+                int plSamples = (pl > 0.0) ? (int)floor(pl * srScale + 0.5) : 0;
                 fujisakiPitch.phrase(phraseAmp, plSamples);
             }
             lastFujisakiPhraseAmp = phraseAmp;
@@ -725,8 +731,10 @@ public:
                 double al = frameEx ? frameEx->fujisakiAccentLen : 0.0;
                 if (!std::isfinite(d)) d = 0.0;
                 if (!std::isfinite(al)) al = 0.0;
-                int dSamples = (d > 0.0) ? (int)floor(d + 0.5) : 0;
-                int alSamples = (al > 0.0) ? (int)floor(al + 0.5) : 0;
+                int dSamples = (d > 0.0) ? (int)floor(d * srScale + 0.5) : 0;
+                int alSamples = (al > 0.0) ? (int)floor(al * srScale + 0.5) : 0;
+                // 0 means "the default" to accent(); a very short command is still a command.
+                if (d > 0.0 && dSamples < 1) dSamples = 1;
                 fujisakiPitch.accent(accentAmp, dSamples, alSamples);
             }
             lastFujisakiAccentAmp = accentAmp;

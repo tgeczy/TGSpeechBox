@@ -132,9 +132,16 @@ def test_the_scale_is_one_more_factor_on_the_inflection(frontend, pack_dir, lang
         assert _key(a, digits=2) == _key(b, digits=2), f"{lang} {mode} {clause!r} at {speed}"
 
 
-@pytest.mark.parametrize("mode", NEW_MODES)
+@pytest.mark.parametrize("mode", NEW_MODES + OLD_MODES)
 @pytest.mark.parametrize("lang", ["en-us", "hu"])
 def test_zero_is_flat_and_the_extremes_stay_a_voice(frontend, pack_dir, lang, mode):
+    # The classic and the Fujisaki mode failed this before #155: both read a
+    # scale of 0 as 1; at 2.0 with full inflection the classic question
+    # divided by zero (an infinite pitch in en-us) and a Fujisaki exclamation
+    # fell to 16 Hz (20 in hu).  At 0 no inflection reaches either pass, so
+    # the Fujisaki mode's accent and phrase commands, which the DSP adds to
+    # the pitch read here, are off as well.  Above 0 its scale acts on the
+    # declination only, as before, and the commands follow the inflection.
     ipa = SENTENCES[lang]
     flat = _pitches(_frames(frontend, pack_dir, lang, mode, 0.0, ipa))
     if mode != "arato_style":  # the Arató melodies keep their own fixed steps

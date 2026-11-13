@@ -1594,6 +1594,11 @@ msgstr "Klatt Deklináció Hz/mp"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Klatt Exclamation Accent Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Klatt Final Fall Below Base (Hz)"
 msgstr "Klatt Végső esés alap alatt (Hz)"
 
@@ -1651,6 +1656,11 @@ msgstr "Magyar rövid A magánhangzó billentyű"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Hu Short A Vowel Scale"
 msgstr "Magyar rövid A magánhangzó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Legacy Exclamation Accent Scale"
+msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

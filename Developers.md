@@ -264,10 +264,10 @@ Natural-sounding intonation with phrase-level declination and accent peaks. Used
 | `fujisakiEnabled` | double | 0.0 | 1.0 to enable Fujisaki processing, 0.0 to disable. |
 | `fujisakiReset` | double | 0.0 | 1.0 to reset model state (at clause start). |
 | `fujisakiPhraseAmp` | double | 0.0 | Phrase command amplitude (log-F0 domain). Triggers phrase arc on rising edge. |
-| `fujisakiPhraseLen` | double | 0.0 | Phrase filter length in samples. 0 = use DSP default (~4250 @ 22050 Hz). |
+| `fujisakiPhraseLen` | double | 0.0 | Phrase filter length in samples at 22050 Hz (the DSP scales it to its own rate). 0 = use DSP default (4250), for every command. |
 | `fujisakiAccentAmp` | double | 0.0 | Accent command amplitude (log-F0 domain). Triggers accent peak on rising edge. |
-| `fujisakiAccentDur` | double | 0.0 | Accent pulse duration in samples. 0 = use DSP default (~7500 @ 22050 Hz). |
-| `fujisakiAccentLen` | double | 0.0 | Accent filter length in samples. 0 = use DSP default (~1024 @ 22050 Hz). |
+| `fujisakiAccentDur` | double | 0.0 | Accent pulse duration in samples at 22050 Hz. 0 = use DSP default (7500). In a statement, an exclamation and a question the frontend sends the accented syllable's duration. |
+| `fujisakiAccentLen` | double | 0.0 | Accent filter length in samples at 22050 Hz. 0 = use DSP default (1024), for every command. In a statement, an exclamation and a question the frontend sends the pack's (or the default) length divided by the rate above 1.0, the same for every command of a clause. |
 
 These parameters are interpolated during frame crossfades, just like the core frame parameters.
 

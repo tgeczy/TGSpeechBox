@@ -420,7 +420,18 @@ struct LanguagePack {
   // passes multiply by it as described; every other mode takes it relative
   // to its normal value, 0.58, as one more factor on the inflection
   // (ipa_engine.cpp), so the shipped value changes nothing there.
+  // 0 is flat in every mode; the classic and Fujisaki passes read 0 as 1
+  // until #155.
   double legacyPitchInflectionScale = 0.58;
+
+  // "legacy" mode: how much larger the stress accents of an exclamation are
+  // than a statement's.  Both fall to the same low (statements and
+  // exclamations end at about the same pitch in O'Shaughnessy 1976, PhD
+  // thesis, MIT).  That an exclamation has the stronger accents is how this
+  // engine's default mode reads one; no paper gives the size, and 1.5 lies
+  // between the impulse mode's 1.4 and the Fujisaki mode's 1.8.
+  // 1.0 = an exclamation is read like a statement.
+  double legacyExclamationAccentScale = 1.5;
 
   // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style").
   //
@@ -443,6 +454,11 @@ struct LanguagePack {
   // Fujisaki timing parameters (samples @ 22050 Hz). 0 = use DSP default.
   // Lower values = faster/punchier pitch movements (Eloquence-like).
   // DSP defaults: phraseLen=4250 (~193ms), accentLen=1024 (~46ms), accentDur=7500 (~340ms)
+  // In a statement, an exclamation and a question the pass sizes them
+  // (passes/pitch_fujisaki.cpp): the phrase rise time is at most a quarter of
+  // the clause; with fujisakiAccentDur at 0 an accent command spans its
+  // syllable and the accent rise time is divided by the rate above 1.  A
+  // comma clause sends the three values as they are.
   double fujisakiPhraseLen = 0.0;    // Phrase filter rise time (samples)
   double fujisakiAccentLen = 0.0;    // Accent filter attack time (samples)
   double fujisakiAccentDur = 0.0;    // Accent pulse duration (samples)
@@ -524,7 +540,12 @@ struct LanguagePack {
   double impulseQuestionReduction = 0.5;
   double impulseTerminalFallHz = 20.0;
   double impulseContinuationRiseHz = 12.0;
-  double impulseQuestionRiseHz = 25.0;
+  // The rise on a question's last syllable at full inflection.  A yes/no
+  // question's last syllable ends about 20% above the highest earlier peak
+  // (O'Shaughnessy 1976, PhD thesis, MIT); with 45 a 110 Hz question ends
+  // 15% above it at inflection 0.5 and 29% at 1.0 (measured, #155).  It was
+  // 25, spread over the last word: a rise of 0 to 5 Hz.
+  double impulseQuestionRiseHz = 45.0;
   double impulseAssertiveness = 1.0;
   double impulseSmoothAlpha = 0.55;  // higher = more responsive (was 0.3)
 
@@ -542,6 +563,10 @@ struct LanguagePack {
   double klattContinuationRiseHz = 15.0;
   double klattGlottalLowerHz = 15.0;
   double klattSmoothAlpha = 0.4;
+  // How much higher the hat and its stress peaks are in an exclamation
+  // (1.0 = an exclamation is read like a statement).  A choice, like
+  // legacyExclamationAccentScale.
+  double klattExclamationAccentScale = 1.5;
 
   // Arató (BraiLab) intonation parameters (legacyPitchMode = "arato_style").
   // The 1991 TALKHUN program's own constants (passes/pitch_arato.cpp): start

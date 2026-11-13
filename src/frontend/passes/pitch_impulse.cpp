@@ -83,6 +83,8 @@ void applyPitchImpulse(
   const double smoothAlpha        = std::max(0.01, std::min(1.0,
                                      lang.impulseSmoothAlpha));
 
+  const double callerPitch = basePitch;  // before the exclamation's boost
+
   // Exclamation register boost: raise baseline pitch for exclamatory speech.
   // Natural exclamations have a higher mean F0, not just bigger peaks.
   if (clauseType == '!') {
@@ -90,6 +92,9 @@ void applyPitchImpulse(
   }
 
   const size_t n = tokens.size();
+
+  // A question and a comma end going up, the others going down.
+  const bool risingClause = (clauseType == '?' || clauseType == ',');
 
   // =========================================================================
   // Phase 1: Structural scan
@@ -172,6 +177,14 @@ void applyPitchImpulse(
   int terminalWordStartIdx = 0;
   if (terminalWordIdx >= 0 && terminalWordIdx < numWords) {
     terminalWordStartIdx = wordStartIndices[static_cast<size_t>(terminalWordIdx)];
+    // A fall is spread over the last word, a rise belongs to the last
+    // syllable: a question's last syllable ends above every earlier peak, a
+    // comma's continuation rise is on the last syllable (O'Shaughnessy 1976,
+    // PhD thesis, MIT; Allen, Hunnicutt & Klatt 1987, "From Text to Speech:
+    // The MITalk System").  Spread over the word and then smoothed, "?" rose
+    // 0 to 5 Hz (#155).
+    if (risingClause && finalVowelIdx > terminalWordStartIdx)
+      terminalWordStartIdx = finalVowelIdx;
     const size_t wEnd = (terminalWordIdx + 1 < numWords)
       ? static_cast<size_t>(wordStartIndices[static_cast<size_t>(terminalWordIdx + 1)])
       : n;
@@ -191,6 +204,8 @@ void applyPitchImpulse(
 
   double elapsedMs = 0.0;
   double terminalWordElapsedMs = 0.0;  // elapsed phonetic time within terminal word
+  double terminalDeclin = 0.0;         // declination held through a rising last syllable
+  bool terminalDeclinSet = false;
   int stressCount = 0;
   double hatOffset = 0.0;         // accumulated rise/fall offset
   int currentWordIdx = 0;         // which word we're in
@@ -275,6 +290,19 @@ void applyPitchImpulse(
 
     elapsedMs += t.durationMs;
 
+    // On a rising last syllable the declination stops, so the rise the pack
+    // asks for is the rise that is heard (in a one-word clause the ramp took
+    // most of it back).
+    if (risingClause && currentWordIdx == terminalWordIdx &&
+        static_cast<int>(i) >= terminalWordStartIdx) {
+      if (!terminalDeclinSet) {
+        terminalDeclin = declinStart;
+        terminalDeclinSet = true;
+      }
+      declinStart = terminalDeclin;
+      declinEnd = terminalDeclin;
+    }
+
     // ---- Layer 2: Hat offset (already accumulated above) ----
     // hatOffset is the running accumulation of rises and falls.
 
@@ -321,13 +349,23 @@ void applyPitchImpulse(
       pendingStress = 0;
     }
 
+    // A stress peak sits at the start of its vowel and is gone by the end.
+    // On the last vowel of a rising clause that takes the rise back (a comma
+    // after a stressed last syllable went 120 to 119 Hz); there the rise is
+    // the accent.
+    if (risingClause && static_cast<int>(i) == finalVowelIdx) {
+      stressPeak = 0.0;
+    }
+
     // ---- Layer 4: Terminal gesture ----
     // Progressive: spread the terminal fall/rise across the entire final
     // word so every phoneme in "button" slopes down naturally, not just
     // the last vowel.  This mirrors WinTalker's per-frame down ramp.
     double terminalOffset = 0.0;
     double terminalEndOffset = 0.0;
-    if (currentWordIdx == terminalWordIdx && terminalWordDurMs > 0.0) {
+    const bool inTerminalSpan = (currentWordIdx == terminalWordIdx &&
+                                 static_cast<int>(i) >= terminalWordStartIdx);
+    if (inTerminalSpan && terminalWordDurMs > 0.0) {
       double progressStart = terminalWordElapsedMs / terminalWordDurMs;
       double progressEnd = (terminalWordElapsedMs + t.durationMs) / terminalWordDurMs;
 
@@ -344,7 +382,7 @@ void applyPitchImpulse(
     }
 
     // Track elapsed time within terminal word (after using it for progress).
-    if (currentWordIdx == terminalWordIdx) {
+    if (inTerminalSpan) {
       terminalWordElapsedMs += t.durationMs;
     }
 
@@ -377,13 +415,18 @@ void applyPitchImpulse(
   // Much lighter than the old two-pass: preserves stress peaks and hat contour
   // while smoothing transitions between tokens.
 
+  // The last syllable is left as it is: the smoother only goes part of the
+  // way to each target, and the clause-final target is the one that says
+  // what kind of clause this was (#155).
+  const size_t smoothEnd = (finalVowelIdx >= 0) ? static_cast<size_t>(finalVowelIdx) : n;
+
   // Smooth startPitch.
   {
     double state = basePitch;
     for (size_t i = 0; i < n; ++i) {
       if (isPhonetic[i]) { state = rawStart[i]; break; }
     }
-    for (size_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < smoothEnd; ++i) {
       if (!isPhonetic[i]) continue;
       state += smoothAlpha * (rawStart[i] - state);
       rawStart[i] = state;
@@ -396,7 +439,7 @@ void applyPitchImpulse(
     for (size_t i = 0; i < n; ++i) {
       if (isPhonetic[i]) { state = rawEnd[i]; break; }
     }
-    for (size_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < smoothEnd; ++i) {
       if (!isPhonetic[i]) continue;
       state += smoothAlpha * (rawEnd[i] - state);
       rawEnd[i] = state;
@@ -414,8 +457,16 @@ void applyPitchImpulse(
       continue;
     }
     setPitchFields(t, rawStart[i], rawEnd[i]);
+    // Unsmoothed, the last syllable's movement is steep; on a word-initial
+    // vowel the word-boundary dip frame would run all of it in 8 ms and the
+    // vowel would start again from the top.
+    t.pitchRampAcrossWordDip = true;
     lastPitch = rawEnd[i];
   }
+
+  // The movements are in Hz: at a low pitch and full inflection a question
+  // ended near twice the pitch it was given.
+  boundClausePitch(tokens, callerPitch);
 }
 
 } // namespace nvsp_frontend

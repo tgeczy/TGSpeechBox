@@ -670,7 +670,9 @@ The frontend supports five pitch models, selected via `legacyPitchMode`:
 
 Additional pitch settings:
 
-- `legacyPitchInflectionScale` (number, default `0.58`, range 0 to 2): The inflection scale. It works in every pitch mode; the name is historical. It was made for the classic (`legacy`) mode: historical NVSpeechPlayer used lower inflection values, and the scale multiplies the caller-provided `inflection` (0..1) there so that modern slider positions do not sound overly "excited". The Fujisaki mode multiplies by it in the same way. In every other mode (`espeak_style`, `klatt_style`, `impulse_style`, `arato_style`) `0.58` is the normal position, where the melody is exactly as designed, and other values scale it in proportion: half as wide at `0.29`, twice as wide at `1.16` (the product with the inflection is capped at 1.5). Every shipped pack has `0.58`.
+- `legacyPitchInflectionScale` (number, default `0.58`, range 0 to 2): The inflection scale. It works in every pitch mode; the name is historical. It was made for the classic (`legacy`) mode: historical NVSpeechPlayer used lower inflection values, and the scale multiplies the caller-provided `inflection` (0..1) there so that modern slider positions do not sound overly "excited". In the Fujisaki mode it multiplies the declination; the accent and phrase commands there follow the inflection, not the scale. In every other mode (`espeak_style`, `klatt_style`, `impulse_style`, `arato_style`) `0.58` is the normal position, where the melody is exactly as designed, and other values scale it in proportion: half as wide at `0.29`, twice as wide at `1.16` (the product with the inflection is capped at 1.5). `0` is flat in every mode; the classic and Fujisaki modes read `0` as `1` before 3.10. Every shipped pack has `0.58`.
+- `legacyExclamationAccentScale` (number, default `1.5`): In `legacy` mode, how much larger the stress accents of an exclamation are than a statement's. Both fall to the same low (statements and exclamations end at about the same pitch in O'Shaughnessy 1976, PhD thesis, MIT). That an exclamation has the stronger accents is how the default mode reads one; no paper gives the size, and `1.5` lies between the impulse mode's 1.4 and the Fujisaki mode's 1.8. `1.0` reads an exclamation like a statement, as before 3.10.
+- Range (not a setting): in the `legacy`, `fujisaki_style`, `klatt_style` and `impulse_style` modes a clause's pitch targets stay between 0.6 and 2.0 times the pitch the caller asks for. When a clause would go lower, everything below that pitch is moved toward it in proportion, so the lowest point lands on 0.6 and what fell still falls; the same above for 2.0. In the Fujisaki mode the phrase and accent amplitudes are scaled down together when their sum could pass 2.0 (with the default amplitudes: an exclamation, from an inflection of 0.54 up). Before 3.10 the Klatt mode's movements, which are in Hz, ended a statement at a third of a 60 Hz voice's pitch at full inflection, and the classic question divided by zero at the top of the inflection scale. The two limits are a choice, not a measurement (a statement is reported to end at about 0.77 of its baseline and a yes/no question at 1.4 to 1.5 times it: O'Shaughnessy 1976, "Modelling fundamental frequency, and its relationship to syntax, semantics, and phonetics", PhD thesis, MIT). The microprosody settings act after the pitch mode and still move single sounds by a few Hz.
 
 #### Fujisaki pitch model settings
 
@@ -683,9 +685,14 @@ When `legacyPitchMode: "fujisaki_style"` is enabled, these settings control the 
 - `fujisakiAccentMode` (string, default `"all"`): Which syllables get accents: `"all"`, `"first_only"`, or `"off"`.
 
 **Timing settings (DSP filter lengths):**
-- `fujisakiPhraseLen` (number, default `0`): Phrase filter length in samples. 0 = DSP default (~4250 @ 22050 Hz = 193ms).
-- `fujisakiAccentLen` (number, default `0`): Accent filter attack time in samples. 0 = DSP default (~1024 @ 22050 Hz = 46ms).
-- `fujisakiAccentDur` (number, default `0`): Accent pulse duration in samples. 0 = DSP default (~7500 @ 22050 Hz = 340ms).
+
+All three are in samples at 22050 Hz, whatever sample rate the DSP runs at. In a statement, an exclamation and a question the frontend sizes the commands to the clause and the syllable, as described with each setting. A comma clause is left as it was before 3.10: it sends the three values as they are (0 = the DSP's default), so its accent commands last 340 ms at every rate.
+
+- `fujisakiPhraseLen` (number, default `0`): Phrase filter length (time to its peak). 0 = DSP default (4250 = 193 ms). In a short statement, exclamation or question the frontend sends a quarter of the clause's length instead, when that is shorter: the phrase command fires with the clause's first frame, and a one-word clause would otherwise end on the phrase's peak and could not fall. (A quarter is a choice, not a measurement.)
+- `fujisakiAccentLen` (number, default `0`): Accent filter rise time. 0 = DSP default (1024 = 46 ms). In a statement, an exclamation and a question with sized accent commands (see `fujisakiAccentDur`) the frontend divides it by the speaking rate above 1.0 (15 ms at rate 3), because the syllables shrink with the rate too, and raises each command's amplitude by what the filter leaves short of it, so that the peak is the height the amplitude settings ask for at every rate. A clause uses one rise time throughout: the DSP has a single accent filter, and a longer rise time given while an accent is still dying away makes the pitch dip under the line. These are choices, not from a paper. What is known: in German read at five tempos speakers kept their accent command's amplitude from very slow to fast speech (0.33 to 0.35) and lost some only at their fastest, 1.6 times normal (0.26; Mixdorff, Leemann & Dellwo 2014, "The influence of speech rate on Fujisaki model parameters", EURASIP J. Audio, Speech, and Music Processing, doi:10.1186/s13636-014-0033-6).
+- `fujisakiAccentDur` (number, default `0`): Accent command duration. 0 = the accented syllable (in a statement, an exclamation and a question): the command starts with the consonant the syllable starts with, or with the vowel when there is none or when the sound before it carries a command, and ends where the next syllable starts, so it follows the speaking rate. In Fujisaki's model the accent command lies over the accented mora or syllable; in Japanese it leads it by a few tens of ms (Fujisaki & Hirose 1984, "Analysis of voice fundamental frequency contours for declarative sentences of Japanese", J. Acoust. Soc. Jpn. (E) 5(4), 233-242), in German it starts about with the vowel (Mixdorff, Leemann & Dellwo 2014, see `fujisakiAccentLen`). A number fixes the length at every rate and turns the sizing described under `fujisakiAccentLen` off; the DSP's own default (7500 = 340 ms), used before 3.10, held the pitch up across the following words at fast rates and kept the end of a sentence from falling.
+
+On the last vowel of a statement or an exclamation there is no accent command: the vowel falls, and a command starting there would be at its highest where the clause ends. A question's rise command starts on its last vowel and runs to the end of the clause through the same filter, so above rate 1 the rise gets as far as it does at rate 1; it is held so that the clause ends at no more than twice the pitch the caller asks for. A consonant after the last vowel stays at the pitch the vowel ended on.
 
 **Declination settings (exponential pitch fall across utterance):**
 - `fujisakiDeclinationRate` (number, default `0.0003`): Exponential decay steepness. Controls how fast pitch falls across the utterance. Higher = steeper fall. The exponential formula `basePitch * exp(-rate * timeMs)` naturally asymptotes — fast initial fall that gradually flattens — so long sentences decline smoothly without ever hitting a hard floor.
@@ -695,7 +702,7 @@ When `legacyPitchMode: "fujisaki_style"` is enabled, these settings control the 
 
 **Prominence-to-pitch shaping (used when `pitchFromProminence: true`):**
 - `fujisakiPitchCurveExponent` (number, default `1.0`): Power curve applied to prominence before scaling accent amplitude. Values >1.0 compress secondary stress for better audible contrast between primary and secondary syllables. At 1.0 the mapping is linear (original behavior). Recommended: `1.4` — maps prominence 0.6 → 0.49 instead of 0.60, giving real separation between "LOCK" and "box" in compounds.
-- `fujisakiMonoAccentDurScale` (number, default `1.0`): Scales `fujisakiAccentDur` for single-nucleus content words. Monosyllable words benefit from a shorter, punchier accent pulse — a quick pitch pop that rises and falls within the single vowel. Recommended: `0.7` (30% shorter accent pulse).
+- `fujisakiMonoAccentDurScale` (number, default `1.0`): Scales the accent command's duration (the syllable's, or `fujisakiAccentDur`) for single-nucleus content words. Monosyllable words benefit from a shorter, punchier accent pulse — a quick pitch pop that rises and falls within the single vowel. Recommended: `0.7` (30% shorter accent pulse).
 - `fujisakiCompoundDeclinStep` (number, default `0.0`): Log-F0 step-down applied when a secondary-stressed vowel follows a primary-stressed one in the same word. Reinforces primary-secondary contrast beyond just the accent amplitude difference. `0.0` = off, `0.04-0.08` = subtle, `0.10+` = strong. Recommended: `0.05`.
 
 **Deprecated declination settings** (kept for YAML backward compatibility, no longer used):
@@ -794,10 +801,13 @@ When `legacyPitchMode: "impulse_style"` is enabled, these settings control the i
 - `impulseFourthStressBoostHz` (number, default `4.0`): Boost on all subsequent stressed vowels.
 - `impulseQuestionReduction` (number, default `0.5`): Multiplier applied to stress peaks in questions (flattens peaks to leave room for the terminal rise).
 
-**Terminal gestures (applied to the last vowel in the final word):**
+**Terminal gestures:**
+
+A fall is spread over the last word; a rise is on the last syllable (from its vowel to the end of the clause), where the declination stops so that the rise set here is the rise that is heard. The last syllable is not smoothed. All three are scaled by inflection.
+
 - `impulseTerminalFallHz` (number, default `20.0`): Pitch drop for declarative/exclamatory endings.
-- `impulseQuestionRiseHz` (number, default `25.0`): Pitch rise for questions.
-- `impulseContinuationRiseHz` (number, default `12.0`): Pitch rise for commas/continuations.
+- `impulseQuestionRiseHz` (number, default `45.0`): Pitch rise on the last syllable of a question, at full inflection. Measured at 110 Hz on real questions in ten languages, the last syllable rises 22.5 Hz at inflection 0.5 and the question ends 15% above the highest point before it (29% at full inflection); a yes/no question's last syllable ends about 20% above the highest earlier peak in O'Shaughnessy 1976 (PhD thesis, MIT). Was `25.0`, spread over the last word, which left a rise of 0 to 5 Hz.
+- `impulseContinuationRiseHz` (number, default `12.0`): Pitch rise on the last syllable before a comma (8 to 16 Hz in O'Shaughnessy 1976 and in Allen, Hunnicutt & Klatt 1987, "From Text to Speech: The MITalk System").
 - `impulseAssertiveness` (number, default `1.0`): Multiplier on the terminal fall. Values > 1 make statements sound more emphatic.
 
 **Stress scaling:**
@@ -827,16 +837,17 @@ When `legacyPitchMode: "klatt_style"` is enabled, these settings control the int
 - `klattStress2Hz` (number, default `16.0`): Peak on the 2nd stressed vowel.
 - `klattStress3Hz` (number, default `13.0`): Peak on the 3rd stressed vowel.
 - `klattStress4Hz` (number, default `11.0`): Peak on all subsequent stressed vowels.
+- `klattExclamationAccentScale` (number, default `1.5`): How much higher the hat and its stress peaks are in an exclamation. An exclamation falls to the same low as a statement (they end at about the same pitch in O'Shaughnessy 1976, PhD thesis, MIT); the higher hat is a choice, like `legacyExclamationAccentScale`. `1.0` reads an exclamation like a statement, as before 3.10.
 
 **Declination and terminal gestures:**
 - `klattDeclinationHzPerSec` (number, default `10.0`): Linear baseline declination rate.
 - `klattFinalFallBelowBaseHz` (number, default `21.0`): How far below baseline the pitch drops on the hat fall for statements/exclamations.
-- `klattQuestionRiseHz` (number, default `35.0`): Pitch rise on the last stressed vowel for questions (instead of a fall).
-- `klattContinuationRiseHz` (number, default `15.0`): Pitch rise for commas/continuations.
+- `klattQuestionRiseHz` (number, default `35.0`): In a question the hat does not fall; the last syllable rises this far (at full inflection) above the highest target before it. Measured at 110 Hz on real questions in ten languages, the question ends 28% above the highest point heard before its last syllable at inflection 0.5 and 50% at full inflection: more than the about 20% of O'Shaughnessy 1976, because the smoothing lowers the earlier peaks and not the last syllable. Before 3.10 it was measured from the baseline on the last stressed vowel, which is below the hat, so a question fell a little.
+- `klattContinuationRiseHz` (number, default `15.0`): Before a comma the hat falls to the baseline (not below it) and the last syllable rises this far (8 to 16 Hz in O'Shaughnessy 1976 and in Allen, Hunnicutt & Klatt 1987, "From Text to Speech: The MITalk System").
 - `klattGlottalLowerHz` (number, default `15.0`): Additional pitch drop on the very last vowel for statements/exclamations. Simulates glottal lowering at utterance end.
 
 **Smoothing:**
-- `klattSmoothAlpha` (number, default `0.4`): Single-pole IIR smoothing coefficient (0..1). Lower = smoother transitions between hat states; higher = more abrupt transitions.
+- `klattSmoothAlpha` (number, default `0.4`): Single-pole IIR smoothing coefficient (0..1). Lower = smoother transitions between hat states; higher = more abrupt transitions. The last syllable is not smoothed, so the clause-final target is reached.
 
 Example configuration:
 ```yaml

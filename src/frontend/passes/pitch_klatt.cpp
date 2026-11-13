@@ -20,9 +20,19 @@ Licensed under the MIT License. See LICENSE for details.
 //   1. Linear baseline declination throughout the utterance.
 //   2. A step-up (hat rise) on the first primary-stressed vowel.
 //   3. Diminishing stress peaks on the hat plateau.
-//   4. A clause-type-dependent fall (or rise) on the last stressed vowel.
+//   4. A clause-type-dependent fall on the last stressed vowel, or a rise on
+//      the last syllable (question, comma).
 //   5. Optional glottal lowering on the final vowel for statements.
-//   6. Single-pole IIR smoothing to avoid discontinuities.
+//   6. Single-pole IIR smoothing to avoid discontinuities, up to the last
+//      syllable.
+//
+// Clause-final targets (#155): statements and exclamations fall to the same
+// low; a yes/no question's last syllable ends about 20% above the highest
+// earlier peak; a comma has a continuation rise of 8-16 Hz on its last
+// syllable (O'Shaughnessy 1976, PhD thesis, MIT; Allen, Hunnicutt & Klatt
+// 1987, "From Text to Speech: The MITalk System").  The exclamation's
+// higher hat and stronger accents are this engine's choice, taken from how
+// its default mode reads one.
 
 #include "pitch_klatt.h"
 #include "pitch_common.h"
@@ -59,6 +69,9 @@ void applyPitchKlatt(
   const double continuationRiseHz   = lang.klattContinuationRiseHz;
   const double glottalLowerHz       = lang.klattGlottalLowerHz;
   const double smoothAlpha          = lang.klattSmoothAlpha;
+  // An exclamation is a statement on a higher hat with stronger accents.
+  const double accentScale =
+      (clauseType == '!') ? lang.klattExclamationAccentScale : 1.0;
 
   // -------------------------------------------------------------------------
   // Pre-scan: locate first and last primary-stressed vowels, count stresses,
@@ -132,6 +145,7 @@ void applyPitchKlatt(
   double hatLevel = 0.0;         // Hz above baseline when on hat
   int stressIndex = 0;           // Which stressed vowel we're on (0-based)
   double postFallPitch = 0.0;    // Pitch level after the hat fall
+  double peakPitch = basePitch;  // Highest pitch so far (a question ends above it)
   int lastVowelIdx = -1;         // Track last vowel for glottal lowering
 
   // Reset pending stress tracker for the main pass.
@@ -168,7 +182,7 @@ void applyPitchKlatt(
     if (state == HatState::BEFORE_HAT &&
         static_cast<int>(i) == firstStressIdx) {
       // Rise onto the hat.
-      hatLevel = hatRiseHz * inflection;
+      hatLevel = hatRiseHz * accentScale * inflection;
       state = HatState::ON_HAT;
     }
 
@@ -197,7 +211,7 @@ void applyPitchKlatt(
             case 2: boost = stress3Hz; break;
             default: boost = stress4Hz; break;
           }
-          boost *= inflection;
+          boost *= accentScale * inflection;
           startPitch += boost;
           endPitch += boost;
           ++stressIndex;
@@ -206,17 +220,22 @@ void applyPitchKlatt(
         // Hat fall: transition on the last primary-stressed vowel.
         if (static_cast<int>(i) == lastStressIdx) {
           if (clauseType == '?' ) {
-            // Question: rise instead of fall.
-            endPitch = baselineEnd + questionRiseHz * inflection;
+            // Question: no fall.  The hat stays up to the last syllable,
+            // which rises (below).
           } else if (clauseType == ',') {
-            // Continuation: moderate rise.
-            endPitch = baselineEnd + continuationRiseHz * inflection;
+            // Continuation: fall to the baseline, not below it; the last
+            // syllable rises from there (below).  When this is the last
+            // syllable, it starts from the baseline.
+            if (static_cast<int>(i) == lastVowelIdx) startPitch = baseline;
+            endPitch = baselineEnd;
+            postFallPitch = endPitch;
+            state = HatState::AFTER_HAT;
           } else {
             // Statement ('.', '!') or default: fall below baseline.
             endPitch = baselineEnd - finalFallBelowBaseHz * inflection;
+            postFallPitch = endPitch;
+            state = HatState::AFTER_HAT;
           }
-          postFallPitch = endPitch;
-          state = HatState::AFTER_HAT;
         }
 
         if (isPrimaryStressedVowel) {
@@ -235,11 +254,24 @@ void applyPitchKlatt(
       }
     }
 
-    // Glottal lowering on the very last vowel for statements/exclamations.
-    if (static_cast<int>(i) == lastVowelIdx &&
-        (clauseType == '.' || clauseType == '!')) {
-      endPitch -= glottalLowerHz * inflection;
+    // The last syllable.  The question and the comma used to aim at
+    // baseline + rise on the last stressed vowel, which is below the hat
+    // they were on: "?" fell 2 Hz and "," 6 Hz (#155).
+    peakPitch = std::max(peakPitch, startPitch);
+    if (static_cast<int>(i) == lastVowelIdx) {
+      if (clauseType == '.' || clauseType == '!') {
+        // Glottal lowering on the very last vowel.
+        endPitch -= glottalLowerHz * inflection;
+      } else if (clauseType == '?') {
+        endPitch = peakPitch + questionRiseHz * inflection;
+      } else if (clauseType == ',') {
+        endPitch = startPitch + continuationRiseHz * inflection;
+      }
+      // What follows the last vowel stays where it ended.
+      postFallPitch = endPitch;
+      state = HatState::AFTER_HAT;
     }
+    peakPitch = std::max(peakPitch, endPitch);
 
     rawStart[i] = startPitch;
     rawEnd[i] = endPitch;
@@ -281,13 +313,27 @@ void applyPitchKlatt(
       continue;
     }
 
-    // Apply IIR smoothing.
+    // Apply IIR smoothing.  Not on the last syllable: the smoother only
+    // goes part of the way to each target, and the clause-final target is
+    // the one that says what kind of clause this was.
+    if (static_cast<int>(i) >= lastVowelIdx) {
+      stateStart = rawStart[i];
+      stateEnd = rawEnd[i];
+    }
     stateStart += alpha * (rawStart[i] - stateStart);
     stateEnd += alpha * (rawEnd[i] - stateEnd);
 
     setPitchFields(t, stateStart, stateEnd);
+    // Unsmoothed, the last syllable's movement is steep; on a word-initial
+    // vowel ("It is!") the word-boundary dip frame would run all of it in
+    // 8 ms and the vowel would start again from the top.
+    t.pitchRampAcrossWordDip = true;
     lastPitch = stateEnd;
   }
+
+  // The movements are in Hz: at a low pitch and full inflection a statement
+  // ended at a third of the pitch it was given.
+  boundClausePitch(tokens, basePitch);
 }
 
 } // namespace nvsp_frontend

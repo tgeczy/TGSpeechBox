@@ -26,6 +26,7 @@ Licensed under the MIT License. See LICENSE for details.
 // creating the overall falling baseline.
 
 #include "pitch_fujisaki.h"
+#include "pitch_common.h"
 #include "../ipa_engine.h"
 
 #include <algorithm>
@@ -33,6 +34,24 @@ Licensed under the MIT License. See LICENSE for details.
 #include <string>
 
 namespace nvsp_frontend {
+
+namespace {
+
+// The accent filter of src/pitchModel.h is critically damped: x rise times
+// into a command it has reached this share of the command's amplitude.
+double accentStep(double x) {
+  return (x > 0.0) ? 1.0 - (1.0 + x) * std::exp(-x) : 0.0;
+}
+
+// The share a command x rise times long reaches at its highest point, which
+// comes shortly after the command ends.
+double accentCommandPeak(double x) {
+  if (!(x > 0.0)) return 0.0;
+  const double u = x / (1.0 - std::exp(-x));  // when the response turns
+  return accentStep(u) - accentStep(u - x);
+}
+
+} // namespace
 
 void applyPitchFujisaki(
     std::vector<Token>& tokens,
@@ -80,6 +99,7 @@ void applyPitchFujisaki(
   double finalRiseAmp = 0.0;
   double finalDropScale = 0.0;
   double declinationMul = 1.0;
+  const double callerPitch = basePitch;  // before the clause's own scale
 
   if (co) {
     effectivePhraseAmp *= co->phraseAmpScale;
@@ -89,6 +109,30 @@ void applyPitchFujisaki(
     if (co->finalRiseScale > 0.0)
       finalRiseAmp = primaryAccentAmp * co->finalRiseScale;
     finalDropScale = co->finalDropScale;
+  }
+
+  // The statement, the exclamation and the question size their commands to
+  // the clause and the syllable, and are kept inside the range of
+  // pitch_common.h (#155).  Any other clause (the comma) is left exactly as
+  // it was: a reporter of #155 called the Fujisaki comma right.
+  const bool shapedClause =
+      (clauseType == '.' || clauseType == '!' || clauseType == '?');
+
+  // The commands multiply the pitch by exp(amplitude).  When the phrase
+  // command and the strongest accent together could take a peak past the
+  // ceiling (an exclamation at full inflection reached 3.1 times the
+  // caller's pitch), all of them are scaled down together.  With the
+  // default amplitudes only the exclamation gets there, from an inflection
+  // of 0.54 up.
+  if (shapedClause && callerPitch > 0.0 && basePitch > 0.0) {
+    const double room = std::log(kPitchCeilRatio * callerPitch / basePitch);
+    const double asked = effectivePhraseAmp +
+        std::max(primaryAccentAmp, secondaryAccentAmp) * accentBoost;
+    if (asked > room && asked > 0.0) {
+      const double k = std::max(0.0, room) / asked;
+      effectivePhraseAmp *= k;
+      accentBoost *= k;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -109,7 +153,10 @@ void applyPitchFujisaki(
   //   inflection=1   → full decline
   // -------------------------------------------------------------------------
   double inflScale = lang.legacyPitchInflectionScale;
-  if (inflScale <= 0.0) inflScale = 1.0;
+  // 0 means no declination; it used to be read as 1, so the slider's lowest
+  // position gave more of it than its middle.  (At 0 the whole clause is
+  // flat, as in every other mode: ipa_engine.cpp passes no inflection.)
+  if (!(inflScale >= 0.0)) inflScale = 1.0;  // negative or not a number: as before
   if (inflScale > 2.0) inflScale = 2.0;
 
   // fujisakiDeclinationRate: new setting, controls the exponential decay
@@ -195,6 +242,74 @@ void applyPitchFujisaki(
     }
   }
 
+  // The command lengths in a frame are in samples at 22050 Hz.
+  const double kSamplesPerMs = 22.05;
+  const double kDspPhraseLen = 4250.0;  // the DSP's defaults (src/pitchModel.h)
+  const double kDspAccentLen = 1024.0;
+  const double kPhraseLenClauseFraction = 0.25;
+  double finalVowelEndPitch = 0.0;  // where a shaped last vowel ended
+
+  // An accent command sized to its syllable, unless the pack fixes a length.
+  //
+  // In Fujisaki's model the accent command is a rectangular pulse over the
+  // accented mora or syllable, and the F0 response to it has a time
+  // constant of about 50 ms.  In Japanese the command starts and ends a few
+  // tens of ms before the segments it belongs to (Fujisaki & Hirose 1984,
+  // "Analysis of voice fundamental frequency contours for declarative
+  // sentences of Japanese", J. Acoust. Soc. Jpn. (E) 5(4), 233-242;
+  // Fujisaki, Ohno & Ueno 1996, "Timing of fundamental frequency control in
+  // word accent of the common Japanese", J. Acoust. Soc. Am. 99(4),
+  // doi:10.1121/1.415625).  In German read at five tempos a rising accent's
+  // command starts 104 ms after the syllable does and 12 ms after its
+  // vowel, on average, and nearer the syllable's start the faster the
+  // speech (Mixdorff, Leemann & Dellwo 2014, "The influence of speech rate
+  // on Fujisaki model parameters", EURASIP J. Audio, Speech, and Music
+  // Processing, doi:10.1186/s13636-014-0033-6).  Here it starts with the
+  // syllable.  The DSP's command was 340 ms at every rate, starting with
+  // the vowel, so at rate 3 one accent covered the rest of the clause and
+  // held its end up (#155).
+  //
+  // At fast rates a syllable is shorter than the filter's rise time (46 ms)
+  // and the accent would reach a fraction of its height.  Speakers do not
+  // lose it that way: in the same study the accent command's amplitude
+  // stayed at 0.33 to 0.35 from very slow to fast speech and fell to 0.26
+  // only at the fastest rate people could manage, 1.6 times normal.
+  // Nothing is measured at the two and three times a screen reader runs
+  // at.  So, as a choice: above rate 1 the filter's rise time shrinks with
+  // the rate, as the syllables do, and each command's amplitude is raised
+  // by what the filter leaves short of it, so that the peak is the height
+  // the pack asks for at every rate.
+  //
+  // The rise time is one for the whole clause.  The DSP has a single accent
+  // filter, which every command designs anew: a longer rise time given
+  // while the accent before is still dying away carries that accent's fall
+  // on at the slower pace, and the pitch dips under the line.
+  const bool sizedAccents = shapedClause && lang.fujisakiAccentDur <= 0.0;
+  const double packAccentLen =
+      (lang.fujisakiAccentLen > 0.0) ? lang.fujisakiAccentLen : kDspAccentLen;
+  const double accentLen = std::max(1.0, packAccentLen / std::max(1.0, speed));
+  // The last sized command, for what is left of it where the clause ends.
+  double lastCmdStartMs = 0.0, lastCmdSamples = 0.0, lastCmdAmp = 0.0;
+  auto sizeAccent = [&](Token& carrier, double atMs, double ms, double amp) {
+    const double samples = std::max(1.0, ms * kSamplesPerMs);
+    // (Not under a quarter of a rise time, where the share goes to nothing:
+    // a guard for a syllable of a few ms, not a tuned value.)
+    carrier.fujisakiAccentAmp =
+        amp / accentCommandPeak(std::max(0.25, samples / accentLen));
+    carrier.fujisakiAccentDur = samples;
+    carrier.fujisakiAccentLen = accentLen;
+    carrier.fujisakiAccentDurScale = 1.0;
+    lastCmdStartMs = atMs;
+    lastCmdSamples = samples;
+    lastCmdAmp = carrier.fujisakiAccentAmp;
+  };
+  // When each token starts, closures and gaps included: the DSP's clock
+  // runs through them.
+  std::vector<double> startMs(tokens.size() + 1, 0.0);
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    startMs[i + 1] = startMs[i] + tokens[i].durationMs;
+  }
+
   bool isFirstFrame = true;
   bool hadFirstAccent = false;  // Track if we've placed the first accent
   int pendingStress = 0;        // Stress carried from syllableStart to vowel nucleus
@@ -212,12 +327,22 @@ void applyPitchFujisaki(
     // Set declining base pitch (DSP Fujisaki accents add peaks on top)
     t.field[vp] = curBasePitch;
     t.field[evp] = endBasePitch;
+    // A consonant after the last vowel stays where the vowel ended.  It used
+    // to go back to the declination line: after a question's rise that was
+    // 30 Hz down again, and up again after a statement's fall (#155).
+    if (finalVowelEndPitch > 0.0) {
+      t.field[vp] = finalVowelEndPitch;
+      t.field[evp] = finalVowelEndPitch;
+    }
     t.setMask |= (1ull << vp) | (1ull << evp);
 
     // Enable Fujisaki on all phonetic tokens.
     // Even during unvoiced segments, we still want time to advance so the
     // contour is ready when voicing resumes.
     t.fujisakiEnabled = true;
+    // On a word-initial last vowel the word-boundary dip frame would run
+    // the whole final movement in 8 ms and the vowel would start it again.
+    t.pitchRampAcrossWordDip = shapedClause;
 
     // Single phrase command at utterance start.
     // The DSP phrase filter (pitchModel.h) creates a local hump from this
@@ -227,6 +352,24 @@ void applyPitchFujisaki(
     if (isFirstFrame) {
       t.fujisakiReset = true;
       t.fujisakiPhraseAmp = effectivePhraseAmp;
+      // In Fujisaki's model the phrase command comes before the utterance
+      // (about 475 ms before its first segment in Mixdorff, Leemann & Dellwo
+      // 2014, "The influence of speech rate on Fujisaki model parameters",
+      // EURASIP J. Audio, Speech, and Music Processing,
+      // doi:10.1186/s13636-014-0033-6), so its component is past its peak
+      // and falling through the phrase.  Ours fires with the first frame and
+      // peaks one rise time later (193 ms by default): a one-word clause
+      // ended on that peak, 12% above the pitch it was given, and could not
+      // fall (#155).  The rise time is at most a quarter of the clause,
+      // which leaves a fifth of the peak at the clause's end.  (A quarter
+      // is a choice, not a measurement.)
+      if (shapedClause) {
+        const double clauseSamples = totalPhraseDurationMs * kSamplesPerMs;
+        const double phraseLen =
+            (lang.fujisakiPhraseLen > 0.0) ? lang.fujisakiPhraseLen : kDspPhraseLen;
+        t.fujisakiPhraseLen = std::max(1.0,
+            std::min(phraseLen, clauseSamples * kPhraseLenClauseFraction));
+      }
       isFirstFrame = false;
     }
 
@@ -293,6 +436,45 @@ void applyPitchFujisaki(
 
       if (shouldAccent) {
         t.fujisakiAccentAmp = accentAmp;
+        // The command spans the syllable: from the consonant the syllable
+        // starts with, so it leads the vowel, to where the next syllable
+        // starts.  (The clause's last vowel is handled below.)
+        if (sizedAccents && static_cast<int>(i) != lastVowelIdx) {
+          size_t first = i;
+          if (!t.syllableStart) {
+            for (size_t j = i; j-- > 0; ) {
+              const Token& p = tokens[j];
+              if (!p.silence && p.def && tokenIsVowel(p)) break;  // the syllable before
+              if (p.syllableStart) { first = j; break; }
+            }
+          }
+          // The command goes out with its token's first frame, which a
+          // closure or a gap does not have, and the DSP fires it on a rising
+          // edge, so the sound before it must carry none.  Otherwise it
+          // starts with the vowel, as it always did.
+          while (first < i && (tokens[first].silence || !tokens[first].def ||
+                               tokens[first].voicedClosure)) {
+            ++first;
+          }
+          if (first < i) {
+            for (size_t j = first; j-- > 0; ) {
+              const Token& p = tokens[j];
+              if (p.silence || !p.def) continue;
+              if (p.fujisakiAccentAmp > 0.0) first = i;
+              break;
+            }
+          }
+          size_t next = i + 1;
+          while (next < tokens.size() &&
+                 !tokens[next].syllableStart && !tokens[next].wordStart) {
+            ++next;
+          }
+          double ms = startMs[next] - startMs[first];
+          ms *= t.fujisakiAccentDurScale;  // a monosyllable's shorter accent
+          t.fujisakiAccentAmp = 0.0;
+          t.fujisakiAccentDurScale = 1.0;
+          sizeAccent(tokens[first], startMs[first], ms, accentAmp);
+        }
       }
     }
 
@@ -308,21 +490,61 @@ void applyPitchFujisaki(
         if (finalRiseAmp > 0.0) {
           t.fujisakiAccentAmp = std::max(t.fujisakiAccentAmp, finalRiseAmp);
         }
+        finalVowelEndPitch = t.field[evp];
       } else if (clauseType == '!' && finalDropScale > 0.0) {
         // Exclamation: snap DOWN (existing behavior, preserved exactly)
         t.fujisakiAccentAmp = 0.0;
         double dropFactor = 1.0 + finalDropScale;
         t.field[vp] /= dropFactor;
         t.field[evp] /= (dropFactor * 1.3);
+        finalVowelEndPitch = t.field[evp];
       } else if (clauseType == '.') {
         // Statement: ensure pitch FALLS on final vowel.
         // For long sentences the declination already does this,
         // but for single words we need a direct nudge.
         t.field[evp] *= 0.85;  // end 15% lower
+        // No accent command on the clause's last vowel, as in the
+        // exclamation: a command that starts here is at its highest where
+        // the clause ends, and took the fall back.  The fall is the accent.
+        t.fujisakiAccentAmp = 0.0;
+        finalVowelEndPitch = t.field[evp];
       }
       // Comma: no final shaping (continuation = level/slight rise)
+
+      // A command on the last vowel (the question's rise) runs to the end of
+      // the clause, through the same filter: it is a rise, not a peak, and
+      // gets as far by the end of the clause as the filter lets it (above
+      // rate 1, as far as at rate 1).  And it takes the clause's end no
+      // further than the ceiling, counting what the accent before it still
+      // adds there.
+      if (sizedAccents && t.fujisakiAccentAmp > 0.0) {
+        double restMs = 0.0;
+        for (size_t j = i; j < tokens.size(); ++j) {
+          if (!tokens[j].silence && tokens[j].def) restMs += tokens[j].durationMs;
+        }
+        const double samples = std::max(1.0, restMs * kSamplesPerMs);
+        const double reach = accentStep(samples / accentLen);
+        const double sinceLast =
+            (startMs[i] + restMs - lastCmdStartMs) * kSamplesPerMs / accentLen;
+        const double left = lastCmdAmp *
+            (accentStep(sinceLast) - accentStep(sinceLast - lastCmdSamples / accentLen));
+        double wanted = t.fujisakiAccentAmp * reach;
+        if (t.field[evp] > 0.0 && callerPitch > 0.0) {
+          wanted = std::min(wanted, std::max(0.0,
+              std::log(kPitchCeilRatio * callerPitch / t.field[evp]) - left));
+        }
+        t.fujisakiAccentAmp = (reach > 0.0) ? wanted / reach : 0.0;
+        t.fujisakiAccentDur = samples;
+        t.fujisakiAccentLen = accentLen;
+        t.fujisakiAccentDurScale = 1.0;
+      }
     }
   }
+
+  // The frames' own pitch (the declination and the last vowel's movement)
+  // stays in range too: at the top of the inflection scale an exclamation's
+  // declination took a long sentence down to 20 Hz.
+  boundClausePitch(tokens, callerPitch);
 }
 
 } // namespace nvsp_frontend

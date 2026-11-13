@@ -79,6 +79,8 @@ typedef struct {
 	 *   per-sample ramp toward endVoicePitch).
 	 * - The model outputs a multiplicative contour which modulates that base pitch.
 	 * - Phrase/accent fields act as *triggers* (use rising edges).
+	 * - The three lengths are in samples at 22050 Hz; the DSP scales them to
+	 *   its own sample rate.
 	 */
 	double fujisakiEnabled;     // 0.0 = off (legacy behavior), >0.5 = on
 	double fujisakiReset;       // rising edge resets model filter state

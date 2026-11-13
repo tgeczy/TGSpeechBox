@@ -522,11 +522,17 @@ static void generateAcousticEvents(
     frameEx.fujisakiEnabled = t.fujisakiEnabled ? 1.0 : 0.0;
     frameEx.fujisakiReset = t.fujisakiReset ? 1.0 : 0.0;
     frameEx.fujisakiPhraseAmp = t.fujisakiPhraseAmp;
-    frameEx.fujisakiPhraseLen = lang.fujisakiPhraseLen;  // 0 = DSP default
+    // The pass's own lengths (set per clause and per accent) come first,
+    // then the pack's; 0 = DSP default.
+    frameEx.fujisakiPhraseLen =
+        (t.fujisakiPhraseLen > 0.0) ? t.fujisakiPhraseLen : lang.fujisakiPhraseLen;
     frameEx.fujisakiAccentAmp = t.fujisakiAccentAmp;
     // Per-token accent duration: scale by monosyllable shortening factor.
-    frameEx.fujisakiAccentDur = lang.fujisakiAccentDur * t.fujisakiAccentDurScale;
-    frameEx.fujisakiAccentLen = lang.fujisakiAccentLen;  // 0 = DSP default
+    frameEx.fujisakiAccentDur =
+        ((t.fujisakiAccentDur > 0.0) ? t.fujisakiAccentDur : lang.fujisakiAccentDur)
+        * t.fujisakiAccentDurScale;
+    frameEx.fujisakiAccentLen =
+        (t.fujisakiAccentLen > 0.0) ? t.fujisakiAccentLen : lang.fujisakiAccentLen;
 
     // Save frameEx for voice bar emission (keeps Fujisaki model alive during closures).
     trajectoryState->prevFrameEx = frameEx;
@@ -1677,6 +1683,18 @@ static void generateAcousticEvents(
       dip[va] *= dipDepth;
       dip[fa] *= dipDepth;
       dip[static_cast<int>(FieldId::aspirationAmplitude)] *= dipDepth;
+
+      // The dip frame and the main frame each carry the token's whole pitch
+      // ramp: the pitch runs to the token's end pitch in the dip frame and
+      // starts again from the top in the main frame (#222, open).  A pitch
+      // pass that puts a steep clause-final movement on a word-initial vowel
+      // asks for the ramp to be cut with the frame instead (#155): the dip
+      // frame takes its share and the main frame goes on from there.
+      if (t.pitchRampAcrossWordDip) {
+        const double cut = base[vp] + (base[evp] - base[vp]) * (dipDur / mainDur);
+        dip[evp] = cut;
+        base[vp] = cut;
+      }
 
       nvspFrontend_Frame dipFrame;
       std::memcpy(&dipFrame, dip, sizeof(dipFrame));

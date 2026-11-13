@@ -48,7 +48,9 @@ void applyPitchLegacy(
   // To keep legacyPitchMode usable without forcing users to retune sliders,
   // we apply an optional scale here.
   double inflScale = pack.lang.legacyPitchInflectionScale;
-  if (inflScale <= 0.0) inflScale = 1.0;
+  // 0 is flat, as in every other mode (#177); it used to be read as 1, so
+  // the slider's lowest position gave more movement than its middle.
+  if (!(inflScale >= 0.0)) inflScale = 1.0;  // negative or not a number: as before
   // Keep this bounded to avoid pathological values from bad configs.
   if (inflScale > 2.0) inflScale = 2.0;
   const double infl = inflection * inflScale;
@@ -92,7 +94,17 @@ void applyPitchLegacy(
   double durationCounter = 0.0;
   double curBasePitch = basePitch;
   double lastEndVoicePitch = basePitch;
-  double stressInflection = infl / 1.5;
+  // An exclamation had no shape of its own (#155).  It is read as a
+  // statement with stronger accents, as the default mode reads one: both
+  // fall to the same low (statements and exclamations end at about the same
+  // pitch in O'Shaughnessy 1976, PhD thesis, MIT).
+  const double accentScale =
+      (clauseType == '!') ? pack.lang.legacyExclamationAccentScale : 1.0;
+  // A statement and an exclamation end going down, a question going up.  A
+  // comma is left exactly as it was.
+  const bool fallingClause = (clauseType == '.' || clauseType == '!');
+  const bool risingClause = (clauseType == '?');
+  double stressInflection = infl / 1.5 * accentScale;
 
   Token* lastToken = nullptr;
   bool syllableStress = false;
@@ -140,26 +152,40 @@ void applyPitchLegacy(
         ratio = ratio / 1.75;
       }
 
-      curBasePitch = basePitch / (1.0 + (infl * ratio * 1.5));
+      // A question's ratio ends at 0.5 - 1/1.2 = -1/3, so the divisor is
+      // 1 - infl/2: zero at the top of the inflection scale with full
+      // inflection (infl = 2), where the pitch was infinite, and thousands
+      // of Hz just before it.  The divisor stops at the ceiling.
+      curBasePitch = basePitch /
+          std::max(1.0 / kPitchCeilRatio, 1.0 + (infl * ratio * 1.5));
     }
 
     double endVoicePitch = curBasePitch;
 
     // Add a pitch accent on the vowel in the stressed syllable.
     if (syllableStress && tokenIsVowel(t)) {
-      if (firstStress) {
+      // When the clause ends on this vowel, the accent sits where the clause
+      // is going: at the vowel's start in a statement or an exclamation, so
+      // the vowel falls from it, and at its end in a question.  A clause
+      // whose only stress was its last vowel used to end on the accent peak,
+      // so a one-word statement did not fall; and a question with earlier
+      // stresses used to start on the peak and go from 130 to 128 Hz (#155).
+      // Any other clause keeps the old rule: at the end when this is the
+      // clause's first stress, at the start otherwise.
+      const bool endsClause = (static_cast<int>(i) >= finalVoicedIndex);
+      if (endsClause && (fallingClause || (!risingClause && !firstStress))) {
+        voicePitch = basePitch * (1.0 + stressInflection);
+      } else if (firstStress || endsClause) {
         voicePitch = oldBasePitch * (1.0 + stressInflection / 3.0);
         endVoicePitch = curBasePitch * (1.0 + stressInflection);
-        firstStress = false;
-      } else if (static_cast<int>(i) < finalVoicedIndex) {
+      } else {
         voicePitch = oldBasePitch * (1.0 + stressInflection / 3.0);
         endVoicePitch = oldBasePitch * (1.0 + stressInflection);
-      } else {
-        voicePitch = basePitch * (1.0 + stressInflection);
       }
+      firstStress = false;
 
       stressInflection *= 0.9;
-      stressInflection = std::max(stressInflection, infl / 2.0);
+      stressInflection = std::max(stressInflection, infl / 2.0 * accentScale);
       syllableStress = false;
     }
 
@@ -172,9 +198,18 @@ void applyPitchLegacy(
     }
 
     setPitchFields(t, voicePitch, endVoicePitch);
+    // The accent that a clause-final vowel now falls from, or rises to, is
+    // steep; on a word-initial vowel the word-boundary dip frame would run
+    // all of it in 8 ms and the vowel would start again from the top.
+    t.pitchRampAcrossWordDip = (fallingClause || risingClause);
     lastEndVoicePitch = endVoicePitch;
     lastToken = &t;
   }
+
+  // With a stress accent on top of the question's rise the clause can still
+  // go past the ceiling, and a long statement at full inflection under the
+  // floor.
+  boundClausePitch(tokens, basePitch);
 }
 
 } // namespace nvsp_frontend

@@ -242,7 +242,7 @@ class LanguagePack:
     impulse_question_reduction: float = 0.5
     impulse_terminal_fall_hz: float = 20.0
     impulse_continuation_rise_hz: float = 12.0
-    impulse_question_rise_hz: float = 25.0
+    impulse_question_rise_hz: float = 45.0
     impulse_assertiveness: float = 1.0
     impulse_smooth_alpha: float = 0.55
     klatt_hat_rise_hz: float = 30.0
