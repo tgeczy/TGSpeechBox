@@ -136,6 +136,8 @@ The driver now supports NVDA 2026.1, but should be compatible across NVDA 2023.2
 The NVDA add-on is included with each [release](https://github.com/TGeczy/TGSpeechBox/releases). Download the `.nvda-addon` file and open it with NVDA to install.
 It supports versions 2023.2 to 2026.1.
 
+To look for a newer add-on, press **Check for Add-on Updates** in the TGSpeechBox category of NVDA's settings. The **Update channel** choice beside it says which releases are looked at: **Stable** is the full releases, release candidates included; **Prerelease** is those and the betas too. Nothing is checked until you press the button, and nothing is installed without asking you first.
+
 ### Linux
 
 Pre-built binaries are available for Linux x86_64. The package includes command-line tools for IPA-to-speech synthesis and optional Speech Dispatcher integration for desktop accessibility.

@@ -149,15 +149,42 @@ def test_the_check_reads_githubs_list_through_the_opener():
 
 
 def test_a_failed_check_gives_a_reason_and_no_update():
+    """The reason is a code and a detail, not a sentence: it is shown in a
+    dialog, the dialog is in NVDA's language, and this module has no _().
+    The settings panel has the sentence for each code
+    (tests/test_nvda_update_panel.py)."""
     def down(url):
         raise OSError("no route to host")
 
     version, reason, url = updates.latest_release("stable", opener=down)
-    assert version is None and url is None and "no route to host" in reason
+    assert version is None and url is None and reason == (updates.FETCH_FAILED, "no route to host")
     version, reason, url = updates.latest_release("stable", opener=lambda u: b"not json")
-    assert version is None and url is None and reason
-    version, reason, url = updates.latest_release("stable", opener=lambda u: b"[]")
-    assert version is None and url is None and reason
+    assert version is None and url is None and reason[0] == updates.FETCH_FAILED and reason[1]
+
+
+@pytest.mark.parametrize("channel", ["stable", "prerelease"])
+def test_a_list_with_nothing_to_offer_is_not_a_failed_check(channel):
+    # GitHub answered.  Against its real list this is every check until a
+    # release carries an add-on with the date in its file name.
+    for answer in (b"[]", json.dumps([RELEASES[-1]]).encode("utf-8")):
+        version, reason, url = updates.latest_release(channel, opener=lambda u: answer)
+        assert version is None and url is None and reason == (updates.NOTHING_OFFERED, "")
+
+
+def test_the_reasons_are_codes_and_the_module_has_no_translation_call():
+    import ast
+    codes = (updates.FETCH_FAILED, updates.NOTHING_OFFERED, updates.SECURE_SCREEN)
+    assert len(set(codes)) == 3 and all(code and " " not in code for code in codes)
+    tree = ast.parse(_PATH.read_text(encoding="utf-8"))
+    assert not [n.lineno for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id == "_"]
+    # NVDA's modules: only globalVars, inside _secure(), which works without it.
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            imported.add((node.module or "").split(".")[0])
+    assert imported <= {"os", "re", "json", "tempfile", "urllib", "globalVars"}, imported
 
 
 def test_a_single_release_object_is_read_as_a_list_of_one():
@@ -171,7 +198,7 @@ def test_never_on_a_secure_screen(monkeypatch):
     called = []
     monkeypatch.setattr(updates, "_secure", lambda: True)
     version, reason, url = updates.latest_release("stable", opener=lambda u: called.append(u) or b"[]")
-    assert version is None and url is None and "secure" in reason
+    assert version is None and url is None and reason == (updates.SECURE_SCREEN, "")
     assert not called
 
 

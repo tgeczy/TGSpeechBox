@@ -8,7 +8,11 @@ the "Update channel" choice beside it:
 * the channel (Stable, Prerelease) is kept in NVDA's configuration, in the
   add-on's own section, saved with the panel and shown again when it opens;
 * the release offered is the newest add-on on the channel that is chosen;
-* a check that fails offers the releases page in the browser;
+* a check that fails offers the releases page in the browser, and says why
+  in NVDA's language;
+* a check that finds nothing to offer on the channel has not failed: it is
+  an information message, like "you have the latest";
+* the readme says what the button and the channel do;
 * nothing is asked of the network until the button is pressed, and on a
   secure screen there is no button at all;
 * the network is not waited for on the GUI thread;
@@ -106,9 +110,11 @@ class FakeSizerHelper:
 
 
 class FakeWx(types.ModuleType):
-    OK = ICON_WARNING = ICON_ERROR = ICON_INFORMATION = ICON_QUESTION = 0
-    YES_NO = NO_DEFAULT = YES_DEFAULT = 0
-    YES, NO = 2, 8
+    # wx's own values, each its own bit: a test can tell an information box
+    # from a warning, and a question from a message with only OK.
+    YES, OK, NO, YES_NO = 0x2, 0x4, 0x8, 0xA
+    YES_DEFAULT, NO_DEFAULT = 0, 0x80
+    ICON_WARNING, ICON_ERROR, ICON_QUESTION, ICON_INFORMATION = 0x100, 0x200, 0x400, 0x800
     EVT_BUTTON = "EVT_BUTTON"
     Choice, Button = FakeChoice, FakeButton
 
@@ -116,6 +122,7 @@ class FakeWx(types.ModuleType):
         super().__init__("wx")
         self.answers = dict(answers or {})  # title -> YES/NO; Yes when not named
         self.messages = []                  # (title, text)
+        self.styles = []                    # the style of each, in step with messages
         self.opened = []                    # pages sent to the browser
         self.later = []                     # wx.CallAfter's queue: (fn, args)
         self.posted = threading.Event()
@@ -124,8 +131,15 @@ class FakeWx(types.ModuleType):
     def titles(self):
         return [title for title, _ in self.messages]
 
+    def is_information(self, n=-1):
+        """Message n is an ordinary information box: that icon, and OK alone."""
+        style = self.styles[n]
+        return bool(style & self.ICON_INFORMATION) and style & self.OK and not style & (
+            self.ICON_WARNING | self.ICON_ERROR | self.ICON_QUESTION | self.YES | self.NO)
+
     def MessageBox(self, message, caption="", style=0, parent=None):
         self.messages.append((caption, message))
+        self.styles.append(style)
         return self.answers.get(caption, self.YES)
 
     def LaunchDefaultBrowser(self, url):
@@ -152,6 +166,7 @@ class Env:
         self.installed = "2026.11.14"
         self.releases = RELEASES
         self.down = None      # an exception the network raises
+        self.answer = None    # what comes back in place of GitHub's list
         self.addon_file = str(tmp_path / "TGSpeechBox-update.nvda-addon")
 
         config = types.ModuleType("config")
@@ -185,6 +200,8 @@ class Env:
             self.asked.append(url)
             if self.down is not None:
                 raise self.down
+            if self.answer is not None:
+                return self.answer
             return json.dumps(self.releases).encode("utf-8")
 
         real_latest = self.updates.latest_release
@@ -369,29 +386,156 @@ def test_an_add_on_that_is_up_to_date_is_told_so(env, installed):
     env.press(panel)
     assert env.wx.titles == ["No Update Available"]
     assert installed in env.wx.messages[0][1] and "2026.11.20" in env.wx.messages[0][1]
-    assert env.fetched == [] and env.started == []
+    assert env.wx.is_information()
+    assert env.fetched == [] and env.started == [] and env.wx.opened == []
+
+
+# Every release before the add-on's file carried its date: GitHub's real list
+# today.
+UNDATED = [{"tag_name": "v-310rc301", "prerelease": False, "draft": False, "assets": [
+    {"name": "TGSpeechBox-v310rc301.nvda-addon", "browser_download_url": f"{DL}/x/y.nvda-addon"}]}]
+# A beta with a dated add-on, and nothing else: something on one channel only.
+BETA_ONLY = [_release("v-311b1", "TGSpeechBox-v311b1-2027.1.9.nvda-addon", prerelease=True)] + UNDATED
+CHANNEL_NAMES = {"stable": "Stable", "prerelease": "Prerelease"}
+
+
+@pytest.mark.parametrize("releases,channel", [(UNDATED, "stable"), (UNDATED, "prerelease"), ([], "stable"),
+                                              (BETA_ONLY, "stable")],
+                         ids=["undated-stable", "undated-prerelease", "no-releases", "a-beta-only-stable"])
+def test_nothing_on_the_channel_is_an_answer_not_a_failure(env, releases, channel):
+    """The check worked: GitHub answered, and no release on the channel
+    carries an add-on to offer.  It was shown as "Version Check Failed", a
+    warning with the releases page offered, on every press against GitHub's
+    real list."""
+    env.releases = releases
+    panel = env.panel()
+    panel.updateChannelCtrl.SetSelection(env.updates.CHANNELS.index(channel))
+    env.press(panel)
+
+    assert env.asked, "GitHub was not asked"
+    assert env.wx.titles == ["No Update Available"]
+    assert env.wx.is_information()
+    text = env.wx.messages[0][1]
+    assert "No newer add-on" in text and CHANNEL_NAMES[channel] in text and env.installed in text
+    assert env.wx.opened == [] and env.fetched == [] and env.started == []
+
+
+def test_the_answer_names_the_channel_that_was_asked_about(env):
+    # The check is out on a worker thread; the choice can be moved meanwhile.
+    env.releases = UNDATED
+    panel = env.panel()
+    panel.updateChannelCtrl.SetSelection(1)
+    env.monkeypatch.setattr(env.mod, "_runInBackground",
+                            lambda work, done: (panel.updateChannelCtrl.SetSelection(0), env._inline(work, done)))
+    env.press(panel)
+    assert env.wx.titles == ["No Update Available"]
+    assert "Prerelease" in env.wx.messages[0][1] and "Stable" not in env.wx.messages[0][1]
+
+
+def test_a_beta_only_is_offered_on_the_prerelease_channel(env):
+    env.releases = BETA_ONLY
+    panel = env.panel()
+    panel.updateChannelCtrl.SetSelection(1)
+    env.press(panel)
+    assert env.wx.titles[0] == "Update Available" and env.fetched == [OFFERED["prerelease"][1]]
 
 
 @pytest.mark.parametrize("answer_yes", [True, False], ids=["yes", "no"])
-@pytest.mark.parametrize("why", ["network", "no-dated-add-on", "installed-version-unreadable"])
+@pytest.mark.parametrize("why", ["network", "not-githubs-list", "secure-screen", "the-worker-raised",
+                                 "installed-version-unreadable", "installed-version-unreadable-nothing-offered"])
 def test_a_check_that_fails_offers_the_releases_page(env, why, answer_yes):
+    panel = env.panel()
     if why == "network":
         env.down = OSError("no route to host")
-    elif why == "no-dated-add-on":  # every release before the add-on's file carried its date
-        env.releases = [{"tag_name": "v-310rc301", "prerelease": False, "draft": False, "assets": [
-            {"name": "TGSpeechBox-v310rc301.nvda-addon", "browser_download_url": f"{DL}/x/y.nvda-addon"}]}]
+    elif why == "not-githubs-list":
+        env.answer = b"<html>Service unavailable</html>"
+    elif why == "secure-screen":
+        env.globalVars.appArgs.secure = True  # after the button was made
+    elif why == "the-worker-raised":
+        def broken(channel="stable", **kw):
+            raise RuntimeError("no thread for you")
+        env.monkeypatch.setattr(env.updates, "latest_release", broken)
     else:
         env.installed = None
+        if why.endswith("nothing-offered"):
+            env.releases = UNDATED
     env.wx.answers["Version Check Failed"] = env.wx.YES if answer_yes else env.wx.NO
-    panel = env.panel()
     env.press(panel)
 
     assert env.wx.titles == ["Version Check Failed"]
+    assert env.wx.styles[0] & env.wx.ICON_WARNING and env.wx.styles[0] & env.wx.YES_NO == env.wx.YES_NO
     if why == "network":
         assert "no route to host" in env.wx.messages[0][1]
+    if why == "the-worker-raised":
+        assert "no thread for you" in env.wx.messages[0][1]
     assert env.wx.opened == ([env.updates.RELEASES_PAGE] if answer_yes else [])
     assert env.updates.RELEASES_PAGE == "https://github.com/tgeczy/TGSpeechBox/releases"
     assert env.fetched == [] and env.started == []
+
+
+# ---------------------------------------------------------------------------
+# In NVDA's language
+# ---------------------------------------------------------------------------
+
+def _pseudo(s):
+    """A stand-in translation: the sentence in capitals, its {} left alone."""
+    import re
+    return "".join(part if part.startswith("{") else part.upper() for part in re.split(r"(\{[^{}]*\})", s))
+
+
+def _small_letters(text, *filled_in):
+    """The words of a dialog that did not go through _(), apart from what
+    was filled into its sentences."""
+    import re
+    for detail in filled_in:
+        text = text.replace(detail, "")
+    return re.findall(r"[a-z]+", text)
+
+
+@pytest.mark.parametrize("why,detail", [("network", "no route to host"), ("secure-screen", ""),
+                                        ("installed-version-unreadable", ""), ("nothing-offered", ""),
+                                        ("up-to-date", ""), ("the-worker-raised", "no thread for you")])
+def test_what_the_check_says_is_in_nvdas_language(env, why, detail):
+    """The reason came from updates.py as an English sentence ("no release
+    offers an add-on to update to", "not while NVDA is on a secure screen")
+    and was put inside the translated dialog.  Here _() puts its sentence in
+    capitals; what is left in small letters never went through it.  Only the
+    system's own words for a failure may be: they follow a sentence that is
+    translated."""
+    env.monkeypatch.setattr(env.mod, "_", _pseudo, raising=False)
+    panel = env.panel()
+    if why == "network":
+        env.down = OSError(detail)
+    elif why == "secure-screen":
+        env.globalVars.appArgs.secure = True
+    elif why == "installed-version-unreadable":
+        env.installed = None
+    elif why == "nothing-offered":
+        env.releases = UNDATED
+    elif why == "up-to-date":
+        env.installed = "2026.11.20"
+    else:
+        def broken(channel="stable", **kw):
+            raise RuntimeError(detail)
+        env.monkeypatch.setattr(env.updates, "latest_release", broken)
+    env.press(panel)
+
+    assert len(env.wx.messages) == 1
+    title, text = env.wx.messages[0]
+    assert title == title.upper() and not _small_letters(text, detail), text
+    if detail:
+        # The system's words come after a sentence of ours, not in place of one.
+        before = text[:text.index(detail)]
+        assert len(before.split("\n")) >= 2 and before.split("\n")[1].strip(), text
+
+
+def test_every_reason_updates_gives_has_a_sentence(env):
+    env.monkeypatch.setattr(env.mod, "_", _pseudo, raising=False)
+    reasons = [getattr(env.updates, name) for name in ("FETCH_FAILED", "SECURE_SCREEN")]
+    sentences = {env.mod._updateFailureText(code, "") for code in reasons}
+    assert len(sentences) == 2 and not any(_small_letters(s) for s in sentences)
+    # A code this panel does not know is still a failed check, with its code shown.
+    assert "from-the-future" in env.mod._updateFailureText("from-the-future", "")
 
 
 def test_a_download_that_fails_says_so_and_installs_nothing(env):
@@ -425,6 +569,27 @@ def test_the_listener_hears_that_it_is_working(env):
     panel = env.panel()
     env.press(panel)
     assert len(env.spoken) == 2  # checking, then downloading
+
+
+# ---------------------------------------------------------------------------
+# The documentation
+# ---------------------------------------------------------------------------
+
+def test_the_readme_says_what_the_button_and_the_channel_do(env):
+    """By the names the panel shows, so a renamed control is renamed there too."""
+    sizer = FakeSizerHelper()
+    panel = env.panel(built=False)
+    panel._makeUpdateControls(sizer, env.wx)
+    readme = " ".join((REPO / "readme.md").read_text(encoding="utf-8").split())
+    assert panel.updateButton.label in readme
+    assert sizer.labels[0].rstrip(":") in readme
+    stable, prerelease = panel.updateChannelCtrl.choices
+    assert f"**{stable}**" in readme and f"**{prerelease}**" in readme
+    # Which releases each channel is: release candidates are full releases
+    # on GitHub, the betas are its prereleases.
+    at = readme.index(f"**{stable}**")
+    assert "release candidates" in readme[at:readme.index(f"**{prerelease}**")]
+    assert "betas" in readme[readme.index(f"**{prerelease}**"):][:200]
 
 
 # ---------------------------------------------------------------------------

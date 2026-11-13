@@ -152,6 +152,21 @@ def _runInBackground(work, done) -> None:
     threading.Thread(target=run, name="TGSpeechBoxUpdateCheck", daemon=True).start()
 
 
+def _updateFailureText(code, detail) -> str:
+    """Why the update check failed, in the listener's language.
+
+    updates.py gives a code (it has no _()).  The system's own words for a
+    network failure follow the sentence, on a line of their own.
+    """
+    if code == updates.SECURE_SCREEN:
+        sentence = _("Updates are not checked while NVDA is on a secure screen.")
+    else:
+        sentence = _("The list of releases could not be read from GitHub.")
+        # A code with no sentence here is shown as it came.
+        detail = detail or ("" if code == updates.FETCH_FAILED else str(code))
+    return sentence + ("\n" + detail if detail else "")
+
+
 def _profileSaveReason(e) -> str:
     """Why phonemes.yaml was not written, in the listener's language.
 
@@ -952,11 +967,15 @@ def _getPanelClass():
                 return
             channel = self._selectedUpdateChannel()
             self._setUpdateBusy(_("Checking for updates..."))
-            _runInBackground(lambda: updates.latest_release(channel), self._onUpdateChecked)
+            _runInBackground(
+                lambda: updates.latest_release(channel),
+                lambda found, error: self._onUpdateChecked(found, error, channel),
+            )
 
-        def _onUpdateChecked(self, found, error):
+        def _onUpdateChecked(self, found, error, channel=None):
             """The check's answer, on the GUI thread: (version, page, url) or
-            (None, reason, None) from updates.latest_release."""
+            (None, reason, None) from updates.latest_release, for the
+            channel that was asked about."""
             if not self:  # the settings dialog was closed meanwhile
                 return
             self._setUpdateBusy(None)
@@ -965,23 +984,49 @@ def _getPanelClass():
             except Exception:
                 return
 
-            version, reason, addonUrl = found if found else (None, str(error), None)
+            version, reason, addonUrl = found if found else (None, (updates.FETCH_FAILED, str(error)), None)
             installedVersion = updates.installed_version()
-            if version and updates.parse_version(installedVersion) is None:
-                version, reason = None, _("The installed add-on's version could not be read.")
-            if not version:
+            failure = None
+            if not version and reason[0] != updates.NOTHING_OFFERED:
+                failure = _updateFailureText(*reason)
+            elif updates.parse_version(installedVersion) is None:
+                failure = _("The installed add-on's version could not be read.")
+            if failure:
                 # Couldn't check - offer the releases page instead
                 result = wx.MessageBox(
                     _(
                         "Could not check for updates:\n{}\n\n"
                         "Would you like to open the releases page in your browser instead?"
-                    ).format(reason),
+                    ).format(failure),
                     _("Version Check Failed"),
                     wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
                     self,
                 )
                 if result == wx.YES:
                     wx.LaunchDefaultBrowser(updates.RELEASES_PAGE)
+                return
+
+            if not version:
+                # The check worked and the channel has nothing to offer: an
+                # answer, like "you have the latest", not a failed check.
+                # (Until a release carries an add-on with its date in the
+                # file name this is every check, updates.py.)
+                if (channel or self._selectedUpdateChannel()) == "prerelease":
+                    nothingNewer = _(
+                        "No newer add-on is available on the Prerelease update channel.\n\n"
+                        "Installed version: {}"
+                    )
+                else:
+                    nothingNewer = _(
+                        "No newer add-on is available on the Stable update channel.\n\n"
+                        "Installed version: {}"
+                    )
+                wx.MessageBox(
+                    nothingNewer.format(installedVersion),
+                    _("No Update Available"),
+                    wx.OK | wx.ICON_INFORMATION,
+                    self,
+                )
                 return
 
             if not updates.is_newer(version, installedVersion):

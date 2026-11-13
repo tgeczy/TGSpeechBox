@@ -3468,3 +3468,29 @@ msgstr ""
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
 msgid "Save Undone"
 msgstr ""
+
+#. Check for Add-on Updates: why a check failed, and a check that finds nothing to offer (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Updates are not checked while NVDA is on a secure screen."
+msgstr ""
+
+#. Check for Add-on Updates: why a check failed, and a check that finds nothing to offer (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "The list of releases could not be read from GitHub."
+msgstr ""
+
+#. Check for Add-on Updates: why a check failed, and a check that finds nothing to offer (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"No newer add-on is available on the Prerelease update channel.\n"
+"\n"
+"Installed version: {}"
+msgstr ""
+
+#. Check for Add-on Updates: why a check failed, and a check that finds nothing to offer (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"No newer add-on is available on the Stable update channel.\n"
+"\n"
+"Installed version: {}"
+msgstr ""

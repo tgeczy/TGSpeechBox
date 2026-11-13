@@ -30,9 +30,19 @@ RELEASES_API = ("https://api.github.com/repos/tgeczy/TGSpeechBox"
 #: Where to send somebody who would rather look for themselves.
 RELEASES_PAGE = "https://github.com/tgeczy/TGSpeechBox/releases"
 
-#: "stable": full releases only.  "prerelease": betas and release candidates
+#: "stable": full releases only, which is what a release candidate is
+#: published as.  "prerelease": what GitHub lists as a prerelease, the betas,
 #: as well, and still any full release that is newer than those.
 CHANNELS = ("stable", "prerelease")
+
+#: Why a check has no version to give (latest_release).  Codes, not
+#: sentences: the answer is shown in a dialog in NVDA's language, and this
+#: module has no NVDA and no _().  The settings panel has the sentences.
+FETCH_FAILED = "fetch-failed"        # the network, or an answer that is not GitHub's list
+SECURE_SCREEN = "secure-screen"
+#: Not a failure: GitHub answered, and no release on the channel carries a
+#: dated add-on.
+NOTHING_OFFERED = "nothing-offered"
 
 #: The add-on is versioned by the date in its manifest (2026.11.10), not by the
 #: release tag (v-310rc301): a release also carries the SAPI installer, the APK
@@ -137,11 +147,14 @@ def newest_addon(releases, channel="stable"):
 def latest_release(channel="stable", timeout=15, opener=None):
     """-> (versionString, releasePageUrl, addonUrl), or (None, reason, None).
 
+    `reason` is (code, detail): FETCH_FAILED with the exception's own words,
+    SECURE_SCREEN or NOTHING_OFFERED with none.
+
     `opener` is for the tests: anything that takes a URL and returns bytes.
     The default reaches the network, the one thing here that is not tested.
     """
     if _secure():
-        return None, "not while NVDA is on a secure screen", None
+        return None, (SECURE_SCREEN, ""), None
     try:
         import json
         if opener is None:
@@ -158,12 +171,12 @@ def latest_release(channel="stable", timeout=15, opener=None):
 
         payload = json.loads(opener(RELEASES_API).decode("utf-8"))
     except Exception as e:
-        return None, (str(e) or e.__class__.__name__), None
+        return None, (FETCH_FAILED, str(e) or e.__class__.__name__), None
     if isinstance(payload, dict):
         payload = [payload]
     version, page, addon = newest_addon(payload, channel)
     if version is None:
-        return None, "no release offers an add-on to update to", None
+        return None, (NOTHING_OFFERED, ""), None
     return version, page, addon
 
 
