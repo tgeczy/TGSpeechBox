@@ -602,3 +602,102 @@ TEST_CASE("volume and rate markup combine with the host's volume and rate (#206)
         CHECK(markMinus5atMinus10 == plainMinus10);
     }
 }
+
+// #207: <spell>hello</spell> reaches the engine as one SPVA_SpellOut fragment
+// holding "hello", and "the engine should spell out the associated text
+// letter by letter" (SAPI 5.4, TTS Engine Vendor Porting Guide).  It was
+// spoken as the word.  Each character is now read as a text of its own, the
+// way a lone character is in character navigation: by its name from the
+// language's letter dictionary, or as the phonemizer names it.
+TEST_CASE("text in a spell tag is read letter by letter (#207)") {
+    ComScope com;
+    // The length of one Speak() call without the 50 ms that ends it.
+    auto spoken = [](Engine& engine, SPVACTIONS action, const std::wstring& text, long rate = 0) {
+        HostSite site;
+        site.rate = rate;
+        engine.speak({{action, text}}, site);
+        const size_t pad = engine.msToBytes(50.0) / sizeof(int16_t);
+        REQUIRE(site.audio.size() >= pad);
+        return static_cast<double>(site.audio.size() - pad);
+    };
+    auto lettersOf = [&](Engine& engine, const std::vector<std::wstring>& letters, long rate = 0) {
+        double sum = 0.0;
+        for (const std::wstring& l : letters) sum += spoken(engine, SPVA_Speak, l, rate);
+        return sum;
+    };
+
+    SUBCASE("English, at every rate") {
+        Engine engine(L"en-us");
+        for (long rate : {-5L, 0L, 3L, 5L, 8L}) {   // speeds 0.5, 1.0, 1.5, 2.0 and 3.0
+            CAPTURE(rate);
+            const double word = spoken(engine, SPVA_Speak, L"hello", rate);
+            const double spelled = spoken(engine, SPVA_SpellOut, L"hello", rate);
+            const double letters = lettersOf(engine, {L"h", L"e", L"l", L"l", L"o"}, rate);
+            MESSAGE("hello: word " << word << ", spelled " << spelled << ", its five letters " << letters);
+            CHECK(spelled > word * 1.5);
+            // As long as its letters spoken one by one, give or take the
+            // short gap between them.
+            CHECK(spelled >= letters * 0.95);
+            CHECK(spelled <= letters * 1.25);
+        }
+    }
+
+    SUBCASE("one character is read as it always was") {
+        Engine engine(L"en-us");
+        CHECK(spoken(engine, SPVA_SpellOut, L"h") == spoken(engine, SPVA_Speak, L"h"));
+        CHECK(spoken(engine, SPVA_SpellOut, L"7") == spoken(engine, SPVA_Speak, L"7"));
+    }
+
+    SUBCASE("capitals, digits, spaces and characters outside the BMP") {
+        Engine engine(L"en-us");
+        const double ab = spoken(engine, SPVA_SpellOut, L"AB");
+        CHECK(ab > spoken(engine, SPVA_Speak, L"AB") * 0.9);   // "AB" is read as letters anyway
+        CHECK(ab >= lettersOf(engine, {L"A", L"B"}) * 0.95);
+        const double digits = spoken(engine, SPVA_SpellOut, L"42");
+        CHECK(digits >= lettersOf(engine, {L"4", L"2"}) * 0.95);   // "four two", not "forty-two"
+        CHECK(digits <= lettersOf(engine, {L"4", L"2"}) * 1.25);
+        // White space is no character to spell.
+        CHECK(spoken(engine, SPVA_SpellOut, L"a b") == spoken(engine, SPVA_SpellOut, L"ab"));
+        // A character outside the BMP (mathematical bold A) is one
+        // character, not its two UTF-16 halves.
+        const std::wstring boldA = L"\U0001D400";
+        const double boldAlone = spoken(engine, SPVA_Speak, boldA);
+        REQUIRE(boldAlone > 0.0);
+        CHECK(spoken(engine, SPVA_SpellOut, boldA) == boldAlone);
+        CHECK(spoken(engine, SPVA_SpellOut, L"x" + boldA) >= lettersOf(engine, {L"x", boldA}) * 0.95);
+        // A combining accent stays with its letter: "e" + U+0301 is é.
+        CHECK(spoken(engine, SPVA_SpellOut, L"é") == spoken(engine, SPVA_Speak, L"é"));
+        // A symbol the phonemizer names is spelled like a letter.
+        CHECK(spoken(engine, SPVA_SpellOut, L"a@") >= lettersOf(engine, {L"a", L"@"}) * 0.95);
+    }
+
+    SUBCASE("the names come from the language's letter dictionary") {
+        // Spanish "y" alone is "i griega" (packs/dict/es-letters.tsv); inside a
+        // word it is the vowel.  Spelled, it is the letter.
+        Engine engine(L"es");
+        const double yName = spoken(engine, SPVA_Speak, L"y");
+        const double word = spoken(engine, SPVA_Speak, L"soy");
+        const double spelled = spoken(engine, SPVA_SpellOut, L"soy");
+        const double letters = lettersOf(engine, {L"s", L"o", L"y"});
+        MESSAGE("soy: word " << word << ", spelled " << spelled << ", its letters " << letters << ", y alone " << yName);
+        CHECK(spelled >= letters * 0.95);
+        CHECK(spelled <= letters * 1.25);
+        CHECK(spelled > word + yName * 0.9);
+    }
+
+    SUBCASE("spelled text between spoken text, with bookmarks") {
+        Engine engine(L"en-us");
+        HostSite site;
+        engine.speak({{SPVA_Bookmark, L"1"}, {SPVA_Speak, L"Type"}, {SPVA_Bookmark, L"2"}, {SPVA_SpellOut, L"ok"},
+                      {SPVA_Bookmark, L"3"}, {SPVA_Speak, L"now"}, {SPVA_Bookmark, L"4"}}, site);
+        const double pad = static_cast<double>(engine.msToBytes(50.0) / sizeof(int16_t));
+        const double parts = spoken(engine, SPVA_Speak, L"Type") + lettersOf(engine, {L"o", L"k"})
+                             + spoken(engine, SPVA_Speak, L"now");
+        CHECK(site.audio.size() - pad >= parts * 0.95);
+        REQUIRE(site.marks.size() == 4);
+        for (size_t i = 0; i < 4; ++i) {
+            CHECK(site.marks[i].name == std::to_wstring(i + 1));
+            if (i) CHECK(site.marks[i - 1].offset < site.marks[i].offset);
+        }
+    }
+}

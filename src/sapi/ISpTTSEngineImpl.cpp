@@ -8,6 +8,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include <algorithm>
 #include <cmath>
+#include <cwctype>
 #include <new>
 #include <string>
 #include <vector>
@@ -204,6 +205,36 @@ std::vector<sapi_clause> split_clauses(const std::wstring& text, int pause_mode)
             clauses.push_back({ w_at[start], w_at[end] - w_at[start], type, pause });
         pos = next;
     }
+    return clauses;
+}
+
+// A spelled fragment (SPVA_SpellOut, from <spell>) is read character by
+// character (#207).  Each character is a text of its own, as a lone character
+// is in character navigation, so the frontend names it from the language's
+// letter dictionary or leaves the name to the phonemizer.  One entry per
+// character, white space left out; a surrogate pair is one character, and a
+// variation selector or a combining mark stays with the character before it.
+std::vector<sapi_clause> spell_clauses(const std::wstring& text)
+{
+    std::vector<sapi_clause> clauses;
+    for (size_t i = 0; i < text.size();) {
+        size_t units = 1;
+        if (text[i] >= 0xD800 && text[i] <= 0xDBFF && i + 1 < text.size() &&
+            text[i + 1] >= 0xDC00 && text[i + 1] <= 0xDFFF) {
+            units = 2;
+        } else if (std::iswspace(text[i])) {
+            ++i;
+            continue;
+        }
+        size_t end = i + units;
+        while (end < text.size() && (text[end] == 0xFE0E || text[end] == 0xFE0F ||
+                                     (text[end] >= 0x0300 && text[end] <= 0x036F)))
+            ++end;
+        // Read as the items of a list: each one rises, the last one falls.
+        clauses.push_back({ i, end - i, ',', 0.0 });
+        i = end;
+    }
+    if (!clauses.empty()) clauses.back().clause_type = '.';
     return clauses;
 }
 
@@ -491,6 +522,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         SPVSTATE first_state;
         ULONG first_text_src_offset;
         bool has_state;
+        bool spell;  // read character by character (SPVA_SpellOut)
     };
 
     std::vector<speak_batch> batches;
@@ -561,11 +593,14 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                     cur = {};
                     cur.has_state = false;
                 }
-                // Each SpellOut letter is its own batch.
+                // The spelled text is a batch of its own: SAPI hands over
+                // everything inside <spell> as one fragment and leaves the
+                // spelling to the engine (#207).
                 speak_batch sb{};
                 sb.first_state = f->State;
                 sb.first_text_src_offset = f->ulTextSrcOffset;
                 sb.has_state = true;
+                sb.spell = true;
                 if (f->pTextStart && f->ulTextLen > 0)
                     sb.text.assign(f->pTextStart, f->ulTextLen);
                 batches.push_back(std::move(sb));
@@ -683,8 +718,9 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         // proportional across the whole batch).
         const auto& settings = tgsb::get_settings_cached(rt_->base_dir());
         const int pm = settings.pauseMode;
-        // Clauses for intonation and the pauses after them.
-        auto clauses = split_clauses(batch.text, pm);
+        // Clauses for intonation and the pauses after them; for spelled
+        // text, its characters.
+        auto clauses = batch.spell ? spell_clauses(batch.text) : split_clauses(batch.text, pm);
         const size_t total_chars = batch.text.size();
         std::vector<tgsb::sample_t> audio_buf;
         size_t bm_idx = 0;
@@ -702,7 +738,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             std::wstring clauseText = padEmojiWithSpacesW(
                 batch.text.substr(clause.start, clause.len));
             params.clause_type = clause.clause_type;
-            params.whole_text = clauses.size() == 1;
+            params.whole_text = batch.spell || clauses.size() == 1;
             hr = rt_->queue_text(clauseText, params);
             if (FAILED(hr)) {
                 DEBUG_LOG("TGSpeechSapi: queue_text failed 0x%08X", hr);
