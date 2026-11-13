@@ -18,8 +18,17 @@ most of their length rather than silent (Garellek, Chai, Huang & Van Doren
 
 Where ʔ comes from: eSpeak NG writes it in American English for a t before a
 syllabic n ("button" bˈʌʔn̩, "kitten", "certain", "cotton", "written"), and
-its British voice in a handful of dictionary entries.  No shipped pack
-inserts one.
+its British voice in a handful of dictionary entries.
+
+One shipped pack inserts it: German's glottal_reinforcement rule puts a ʔ
+before every word-final p, t or k that follows a vowel ("mit", "gut", "Tag").
+That rule is the subject of #190 and is still in the pack, so each of those
+frames carries the creak too.  The frame is silent there (its preFormantGain
+is 0), but German sentences are not sample for sample what a build without
+the creak plays (the loudness over 150 ms is within 1 dB), and no German
+speaker has compared the two.  (The first description of this change
+said German was untouched but for one dictionary word; it was measured on a
+tree where #190's removal of the rule had been applied.)
 """
 from __future__ import annotations
 
@@ -68,6 +77,17 @@ def test_nothing_else_in_the_word_is_creaky(lang, speed):
     for key, frame in _frames_by_key(lang, BUTTON[lang], speed):
         if key != "ʔ" and frame.ex is not None:
             assert frame.ex["creakiness"] == 0.0, key
+
+
+@pytest.mark.parametrize("speed", SPEEDS)
+def test_german_inserts_one_before_a_word_final_stop_and_it_is_silent(speed):
+    # "mit", as eSpeak NG writes it.  Holds the state #190 will change: one
+    # inserted ʔ, with the creak, on a frame that plays no sound of its own.
+    sounds = _frames_by_key("de", "mˈɪt", speed)
+    stops = [f for k, f in sounds if k == "ʔ"]
+    assert len(stops) == 1, [k for k, _ in sounds]
+    assert stops[0].ex["creakiness"] == pytest.approx(0.85)
+    assert stops[0].params["preFormantGain"] == 0.0
 
 
 @pytest.mark.parametrize("speed", SPEEDS)
