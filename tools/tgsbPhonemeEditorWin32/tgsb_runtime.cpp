@@ -501,7 +501,7 @@ void TgsbRuntime::applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const 
       mulByName("pf3", 1.06);
       mulByName("pf4", 1.08);
       mulByName("pf5", 1.10);
-      mulByName("pf6", 1.05);
+      mulByName("pf6", 1.00);
       // No vibrato - steady synthetic pitch
       absByName("vibratoPitchOffset", 0.0);
       absByName("vibratoSpeed", 0.0);

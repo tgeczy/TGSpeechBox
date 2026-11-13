@@ -147,7 +147,7 @@ static const BuiltinVoice kBuiltinVoices[] = {
    1,1,1, NAN,NAN,NAN,NAN,NAN, NAN,NAN,NAN,1.0, 0.0,true},
   {"Robert", 1.10,1.10, 1.02,1.06,1.08,1.08,1.10,1.05, 0.65,0.68,0.72,0.75,0.78,0.80,
    0.72,0.75,0.78,0.80,0.82,0.85, 1.06,1.08,1.10,1.00, 1.08,1.15,1.20,1.25,
-   0.75,0.70,0.20, NAN,NAN,0.30,0.0,0.0, NAN,NAN,NAN,1.0, -6.0,true},
+   0.75,0.70,0.20, NAN,NAN,0.30,0.0,0.0, NAN,NAN,NAN,1.0, 0.0,true},
 };
 static constexpr int kNumVoices = sizeof(kBuiltinVoices) / sizeof(kBuiltinVoices[0]);
 

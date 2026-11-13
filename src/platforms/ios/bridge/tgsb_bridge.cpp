@@ -211,17 +211,21 @@ static const FrameOverride kRobertOverrides[] = {
     { OFF(pb4), 0.80, 1 }, { OFF(pb5), 0.82, 1 }, { OFF(pb6), 0.85, 1 },
     { OFF(pf3), 1.06, 1 }, { OFF(pf4), 1.08, 1 },
     { OFF(pf5), 1.10, 1 }, { OFF(pf6), 1.00, 1 },
+    { OFF(vibratoPitchOffset), 0.0, 0 }, { OFF(vibratoSpeed), 0.0, 0 },
 };
 
 #define PRESET(name, arr, tilt, hasTilt, f4s) \
     { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt, f4s }
 
+/* The presets are NVDA's (nvdaAddon/synthDrivers/tgSpeechBox/constants.py),
+ * and NVDA's carry no voicing tilt: Robert had -6 dB/oct here, which NVDA and
+ * SAPI never applied, so he was brighter on a phone than on Windows (#200). */
 static const VoicePreset kPresets[] = {
     PRESET("adam",     kAdamOverrides,     0.0,  0, 0),
     PRESET("benjamin", kBenjaminOverrides, 0.0,  0, 0),
     PRESET("caleb",    kCalebOverrides,    0.0,  0, 0),
     PRESET("david",    kDavidOverrides,    0.0,  0, 0),
-    PRESET("robert",   kRobertOverrides,  -6.0,  1, 0),
+    PRESET("robert",   kRobertOverrides,   0.0,  0, 0),
 };
 static const int kNumPresets = sizeof(kPresets) / sizeof(kPresets[0]);
 

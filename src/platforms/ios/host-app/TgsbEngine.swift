@@ -308,7 +308,7 @@ class TgsbEngine: ObservableObject {
             pitchSyncF1: load("pitchSyncF1", 50),
             pitchSyncB1: load("pitchSyncB1", 50),
             voiceTremor: load("voiceTremor", 0),
-            headSize: load("headSize", 50),
+            headSize: load("headSize", voice == "david" ? 100 : 50),
             chorusDepth: load("chorusDepth", 0),
             chorusDetuneHz: load("chorusDetuneHz", 33))
 

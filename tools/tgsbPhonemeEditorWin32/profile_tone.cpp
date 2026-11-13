@@ -117,7 +117,7 @@ static void seedClassScalesFromPreset(const std::string& voice, VPVoiceProfile& 
     num(s.endVoicePitch_mul, s.endVoicePitch_mul_set, 1.10);
     arr(s.cf_mul, s.cf_mul_set, {1.02, 1.06, 1.08, 1.08, 1.10, 1.05});
     arr(s.cb_mul, s.cb_mul_set, {0.65, 0.68, 0.72, 0.75, 0.78, 0.80});
-    arr(s.pf_mul, s.pf_mul_set, {1, 1, 1.06, 1.08, 1.10, 1.05});
+    arr(s.pf_mul, s.pf_mul_set, {1, 1, 1.06, 1.08, 1.10, 1.00});
     arr(s.pb_mul, s.pb_mul_set, {0.72, 0.75, 0.78, 0.80, 0.82, 0.85});
     arr(s.pa_mul, s.pa_mul_set, {1, 1, 1.08, 1.15, 1.20, 1.25});
     num(s.voiceTurbulenceAmplitude_mul, s.voiceTurbulenceAmplitude_mul_set, 0.20);

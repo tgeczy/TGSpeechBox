@@ -244,7 +244,8 @@ static const BuiltinVoice kBuiltinVoices[] = {
     NAN, NAN, NAN, 1.0,
     0.0, true},
 
-  // Robert: bright, crisp, synthetic — pressed glottis, narrow bandwidths, negative tilt
+  // Robert: bright, crisp, synthetic — pressed glottis, narrow bandwidths (no
+  // voicing tilt: the NVDA driver never applied the -6 dB/oct he once listed, #200)
   {"Robert",
     1.10, 1.10,
     1.02, 1.06, 1.08, 1.08, 1.10, 1.05,             // cf
@@ -255,7 +256,7 @@ static const BuiltinVoice kBuiltinVoices[] = {
     0.75, 0.70, 0.20,                                  // fric, bypass, turbulence
     NAN, NAN, 0.30, 0.0, 0.0,                         // glottalOQ=0.30, vibrato off
     NAN, NAN, NAN, 1.0,
-    -6.0, true},
+    0.0, true},
 };
 static const int kBuiltinVoiceCount = sizeof(kBuiltinVoices) / sizeof(kBuiltinVoices[0]);
 

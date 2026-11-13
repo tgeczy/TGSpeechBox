@@ -88,21 +88,21 @@ sampleRates = OrderedDict(
 #   - pa1-pa6: parallel formant amplitudes
 #   - parallelBypass: noise bypass amount
 #
-# Voicing tone parameters (DSP-level, sent to speechPlayer.dll):
-#   - voicingPeakPos: glottal pulse peak position (0.85-0.95)
-#   - voicedPreEmphA: pre-emphasis coefficient
-#   - voicedPreEmphMix: pre-emphasis mix amount
-#   - highShelfGainDb: output high-shelf gain
-#   - highShelfFcHz: output high-shelf frequency
-#   - highShelfQ: output high-shelf Q
-#   - voicedTiltDbPerOct: spectral tilt (positive=darker, negative=brighter)
+# Only frame fields reach the engine from here ("x" sets one, "x_mul" scales
+# it; profile_utils.buildVoiceOps drops any other key).  A preset carries no
+# voicing tone: a built-in voice starts from the engine's default tone and the
+# listener's settings.  Robert once listed a -6 dB/oct voicing tilt here that
+# was never applied, while the Android and iOS apps did apply theirs (#200);
+# no host has it now, and tests/test_voice_preset_pitch.py holds every host's
+# presets to these.
+#   - headSize: the voice's default for the head size setting (0-100, 50 when
+#     absent), read in voice_management.py
 #
 voices = {
     "Adam": {
         "cb1_mul": 1.3,
         "pa6_mul": 1.3,
         "fricationAmplitude_mul": 0.85,
-        "voicedTiltDbPerOct": 0.0,  # Explicit neutral tilt
     },
     "Benjamin": {
         "cf1_mul": 1.01,
@@ -114,12 +114,10 @@ voices = {
         "cb1_mul": 1.3,
         "fricationAmplitude_mul": 0.7,
         "pa6_mul": 1.3,
-        "voicedTiltDbPerOct": 0.0,  # Explicit neutral tilt
     },
     "Caleb": {
         "aspirationAmplitude": 1,
         "voiceAmplitude": 0,
-        "voicedTiltDbPerOct": 0.0,  # Explicit neutral tilt
     },
     "David": {
         "voicePitch_mul": 0.75,
@@ -127,7 +125,6 @@ voices = {
         "cf1_mul": 0.90,
         "cf2_mul": 0.93,
         "cf3_mul": 0.95,
-        "voicedTiltDbPerOct": 0.0,  # Explicit neutral tilt
         "headSize": 100,            # Large pharynx — deep gruff quality
     },
     # -------------------------------------------------------------------------
@@ -138,7 +135,6 @@ voices = {
     # - Narrow bandwidths for synthetic buzzy tone
     # - Pressed glottis, minimal breathiness
     # - Frication preserved for clear C, S, F sounds
-    # - Negative tilt for extra brightness
     # -------------------------------------------------------------------------
     "Robert": {
         # Slightly higher pitch for brighter character
@@ -171,8 +167,6 @@ voices = {
         "pa3_mul": 1.08,
         "pa4_mul": 1.15,
         "pa5_mul": 1.20,
-        # Voicing tone: negative tilt for brightness
-        "voicedTiltDbPerOct": -6.0,
         "pa6_mul": 1.25,
         # Moderate parallel bandwidths (not too tight)
         "pb1_mul": 0.72,
