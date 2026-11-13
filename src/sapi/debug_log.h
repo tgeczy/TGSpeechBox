@@ -6,9 +6,12 @@ Licensed under the MIT License. See LICENSE for details.
 
 #pragma once
 
-// Compile-time enable/disable. When enabled, logging can still be turned off at
-// runtime via DebugLog::SetEnabled(false).
-#define ENABLE_DEBUG_LOG 0
+// Compile-time enable/disable.  It stays 1: the switch a user has is "Enable
+// logging" in the settings app, which sets DebugLog::SetEnabled() through
+// settings.ini, and at 0 that checkbox did nothing and no log could be had
+// for a bug report (#211).  With the code compiled in and the checkbox off,
+// which is the default, nothing is written; on, the log is kept under 1 MiB.
+#define ENABLE_DEBUG_LOG 1
 
 #include <windows.h>
 

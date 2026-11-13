@@ -467,6 +467,10 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         return hr;
     }
 
+    // Read the settings before anything is logged, so that the logging
+    // switch takes hold with the first line of this call (#211).
+    (void)tgsb::get_settings_cached(rt_->base_dir());
+
     // Apply language.
     if (!lang_tag.empty()) {
         (void)rt_->set_language(lang_tag);

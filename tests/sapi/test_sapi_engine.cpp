@@ -1171,3 +1171,99 @@ TEST_CASE("the first OK in the settings app leaves the voice as it was (#205)") 
         CHECK(GetPrivateProfileIntW(L"VoicingTone", L"cascadeBwScale", -7, settingsPath().c_str()) == 40);
     }
 }
+
+// #211: "Enable logging (writes TGSpeechSapi_debug.log)" in the settings app
+// wrote no log: the logging code was compiled out, and the checkbox only set
+// a flag that nothing read.  Someone asked to send a log for a bug report
+// had none to send.  The checkbox is the only switch now: on, the engine
+// writes the log in the temp folder; off, which is the default, it writes
+// nothing at all.
+TEST_CASE("the logging switch writes a log, and only when it is on (#211)") {
+    ComScope com;
+    struct Restore { ~Restore() { writeSettings(""); } } restore;
+    const std::wstring log = tempDir() + L"\\TGSpeechSapi_debug.log";
+    auto size = [&]() -> long long {
+        WIN32_FILE_ATTRIBUTE_DATA data{};
+        if (!GetFileAttributesExW(log.c_str(), GetFileExInfoStandard, &data)) return -1;   // no such file
+        return (static_cast<long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+    };
+    auto filesInTemp = [&] {
+        int n = 0;
+        WIN32_FIND_DATAW fd{};
+        HANDLE h = FindFirstFileW((tempDir() + L"\\*").c_str(), &fd);
+        if (h == INVALID_HANDLE_VALUE) return n;
+        do {
+            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) ++n;
+        } while (FindNextFileW(h, &fd));
+        FindClose(h);
+        return n;
+    };
+    auto contents = [&] {
+        std::string text;
+        HANDLE h = CreateFileW(log.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (h == INVALID_HANDLE_VALUE) return text;
+        char buf[4096];
+        DWORD got = 0;
+        while (ReadFile(h, buf, sizeof(buf), &got, nullptr) && got) text.append(buf, got);
+        CloseHandle(h);
+        return text;
+    };
+    auto say = [](Engine& engine, const wchar_t* text) {
+        HostSite site;
+        engine.speak({{SPVA_Bookmark, L"5"}, {SPVA_Speak, text}}, site);
+        REQUIRE(site.audio.size() > 0);
+    };
+    DeleteFileW(log.c_str());
+    writeSettings("");
+    Engine engine(L"en-us");
+
+    // Off by default, and off when the file says so: no log, and nothing
+    // else in the temp folder either.
+    say(engine, L"Desktop");
+    CHECK(size() == -1);
+    writeSettings("[General]\nlogging=0\n");
+    say(engine, L"Desktop");
+    CHECK(size() == -1);
+    CHECK(filesInTemp() == 0);
+
+    // On: the next utterance is in the log, from its first line.
+    writeSettings("[General]\nlogging=1\n");
+    say(engine, L"Documents");
+    const long long afterOne = size();
+    CHECK(afterOne > 0);
+    const std::string text = contents();
+    CHECK(text.find("FRAG[0]") != std::string::npos);
+    CHECK(text.find("Documents") != std::string::npos);
+    CHECK(text.find("text_to_ipa") != std::string::npos);
+    CHECK(text.find("bookmark") != std::string::npos);
+    CHECK(filesInTemp() == 1);   // the log and nothing else
+    say(engine, L"Recycle Bin");
+    CHECK(size() > afterOne);
+
+    // Off again: not one more line.
+    writeSettings("[General]\nlogging=0\n");
+    const long long whenOff = size();
+    say(engine, L"Desktop");
+    say(engine, L"Desktop");
+    CHECK(size() == whenOff);
+
+    // Left on and forgotten, the log does not grow without bound: past
+    // 1 MiB it starts over.
+    {
+        HANDLE h = CreateFileW(log.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        REQUIRE(h != INVALID_HANDLE_VALUE);
+        const std::string filler(64 * 1024, 'x');
+        DWORD written = 0;
+        for (int i = 0; i < 20; ++i) WriteFile(h, filler.data(), static_cast<DWORD>(filler.size()), &written, nullptr);
+        CloseHandle(h);
+    }
+    REQUIRE(size() > 1024 * 1024);
+    writeSettings("[General]\nlogging=1\n");
+    say(engine, L"Desktop");
+    CHECK(size() > 0);
+    CHECK(size() < 64 * 1024);
+
+    writeSettings("");
+    say(engine, L"Desktop");   // the engine drops the switch before the log is removed
+    DeleteFileW(log.c_str());
+}
