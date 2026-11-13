@@ -96,71 +96,60 @@ def _getPacksDir() -> str:
 
 
 from . import langPackYaml
+from . import updates
 
 GitHub_URL = "https://github.com/tgeczy/TGSpeechBox"
-ADDON_UPDATE_URL = "https://eurpod.com/synths/tgSpeechBox-2026.nvda-addon"
-ADDON_VERSION_URL = "https://eurpod.com/tgSpeechBox-version.txt"
+
+# The add-on's own section of NVDA's configuration, for what is not a voice
+# setting: which releases the update check looks at (#103).
+_CONF_SECTION = "tgSpeechBox"
+_CONF_SPEC = {"updateChannel": "string(default='stable')"}
 
 
-def _getInstalledAddonVersion() -> str:
-    """Read the version from this addon's manifest.ini file.
-    
-    Returns the version string (e.g., "170") or empty string if not found.
-    """
+def _addonConf():
+    """The add-on's section of NVDA's configuration.  NVDA is told the
+    section's settings first, as it must be before one is read or written."""
+    import config
+    if _CONF_SECTION not in config.conf.spec:
+        config.conf.spec[_CONF_SECTION] = dict(_CONF_SPEC)
+    return config.conf[_CONF_SECTION]
+
+
+def _getUpdateChannel() -> str:
+    """The update channel NVDA's configuration holds: one of updates.CHANNELS,
+    "stable" for anything else and when the configuration cannot be read."""
     try:
-        # manifest.ini is in the addon root, which is parent of synthDrivers/tgSpeechBox
-        addonDir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        manifestPath = os.path.join(addonDir, "manifest.ini")
-        
-        if not os.path.isfile(manifestPath):
-            return ""
-        
-        with open(manifestPath, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line.lower().startswith("version"):
-                    # Parse "version = 170" or "version=170"
-                    parts = line.split("=", 1)
-                    if len(parts) == 2:
-                        return parts[1].strip()
-        return ""
+        channel = _addonConf()["updateChannel"]
     except Exception:
-        return ""
+        channel = None
+    return channel if channel in updates.CHANNELS else "stable"
 
 
-def _parseVersionTuple(versionStr: str):
-    """Parse a version string into a tuple of integers for comparison.
-    
-    Handles versions like "170", "2026.1.27", "2026.1.27.2", etc.
-    Non-numeric parts are treated as 0.
+def _setUpdateChannel(channel: str) -> None:
+    try:
+        _addonConf()["updateChannel"] = channel if channel in updates.CHANNELS else "stable"
+    except Exception:
+        pass
+
+
+def _runInBackground(work, done) -> None:
+    """Run work() off the GUI thread, then done(result, error) on it.
+
+    The update check and the download wait for the network; done on the GUI
+    thread they froze NVDA's settings dialog, and the screen reader's own
+    interface with it, for as long as the server took.
     """
-    if not versionStr:
-        return (0,)
-    parts = []
-    for part in versionStr.replace("-", ".").replace("_", ".").split("."):
+    import threading
+    import wx
+
+    def run():
         try:
-            parts.append(int(part))
-        except ValueError:
-            # Non-numeric part (e.g., "beta"), treat as 0
-            parts.append(0)
-    return tuple(parts) if parts else (0,)
+            result, error = work(), None
+        except Exception as e:
+            result, error = None, e
+        wx.CallAfter(done, result, error)
 
-
-def _isNewerVersion(remoteVersion: str, installedVersion: str) -> bool:
-    """Return True if remoteVersion is newer than installedVersion.
-    
-    Compares version tuples element by element. A shorter version is padded
-    with zeros for comparison (e.g., "2026.1.27" vs "2026.1.27.2").
-    """
-    remote = _parseVersionTuple(remoteVersion)
-    installed = _parseVersionTuple(installedVersion)
-    
-    # Pad shorter tuple with zeros
-    maxLen = max(len(remote), len(installed))
-    remote = remote + (0,) * (maxLen - len(remote))
-    installed = installed + (0,) * (maxLen - len(installed))
-    
-    return remote > installed
+    threading.Thread(target=run, name="TGSpeechBoxUpdateCheck", daemon=True).start()
 
 
 _PANEL_CLS = None
@@ -834,9 +823,8 @@ def _getPanelClass():
             self.gitHubButton = sHelper.addItem(wx.Button(self, label=_("Open TGSpeechBox on GitHub")))
             self.gitHubButton.Bind(wx.EVT_BUTTON, self._onGitHubClick)
 
-            # Check for updates button
-            self.updateButton = sHelper.addItem(wx.Button(self, label=_("Check for Add-on Updates")))
-            self.updateButton.Bind(wx.EVT_BUTTON, self._onUpdateClick)
+            # Update channel and the check for updates button
+            self._makeUpdateControls(sHelper, wx)
 
             # Initialize defaults.
             self._setInitialLanguageTag()
@@ -845,6 +833,10 @@ def _getPanelClass():
                 self._setCurrentKey(self._knownKeys[0])
 
         def onSave(self):
+            # The update channel is NVDA's to keep, not a language file's.
+            if getattr(self, "updateChannelCtrl", None) is not None:
+                _setUpdateChannel(self._selectedUpdateChannel())
+
             # Apply all pending changes.
             if not self._pending:
                 return
@@ -887,148 +879,142 @@ def _getPanelClass():
                     pass
             evt.Skip()
 
+        def _makeUpdateControls(self, sHelper, wx):
+            """The "Update channel" choice and the "Check for Add-on Updates"
+            button.  Not on a secure screen: there NVDA runs as SYSTEM on the
+            sign-in desktop, and nothing is fetched or installed from it."""
+            self.updateChannelCtrl = None
+            self.updateButton = None
+            if updates._secure():
+                return
+            self.updateChannelCtrl = sHelper.addLabeledControl(
+                _("Update channel:"),
+                wx.Choice,
+                # In the order of updates.CHANNELS.
+                choices=[_("Stable"), _("Prerelease")],
+            )
+            self.updateChannelCtrl.SetSelection(updates.CHANNELS.index(_getUpdateChannel()))
+            self.updateButton = sHelper.addItem(wx.Button(self, label=_("Check for Add-on Updates")))
+            self.updateButton.Bind(wx.EVT_BUTTON, self._onUpdateClick)
+
+        def _selectedUpdateChannel(self) -> str:
+            """The channel the choice shows, saved yet or not."""
+            try:
+                return updates.CHANNELS[self.updateChannelCtrl.GetSelection()]
+            except Exception:
+                return _getUpdateChannel()
+
+        def _setUpdateBusy(self, message):
+            """One check at a time.  `message` says what the network is being
+            asked for and is spoken; None when the answer is in.
+
+            The button is not disabled meanwhile: it has the focus, and a
+            disabled control that has the focus leaves the keyboard nowhere
+            to go.  A press while busy says the message again instead.
+            """
+            self._updateBusy = message
+            if message:
+                try:
+                    import ui
+                    ui.message(message)
+                except Exception:
+                    pass
+
         def _onUpdateClick(self, evt):
-            """Check for updates and download the latest add-on if available."""
+            """Ask GitHub's releases for a newer add-on on the chosen channel.
+
+            Only here, when the button is pressed: nothing checks on its own
+            (updates.py says why).  The asking is done off the GUI thread and
+            the answer comes back in _onUpdateChecked.
+            """
+            evt.Skip()
+            if getattr(self, "updateButton", None) is None:
+                return
+            if getattr(self, "_updateBusy", None):
+                self._setUpdateBusy(self._updateBusy)
+                return
+            channel = self._selectedUpdateChannel()
+            self._setUpdateBusy(_("Checking for updates..."))
+            _runInBackground(lambda: updates.latest_release(channel), self._onUpdateChecked)
+
+        def _onUpdateChecked(self, found, error):
+            """The check's answer, on the GUI thread: (version, page, url) or
+            (None, reason, None) from updates.latest_release."""
+            if not self:  # the settings dialog was closed meanwhile
+                return
+            self._setUpdateBusy(None)
             try:
                 import wx
             except Exception:
-                evt.Skip()
                 return
 
-            import tempfile
-            import urllib.request
-            import urllib.error
-
-            # First, check if an update is available
-            wx.BeginBusyCursor()
-            remoteVersion = None
-            versionCheckError = None
-
-            try:
-                req = urllib.request.Request(
-                    ADDON_VERSION_URL,
-                    headers={"User-Agent": "NVDA-TGSpeechBox-Updater/1.0"},
-                )
-                with urllib.request.urlopen(req, timeout=15) as response:
-                    remoteVersion = response.read().decode("utf-8").strip()
-            except urllib.error.URLError as e:
-                versionCheckError = str(e.reason) if hasattr(e, 'reason') else str(e)
-            except Exception as e:
-                versionCheckError = str(e)
-            finally:
-                wx.EndBusyCursor()
-
-            if versionCheckError:
-                # Couldn't check version - ask user if they want to download anyway
-                dlg = wx.MessageDialog(
-                    self,
+            version, reason, addonUrl = found if found else (None, str(error), None)
+            installedVersion = updates.installed_version()
+            if version and updates.parse_version(installedVersion) is None:
+                version, reason = None, _("The installed add-on's version could not be read.")
+            if not version:
+                # Couldn't check - offer the releases page instead
+                result = wx.MessageBox(
                     _(
                         "Could not check for updates:\n{}\n\n"
-                        "Would you like to download the add-on anyway?"
-                    ).format(versionCheckError),
+                        "Would you like to open the releases page in your browser instead?"
+                    ).format(reason),
                     _("Version Check Failed"),
                     wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
-                )
-                result = dlg.ShowModal()
-                dlg.Destroy()
-                if result != wx.ID_YES:
-                    evt.Skip()
-                    return
-            else:
-                # Compare versions
-                installedVersion = _getInstalledAddonVersion()
-
-                # Check if remote version is actually newer
-                if installedVersion and remoteVersion and not _isNewerVersion(remoteVersion, installedVersion):
-                    wx.MessageBox(
-                        _(
-                            "You already have the latest version installed.\n\n"
-                            "Installed version: {}\n"
-                            "Latest version: {}"
-                        ).format(installedVersion, remoteVersion),
-                        _("No Update Available"),
-                        wx.OK | wx.ICON_INFORMATION,
-                        self,
-                    )
-                    evt.Skip()
-                    return
-
-                # Update available - confirm with user
-                if installedVersion:
-                    msg = _(
-                        "A new version is available!\n\n"
-                        "Installed version: {}\n"
-                        "Latest version: {}\n\n"
-                        "Download and install the update?"
-                    ).format(installedVersion, remoteVersion)
-                else:
-                    msg = _(
-                        "Latest version available: {}\n\n"
-                        "Download and install?"
-                    ).format(remoteVersion)
-
-                dlg = wx.MessageDialog(
                     self,
-                    msg,
-                    _("Update Available"),
-                    wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION,
                 )
-                result = dlg.ShowModal()
-                dlg.Destroy()
+                if result == wx.YES:
+                    wx.LaunchDefaultBrowser(updates.RELEASES_PAGE)
+                return
 
-                if result != wx.ID_YES:
-                    evt.Skip()
-                    return
-
-            # Show a simple busy cursor since download may take a moment
-            wx.BeginBusyCursor()
-
-            downloadPath = None
-            errorMsg = None
-
-            try:
-                # Download to temp directory
-                tempDir = tempfile.gettempdir()
-                # Extract filename from URL
-                addonFilename = ADDON_UPDATE_URL.rsplit("/", 1)[-1]
-                if not addonFilename.endswith(".nvda-addon"):
-                    addonFilename = "TGSpeechBox-update.nvda-addon"
-                downloadPath = os.path.join(tempDir, addonFilename)
-
-                # Clean up any old downloaded addon file from previous attempts
-                try:
-                    if os.path.isfile(downloadPath):
-                        os.remove(downloadPath)
-                except Exception:
-                    pass  # Not critical if cleanup fails
-
-                # Download the file
-                req = urllib.request.Request(
-                    ADDON_UPDATE_URL,
-                    headers={"User-Agent": "NVDA-TGSpeechBox-Updater/1.0"},
-                )
-                with urllib.request.urlopen(req, timeout=60) as response:
-                    data = response.read()
-
-                # Write to temp file
-                with open(downloadPath, "wb") as f:
-                    f.write(data)
-
-            except urllib.error.URLError as e:
-                errorMsg = _("Failed to download add-on:\n{}").format(str(e.reason) if hasattr(e, 'reason') else str(e))
-            except Exception as e:
-                errorMsg = _("An error occurred during download:\n{}").format(str(e))
-            finally:
-                wx.EndBusyCursor()
-
-            if errorMsg:
+            if not updates.is_newer(version, installedVersion):
                 wx.MessageBox(
-                    errorMsg,
+                    _(
+                        "You already have the latest version installed.\n\n"
+                        "Installed version: {}\n"
+                        "Latest version: {}"
+                    ).format(installedVersion, version),
+                    _("No Update Available"),
+                    wx.OK | wx.ICON_INFORMATION,
+                    self,
+                )
+                return
+
+            # Update available - confirm with user
+            result = wx.MessageBox(
+                _(
+                    "A new version is available!\n\n"
+                    "Installed version: {}\n"
+                    "Latest version: {}\n\n"
+                    "Download and install the update?"
+                ).format(installedVersion, version),
+                _("Update Available"),
+                wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION,
+                self,
+            )
+            if result != wx.YES:
+                return
+
+            self._setUpdateBusy(_("Downloading the update..."))
+            _runInBackground(lambda: updates.fetch(addonUrl), self._onUpdateFetched)
+
+        def _onUpdateFetched(self, downloadPath, error):
+            """The downloaded add-on, on the GUI thread."""
+            if not self:
+                return
+            self._setUpdateBusy(None)
+            try:
+                import wx
+            except Exception:
+                return
+
+            if error is not None or not downloadPath:
+                wx.MessageBox(
+                    _("Failed to download add-on:\n{}").format(str(error)),
                     _("Download Error"),
                     wx.OK | wx.ICON_ERROR,
                     self,
                 )
-                evt.Skip()
                 return
 
             # Launch the downloaded file with the default handler (NVDA's addon installer)
@@ -1049,8 +1035,6 @@ def _getPanelClass():
                     wx.OK | wx.ICON_WARNING,
                     self,
                 )
-
-            evt.Skip()
 
         def _onResetDefaultsClick(self, evt):
             """Reset language packs to factory defaults by copying from .defaults folder."""

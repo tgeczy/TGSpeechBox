@@ -3371,3 +3371,39 @@ msgstr ""
 msgid ""
 "Saved profile '{}'. It is in the voice list as \"{}\"; the built-in voice and its sliders are unchanged."
 msgstr ""
+
+#. Check for Add-on Updates: the update channel and the check of GitHub's releases (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:889
+msgid "Update channel:"
+msgstr ""
+
+#. Check for Add-on Updates: the update channel and the check of GitHub's releases (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:892
+msgid "Stable"
+msgstr ""
+
+#. Check for Add-on Updates: the update channel and the check of GitHub's releases (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:892
+msgid "Prerelease"
+msgstr ""
+
+#. Check for Add-on Updates: the update channel and the check of GitHub's releases (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:931
+msgid "Checking for updates..."
+msgstr ""
+
+#. Check for Add-on Updates: the update channel and the check of GitHub's releases (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:948
+msgid "The installed add-on's version could not be read."
+msgstr ""
+
+#. Check for Add-on Updates: the update channel and the check of GitHub's releases (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:952
+msgid ""
+"Could not check for updates:\n{}\n\nWould you like to open the releases page in your browser instead?"
+msgstr ""
+
+#. Check for Add-on Updates: the update channel and the check of GitHub's releases (#103)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:992
+msgid "Downloading the update..."
+msgstr ""
