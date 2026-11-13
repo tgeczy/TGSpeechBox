@@ -637,7 +637,12 @@ class SpeechPipelineMixin:
                     # be adding silence after silence.
                     if punctPauseMs and sawRealFrameInThisUtterance:
                         try:
-                            dur = float(punctPauseMs)
+                            # The pause follows the rate the listener hears,
+                            # rate boost included (scalePauseToRate).  Above
+                            # 2x the DSP's time stretch shortens a queued
+                            # silence too, so the frame is longer by as much
+                            # and the pause is not shrunk twice.
+                            dur = self._frontend.scalePause(float(punctPauseMs), _effectiveSpeed, _timeStretch)
                             fd = float(min(float(minFadeOutMs), dur))
                             self._player.queueFrame(None, dur, fd)
                             lastStreamWasVoiced = False

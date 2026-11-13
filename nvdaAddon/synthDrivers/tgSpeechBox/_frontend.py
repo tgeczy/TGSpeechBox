@@ -254,6 +254,20 @@ class NvspFrontend(object):
         except AttributeError:
             pass
 
+        # scalePause: the pause after a clause at the rate being spoken
+        self._hasScalePauseApi = False
+        try:
+            self._dll.nvspFrontend_scalePause.argtypes = [
+                ctypes.c_void_p,  # handle
+                ctypes.c_double,  # pauseMs
+                ctypes.c_double,  # rate
+                ctypes.c_double,  # queueStretch
+            ]
+            self._dll.nvspFrontend_scalePause.restype = ctypes.c_double
+            self._hasScalePauseApi = True
+        except AttributeError:
+            pass
+
         # prepareClause: prepareText for one clause of a split text (#158)
         self._hasPrepareClauseApi = False
         try:
@@ -512,6 +526,21 @@ class NvspFrontend(object):
             ))
             pos = nxt
         return clauses
+
+    def scalePause(self, pauseMs: float, rate: float, queueStretch: float = 1.0) -> float:
+        """The silence to queue for a clause pause of `pauseMs` at `rate`, the
+        rate the listener hears, on a player whose time stretch is
+        `queueStretch`.  The pause follows the rate when the language's
+        scalePauseToRate setting is on; the frontend decides, for every host
+        (nvspFrontend_scalePause).  `pauseMs` as given from a DLL without it."""
+        if not self._dll or not self._h or not getattr(self, "_hasScalePauseApi", False):
+            return pauseMs
+        try:
+            return float(self._dll.nvspFrontend_scalePause(
+                self._h, float(pauseMs), float(rate), float(queueStretch)))
+        except Exception:
+            log.debug("TGSpeechBox: scalePause failed", exc_info=True)
+            return pauseMs
 
     def beginStream(self) -> None:
         """Make the next queued chunk the first of a new utterance: no

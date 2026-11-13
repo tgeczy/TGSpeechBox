@@ -529,8 +529,11 @@ static void synthesize(const std::string& text,
     }
     dbg("SYNTH: synthesized %d total samples", totalSamples);
 
-    // The pause after the clause, as every host leaves it.
+    // The pause after the clause, as every host leaves it.  It follows the
+    // rate heard (scalePauseToRate), and is queued longer by the time
+    // stretch, which shortens a silence frame like any other.
     if (totalSamples > 0) {
+      pauseMs = nvspFrontend_scalePause(fe, pauseMs, speed * timeStretch, timeStretch);
       if (pauseMs > 0.0) {
         unsigned int samples = (unsigned int)(pauseMs * sampleRate / 1000.0 + 0.5);
         unsigned int fadeSamp = (unsigned int)(3.0 * sampleRate / 1000.0 + 0.5);

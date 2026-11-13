@@ -554,6 +554,17 @@ char* nvspFrontend_prepareText(handle, const char* textUtf8);
 char* nvspFrontend_prepareClause(handle, const char* clauseUtf8, int isWholeText);
 
 void nvspFrontend_freeString(char* str);
+
+// The pause to leave after a clause at the rate being spoken: pauseMs (from
+// nvspFrontend_nextClause, or a host's own) times rate^-0.5, kept between
+// 0.5 and 1.6 of it, when the language's scalePauseToRate setting is on;
+// pauseMs as given when it is off.
+// rate: what the listener hears (1.0 = default): the speed given to queueIPA
+// times any time stretch set on the player.
+// queueStretch: that time stretch when the pause is queued on the player as
+// a silence frame (the stretch shortens it, so the result is longer by as
+// much); 1.0 with no stretch, or when the pause is written as samples.
+double nvspFrontend_scalePause(handle, double pauseMs, double rate, double queueStretch);
 ```
 
 Use case: feeds corrected text to eSpeak so each compound half is phonemized independently with correct vowel quality. Essential for speech-dispatcher integration where eSpeak is an external process.

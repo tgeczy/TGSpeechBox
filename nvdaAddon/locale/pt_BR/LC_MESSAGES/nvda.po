@@ -3086,6 +3086,11 @@ msgstr ""
 msgid "Rate Compensation: Word Final Bonus (ms)"
 msgstr ""
 
+#. Settings panel label for the language-pack setting scalePauseToRate
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Scale Pause To Rate"
+msgstr ""
+
 #. Settings panel label for the language-pack setting stopClosureNasalToStopFadeMs
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
 msgid "Stop Closure Nasal To Stop Fade (ms)"

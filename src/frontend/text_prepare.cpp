@@ -9,6 +9,7 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <string>
 #include <unordered_map>
@@ -974,6 +975,26 @@ double clausePauseMs(int pauseClass, int pauseMode) {
   const bool longPauses = pauseMode >= 2;
   if (pauseClass == 1) return longPauses ? 50.0 : 25.0;
   return longPauses ? 60.0 : 35.0;
+}
+
+// Speakers shorten their pauses as they speed up and lengthen them as they
+// slow down.  Pause duration follows speaking rate in six languages read at
+// five rates (Werner, Trouvain & Möbius 2022, Speech Prosody).  In six
+// European languages read at three rates, fast readers drop their longest
+// pauses and the average pause is shorter, while slow readers mostly pause
+// more often (Demol, Verhelst & Verhoeve 2007, Interspeech).  Three
+// Lithuanian readers' sentence pauses are 0.2 to 0.6 of their length at a
+// fast rate and 1.1 to 1.4 at a slow one (Kazlauskienė, Raškinis &
+// Kalašinskaitė-Zavišienė 2025, Baltic Journal of Modern Computing 13).
+// The square root is a gentle curve between the fixed pause there was and
+// one that shrinks as fast as the words.  The floor is there because silent
+// pauses at salient points bring the recall of time-compressed speech back
+// to that of a normal rate (O'Leary et al. 2023, Trends in Hearing 27): a
+// pause must never vanish.  0.5 is reached at four times the rate, 1.6 just
+// under 0.4 of it.
+double clausePauseRateFactor(double rate) {
+  if (!(rate > 0.0) || !std::isfinite(rate)) return 1.0;
+  return std::clamp(1.0 / std::sqrt(rate), 0.5, 1.6);
 }
 
 }  // namespace nvsp_frontend

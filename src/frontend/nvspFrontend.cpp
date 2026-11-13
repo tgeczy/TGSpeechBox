@@ -1094,6 +1094,26 @@ NVSP_FRONTEND_API int nvspFrontend_nextClause(
   return static_cast<int>(span.next);
 }
 
+NVSP_FRONTEND_API double nvspFrontend_scalePause(
+  nvspFrontend_handle_t handle,
+  double pauseMs,
+  double rate,
+  double queueStretch
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !(pauseMs > 0.0)) return pauseMs;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded || !h->pack.lang.scalePauseToRate) return pauseMs;
+  if (!(rate > 0.0) || !std::isfinite(rate)) return pauseMs;
+  // A silence frame on a time-stretched player plays for its length divided
+  // by the stretch (tests/test_pause_follows_rate.py measures it).  Queued
+  // longer by as much, the pause heard is the scaled one.
+  const double stretch = (queueStretch > 1.0 && std::isfinite(queueStretch)) ? queueStretch : 1.0;
+  return pauseMs * clausePauseRateFactor(rate) * stretch;
+}
+
 NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   nvspFrontend_handle_t handle,
   const char* textUtf8

@@ -312,10 +312,13 @@ static void onFrame(
  * Split text into clauses with the frontend's splitter, the one every host
  * uses (#133), then feed each clause to eSpeak on its own, tagged with its
  * clause type for prosody, and leave the splitter's pause after it.
+ * speed is the synthesis speed (capped at 2x) and timeStretch what the
+ * player's time stretch was set to: together, the rate the listener hears.
  */
 static void synthesizeClauses(TgsbEngine *engine,
                               const char *text,
-                              double speed, double basePitch,
+                              double speed, double timeStretch,
+                              double basePitch,
                               nvspFrontend_FrameExCallback cb,
                               FrameCtx *ctx)
 {
@@ -379,8 +382,12 @@ static void synthesizeClauses(TgsbEngine *engine,
             );
         }
 
-        /* The pause after the clause, as every host leaves it. */
+        /* The pause after the clause, as every host leaves it.  It follows
+         * the rate heard (scalePauseToRate), and is queued longer by the
+         * time stretch, which shortens a silence frame like any other. */
         if (ctx->frameCount > 0) {
+            pauseMs = nvspFrontend_scalePause(engine->frontend, pauseMs,
+                                              speed * timeStretch, timeStretch);
             if (pauseMs > 0.0) {
                 unsigned int samples = (unsigned int)(
                     pauseMs * engine->sampleRate / 1000.0 + 0.5);
@@ -599,7 +606,7 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueueText(
     ctx.engine = engine;
     ctx.frameCount = 0;
 
-    synthesizeClauses(engine, textChars, speed, basePitch, onFrame, &ctx);
+    synthesizeClauses(engine, textChars, speed, timeStretch, basePitch, onFrame, &ctx);
     env->ReleaseStringUTFChars(text, textChars);
 }
 
@@ -1002,7 +1009,7 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
     ctx.engine = engine;
     ctx.frameCount = 0;
 
-    synthesizeClauses(engine, textChars, sp, bp, onFrame, &ctx);
+    synthesizeClauses(engine, textChars, sp, timeStretch, bp, onFrame, &ctx);
     env->ReleaseStringUTFChars(text, textChars);
     LOGI("SpeakEngine: queued %d frames (speed=%.2f ts=%.2f pitch=%.0f)",
          ctx.frameCount, sp, timeStretch, bp);

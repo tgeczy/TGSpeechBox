@@ -228,6 +228,13 @@ using fe_queueIPA_ExWithText_fn = int(*)(
   void*
 );
 
+using fe_scalePause_fn = double(*)(
+  nvspFrontend_handle_t,
+  double,  // pauseMs
+  double,  // rate
+  double   // queueStretch
+);
+
 class TgsbRuntime {
 public:
   TgsbRuntime();
@@ -369,6 +376,7 @@ private:
   fe_setFrameExDefaults_fn m_feSetFrameExDefaults = nullptr;
   fe_queueIPA_Ex_fn m_feQueueIPA_Ex = nullptr;
   fe_queueIPA_ExWithText_fn m_feQueueIPA_ExWithText = nullptr;
+  fe_scalePause_fn m_feScalePause = nullptr;
 
   // Runtime state
   nvspFrontend_handle_t m_feHandle = nullptr;

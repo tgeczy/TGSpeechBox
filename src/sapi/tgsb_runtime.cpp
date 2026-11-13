@@ -969,6 +969,13 @@ void runtime::set_time_stretch(double factor)
             static_cast<speechPlayer_handle_t>(speech_player_), factor);
 }
 
+double runtime::scale_pause(double pause_ms, double rate) const
+{
+    // The engine writes the pause as samples after the DSP, so no time
+    // stretch shortens it: 1.0.
+    return nvspFrontend_scalePause(frontend_, pause_ms, rate, 1.0);
+}
+
 void runtime::purge()
 {
     if (!speech_player_) return;

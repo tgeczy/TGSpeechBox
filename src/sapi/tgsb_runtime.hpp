@@ -76,6 +76,10 @@ public:
     int sample_rate() const noexcept { return sample_rate_; }
     const std::wstring& base_dir() const noexcept { return base_dir_; }
     void set_time_stretch(double factor);
+    // The pause to write after a clause at `rate`, the rate the listener
+    // hears (speed times time stretch): the current language's
+    // scalePauseToRate setting decides (nvspFrontend_scalePause).
+    double scale_pause(double pause_ms, double rate) const;
     const std::wstring& current_voice_profile() const noexcept { return current_profile_name_; }
 
 private:

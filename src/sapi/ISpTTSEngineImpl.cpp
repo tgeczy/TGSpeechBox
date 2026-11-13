@@ -927,11 +927,14 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             }
             if (stopped) break;
 
-            // The pause after the clause, as every host leaves it.  A clause
-            // that made no sound (a dash rule, an ellipsis) leaves none, but
-            // its bookmarks fire like any other clause's (#204).
-            if (clause_wrote && clause.pause_ms > 0.0) {
-                auto padSamples = static_cast<size_t>(clause.pause_ms * rt_->sample_rate() / 1000.0 + 0.5);
+            // The pause after the clause, as every host leaves it.  It
+            // follows the rate heard (scalePauseToRate): the frontend's
+            // speed times the time stretch that carries a rate above 2x.
+            // A clause that made no sound (a dash rule, an ellipsis) leaves
+            // none, but its bookmarks fire like any other clause's (#204).
+            const double pause_ms = rt_->scale_pause(clause.pause_ms, params.speed * time_stretch);
+            if (clause_wrote && pause_ms > 0.0) {
+                auto padSamples = static_cast<size_t>(pause_ms * rt_->sample_rate() / 1000.0 + 0.5);
                 audio_buf.assign(padSamples, tgsb::sample_t{0});
                 if (!hand_over(audio_buf.data(), audio_buf.size())) break;
             }

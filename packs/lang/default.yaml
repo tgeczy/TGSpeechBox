@@ -17,6 +17,19 @@ settings:
   # Default is true even if you omit it.
   # Set false only if you explicitly want pauses even between vowel→vowel.
   segmentBoundarySkipVowelToVowel: true
+  # The pause after a clause (a comma, a sentence mark) follows the speech
+  # rate: its length times rate^-0.5, kept between 0.5 and 1.6 of it, so it
+  # shrinks more slowly than the words and never vanishes.  Nothing changes at
+  # the default rate.  Pause duration follows speaking rate in six languages
+  # at five rates (Werner, Trouvain & Möbius 2022, Speech Prosody); fast
+  # readers of six languages drop their longest pauses (Demol, Verhelst &
+  # Verhoeve 2007, Interspeech); Lithuanian sentence pauses are 0.2-0.6 of
+  # their length at a fast rate and 1.1-1.4 at a slow one (Kazlauskienė,
+  # Raškinis & Kalašinskaitė-Zavišienė 2025, Baltic Journal of Modern
+  # Computing 13); silent pauses at salient points restore the recall of
+  # time-compressed speech (O'Leary et al. 2023, Trends in Hearing 27).
+  # Set false in a language for pauses of one length at every rate.
+  scalePauseToRate: true
   # If a language relies on lots of vowel-hiatus without explicit syllable boundaries, keep these off (or only enable autoTieDiphthongs and leave the semivowel conversion off).
   autoTieDiphthongs: false
   autoDiphthongOffglideToSemivowel: true  

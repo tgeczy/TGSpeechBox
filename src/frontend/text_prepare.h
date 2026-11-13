@@ -96,6 +96,11 @@ bool nextClause(std::string_view text, size_t pos, ClauseSpan& out);
 // 1 short, 2 long).
 double clausePauseMs(int pauseClass, int pauseMode);
 
+// What a clause pause is multiplied by at speech rate `rate` (1.0 = the
+// default rate) when it follows the rate (scalePauseToRate): rate^-0.5, kept
+// between 0.5 and 1.6.  1.0 for a rate that is not a positive number.
+double clausePauseRateFactor(double rate);
+
 }  // namespace nvsp_frontend
 
 #endif  // TGSB_FRONTEND_TEXT_PREPARE_H

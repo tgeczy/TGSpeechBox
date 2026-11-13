@@ -593,8 +593,12 @@ void tgsb_queue_text_ex(TgsbEngine *engine,
             );
         }
 
-        /* The pause after the clause, as every host leaves it. */
+        /* The pause after the clause, as every host leaves it.  It follows
+         * the rate heard (scalePauseToRate), and is queued longer by the
+         * time stretch, which shortens a silence frame like any other. */
         if (ctx.frameCount > 0) {
+            pauseMs = nvspFrontend_scalePause(engine->frontend, pauseMs,
+                                              speed * timeStretch, timeStretch);
             if (pauseMs > 0.0) {
                 unsigned int samples = (unsigned int)(
                     pauseMs * engine->sampleRate / 1000.0 + 0.5);

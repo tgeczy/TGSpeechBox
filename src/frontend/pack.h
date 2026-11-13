@@ -730,6 +730,12 @@ struct LanguagePack {
   // before a vowel is read "tu" ("Twain").  eSpeak spells and splits them.
   bool pronounceableCapsAsWords = false;
   bool twBeforeVowelAsTu = false;
+  // The pause a host leaves after a clause follows the speech rate: its
+  // length times rate^-0.5, kept between 0.5 and 1.6 of it
+  // (nvspFrontend_scalePause; the curve and its sources are at
+  // clausePauseRateFactor in text_prepare.cpp).  False: one length at every
+  // rate, as it was.
+  bool scalePauseToRate = true;
 
   // Semivowel offglide shortening (optional).
   //

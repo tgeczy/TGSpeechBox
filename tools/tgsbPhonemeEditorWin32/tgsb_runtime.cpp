@@ -554,6 +554,7 @@ void TgsbRuntime::unload() {
   m_feSetFrameExDefaults = nullptr;
   m_feQueueIPA_Ex = nullptr;
   m_feQueueIPA_ExWithText = nullptr;
+  m_feScalePause = nullptr;
 
   if (m_frontend) {
     FreeLibrary(m_frontend);
@@ -644,6 +645,9 @@ bool TgsbRuntime::setDllDirectory(const std::wstring& dllDir, std::string& outEr
 
   // Text parser API (optional - ABI v4+, enables CMU Dict stress correction)
   m_feQueueIPA_ExWithText = reinterpret_cast<fe_queueIPA_ExWithText_fn>(GetProcAddress(m_frontend, "nvspFrontend_queueIPA_ExWithText"));
+
+  // Clause pauses that follow the rate (optional - an older DLL leaves them as they are)
+  m_feScalePause = reinterpret_cast<fe_scalePause_fn>(GetProcAddress(m_frontend, "nvspFrontend_scalePause"));
 
   if (!m_feCreate || !m_feDestroy || !m_feSetLanguage || !m_feQueueIPA || !m_feGetLastError) {
     outError = "nvspFrontend.dll is missing expected exports";
@@ -1401,8 +1405,11 @@ for (size_t i = 0; i < clauses.size(); ++i) {
   if (c.punct && (i + 1) < clauses.size()) {
     const double pMs = punctuationPauseMs(c.punct, m_speech.pauseMode);
     if (pMs > 0.0) {
-      const unsigned int durS = msToSamples(pMs, sampleRate);
-      const double fadeMs = (std::min)(pMs, 3.0);
+      // The pause follows the rate (scalePauseToRate), as in every host.
+      // The editor synthesizes at its whole speed: no time stretch.
+      const double pauseMs = m_feScalePause ? m_feScalePause(m_feHandle, pMs, speed, 1.0) : pMs;
+      const unsigned int durS = msToSamples(pauseMs, sampleRate);
+      const double fadeMs = (std::min)(pauseMs, 3.0);
       const unsigned int fadeS = msToSamples(fadeMs, sampleRate);
       if (ctx.queueFrameEx && ctx.hasFrameEx) {
         ctx.queueFrameEx(ctx.player, nullptr, &ctx.frameEx,

@@ -466,6 +466,9 @@ def _getPanelClass():
                 "clauseFinalHoldMs",
                 "clauseFinalFadeMs",
 
+                # --- Clause pauses ---
+                "scalePauseToRate",
+
                 # --- Coarticulation ---
                 "coarticulationAdjacencyMaxConsonants",
                 "coarticulationAlveolarBackVowelStrengthBoost",

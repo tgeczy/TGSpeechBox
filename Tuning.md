@@ -248,6 +248,12 @@ These settings help when callers stitch speech from multiple chunks (common in N
 - `segmentBoundarySkipVowelToLiquid` (bool, default `false`)
   - If true, also skips the segment-boundary silence when a chunk ends with a vowel/semivowel and the next chunk begins with a liquid-like consonant (liquids/taps/trills). This can help reduce audible seams in vowel+R transitions across chunks if it's noticeable in your language.
 
+### Clause pauses that follow the rate
+The hosts leave a pause after each clause when the user's pause setting is on: 25 ms after a comma-like break and 35 ms after a sentence mark with short pauses, 50 and 60 ms with long ones. Those are the lengths at the default rate.
+- `scalePauseToRate` (bool, default `true`): the pause follows the speech rate. Its length is multiplied by rate^-0.5, kept between 0.5 and 1.6 of it: 1.41 at half the rate, 1.0 at the default rate, 0.79 at 1.6 times, 0.71 at twice, 0.58 at three times, and 0.5 from four times up. A pause so shrinks more slowly than the words do, never vanishes, and "short" stays shorter than "long" at any one rate. Set `false` in a language for pauses of one length at every rate, as they were before 3.10.
+  - Why: pause duration follows speaking rate in six languages read at five rates (Werner, Trouvain & Möbius 2022, Speech Prosody); in six European languages read at three rates, fast readers drop their longest pauses and the average pause is shorter, while slow readers mostly pause more often (Demol, Verhelst & Verhoeve 2007, Interspeech); three Lithuanian readers' sentence pauses are 0.2 to 0.6 of their length at a fast rate and 1.1 to 1.4 at a slow one (Kazlauskienė, Raškinis & Kalašinskaitė-Zavišienė 2025, Baltic Journal of Modern Computing 13); and silent pauses at salient points bring the recall of time-compressed speech back to that of a normal rate, so they must stay (O'Leary et al. 2023, Trends in Hearing 27). The curve is gentler than those measurements: the pauses here are short to begin with.
+  - It changes no frame the frontend queues, only the silence a host adds after a clause. Every host asks `nvspFrontend_scalePause` for it (see `Developers.md`).
+
 ### Automatic diphthong handling
 These settings optionally add tie bars for vowel+vowel sequences that should behave like a diphthong.
 - `autoTieDiphthongs` (bool, default `false`): If true, the frontend can mark eligible vowel+vowel pairs as tied (diphthongs) even when the IPA lacks a tie bar.

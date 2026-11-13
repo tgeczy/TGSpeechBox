@@ -1082,6 +1082,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "rateReductionEnabled",
     "rateReductionSchwaReductionThreshold",
     "rateReductionSchwaScale",
+    "scalePauseToRate",
     "secondaryStressDiv",
     "segmentBoundaryFadeMs",
     "segmentBoundaryGapMs",

@@ -593,6 +593,34 @@ NVSP_FRONTEND_API int nvspFrontend_nextClause(
 );
 
 /*
+  The pause after a clause at the rate being spoken, for every host: the
+  length of the silence to leave for `pauseMs`, the pause
+  nvspFrontend_nextClause gave (or a host's own), in ms.
+
+  With the language's scalePauseToRate setting on (the default) the pause
+  follows the rate: its length times rate^-0.5, kept between 0.5 and 1.6 of
+  it, so it shrinks more slowly than the words and never vanishes.  `rate` is
+  the rate the listener hears, 1.0 the default: the speed given to queueIPA
+  times any time stretch set on the player (speechPlayer_setTimeStretch).
+
+  `queueStretch` is that time stretch when the pause is queued on the player
+  as a silence frame, which the stretch shortens like any other frame: the
+  result is longer by the stretch, so that the pause heard is the scaled one
+  and not that pause shrunk a second time.  Pass 1.0 when there is no stretch
+  or when the pause is written as samples after the player.
+
+  With the setting off the pause comes back as given, whatever the rate and
+  the stretch; so it does without a handle, before a language is loaded, and
+  for a rate that is not a positive number.
+*/
+NVSP_FRONTEND_API double nvspFrontend_scalePause(
+  nvspFrontend_handle_t handle,
+  double pauseMs,
+  double rate,
+  double queueStretch
+);
+
+/*
   Free a string returned by nvspFrontend_prepareText().
 */
 NVSP_FRONTEND_API void nvspFrontend_freeString(char* str);
