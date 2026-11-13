@@ -149,7 +149,7 @@ echo 'həˈloʊ' | ./bin/tgsp --lang en-us --voiced-tilt 35 --aspiration-tilt 60
 
 ### Rate Boost
 
-Rate boost doubles the effective speech rate using DSP time-stretch, matching the behavior on NVDA, Android, iOS, and SAPI:
+Rate boost doubles the effective speech rate using DSP time-stretch, matching the behavior on NVDA, Android, SAPI, and in the iOS app:
 
 ```bash
 # Rate boost via command line

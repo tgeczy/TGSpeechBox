@@ -35,6 +35,10 @@ constexpr double k_default_inflection = 0.55;
 // stretch takes over (the same 2.0 on NVDA, Android, iOS and Linux).
 constexpr double k_synth_speed_cap = 2.0;
 
+// What "Rate boost" multiplies the speed by: 2, as the NVDA driver does
+// (speech_pipeline.py); tests/test_sapi_rate_boost.py holds the two together.
+constexpr double k_rate_boost = 2.0;
+
 struct speak_context {
     ISpTTSEngineSite* site = nullptr;
     ULONGLONG bytes_written = 0;
@@ -761,12 +765,16 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             // the speed this way (the NVDA driver's _SYNTH_CAP).  Handed
             // 4x, the frontend ran into its minimum durations: SAPI rate
             // +10 was 2.7 times as fast as rate 0, not 4, and mushier (#203).
+            // Rate boost doubles the speed first, as in the NVDA driver, so
+            // only what is then above 2x is time stretch.  It was a fixed
+            // time stretch of 35% here, a much smaller boost than the same
+            // setting gives on the other hosts (#209).
+            if (stg.rateBoostEnabled) {
+                params.speed *= k_rate_boost;
+            }
             if (params.speed > k_synth_speed_cap) {
                 time_stretch = params.speed / k_synth_speed_cap;
                 params.speed = k_synth_speed_cap;
-            }
-            if (stg.rateBoostEnabled) {
-                time_stretch *= 1.35;
             }
             rt_->set_time_stretch(time_stretch);
         }
@@ -831,8 +839,8 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             // proportional to their character position within it.  Nothing
             // has been rendered yet, so the clause length is an estimate: the
             // frames the frontend queued, brought into the DSP's output clock
-            // (rate boost stretches time, so the output is shorter than the
-            // queued minimum).  Marks that miss fire at the clause end.
+            // (above 2x the DSP plays them faster, so the output is shorter
+            // than the queued minimum).  Marks that miss fire at the clause end.
             const ULONGLONG clause_bytes =
                 static_cast<ULONGLONG>(static_cast<double>(rt_->queued_samples()) / time_stretch) * sizeof(tgsb::sample_t);
             const ULONGLONG clause_start_bytes = ctx.bytes_written;

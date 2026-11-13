@@ -1335,17 +1335,6 @@ TEST_CASE("above 2x the frontend stays at 2x and the DSP does the rest (#203)") 
         CHECK(two / four == doctest::Approx(2.0).epsilon(0.02));
     }
 
-    SUBCASE("rate boost is what it was up to 2x, and adds to the stretch above") {
-        std::vector<double> plain;
-        for (long rate : {-5L, 0L, 3L, 5L, 8L, 10L}) plain.push_back(spoken(rate));
-        writeSettings("[Audio]\nrateBoost=1\n");
-        size_t i = 0;
-        for (long rate : {-5L, 0L, 3L, 5L, 8L, 10L}) {
-            CAPTURE(rate);
-            CHECK(plain[i++] / spoken(rate) == doctest::Approx(1.35).epsilon(0.02));
-        }
-    }
-
     SUBCASE("a bookmark in the middle of fast speech fires in the middle") {
         for (long rate : {0L, 5L, 8L, 10L}) {
             CAPTURE(rate);
@@ -1389,4 +1378,80 @@ TEST_CASE("above 2x the frontend stays at 2x and the DSP does the rest (#203)") 
         CHECK(std::fabs(shiftMs) <= 2.0);
         CHECK(next.audio.size() == reference.audio.size());
     }
+}
+
+// #209: "Rate boost" doubles the rate in the NVDA add-on (the reference:
+// _effectiveSpeed *= 2.0 before the 2x split in speech_pipeline.py), on
+// Android and in the iOS app.  On SAPI it was a fixed 1.35x time stretch, so
+// the same setting gave a much smaller speed-up there.  It doubles the rate
+// on SAPI now: with boost, a SAPI rate sounds exactly like the rate five
+// steps up, which is twice the speed.
+TEST_CASE("rate boost doubles the rate (#209)") {
+    ComScope com;
+    struct Restore { ~Restore() { writeSettings(""); } } restore;
+    Engine engine(L"en-us");
+    const std::wstring text = L"This is a test of the speech rate on the SAPI engine";
+    const double pad = static_cast<double>(engine.msToBytes(50.0) / sizeof(int16_t));
+    auto spoken = [&](long rate, bool boost) {
+        writeSettings(boost ? "[Audio]\nrateBoost=1\n" : "[Audio]\nrateBoost=0\n");
+        HostSite site;
+        site.rate = rate;
+        engine.speak(text, site);
+        REQUIRE(site.audio.size() > pad);
+        return static_cast<double>(site.audio.size()) - pad;
+    };
+
+    // SAPI rates -5, 0, +3 and +5 are speeds 0.5, 1.0, 1.5 and 2.0: with
+    // boost each is sample for sample as long as the rate five steps up.
+    for (long rate : {-10L, -5L, 0L, 3L, 5L}) {
+        CAPTURE(rate);
+        const double boosted = spoken(rate, true);
+        const double fiveUp = spoken(rate + 5, false);
+        MESSAGE("rate " << rate << " with boost " << boosted << " samples, rate " << rate + 5 << " without " << fiveUp);
+        CHECK(boosted == fiveUp);
+    }
+    // Above that the doubled speed is past 2x, and all of the doubling is
+    // the DSP's: speed 3.0 (+8) and 4.0 (+10) with boost are the 2x speech
+    // 3.0 and 4.0 times faster.
+    const double atTwo = spoken(5, false);
+    CHECK(atTwo / spoken(8, true) == doctest::Approx(2.0 * std::pow(2.0, 3.0 / 5.0)).epsilon(0.02));
+    CHECK(atTwo / spoken(10, true) == doctest::Approx(4.0).epsilon(0.02));
+    // And it is twice as fast as the same rate without boost.
+    for (long rate : {8L, 10L}) {
+        CAPTURE(rate);
+        CHECK(spoken(rate, false) / spoken(rate, true) == doctest::Approx(2.0).epsilon(0.02));
+    }
+
+    // With "Override speech rate": the slider's speed, doubled.
+    auto atSlider = [&](int slider, bool boost) {
+        writeSettings(std::string("[Audio]\noverrideRate=1\nglobalRate=") + std::to_string(slider) + "\nrateBoost="
+                      + (boost ? "1" : "0") + "\n");
+        HostSite site;
+        engine.speak(text, site);
+        return static_cast<double>(site.audio.size()) - pad;
+    };
+    CHECK(atSlider(19, true) == doctest::Approx(atSlider(46, false)).epsilon(0.01));    // 1.0x doubled is 2.0x
+    CHECK(atSlider(46, false) / atSlider(73, true) == doctest::Approx(3.0).epsilon(0.02));   // 3.0x doubled is 6.0x
+
+    // Bookmarks still fall where their text is.
+    writeSettings("[Audio]\nrateBoost=1\n");
+    for (long rate : {0L, 5L, 10L}) {
+        CAPTURE(rate);
+        HostSite site;
+        site.rate = rate;
+        engine.speak({{SPVA_Speak, L"This is a test of the speech rate"}, {SPVA_Bookmark, L"1"},
+                      {SPVA_Speak, L"on the SAPI engine"}, {SPVA_Bookmark, L"2"}}, site);
+        REQUIRE(site.marks.size() == 2);
+        const double where = static_cast<double>(site.marks[0].offset) / site.bytes;
+        CHECK(where > 0.35);
+        CHECK(where < 0.85);
+        CHECK(site.marks[1].offset <= site.bytes);
+    }
+
+    // Switched off, it is as if it had never been on.
+    const double off = spoken(0, false);
+    writeSettings("");
+    HostSite never;
+    engine.speak(text, never);
+    CHECK(off == static_cast<double>(never.audio.size()) - pad);
 }
