@@ -494,7 +494,12 @@ class FrameManagerImpl: public FrameManager {
 						memcpy(&curFrameEx, &(oldFrameRequest->frameEx), sizeof(speechPlayer_frameEx_t));
 						curHasFrameEx = oldFrameRequest->hasFrameEx;
 					}
-					newFrameRequest->frame.voicePitch+=(newFrameRequest->voicePitchInc*newFrameRequest->numFadeSamples);
+					// The crossfade lands where the pitch ramp has got to by its
+					// end.  The ramp spans the frame (minNumSamples); a crossfade
+					// longer than the frame leaves no hold phase, so it must land
+					// on endVoicePitch, not beyond it (#222: a 15 to 30 Hz dip).
+					const unsigned int rampSamplesInFade=(newFrameRequest->numFadeSamples<newFrameRequest->minNumSamples)?newFrameRequest->numFadeSamples:newFrameRequest->minNumSamples;
+					newFrameRequest->frame.voicePitch+=(newFrameRequest->voicePitchInc*rampSamplesInFade);
 					// Amplitude onset glide starts from what is playing now
 					// (0 when we come from silence).
 					newFrameRequest->vaFrom=curFrame.voiceAmplitude;
@@ -502,7 +507,7 @@ class FrameManagerImpl: public FrameManager {
 					if(newFrameRequest->voiceAmplitudeInc!=0 && newFrameRequest->ampOnsetSamples<=0) {
 						// The crossfade lands on the amplitude the ramp has reached by
 						// its end, so the hold phase continues the line without a step.
-						newFrameRequest->frame.voiceAmplitude+=(newFrameRequest->voiceAmplitudeInc*newFrameRequest->numFadeSamples);
+						newFrameRequest->frame.voiceAmplitude+=(newFrameRequest->voiceAmplitudeInc*rampSamplesInFade);
 						if(newFrameRequest->frame.voiceAmplitude<0) newFrameRequest->frame.voiceAmplitude=0;
 					}
 				}
