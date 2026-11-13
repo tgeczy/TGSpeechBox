@@ -1210,7 +1210,8 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareClause(
                                              h->pack.lang.thousandsSeparatorCommaToSpace,
                                              h->pack.lang.numberExpansion.ohDigit,
                                              h->pack.lang.dictSuffixes,
-                                             &h->ipaOverrides);
+                                             &h->ipaOverrides,
+                                             h->pack.lang.twelveHourClockWords);
 
   if (result == original) return nullptr;  // no changes
 

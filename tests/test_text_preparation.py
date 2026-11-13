@@ -130,7 +130,13 @@ def test_year_normal_split_still_works_en_us(en_us):
 # A handle per language, for tests that compare languages.
 # ---------------------------------------------------------------------------
 
+import pathlib
+import shutil
+import sys
+
 import pytest
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
@@ -263,9 +269,6 @@ def test_a_time_with_seconds_is_left_to_the_phonemizer(prepare, lang, text):
     # Midnight's hour is not touched: how "00" should be read is not decided here.
     ("00:30", "00 30"),
     ("00:00", "00 o'clock"),
-    # Not changed by #166: "o'clock" before AM or PM.
-    ("10:00 AM", "10 o'clock A. M."),
-    ("5:00 PM", "5 o'clock PM"),
 ])
 def test_other_times_read_as_before(prepare, lang, text, expected):
     assert prepare(lang, text) == expected
@@ -276,6 +279,189 @@ def test_other_times_read_as_before(prepare, lang, text, expected):
 def test_times_in_other_languages_are_untouched(prepare, lang, text):
     """Only English rewrites times."""
     assert prepare(lang, text) == text
+
+
+@pytest.mark.parametrize("lang", ["de", "hu", "es", "pt-br", "fr", "ru", "pl"])
+@pytest.mark.parametrize("text", ["10:00 AM", "5:00 PM", "10:00 a.m.", "5:00 pm", "10 colon 00 AM"])
+def test_times_before_am_or_pm_in_other_languages_are_untouched(prepare, lang, text):
+    """No pack but the English one lists the marks, and only English rewrites times."""
+    # Spanish reads an all-caps word it can pronounce as a word (#146): "AM" is "am" there.
+    expected = text.replace("AM", "am") if lang == "es" else text
+    assert prepare(lang, text) == expected
+
+
+# The third part of #166: "10:00 AM" said "ten o'clock A. M.".  A full hour
+# with the mark of the twelve-hour clock after it is read as the hour alone,
+# "ten A M".  The marks are words, so they are not in the C++: they are the
+# English pack's twelveHourClockWords list, and the time step only asks
+# whether a word of the pack's list follows the time.
+
+ALL_ENGLISH = ENGLISH + ["en-au", "en-ca"]
+
+
+@pytest.mark.parametrize("lang", ALL_ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    # A later step writes an upper-case "AM" as "A. M." so that it is spelled.
+    ("10:00 AM", "10 A. M."),
+    ("5:00 PM", "5 PM"),
+    ("10:00 am", "10 am"),
+    ("5:00 pm", "5 pm"),
+    ("10:00 Am", "10 Am"),
+    ("10:00 a.m.", "10 a.m."),
+    ("5:00 p.m.", "5 p.m."),
+    ("10:00 A.M.", "10 A.M."),
+    ("5:00 P.M. sharp", "5 P.M. sharp"),
+    ("Open from 9:00 AM to 5:00 PM.", "Open from 9 A. M. to 5 PM."),
+    ("We met at 7:00 p.m.", "We met at 7 p.m."),
+    ("09:00 AM", "9 A. M."),
+    ("12:00 PM", "12 PM"),
+    # Written without a space, and with two.
+    ("10:00AM", "10A. M."),
+    ("5:00pm", "5pm"),
+    ("5:00  PM", "5  PM"),
+    # Punctuation after the mark.
+    ("(5:00 PM)", "( 5 PM )"),
+    ("5:00 PM, then home", "5 PM, then home"),
+    ("at 5:00 pm-ish", "at 5 pm ish"),
+    ("“come at 5:00 PM”", "“come at 5 PM”"),
+    # As NVDA sends it when it speaks the colon.
+    ("10 colon 00 AM", "10 A. M."),
+    ("5 colon 00 PM", "5 PM"),
+    # One time with a mark, one without.
+    ("10:00 AM and 11:00", "10 A. M. and 11 o'clock"),
+])
+def test_a_full_hour_before_am_or_pm_has_no_oclock(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="elsewhere the host normalises the text, not the frontend")
+@pytest.mark.parametrize("lang", ENGLISH)
+@pytest.mark.parametrize("space", [" ", " "])
+def test_a_no_break_space_before_am_or_pm_is_a_space(prepare, lang, space):
+    """Time formats put U+202F or U+00A0 before the mark; text normalisation
+    has made it a space by the time the time step runs."""
+    assert prepare(lang, f"10:00{space}AM") == "10 A. M."
+    assert prepare(lang, f"5:00{space}PM") == "5 PM"
+
+
+@pytest.mark.parametrize("lang", ALL_ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    # The mark is a whole word: these only begin like one.
+    ("10:00 Amsterdam time", "10 o'clock Amsterdam time"),
+    ("5:00 PMs", "5 o'clock PMs"),
+    ("10:00 amid the noise", "10 o'clock amid the noise"),
+    ("10:00 AM2", "10 o'clock A. M.2"),
+    ("5:00 pmé", "5 o'clock pmé"),
+    # Something other than spaces between the time and the mark.
+    ("5:00, PM said", "5 o'clock, PM said"),
+    ("5:00. AM radio", "5 o'clock. A. M. radio"),
+    ("5:00/PM", "5 o'clock/PM"),
+    # A spelling the pack does not list.
+    ("5:00 pM", "5 o'clock pM"),
+    ("5:00 P. M.", "5 o'clock P. M."),
+    # No mark at all.
+    ("5:00", "5 o'clock"),
+    ("5:00 today", "5 o'clock today"),
+    ("5:00 ", "5 o'clock "),
+])
+def test_a_full_hour_before_anything_else_keeps_its_oclock(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+@pytest.mark.parametrize("lang", ALL_ENGLISH)
+@pytest.mark.parametrize("text, expected", [
+    # Only the full hour had an "o'clock" to lose.
+    ("10:30 AM", "10 30 A. M."),
+    ("10:05 PM", "10 oh 5 PM"),
+    ("6:03 a.m.", "6 oh 3 a.m."),
+    ("10:00:00 AM", "10:00:00 A. M."),
+    ("10 AM", "10 A. M."),
+    ("5 PM", "5 PM"),
+    ("I AM here at 5:00", "I A. M. here at 5 o'clock"),
+])
+def test_other_times_with_am_or_pm_read_as_before(prepare, lang, text, expected):
+    assert prepare(lang, text) == expected
+
+
+def _lang_yaml_without(packs_root, lang, key):
+    """Take the setting `key` (one line, or a key and its list items) out of a
+    copy of a pack; returns the lines taken out."""
+    path = packs_root / "packs" / "lang" / f"{lang}.yaml"
+    kept, taken, in_list = [], [], False
+    for line in path.read_text(encoding="utf-8").splitlines(keepends=True):
+        if line.startswith(f"  {key}:"):
+            taken.append(line)
+            in_list = line.strip() == f"{key}:"
+        elif in_list and line.startswith("    - "):
+            taken.append(line)
+        else:
+            in_list = False
+            kept.append(line)
+    path.write_text("".join(kept), encoding="utf-8", newline="")
+    return taken
+
+
+@pytest.fixture
+def prepare_with_packs(frontend, tmp_path):
+    """prepare(lang, text) on a copy of the packs that `edit(packs_root)` has changed."""
+    handles = []
+
+    def _make(edit):
+        root = tmp_path / f"packs{len(handles)}"
+        shutil.copytree(REPO / "packs", root / "packs")
+        edit(root)
+
+        def _prepare(lang, text):
+            h = frontend.create_handle(str(root))
+            handles.append(h)
+            frontend.set_language(h, lang)
+            return frontend.prepare_text(h, text)
+        return _prepare
+
+    yield _make
+    for h in handles:
+        frontend.destroy_handle(h)
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+def test_without_the_packs_list_every_full_hour_keeps_its_oclock(prepare_with_packs, lang):
+    """The words are the pack's: take the list out and the time step knows none."""
+    taken = []
+    prepare = prepare_with_packs(lambda root: taken.extend(_lang_yaml_without(root, "en", "twelveHourClockWords")))
+    assert len(taken) > 4, "packs/lang/en.yaml has no twelveHourClockWords list"
+    assert prepare(lang, "10:00 AM") == "10 o'clock A. M."
+    assert prepare(lang, "5:00 PM") == "5 o'clock PM"
+    assert prepare(lang, "5:00 p.m.") == "5 o'clock p.m."
+    assert prepare(lang, "10:30 AM") == "10 30 A. M."
+
+
+@pytest.mark.parametrize("lang", ENGLISH)
+def test_the_time_step_knows_only_the_words_of_the_pack(prepare_with_packs, lang):
+    """A pack with other words, in any script, gets those and no others."""
+    def edit(root):
+        _lang_yaml_without(root, "en", "twelveHourClockWords")
+        path = root / "packs" / "lang" / "en.yaml"
+        text = path.read_text(encoding="utf-8")
+        assert "\n  yearSplittingEnabled: true\n" in text
+        path.write_text(text.replace(
+            "\n  yearSplittingEnabled: true\n",
+            '\n  yearSplittingEnabled: true\n  twelveHourClockWords: ["xm", "π.μ.", "de la tarde"]\n', 1),
+            encoding="utf-8", newline="")
+
+    prepare = prepare_with_packs(edit)
+    assert prepare(lang, "5:00 xm") == "5 xm"
+    assert prepare(lang, "5:00 π.μ.") == "5 π.μ."
+    assert prepare(lang, "5:00 de la tarde") == "5 de la tarde"
+    assert prepare(lang, "5:00 PM") == "5 o'clock PM"
+    assert prepare(lang, "5:00 xmas") == "5 o'clock xmas"
+    assert prepare(lang, "5:00 π.μ.α") == "5 o'clock π.μ.α"
+
+
+def test_only_the_english_pack_lists_twelve_hour_clock_words():
+    """No list, no change: every other pack reads times as it did."""
+    with_list = sorted(p.stem for p in (REPO / "packs" / "lang").glob("*.yaml")
+                       if "twelveHourClockWords" in p.read_text(encoding="utf-8"))
+    assert with_list == ["en"]
 
 
 # ---------------------------------------------------------------------------

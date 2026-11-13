@@ -754,6 +754,9 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   std::sort(lp.dictSuffixes.begin(), lp.dictSuffixes.end(),
       [](const std::string& a, const std::string& b) { return a.size() > b.size(); });
 
+  // Words that mark a twelve-hour time, for time expansion (per-language).
+  getStrListFrom(settings, "twelveHourClockWords", lp.twelveHourClockWords);
+
   // Special coarticulation rules (language-specific Hz deltas)
   getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);
   getNum("specialCoarticMaxDeltaHz", lp.specialCoarticMaxDeltaHz);

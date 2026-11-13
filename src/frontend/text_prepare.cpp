@@ -81,10 +81,30 @@ static const char* ordinalSuffix(int n) {
 
 // ── Time expansion core ──
 
+// True when a word of `words` follows text[pos], after spaces or none, and
+// ends there.  The words are a pack's (twelveHourClockWords: "AM", "p.m."),
+// matched as they are written; this code knows none of them.
+static bool packWordFollows(const std::string& text, size_t pos,
+                            const std::vector<std::string>& words) {
+  if (words.empty()) return false;
+  while (pos < text.size() && text[pos] == ' ') ++pos;
+  for (const std::string& w : words) {
+    if (w.empty() || text.compare(pos, w.size(), w) != 0) continue;
+    const size_t end = pos + w.size();
+    if (end >= text.size()) return true;
+    // A letter or a digit goes on with another word: "Amsterdam", "AM2".
+    const std::u32string next = utf8ToU32(std::string_view(text).substr(end, 4));
+    if (!next.empty() && isPunctOrSpaceCodepoint(next[0])) return true;
+  }
+  return false;
+}
+
 static std::string expandTimeCore(const std::string& hourStr, int min,
                                   char minTens, char minOnes,
-                                  const std::string& ohDigit) {
-  if (min == 0) return hourStr + " o'clock";
+                                  const std::string& ohDigit,
+                                  bool clockWordFollows) {
+  // "10:00 AM" is "10 AM", not "10 o'clock AM" (#166).
+  if (min == 0) return clockWordFollows ? hourStr : hourStr + " o'clock";
   if (minTens == '0') {
     std::string oh = ohDigit.empty() ? "oh" : ohDigit;
     return hourStr + " " + oh + " " + minOnes;
@@ -410,9 +430,12 @@ std::string insertDateOrdinals(const std::string& text) {
 //   "5:00"       -> "5 o'clock"
 //   "08:15"      -> "8 15"      (the hour's leading zero is not read, #166)
 //   "10:00:00"   unchanged      (seconds: left to the phonemizer, #166)
+//   "10:00 AM"   -> "10 AM"     (a word of the pack's twelveHourClockWords
+//                                follows the full hour, #166)
 // Handles both raw ":" and NVDA's "colon" expansion.
 
-std::string expandTimes(const std::string& text, const std::string& ohDigit) {
+std::string expandTimes(const std::string& text, const std::string& ohDigit,
+                        const std::vector<std::string>& twelveHourClockWords) {
   auto isDigitAt = [&](size_t p) {
     return p < text.size() && std::isdigit(static_cast<unsigned char>(text[p]));
   };
@@ -454,7 +477,8 @@ std::string expandTimes(const std::string& text, const std::string& ohDigit) {
           int min  = (text[i + 1] - '0') * 10 + (text[i + 2] - '0');
           if (hour <= 23 && min <= 59) {
             std::string hourStr = hourText(numStart, hourLen, hour);
-            result += expandTimeCore(hourStr, min, text[i + 1], text[i + 2], ohDigit);
+            result += expandTimeCore(hourStr, min, text[i + 1], text[i + 2], ohDigit,
+                                     packWordFollows(text, i + 3, twelveHourClockWords));
             TPREP("  timeExpand(raw): \"%s\" -> ...\n",
                   text.substr(numStart, (i + 3) - numStart).c_str());
             i += 3;
@@ -473,7 +497,8 @@ std::string expandTimes(const std::string& text, const std::string& ohDigit) {
           int min  = (text[i + 7] - '0') * 10 + (text[i + 8] - '0');
           if (hour <= 23 && min <= 59) {
             std::string hourStr = hourText(numStart, hourLen, hour);
-            result += expandTimeCore(hourStr, min, text[i + 7], text[i + 8], ohDigit);
+            result += expandTimeCore(hourStr, min, text[i + 7], text[i + 8], ohDigit,
+                                     packWordFollows(text, i + 9, twelveHourClockWords));
             TPREP("  timeExpand(nvda): \"%s\" -> ...\n",
                   text.substr(numStart, (i + 9) - numStart).c_str());
             i += 9;

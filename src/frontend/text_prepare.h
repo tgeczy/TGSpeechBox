@@ -44,7 +44,10 @@ std::string insertDateOrdinals(const std::string& text);
 // Expand time patterns so eSpeak reads times naturally.
 // "6:03" -> "6 oh 3", "12:45" -> "12 45", "5:00" -> "5 o'clock".
 // Handles both raw ":" and NVDA's "colon" expansion.
-std::string expandTimes(const std::string& text, const std::string& ohDigit);
+// A full hour that a word of twelveHourClockWords follows (the pack's list:
+// "AM", "p.m.") gets no "o'clock": "10:00 AM" -> "10 AM".
+std::string expandTimes(const std::string& text, const std::string& ohDigit,
+                        const std::vector<std::string>& twelveHourClockWords);
 
 // Separate digit-hyphen-digit so year splitting can process both halves.
 // "2024-2025" -> "2024 2025" (raw), "2024 dash-2025" -> "2024 dash 2025" (NVDA).

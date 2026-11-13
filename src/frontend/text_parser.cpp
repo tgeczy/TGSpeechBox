@@ -1098,7 +1098,8 @@ std::string prepareTextForEspeak(
     bool thousandsSeparatorCommaToSpace,
     const std::string& ohDigit,
     const std::vector<std::string>& dictSuffixes,
-    std::unordered_map<std::string, std::string>* ipaOverrides)
+    std::unordered_map<std::string, std::string>* ipaOverrides,
+    const std::vector<std::string>& twelveHourClockWords)
 {
   if (text.empty()) return text;
 
@@ -1222,7 +1223,16 @@ std::string prepareTextForEspeak(
     result = insertDateOrdinals(result);
   }
 
-  // 3. Expand uppercase "AM" → "A. M." so eSpeak spells it as letter names
+  // 3. Time expansion ("6:03" → "6 oh 3", "12:45" → "12 45").
+  //    Before step 4, so that the pack's twelveHourClockWords are looked for
+  //    in the text as it was written ("10:00 AM", #166).
+  if (langTag.size() >= 2 && (langTag[0] == 'e' || langTag[0] == 'E') &&
+      (langTag[1] == 'n' || langTag[1] == 'N') &&
+      (langTag.size() == 2 || langTag[2] == '-' || langTag[2] == '_')) {
+    result = expandTimes(result, ohDigit, twelveHourClockWords);
+  }
+
+  // 4. Expand uppercase "AM" → "A. M." so eSpeak spells it as letter names
   //    ("ay em") instead of the word "am".  Dots trigger eSpeak's abbreviation
   //    mode.  Applies to all-caps only ("AM", not "am"/"Am").
   //    "PM" already comes out as "P M" from eSpeak, so no fix needed there.
@@ -1246,13 +1256,6 @@ std::string prepareTextForEspeak(
       ++i;
     }
     result = std::move(expanded);
-  }
-
-  // 4. Time expansion ("6:03" → "6 oh 3", "12:45" → "12 45").
-  if (langTag.size() >= 2 && (langTag[0] == 'e' || langTag[0] == 'E') &&
-      (langTag[1] == 'n' || langTag[1] == 'N') &&
-      (langTag.size() == 2 || langTag[2] == '-' || langTag[2] == '_')) {
-    result = expandTimes(result, ohDigit);
   }
 
   // 5. Separate hyphenated numbers so year splitting can process both.

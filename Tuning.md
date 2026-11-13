@@ -361,6 +361,21 @@ With a dict entry `launch → lawnch`, speaking "launching" automatically produc
 
 Agglutinative languages like Hungarian and Turkish have large suffix lists (42 and 22 entries respectively) covering case endings, plurals, and diminutives. Isolating languages like Chinese have no suffixes. See each language's YAML for the full list.
 
+### Times and numbers in text preparation
+Text preparation rewrites some times and numbers before the phonemizer reads them. What differs by language is set in the pack.
+
+- `twelveHourClockWords` (string list, default `[]`): The words that mark a time of the twelve-hour clock, in each spelling to recognise ("AM", "pm", "a.m."). Where clock times are expanded (English today: "5:00" → "5 o'clock"), a full hour that one of these words follows is read as the hour alone: "10:00 AM" → "10 AM", not "10 o'clock AM". A word is matched exactly as written (list each casing), after spaces or none, and only as a whole word ("10:00 Amsterdam" keeps its "o'clock"). With no list, every full hour keeps its "o'clock".
+
+Example (English, in `en.yaml`):
+```yaml
+settings:
+  twelveHourClockWords:
+    - "AM"
+    - "PM"
+    - "a.m."
+    - "p.m."
+```
+
 ### Post-stop aspiration insertion (English-style)
 - `postStopAspirationEnabled` (bool, default `false`): Inserts a short aspiration phoneme after unvoiced stops in specific contexts.
 - `postStopAspirationPhoneme` (string/IPA key, default `"h"`): Which phoneme key to insert for aspiration.

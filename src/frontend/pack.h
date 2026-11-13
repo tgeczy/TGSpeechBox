@@ -1023,6 +1023,11 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // their stem entry ("launch").  Pre-sorted longest-first at load time.
   std::vector<std::string> dictSuffixes;
 
+  // The words that mark a time of the twelve-hour clock ("AM", "p.m."), as
+  // they are written.  A full hour before one is read without "o'clock":
+  // "10:00 AM" → "10 AM" (#166).  Empty by default: no pack word, no change.
+  std::vector<std::string> twelveHourClockWords;
+
   // Special coarticulation rules (language-specific Hz deltas).
   bool specialCoarticulationEnabled = false;
   std::vector<SpecialCoarticRule> specialCoarticRules;

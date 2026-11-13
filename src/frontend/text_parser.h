@@ -58,7 +58,8 @@ std::string prepareTextForEspeak(
     bool thousandsSeparatorCommaToSpace = false,
     const std::string& ohDigit = "",
     const std::vector<std::string>& dictSuffixes = {},
-    std::unordered_map<std::string, std::string>* ipaOverrides = nullptr);
+    std::unordered_map<std::string, std::string>* ipaOverrides = nullptr,
+    const std::vector<std::string>& twelveHourClockWords = {});
 
 }  // namespace nvsp_frontend
 

@@ -93,6 +93,21 @@ settings:
   # "1995" → "19 95" (eSpeak says "nineteen ninety-five").
   yearSplittingEnabled: true
 
+  # The marks of the twelve-hour clock, in each spelling to recognise.  A full
+  # hour before one is read without "o'clock": "10:00 AM" is "ten A M", not
+  # "ten o'clock A M" (#166).  Matched as written, as a whole word.
+  twelveHourClockWords:
+    - "AM"
+    - "PM"
+    - "am"
+    - "pm"
+    - "Am"
+    - "Pm"
+    - "A.M."
+    - "P.M."
+    - "a.m."
+    - "p.m."
+
   # Suffix stripping for dictionary lookup — inflected forms like
   # "launching" match the stem "launch" with the suffix reattached.
   # Sorted longest-first at load time; 3-char minimum stem.
