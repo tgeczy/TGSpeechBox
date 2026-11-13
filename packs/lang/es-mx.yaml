@@ -16,6 +16,11 @@ normalization:
       to: s_es
     - from: "ɾs"
       to: "ɾᵊs_es"
+    # es.yaml writes x_es and s_es into two more of its cluster rules (#187).
+    - from: "ɾx"
+      to: "ɾᵊx_es"
+    - from: "sɡ"
+      to: "s_esᵊɡ"
 
   preReplacements:
     # Mexican yeísmo: espeak es-419 emits "jj" for intervocalic ll
@@ -30,6 +35,13 @@ normalization:
     # #143).  Before s → s_mx, or that would take the /s/ out of "ɾs" first.
     - from: "ɾs"
       to: "ɾᵊs_mx"
+    # The same for es.yaml's other two cluster rules with an /x/ or /s/ in
+    # them (#187): "virgen" keeps the Mexican (base) /x/, and /s/ before a
+    # hard g is s_mx.  Before s → s_mx, like the rule above.
+    - from: "ɾx"
+      to: "ɾᵊx"
+    - from: "sɡ"
+      to: "s_mxᵊɡ"
     # Mexican laminal /s/ — brighter and more diffuse than Castilian apical.
     - from: s
       to: s_mx

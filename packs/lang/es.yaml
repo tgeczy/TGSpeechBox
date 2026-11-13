@@ -296,9 +296,31 @@ normalization:
     # ===== End Espeak =====
     # Separate consonant clusters so they don't blend together.
     # Insert a micro-schwa to give each consonant space.
+    #
+    # A rule writes the consonant as the Spanish phoneme it maps to further
+    # down (ð_es, d_es, m_es, n_es, x_es, s_es, t͡ʃ_es, and l_es before a
+    # velar).  A rule that makes the text longer protects its output from the
+    # rules after it, so those mappings never reach a consonant written here,
+    # and "verde", "padre", "carne", "arma", "virgen", "archivo" played the
+    # base, English-tuned ð, n, m, x and t͡ʃ (#187).  Spanish /b d g/ are
+    # approximants after a tap as after a vowel, [ˈbeɾðe], [ˈaɾβol]
+    # (Martínez-Celdrán, Fernández-Planas & Carrera-Sabaté 2003, "Castilian
+    # Spanish", JIPA 33(2); Carrasco, Hualde & Simonet 2012, Phonetica 69(3),
+    # after liquids in Madrid Spanish).  es-mx swaps in its own for /x/ and
+    # /s/.  tests/test_es_cluster_consonants.py.
+    #
+    # Not the l AFTER the micro-schwa or after ɣ_cls (ɾl, ɡl, ɣl: "perla",
+    # "Carlos", "globo", "regla"): that is still the base l, on purpose.  With
+    # l_es there, Whisper large-v2 lost words it had heard with the base l:
+    # "perla" as "tela", "burla" as "luna", "parlamento" as "paralamento",
+    # "global", "regla" as "red la", "reglamento" as "reflamento" (ɾl and ɡl:
+    # 2 of 14 sentences against 6 of 14; ɣl: 12 of 14 against 14 of 14).  The
+    # Spanish l belongs there too, but it needs the schwa and ɣ_cls tuned
+    # with it, by ear.
+    #
     # ɾ+approximant clusters (e.g. "verde" = ɾð, "largo" = ɾɣ)
     - from: "ɾð"
-      to: "ɾᵊð"
+      to: "ɾᵊð_es"
     # /ɾɣ/ → /ɾᵊɡ/ (NOT /ɾᵊɣ/): plain /ɡ/'s 30 ms closure works after schwa,
     # while /ɡ_es/'s 8 ms is masked by surrounding voicing. See rationale on
     # the /lɣ/, /sɣ/ block below.
@@ -311,15 +333,15 @@ normalization:
     - from: "ɾf"
       to: "ɾᵊf"
     - from: "ɾx"
-      to: "ɾᵊx"
+      to: "ɾᵊx_es"
     - from: "ɾk"
       to: "ɾᵊk"
     - from: "ɾl"
       to: "ɾᵊl"
     - from: "ɾm"
-      to: "ɾᵊm"
+      to: "ɾᵊm_es"
     - from: "ɾn"
-      to: "ɾᵊn"
+      to: "ɾᵊn_es"
     - from: "ɾp"
       to: "ɾᵊp"
     # The /s/ is written as the dialect's own: a replacement's output is
@@ -328,9 +350,10 @@ normalization:
     # es-mx swaps it for ɾᵊs_mx.
     - from: "ɾs"
       to: "ɾᵊs_es"
-    # Todo: I don't know why this doesn't work. Proper r with micro schwa for words like "archivo"
+    # Proper r with micro schwa for words like "archivo".  (The rule did
+    # fire, but wrote the base t͡ʃ; see the note at the top of this block.)
     - from: "ɾt͡ʃ"
-      to: "ɾᵊt͡ʃ"
+      to: "ɾᵊt͡ʃ_es"
     - from: "ɾt"
       to: "ɾᵊt"
     # Approximant/stop + ɾ clusters (e.g. "madre" = ðɾ, "abrir" = βɾ)
@@ -339,7 +362,7 @@ normalization:
     - from: "βɾ"
       to: "βᵊɾ"
     - from: "ðɾ"
-      to: "ðᵊɾ"
+      to: "ð_esᵊɾ"
     - from: "fɾ"
       to: "fᵊɾ"
     - from: "ɡɾ"
@@ -354,7 +377,7 @@ normalization:
     - from: "pɾ"
       to: "pᵊɾ"
     - from: "dɾ"
-      to: "dᵊɾ"
+      to: "d_esᵊɾ"
     - from: "tɾ"
       to: "tᵊɾ"
     # Separate sonorant/fricative + velar clusters so the preceding
@@ -370,7 +393,7 @@ normalization:
     # /ɡ/'s 30 ms Spanish default closure is enough silence after the
     # schwa to read as a true stop.
     - from: "lɡ"
-      to: "lᵊɡ"
+      to: "l_esᵊɡ"
     # 2026-05-01: was lɣ→lᵊɡ. Tomi ear-test caught regla/salga sounding
     # too-hard ("americanized G") vs eSpeak's softer fricative. The original
     # /ɡ/ routing was justified when /ɣ_es/ was a silent approximant
@@ -384,12 +407,12 @@ normalization:
     # "abró", "alguien" → "abre bien"; without the schwa it hears
     # "algunos", "algunas".  Spanish says [alˈɣunos].
     - from: "lɣ"
-      to: "lɣ_cls"
+      to: "l_esɣ_cls"
     - from: "ɾɡ"
       to: "ɾᵊɡ"
     # Note: ɾɣ handled above (line ~228, also collapses to /ɡ/).
     - from: "sɡ"
-      to: "sᵊɡ"
+      to: "s_esᵊɡ"
     # /sɣ/ — Tomi's ear 2026-04-26 caught the prior "sᵊɡ" rule producing
     # too-hard "as-go" separation in "hasgo" vs eSpeak's smooth "asgo".
     # Letting /ɣ/ pass through to the dialect replacement (→ ɣ_es) keeps
@@ -402,6 +425,7 @@ normalization:
     # in fluent Spanish, pre-liquid velars CAN spirantize ([ˈreɣla]). With
     # /ɣ_es/ now salient-fricative, the schwa+fricative path matches
     # eSpeak's natural realization.
+    # #187: the l stays the base l here; see the note above the ɾð rule.
     - from: "ɣl"
       to: "ɣ_clsl"    # b8: tight cluster event, schwa dropped (whisper A/B: iglesia 0.29→1.00, arreglado →1.00)
     - from: "ɡl"
