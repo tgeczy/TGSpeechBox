@@ -1348,7 +1348,9 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   // Pre-voiceless shortening: vowels before voiceless C are shorter.
   bool microprosodyPreVoicelessShortenEnabled = true;
   double microprosodyPreVoicelessShortenScale = 0.85;  // 85% of normal
-  double microprosodyPreVoicelessMinMs = 25.0;         // matches rate comp floor
+  // Shortening stops here and never lengthens (#181).  ms at speed 1.0;
+  // divided by the speed above 1.0, down to microprosodyMinVowelMs.
+  double microprosodyPreVoicelessMinMs = 25.0;
 
   // Voiceless coda lengthening: complement to pre-voiceless shortening.
   // Voiceless consonants after voiced segments grow to compensate.

@@ -2017,6 +2017,9 @@ Microprosody adds small F0 perturbations around consonant→vowel boundaries and
   # Phase 4: pre-voiceless shortening
   microprosodyPreVoicelessShortenEnabled: true
   microprosodyPreVoicelessShortenScale: 0.85
+  # Shortening stops at this length and never lengthens a vowel that is
+  # already under it.  ms at speed 1.0; above 1.0 it is divided by the speed,
+  # down to microprosodyMinVowelMs.
   microprosodyPreVoicelessMinMs: 25
 
   # Phase 5: voiceless coda lengthening

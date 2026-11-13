@@ -160,8 +160,26 @@ bool runMicroprosody(PassContext& ctx, std::vector<Token>& tokens, std::string& 
     // into too few micro-frames, making it inaudible before voiceless stops.
     if (next && lang.microprosodyPreVoicelessShortenEnabled && !v.isDiphthongGlide) {
       if (isVoicelessConsonant(*next)) {
-        v.durationMs *= lang.microprosodyPreVoicelessShortenScale;
-        v.durationMs = std::max(v.durationMs, lang.microprosodyPreVoicelessMinMs);
+        // The floor stops the shortening; it never lengthens (#181).  It was
+        // a fixed length, so at fast rates, where rate scaling had already
+        // taken the vowel under it, the vowel before a voiceless consonant
+        // came out longer than the same vowel before a voiced one: the cue
+        // upside down (Chen 1970, Phonetica 22: 129-159: English vowels are
+        // 0.61-0.69 as long before voiceless).  Klatt 1976 (J. Acoust. Soc.
+        // Am. 59: 1208-1221): a shortening rule works on the part of a
+        // segment above its minimum, Df = K * (Di - Dmin) + Dmin, so it
+        // cannot cross Dmin from either side.  The floor is ms at speed 1.0
+        // and shrinks with the rate above that, as every length does, down
+        // to microprosodyMinVowelMs: under that this pass leaves a vowel
+        // alone, and a vowel just over it must not end shorter than one just
+        // under.  (An unstressed vowel's minimum is 20-50 ms in MITalk:
+        // Allen, Hunnicutt & Klatt 1987, table 9-1.)
+        const double sp = (ctx.speed > 1.0) ? ctx.speed : 1.0;
+        const double minMs = lang.microprosodyPreVoicelessMinMs;
+        const double floorMs = std::max(minMs / sp, std::min(minMs, lang.microprosodyMinVowelMs));
+        const double shortened = std::max(
+            v.durationMs * lang.microprosodyPreVoicelessShortenScale, floorMs);
+        v.durationMs = std::min(v.durationMs, shortened);
       }
     }
   }
