@@ -538,7 +538,7 @@ settings:
       - skj
 
   legacyPitchMode: espeak_style
-  legacyPitchInflectionScale: 0.56
+  legacyPitchInflectionScale: 0.58
 
 # ═════════════════════════════════════════════════════════════════
 # NORMALIZATION

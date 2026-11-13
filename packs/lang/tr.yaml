@@ -375,7 +375,7 @@ settings:
       - skɾ
 
   legacyPitchMode: espeak_style
-  legacyPitchInflectionScale: 0.56
+  legacyPitchInflectionScale: 0.58
 
   thousandsSeparatorCommaToSpace: true
 

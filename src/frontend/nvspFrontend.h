@@ -517,10 +517,14 @@ NVSP_FRONTEND_API int nvspFrontend_setPitchMode(
 );
 
 /*
-  Override the legacy pitch inflection scale at runtime.
+  Override the inflection scale at runtime.
 
-  Only affects the "legacy" pitch mode.
-  1.0 preserves historical behavior; 0.58 is the default (maps 0.60 → 0.35).
+  Works in every pitch mode.  0.58 is the default and the normal position.
+  In the "legacy" and "fujisaki_style" modes the inflection is multiplied by
+  the scale itself (1.0 is the historical classic behaviour; 0.58 maps an
+  inflection of 0.60 to 0.35).  In every other mode the melody is as
+  designed at 0.58 and scales in proportion: half as wide at 0.29, twice as
+  wide at 1.16.  Range 0 to 2.  The name is historical.
 
   Persists until the next setLanguage() call (which reloads from YAML).
 */

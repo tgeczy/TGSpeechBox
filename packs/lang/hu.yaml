@@ -311,7 +311,7 @@ settings:
   # continuation, not a statement ("Inglés, Estados Unidos"; #155).
 
   spellingDiphthongMode: monophthong
-  legacyPitchInflectionScale: 0.56
+  legacyPitchInflectionScale: 0.58
 
   # A comma before three digits is a thousands separator here: "1,500" is
   # "ezer ötszáz" and "10,000" "tízezer", as they have always been read.  The

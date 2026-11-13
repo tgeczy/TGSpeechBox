@@ -621,7 +621,7 @@ settings:
       - skj
 
   legacyPitchMode: espeak_style
-  legacyPitchInflectionScale: 0.56
+  legacyPitchInflectionScale: 0.58
 
 normalization:
   # en.yaml opens FOOT ʊ→ʊ̞ for US/AU accents.  RP FOOT is closer

@@ -917,7 +917,7 @@ settings:
       - skj
 
   legacyPitchMode: espeak_style
-  legacyPitchInflectionScale: 0.56
+  legacyPitchInflectionScale: 0.58
 
   # Fujisaki pitch model tuning (active when legacyPitchMode: fujisaki_style).
   # Power curve: 1.4 compresses secondary stress for audible primary/secondary contrast.

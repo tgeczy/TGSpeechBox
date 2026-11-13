@@ -534,6 +534,10 @@ static void setDefaultVoiceFields(const LanguagePack& lang, Token& t) {
   setIfUnset(FieldId::outputGain, lang.defaultOutputGain);
 }
 
+// The inflection scale's normal position: what the packs ship, and the value
+// at which the pitch modes that take the scale as a factor are unchanged.
+static constexpr double kNormalInflectionScale = 0.58;
+
 bool convertIpaToTokens(
   const PackSet& pack,
   const std::string& ipaUtf8,
@@ -562,15 +566,25 @@ bool convertIpaToTokens(
     }
   }
 
-  // The legacy pitch math was historically paired with a lower default inflection
-  // setting (e.g. 35) than many modern configs (often 60).
-  // To keep legacyPitchMode usable without forcing users to retune sliders,
-  // we apply an optional scale here.
-  double inflScale = pack.lang.legacyPitchInflectionScale;
-  if (inflScale <= 0.0) inflScale = 1.0;
-  // Keep this bounded to avoid pathological values from bad configs.
-  if (inflScale > 2.0) inflScale = 2.0;
-  const double infl = inflection * inflScale;
+  // The inflection scale (legacyPitchInflectionScale) works in every pitch
+  // mode (#177).  It was made for the classic mode, whose pitch math was
+  // paired with a lower inflection than today's sliders give, so its normal
+  // value is 0.58 and not 1; the Fujisaki mode came to use it too.  Those two
+  // passes read it themselves, as they always have.  Every other mode
+  // multiplies its pitch movements by the inflection, so there the scale is
+  // one more factor on it, taken relative to the normal value: at 0.58
+  // nothing changes, half of it gives half the movement, twice gives twice.
+  // Capped like the profile's scale above.
+  {
+    const std::string& mode = pack.lang.legacyPitchMode;
+    if (mode != "legacy" && mode != "fujisaki_style") {
+      double inflScale = pack.lang.legacyPitchInflectionScale;
+      if (!(inflScale >= 0.0)) inflScale = kNormalInflectionScale;  // negative or not a number: as unset
+      if (inflScale > 2.0) inflScale = 2.0;
+      inflection *= inflScale / kNormalInflectionScale;
+      if (inflection > 1.5) inflection = 1.5;
+    }
+  }
   if (clauseType == 0) clauseType = '.';
 
   const std::u32string normalized = internal::normalizeIpaText(pack, ipaUtf8);

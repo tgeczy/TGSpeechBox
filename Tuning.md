@@ -670,7 +670,7 @@ The frontend supports five pitch models, selected via `legacyPitchMode`:
 
 Additional pitch settings:
 
-- `legacyPitchInflectionScale` (number, default `0.58`): Multiplier for the caller-provided `inflection` (0..1) before applying pitch math. Historical NVSpeechPlayer used lower inflection values; this scaling prevents overly "excited" speech with modern configs.
+- `legacyPitchInflectionScale` (number, default `0.58`, range 0 to 2): The inflection scale. It works in every pitch mode; the name is historical. It was made for the classic (`legacy`) mode: historical NVSpeechPlayer used lower inflection values, and the scale multiplies the caller-provided `inflection` (0..1) there so that modern slider positions do not sound overly "excited". The Fujisaki mode multiplies by it in the same way. In every other mode (`espeak_style`, `klatt_style`, `impulse_style`, `arato_style`) `0.58` is the normal position, where the melody is exactly as designed, and other values scale it in proportion: half as wide at `0.29`, twice as wide at `1.16` (the product with the inflection is capped at 1.5). Every shipped pack has `0.58`.
 
 #### Fujisaki pitch model settings
 

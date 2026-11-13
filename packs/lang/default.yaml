@@ -50,6 +50,10 @@ settings:
 #
 # Values are pitch percents (0..100) used by the frontend's pitchFromPercent().
   legacyPitchMode: false
+  # The inflection scale, for every pitch mode.  0.58 is its normal position:
+  # the classic and Fujisaki modes multiply their inflection by it, and in the
+  # other modes the melody is as designed at 0.58, half as wide at 0.29 and
+  # twice as wide at 1.16 (#177).
   legacyPitchInflectionScale: 0.58
 
   # Normalization cleanup

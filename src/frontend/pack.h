@@ -415,6 +415,11 @@ struct LanguagePack {
   //
   // 1.0 preserves the historical behavior exactly.
   // A value around 0.58 maps 0.60 -> 0.35.
+  //
+  // The scale works in every pitch mode (#177).  The classic and Fujisaki
+  // passes multiply by it as described; every other mode takes it relative
+  // to its normal value, 0.58, as one more factor on the inflection
+  // (ipa_engine.cpp), so the shipped value changes nothing there.
   double legacyPitchInflectionScale = 0.58;
 
   // Fujisaki pitch model parameters (used when legacyPitchMode = "fujisaki_style").
