@@ -10550,7 +10550,17 @@ voiceProfiles:
         aspirationAmplitude_mul: 0.75
         preFormantGain_mul: 0.78
         outputGain_mul: 0.90
-    phonemeOverrides: {}
+    phonemeOverrides:
+      # Hungarian á.  Her class scales put its third formant at 3025 Hz, next
+      # to F4 and F5 (about 3290 and 3500 Hz), and the three ran together into
+      # one hard peak near 3 kHz: "ear-splitting sharp" to the maintainer's
+      # ear, and more so once her vowels held their own formants after a
+      # consonant (#173).  A lower, wider F3 and a wider F4, chosen by ear
+      # from two candidates, take the edge off; á is about 2 dB quieter.
+      "á":
+        cf3: 2860
+        cb3: 300
+        cb4: 380
   Bobby:
     voicingTone:
       voicingPeakPos: 0.88
