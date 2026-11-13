@@ -522,7 +522,7 @@ Shipped profiles: **Adam** (base male), **Beth** (female — f4FreqScale, nasalB
 // Override pitch intonation model. Persists until next setLanguage().
 int nvspFrontend_setPitchMode(handle, const char* modeUtf8);
 
-// Override legacy pitch inflection scale (only affects "legacy" mode).
+// Override the inflection scale (every pitch mode; 0.58 is its normal position).
 void nvspFrontend_setLegacyPitchInflectionScale(handle, double scale);
 ```
 
