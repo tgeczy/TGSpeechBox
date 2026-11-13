@@ -5,9 +5,13 @@ Licensed under the MIT License. See LICENSE for details.
 */
 
 #include "utf8.h"
+#include "unicode_compose_table.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -193,6 +197,135 @@ std::string stripInvisible(std::string_view s) {
   return u32ToUtf8(out);
 }
 
+// ── Canonical composition ───────────────────────────────────────────────────
+//
+// Unicode's canonical composition (UAX #15, NFC) with the data cut down to
+// Latin, Greek and Cyrillic (unicode_compose_table.h): decompose, put each
+// letter's marks in canonical order, compose.  A combining mark of another
+// script is not in the table and counts as a letter here, so nothing moves
+// across it and text of other scripts comes back as it went in.
+// tests/cpp/test_unicode_compose.cpp holds this to the system's NFC on
+// Windows.
+
+namespace {
+
+using unicode_compose::kMarks;
+using unicode_compose::kPairs;
+using unicode_compose::kSingles;
+
+// Canonical combining class: 0 for a letter, non-zero for a combining mark.
+int combiningClass(char32_t c) {
+  if (c < 0x300 || c > 0xFFFF) return 0;  // no combining mark of these scripts is below U+0300
+  const auto* end = std::end(kMarks);
+  const auto* it = std::lower_bound(std::begin(kMarks), end, c,
+      [](const unicode_compose::Mark& m, char32_t v) { return static_cast<char32_t>(m.cp) < v; });
+  return (it != end && static_cast<char32_t>(it->cp) == c) ? it->ccc : 0;
+}
+
+const unicode_compose::Single* findSingle(char32_t c) {
+  if (c < 0x300 || c > 0xFFFF) return nullptr;
+  const auto* end = std::end(kSingles);
+  const auto* it = std::lower_bound(std::begin(kSingles), end, c,
+      [](const unicode_compose::Single& s, char32_t v) { return static_cast<char32_t>(s.cp) < v; });
+  return (it != end && static_cast<char32_t>(it->cp) == c) ? it : nullptr;
+}
+
+// The precomposed letter for (letter, mark), or 0.
+char32_t composePair(char32_t first, char32_t second) {
+  if (first > 0xFFFF || second > 0xFFFF) return 0;
+  // One key for the pair, as the table is sorted.
+  const uint32_t key = (static_cast<uint32_t>(first) << 16) | static_cast<uint32_t>(second);
+  const auto* end = std::end(kPairs);
+  const auto* it = std::lower_bound(std::begin(kPairs), end, key,
+      [](const unicode_compose::Pair& p, uint32_t v) {
+        return ((static_cast<uint32_t>(p.first) << 16) | p.second) < v;
+      });
+  return (it != end && ((static_cast<uint32_t>(it->first) << 16) | it->second) == key)
+             ? static_cast<char32_t>(it->composed) : 0;
+}
+
+// Append the full canonical decomposition of c.
+void decomposeInto(char32_t c, std::u32string& out) {
+  if (c < 0xC0) {  // nothing below À decomposes
+    out.push_back(c);
+    return;
+  }
+  if (const auto* s = findSingle(c)) {
+    decomposeInto(static_cast<char32_t>(s->first), out);
+    if (s->second) decomposeInto(static_cast<char32_t>(s->second), out);
+    return;
+  }
+  if (c <= 0xFFFF) {
+    // The pairs are sorted for composing; this way round is a plain scan,
+    // run only for text that has a combining mark in it.
+    for (const auto& p : kPairs) {
+      if (static_cast<char32_t>(p.composed) == c) {
+        decomposeInto(static_cast<char32_t>(p.first), out);
+        out.push_back(static_cast<char32_t>(p.second));
+        return;
+      }
+    }
+  }
+  out.push_back(c);
+}
+
+}  // namespace
+
+std::string composeCanonical(const std::string& utf8) {
+  // Only a combining mark, or one of the few code points whose canonical form
+  // is another, gives this anything to do.  They all start at U+0300, which
+  // is "\xCC\x80" in UTF-8, so text with no byte that high is returned at once.
+  bool mayChange = false;
+  for (unsigned char b : utf8) {
+    if (b >= 0xCC) { mayChange = true; break; }
+  }
+  if (!mayChange) return utf8;
+
+  const std::u32string in = utf8ToU32(utf8);
+  mayChange = false;
+  for (char32_t c : in) {
+    if (c >= 0x300 && (combiningClass(c) != 0 || findSingle(c))) { mayChange = true; break; }
+  }
+  if (!mayChange) return utf8;
+
+  std::u32string d;
+  d.reserve(in.size() + 8);
+  for (char32_t c : in) decomposeInto(c, d);
+
+  // Canonical order: within a run of marks, lower combining class first, and
+  // marks of the same class keep their order.
+  for (size_t i = 0; i < d.size();) {
+    if (combiningClass(d[i]) == 0) { ++i; continue; }
+    size_t j = i;
+    while (j < d.size() && combiningClass(d[j]) != 0) ++j;
+    std::stable_sort(d.begin() + static_cast<std::ptrdiff_t>(i), d.begin() + static_cast<std::ptrdiff_t>(j),
+        [](char32_t a, char32_t b) { return combiningClass(a) < combiningClass(b); });
+    i = j;
+  }
+
+  // Compose: a mark joins the last letter unless a mark of the same or a
+  // higher class stands between them.
+  std::u32string out;
+  out.reserve(d.size());
+  size_t starter = std::u32string::npos;
+  int lastClass = 0;
+  for (char32_t c : d) {
+    const int cls = combiningClass(c);
+    if (starter != std::u32string::npos && cls != 0 && (lastClass == 0 || lastClass < cls)) {
+      if (char32_t composed = composePair(out[starter], c)) {
+        out[starter] = composed;
+        continue;
+      }
+    }
+    if (cls == 0) starter = out.size();
+    lastClass = cls;
+    out.push_back(c);
+  }
+
+  if (out == in) return utf8;
+  return u32ToUtf8(out);
+}
+
 // ── NFKC normalization ──────────────────────────────────────────────────────
 
 #ifdef _WIN32
@@ -277,11 +410,12 @@ std::string normalizeNFKC(const std::string& utf8) {
 
 #else
 
-// Linux/Android: normalize at the platform layer (Java Normalizer, Python
-// unicodedata.normalize) before calling into C++.  The C++ frontend is a
-// safety net — if text arrives un-normalized, dictionary lookups may miss
-// but synthesis still works.
-std::string normalizeNFKC(const std::string& utf8) { return utf8; }
+// Linux/Android: no system normalizer to call (nothing above the frontend
+// normalizes either: this was the identity until #169, and decomposed text
+// missed the dictionaries).  Letters and their combining marks are composed
+// here; the compatibility forms NFKC also folds (fullwidth letters,
+// ligatures, superscripts) are left as they are.
+std::string normalizeNFKC(const std::string& utf8) { return composeCanonical(utf8); }
 
 #endif
 

@@ -44,9 +44,17 @@ std::string normalizeLangTag(std::string_view tag);
 // soft hyphen, bidi controls, etc.).
 std::string stripInvisible(std::string_view s);
 
+// Canonical composition (NFC) for the Latin, Greek and Cyrillic scripts, with
+// no platform library: a letter followed by combining marks ("e" + U+0301)
+// becomes the one precomposed letter the dictionaries are written with.
+// Text of other scripts, and compatibility forms (fullwidth letters,
+// ligatures, superscripts), come back as they went in.
+std::string composeCanonical(const std::string& s);
+
 // Normalize UTF-8 string to NFKC form.
 // Windows: NormalizeString (Vista+). Apple: CFStringNormalize.
-// Other platforms: identity (normalize at the Java/Python/Swift layer).
+// Other platforms (Linux, Android): composeCanonical, which composes letters
+// and leaves compatibility forms alone.
 std::string normalizeNFKC(const std::string& s);
 
 // Convenience: stripInvisible + normalizeNFKC in one call.
