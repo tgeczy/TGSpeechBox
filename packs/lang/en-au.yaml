@@ -65,7 +65,6 @@ settings:
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 0
-  coarticulationRightSideScale: 0.65
   coarticulationVelarF2LocusFront: 1800
   coarticulationVelarF2LocusBack: 1100
 

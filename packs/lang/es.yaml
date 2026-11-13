@@ -33,7 +33,8 @@ settings:
   # Diphthong offglide duration: default 20ms starves /ei/, /eu/ glides
   # ("rey", "rei", "reu" lose the final vowel).  30ms gives the formant
   # sweep time to settle at the offglide target.
-  tiedFromVowelDurationMs: 30
+  # Not applied (#178): "tiedFromVowelDurationMs: 30" stood here, but the
+  # frontend has never read that key (Tuning.md: built in, 20 ms).
   # Resist speed compression on diphthongs (0=none, 1=fully rate-invariant).
   diphthongRateCompensation: 0.3
 
@@ -115,8 +116,6 @@ settings:
   allophoneRulesEnabled: true
   allophoneRules:
     enabled: false
-    glottalReinforcement:
-      enabled: false
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: false

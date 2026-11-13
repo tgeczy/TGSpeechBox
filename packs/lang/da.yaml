@@ -36,7 +36,9 @@ settings:
   # runs longer than English's (en-us uses 35).  Was off (Fubsepude: "major
   # issues").
   postStopAspirationEnabled: true
-  postStopAspirationDurationMs: 45
+  # Not applied (#178): "postStopAspirationDurationMs: 45" stood here, but the
+  # frontend has never read that key (Tuning.md: built in, 20 ms), and en-us
+  # plays 20 ms as well, not 35.  The length is still to be given to Danish.
   # ...but not after s: spiser, stå, skal (as in English speak, stop, sky).
   postStopAspirationAfterSibilant: false
   coarticulationEnabled: false

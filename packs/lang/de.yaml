@@ -56,7 +56,11 @@ settings:
   boundarySmoothingEnabled: true
 
   # ── Contextual rules ───────────────────────────────────────────
-  contextualRules:
+  # Not applied (#178): these four rules stood in a "contextualRules:" block,
+  # which the frontend does not read (rules are read from allophoneRules.rules,
+  # above), so none of them has ever run.  Kept as written, for whoever moves
+  # them there with a German listener.
+  # contextualRules:
     # ── Voiceless stop burst rebalance ─────────────────────────────
     # Base phonemes have very high frication relative to burst energy:
     #   /t/ fricationAmplitude=0.92 vs /t͡ʃ/ fricationAmplitude=0.88
@@ -64,57 +68,57 @@ settings:
     # This makes stops sound fricative-like (/t/→"ch", /k/→"f"/"t").
     # Fix: cut frication, boost burst transient + aspiration to widen
     # the perceptual gap between stops and their fricative confusors.
-      - name: voiceless_stop_burst_boost
-        flags: [stop]
-        notFlags: [voiced]
-        action: scale
-        fieldScales:
-          fricationAmplitude: 0.78
-          aspirationAmplitude: 1.45
-          pa1: 1.30
-          pa2: 1.25
+  #     - name: voiceless_stop_burst_boost
+  #       flags: [stop]
+  #       notFlags: [voiced]
+  #       action: scale
+  #       fieldScales:
+  #         fricationAmplitude: 0.78
+  #         aspirationAmplitude: 1.45
+  #         pa1: 1.30
+  #         pa2: 1.25
 
     # ── German onset aspiration boost ──────────────────────────────
     # German voiceless stops are MORE aspirated than English (VOT
     # ~60-80ms vs English ~50-70ms).  Boost aspiration on word-initial
     # voiceless stops to make /t/ clearly distinct from /d/.
     # Without this, /t/ sounds "soft, like a d" (user feedback).
-      - name: german_onset_aspiration
-        flags: [stop]
-        notFlags: [voiced]
-        position: word-initial
-        action: scale
-        fieldScales:
-          aspirationAmplitude: 1.30
-          fricationAmplitude: 0.85
+  #     - name: german_onset_aspiration
+  #       flags: [stop]
+  #       notFlags: [voiced]
+  #       position: word-initial
+  #       action: scale
+  #       fieldScales:
+  #         aspirationAmplitude: 1.30
+  #         fricationAmplitude: 0.85
 
     # ── Post-sibilant aspiration suppression ─────────────────────
     # "Stein" vs "Tein", "Spiel" vs "Piel", "Ski" vs "Ki".
     # After /s/ or /ʃ/, German voiceless stops lose aspiration.
-      - name: post_sibilant_aspiration_suppress
-        tokenType: aspiration
-        after: ["s", "ʃ"]
-        action: scale
-        durationScale: 0.05
-        fieldScales:
-          aspirationAmplitude: 0.05
-          fricationAmplitude: 0.05
+  #     - name: post_sibilant_aspiration_suppress
+  #       tokenType: aspiration
+  #       after: ["s", "ʃ"]
+  #       action: scale
+  #       durationScale: 0.05
+  #       fieldScales:
+  #         aspirationAmplitude: 0.05
+  #         fricationAmplitude: 0.05
 
     # ── Unreleased word-final stops ──────────────────────────────
     # German word-final stops are often unreleased, especially after
     # final devoicing (Tag→[taːk], Rad→[raːt]).  Cut frication
     # hard and preserve burst character — no sibilant tilt.
-      - name: unreleased_word_final
-        flags: [stop]
-        notFlags: [voiced]
-        position: word-final
-        action: scale
-        durationScale: 0.82
-        fieldScales:
-          fricationAmplitude: 0.55
-          aspirationAmplitude: 0.60
-          pa1: 0.40
-          pa2: 0.55
+  #     - name: unreleased_word_final
+  #       flags: [stop]
+  #       notFlags: [voiced]
+  #       position: word-final
+  #       action: scale
+  #       durationScale: 0.82
+  #       fieldScales:
+  #         fricationAmplitude: 0.55
+  #         aspirationAmplitude: 0.60
+  #         pa1: 0.40
+  #         pa2: 0.55
 
   # German R - uvular in most standard accents
   trillModulationMs: 40

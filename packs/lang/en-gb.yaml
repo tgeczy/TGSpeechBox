@@ -56,9 +56,6 @@ settings:
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 0
-  # RP transitions are slightly cleaner than GenAm — pull back right-side
-  # coarticulation from en-us's 0.7.
-  coarticulationRightSideScale: 0.6
   coarticulationVelarF2LocusFront: 1800
   coarticulationVelarF2LocusBack: 1100
 

@@ -67,7 +67,6 @@ settings:
   # keeping velars safely separated from palatals.
   coarticulationEnabled: true
   coarticulationStrength: 0.20
-  coarticulationTransitionExtent: 0.30
   # false (2026-08-21): this key was inert until b8 implemented it; it was
   # set true here aspirationally.  Freezing pre-b8 behavior — flip back on
   # after a listening pass.
@@ -89,9 +88,6 @@ settings:
   coarticulationF3Scale: 0.3
 
   coarticulationMitalkK: 0.50
-
-  coarticulationAlveolarBackVowelEnabled: false
-  coarticulationLabializedFricativeFrontingEnabled: false
 
   # === BOUNDARY SMOOTHING ===
   # Crisp ≠ discontinuous. Even fast Hungarian speech has ~5-8ms of formant
@@ -308,10 +304,6 @@ settings:
   # === NASALIZATION ===
   # Hungarian doesn't have phonemic nasalization.
   nasalizationAnticipatoryEnabled: false
-
-  # === GLOTTAL REINFORCEMENT ===
-  # Not a feature of Hungarian.
-  positionalAllophonesGlottalReinforcementEnabled: false
 
   # === SINGLE WORD TUNING ===
   singleWordTuningEnabled: true

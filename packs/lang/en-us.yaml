@@ -50,7 +50,9 @@ settings:
   postStopAspirationEnabled: true
   # Lisker & Abramson (1964): English aspirated stops need 40-80ms VOT.
   # Default 20ms is below the perceptual boundary (~25-35ms).
-  postStopAspirationDurationMs: 35
+  # Not applied (#178): "postStopAspirationDurationMs: 35" stood here, but the
+  # frontend has never read that key (Tuning.md: built in, 20 ms).  en-us was
+  # tuned and approved by ear with the 20 ms that plays.
 
   # Reduce hold time for word-final liquids (R, L) to avoid "pirate R" on
   # words like "star", "car", "far". The retroflex R with its low F3 sounds
@@ -127,9 +129,9 @@ settings:
   coarticulationVelarPinchEnabled: false
   coarticulationGraduated: false
   coarticulationAdjacencyMaxConsonants: 0
-  # Right-side (coda) coarticulation: vowel endpoints transition toward
-  # following consonant's locus. Crucial for /n/ vs /ŋ/ and all coda place cues.
-  coarticulationRightSideScale: 0.7
+  # Not applied (#178): "coarticulationRightSideScale: 0.7" stood here (0.6 in
+  # en-gb, 0.65 in en-au), for coda coarticulation: vowel endpoints moving
+  # toward the following consonant's locus.  The frontend has no such setting.
   # Velar locus splits by vowel context. Before back vowels (/oʊ/, /uː/, /ɑ/),
   # velars start low — tongue body pulling away from soft palate creates a
   # natural glide. Before front vowels, velars stay high.
@@ -268,8 +270,13 @@ settings:
     amplitudeBoostDb: 0.3
     amplitudeReductionDb: 0.0
 
-  # Let prominence drive Fujisaki accents
-  pitchFromProminence: true
+  # Not applied (#178): "pitchFromProminence: true" stood here, to let
+  # prominence drive Fujisaki accents.  It was outside the prominence: block
+  # above, where the frontend does not read it, so in fujisaki_style en-us
+  # accents follow stress alone (en-gb and en-au have the key inside the
+  # block).  en-us was tuned and approved by ear this way, and its own mode,
+  # espeak_style, never uses it.  To turn it on, put it inside prominence:
+  # and listen first.
 
   # Unstressed vowels between sonorants: small amplitude boost
   # keeps them from being masked by smooth formant transitions.
