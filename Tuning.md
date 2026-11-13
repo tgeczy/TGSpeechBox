@@ -325,6 +325,13 @@ This is a more speech-like alternative to inserting a pause. It changes how some
   - `none`: do nothing
   - `monophthong`: in acronym-like words, treat the English letter name **A** (/eɪ/, often pack-normalized to /ej/) as a long monophthong by dropping the offglide and marking the nucleus lengthened. This reduces the unwanted "y"-glide in cases like "NVDA".
 
+### Year splitting
+- `yearSplittingEnabled` (bool, default `false`; `true` in `en.yaml`, so in every English variety): A four-digit number standing on its own is passed to the phonemizer as two pairs, so "1995" is read "nineteen ninety-five" and "1708" "seventeen oh eight" (the "oh" is the pack's `numberExpansion.ohDigit`).
+
+Left alone: a number that starts with 0 ("0512"), one that ends in 00 ("4000"), 2000 to 2009, and anything that is not exactly four digits.
+
+It applies to every four-digit number, not only to years: "the code is 6789" is read "sixty-seven eighty-nine". That includes numbers a screen reader add-on has already grouped. NVDA's Number Patterns add-on, for example, turns a phone number into "0912 345 6789", and the last group is then read as pairs. **If year splitting gets in the way of an add-on like that, turn it off**: in NVDA, the "Year splitting (4-digit numbers as digit pairs)" checkbox in the voice settings; elsewhere, set `yearSplittingEnabled: false` for the language. With it off, grouped digits reach the phonemizer exactly as the screen reader wrote them (`tests/test_digit_groups_from_the_screen_reader.py`). Telling years from other numbers is planned for a version after 3.10.
+
 ### Dictionary suffix stripping
 When a word isn't found in the pronunciation dictionary, the frontend tries stripping per-language suffixes (longest-first) and looking up the remaining stem. If the stem matches, the text respelling is used with the suffix reattached, so eSpeak phonemizes the suffix naturally in context.
 
