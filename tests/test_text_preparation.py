@@ -335,12 +335,13 @@ def test_a_full_hour_before_am_or_pm_has_no_oclock(prepare, lang, text, expected
     assert prepare(lang, text) == expected
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="elsewhere the host normalises the text, not the frontend")
 @pytest.mark.parametrize("lang", ENGLISH)
 @pytest.mark.parametrize("space", [" ", " "])
 def test_a_no_break_space_before_am_or_pm_is_a_space(prepare, lang, space):
-    """Time formats put U+202F or U+00A0 before the mark; text normalisation
-    has made it a space by the time the time step runs."""
+    """Time formats put U+202F or U+00A0 before the mark; the frontend has
+    made it a space by the time the time step runs, on every platform
+    (stripInvisible; tests/cpp/test_space_variants.cpp).  This was skipped
+    off Windows as the host's job, which no host does."""
     assert prepare(lang, f"10:00{space}AM") == "10 A. M."
     assert prepare(lang, f"5:00{space}PM") == "5 PM"
 

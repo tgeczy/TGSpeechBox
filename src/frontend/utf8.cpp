@@ -156,6 +156,7 @@ std::string stripInvisible(std::string_view s) {
   auto u32 = utf8ToU32(s);
   std::u32string out;
   out.reserve(u32.size());
+  bool replaced = false;
   for (char32_t c : u32) {
     switch (c) {
       case 0x200B:  // ZERO WIDTH SPACE
@@ -185,6 +186,7 @@ std::string stripInvisible(std::string_view s) {
       case 0x205F:  // MEDIUM MATHEMATICAL SPACE
       case 0x3000:  // IDEOGRAPHIC SPACE
         out.push_back(' ');
+        replaced = true;
         continue;
       default:
         if (c >= 0x200E && c <= 0x200F) continue;  // LRM, RLM
@@ -193,7 +195,10 @@ std::string stripInvisible(std::string_view s) {
         out.push_back(c);
     }
   }
-  if (out.size() == u32.size()) return std::string(s);
+  // A replaced space keeps the length, so the length alone does not say
+  // whether anything changed: comparing only lengths returned the text as
+  // it came whenever nothing was also removed, and the spaces stayed.
+  if (!replaced && out.size() == u32.size()) return std::string(s);
   return u32ToUtf8(out);
 }
 
