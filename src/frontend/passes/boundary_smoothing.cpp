@@ -238,7 +238,8 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     // === FALLBACK: any real consonant -> any real consonant not yet covered ===
     else if (!prevVowelLike && !curVowelLike &&
              !tokIsSilenceOrMissing(prev) && !tokIsSilenceOrMissing(cur)) {
-      targetFade = 10.0 / sp;  // generic consonant cluster
+      // fadeSpeed, as every fade above: slow speech must not stretch it (#186).
+      targetFade = 10.0 / fadeSpeed;  // generic consonant cluster
     }
     // === FALLBACK: sonorant -> unclassified consonant (e.g. /h/) ===
     // /h/ uses aspirationAmplitude not fricationAmplitude, so tokIsFricative
