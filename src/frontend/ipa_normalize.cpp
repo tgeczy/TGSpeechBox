@@ -453,13 +453,25 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
         // the offglide gets its language-specific variant (ɪ→ɪ_es).
         // Distinguish by checking whether the char before the tie bar
         // is a vowel (diphthong) or consonant (affricate).
-        if (ok && matchStart > 0 && isTieBar(text[matchStart - 1])) {
+        //
+        // A loose-tie match can also start ON the tie bar: "ʃʃ" took "͡ʃʃ"
+        // out of "t͡ʃʃ", tie bar included, and Hungarian "bölcsség" was
+        // left with a plain t and a long ʃ (#179).  When a consonant
+        // follows it, that tie bar binds the match's first phoneme just the
+        // same, so look from after it.  With a vowel after it (the Danish
+        // stød's ˀ͡ɑ) it is no affricate, and the match starts on it as before.
+        size_t afterTie = matchStart;
+        if (matchStart > 0 && isTieBar(text[matchStart]) &&
+            matchStart + 1 < text.size() && !isIpaVowelChar(text[matchStart + 1])) {
+          afterTie = matchStart + 1;
+        }
+        if (ok && afterTie > 0 && isTieBar(text[afterTie - 1])) {
           // Find the character before the tie bar.
           bool isDiphthongTie = false;
-          if (matchStart >= 2) {
-            char32_t preTie = text[matchStart - 2];
+          if (afterTie >= 2) {
+            char32_t preTie = text[afterTie - 2];
             // Skip stress/prosody marks to find the actual phoneme.
-            size_t scan = matchStart - 2;
+            size_t scan = afterTie - 2;
             while (scan > 0 && !isIpaVowelChar(preTie) &&
                    (preTie == U'\u02C8' || preTie == U'\u02CC' ||  // ˈ ˌ
                     preTie == U'\u02D0' || preTie == U'\u02D1')) {  // ː ˑ
