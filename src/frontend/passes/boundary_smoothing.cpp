@@ -185,8 +185,15 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     // Within-syllable detection: if both tokens have assigned syllable
     // indices and they match, this transition is WITHIN a syllable.
     // Within-syllable transitions are one continuous gesture — smooth them.
+    // The two must be in the same word too: syllableIndex restarts at 0 in
+    // every word (syllable_marking), so the last sound of a one-syllable
+    // word and the first sound of the next word have the same index (#182).
+    bool sameWord = true;
+    for (int j = prevIdx + 1; j <= i; ++j) {
+      if (tokens[static_cast<size_t>(j)].wordStart) { sameWord = false; break; }
+    }
     const bool withinSyllable =
-        (prev.syllableIndex >= 0 && cur.syllableIndex >= 0 &&
+        (sameWord && prev.syllableIndex >= 0 && cur.syllableIndex >= 0 &&
          prev.syllableIndex == cur.syllableIndex);
 
     // === VOWEL TRANSITIONS ===
