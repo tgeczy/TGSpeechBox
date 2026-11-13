@@ -1112,9 +1112,6 @@ settings:
   # Overall amount of locus pull (0.0–1.0). Higher = stronger vowel influence on consonants.
   coarticulationStrength: 0.25
 
-  # Optional scaling for word-initial consonants (often useful to keep word onsets crisp).
-  coarticulationWordInitialFadeScale: 1.0
-
   # Cross-syllable reduction: when a consonant and its adjacent vowel are in
   # different syllables, multiply the effective coarticulation strength by this.
   # Values < 1.0 make cross-syllable transitions crisper (less vowel pull on the
@@ -1213,7 +1210,6 @@ settings:
 Tuning notes:
 - If consonants start feeling "too vowel-y", lower `coarticulationStrength`.
 - If clusters get mushy at speed, keep `coarticulationGraduated: true` and reduce `coarticulationAdjacencyMaxConsonants` to `1`.
-- If word onsets lose bite, lower `coarticulationWordInitialFadeScale`.
 - For language-specific coarticulation effects (e.g. rhotic F3 lowering, labial F2 pulling), use the **special coarticulation** pass instead of modifying the core locus pass.
 
 #### Aspiration coarticulation

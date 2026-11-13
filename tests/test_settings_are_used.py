@@ -8,6 +8,10 @@ value: changing them changed nothing.
   emitter has used a fixed 0.25 ms since the square-wave trill gating
   (commit 75314d6, out of #84), on purpose; fifteen packs still set the
   key to 0-5 ms.
+- coarticulationWordInitialFadeScale (#184): meant to scale coarticulation
+  on a word's first consonant.  No pass has read it since the coarticulation
+  pass was rewritten around endCF values (commit 2f9d9d9); hu.yaml set 0.8
+  and Tuning.md told tuners to lower it "if word onsets lose bite".
 
 They are removed from the frontend, the packs, the docs and both lists, so
 nothing claims an effect it does not have.  A pack that still carries one of
@@ -41,6 +45,7 @@ RATES = [0.5, 1.0, 1.6, 2.0, 3.0]
 # name inside its nested block where it has one).
 REMOVED = {
     "trillModulationFadeMs": ["trillModulationFadeMs"],
+    "coarticulationWordInitialFadeScale": ["coarticulationWordInitialFadeScale"],
 }
 
 # Read but not used, and not removed here (outside #183-#185): four Fujisaki
@@ -49,7 +54,6 @@ REMOVED = {
 KNOWN_UNUSED = {
     "boundarySmoothingNasalF2F3SpansPhone",
     "boundarySmoothingPlosiveSpansPhone",
-    "coarticulationWordInitialFadeScale",
     "fujisakiDeclinationMax",
     "fujisakiDeclinationPostFloor",
     "fujisakiDeclinationScale",
@@ -107,6 +111,19 @@ def test_a_trill_does_not_depend_on_the_old_fade_setting(lang, ipa, speed):
     stock = _frames(lang, ipa, speed)
     for ms in (0, 5, 20):
         assert _frames(lang, ipa, speed, f"trillModulationFadeMs: {ms}\n") == stock, f"{lang} {ipa} @{speed}: {ms} ms"
+
+
+@pytest.mark.parametrize("speed", RATES)
+@pytest.mark.parametrize("lang,ipa", [("hu", "ˈkaːr ˈtɛ ˈpɒp"), ("hu", "ˈbɒb ˈdɛ ˈɡaːz"), ("en-us", "kˈɑːɹ tˈiː pˈɑːp"),
+                                      ("es", "kˈasa tˈodo pˈapa")])
+def test_word_onsets_do_not_depend_on_the_old_word_initial_scale(lang, ipa, speed):
+    # hu.yaml carried 0.8; with nothing reading it, 0.3 and 1.0 gave the
+    # same word-initial stops, and an old pack that still has the key gets
+    # the same frames now.
+    stock = _frames(lang, ipa, speed)
+    for scale in (0.3, 0.8, 1.0):
+        snippet = f"coarticulationWordInitialFadeScale: {scale}\n"
+        assert _frames(lang, ipa, speed, snippet) == stock, f"{lang} {ipa} @{speed}: {scale}"
 
 
 def _settings_read():

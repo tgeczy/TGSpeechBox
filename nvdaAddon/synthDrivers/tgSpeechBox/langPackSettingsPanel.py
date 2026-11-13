@@ -487,7 +487,6 @@ def _getPanelClass():
                 "coarticulationVelarPinchF3",
                 "coarticulationVelarPinchThreshold",
                 "coarticulationVelarScale",
-                "coarticulationWordInitialFadeScale",
 
                 # --- Coda noise taper (fricative→stop continuity) ---
                 "codaNoiseTaperEnabled",

@@ -313,7 +313,6 @@ class LanguagePack:
     high_rate_threshold: float = 2.0
     high_rate_coarticulation_floor: float = 0.35
     high_rate_bandwidth_widening_factor: float = 1.0
-    coarticulation_word_initial_fade_scale: float = 1.0
     coarticulation_graduated: bool = True
     coarticulation_adjacency_max_consonants: float = 2.0
     coarticulation_labial_f2_locus: float = 800.0
@@ -858,7 +857,6 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.high_rate_threshold = gn("highRateThreshold", lp.high_rate_threshold)
     lp.high_rate_coarticulation_floor = gn("highRateCoarticulationFloor", lp.high_rate_coarticulation_floor)
     lp.high_rate_bandwidth_widening_factor = gn("highRateBandwidthWideningFactor", lp.high_rate_bandwidth_widening_factor)
-    lp.coarticulation_word_initial_fade_scale = gn("coarticulationWordInitialFadeScale", lp.coarticulation_word_initial_fade_scale)
     lp.coarticulation_graduated = gb("coarticulationGraduated", lp.coarticulation_graduated)
     lp.coarticulation_adjacency_max_consonants = gn("coarticulationAdjacencyMaxConsonants", lp.coarticulation_adjacency_max_consonants)
     lp.coarticulation_labial_f2_locus = gn("coarticulationLabialF2Locus", lp.coarticulation_labial_f2_locus)

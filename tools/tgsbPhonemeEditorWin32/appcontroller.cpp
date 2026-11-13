@@ -877,7 +877,6 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "coarticulationVelarPinchF3",
     "coarticulationVelarPinchThreshold",
     "coarticulationVelarScale",
-    "coarticulationWordInitialFadeScale",
     "codaNoiseTaperEarlyAspAmp",
     "codaNoiseTaperEarlyFricScale",
     "codaNoiseTaperEnabled",
