@@ -9283,14 +9283,26 @@ phonemes:
     # Glottal stop - used in English "button", "kitten", etc.
     # Implemented as brief creaky voice (laryngealization) rather than hard silence
     # to prevent DC transient thump. Uses _copyAdjacent for smooth formant transition.
+    #
+    # The creakiness is read from frameEx, as for the Danish stød below.  It
+    # was written here at the top level with a "_hasCreakiness" flag, which
+    # the loader does not know, so the glottal stop had no creak at all
+    # (#193).  In the voice source 0.85 lowers F0 by 10%, takes 3 dB off the
+    # voicing and shortens the open phase from 60% to 51.5% of the cycle,
+    # with irregular periods: the direction of a laryngealized onset in
+    # Klatt & Klatt 1990 (JASA 87(2): 820-857): F0 falling, less voicing
+    # amplitude, a smaller open quotient.  Glottal stops are seldom silent:
+    # they show weak voicing through most of their length (Garellek, Chai,
+    # Huang & Van Doren 2023, JIPA 53(2): 305-332).
+    # tests/test_glottal_stop_creak.py.
     _copyAdjacent: true
     _isLiquid: false
     _isNasal: false
     _isStop: false
     _isVoiced: true
     _isVowel: false
-    _hasCreakiness: true
-    creakiness: 0.85
+    frameEx:
+      creakiness: 0.85
     aspirationAmplitude: 0
     caNP: 0
     cb1: 130
