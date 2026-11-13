@@ -421,6 +421,53 @@ def test_a_name_that_is_not_a_plain_key_is_refused(ps, tmp_path, name):
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize("profiles,name,code,detail", [
+    ("voiceProfiles:\n  Beth: {voicingTone: {speedQuotient: 2}}\n", "Beth", "profileOnOneLine", "Beth"),
+    ("voiceProfiles: {Beth: {}}\n", "Beth", "profilesNotABlock", ""),
+    ("voiceProfiles:\n  Beth:\n    voicingTone: {speedQuotient: 2,\n      voicedTiltDbPerOct: 1}\n", "Beth",
+     "toneNotEditable", "voicingTone: {speedQuotient: 2,"),
+    ("voiceProfiles:\n  Beth:\n    voicingTone: {speedQuotient}\n", "Beth",
+     "toneUnreadable", "voicingTone: {speedQuotient}"),
+    ("voiceProfiles:\n  Beth:\n    inflectionScale: 1.2\n", "a: b", "badName", "a: b"),
+], ids=["a-profile-on-one-line", "profiles-not-a-block", "a-voice-source-over-several-lines",
+        "a-voice-source-that-cannot-be-read", "a-name-that-is-not-a-key"])
+def test_a_refusal_says_which_one_in_a_code(ps, tmp_path, profiles, name, code, detail):
+    """The reason is shown in a dialog.  This module has no NVDA and no _(),
+    so a refusal carries a code and what it is about, and the settings panel
+    has the sentence in the listener's language
+    (tests/nvda/test_driver_profile_save.py).  str() stays English, for a log."""
+    path = _write(tmp_path, profiles)
+    with pytest.raises(ps.ProfileSaveError) as refused:
+        ps.saveProfile(str(path), name, {"voicedTiltDbPerOct": -5.2})
+    assert (refused.value.code, refused.value.detail) == (code, detail)
+    assert str(refused.value) and (not detail or detail in str(refused.value))
+
+
+def test_every_refusal_has_a_code(ps):
+    assert sorted(ps.REFUSALS) == ["badName", "profileOnOneLine", "profilesNotABlock",
+                                   "toneNotEditable", "toneUnreadable"]
+
+
+def test_a_file_is_put_back_whole(ps, tmp_path):
+    # The undo of a save the frontend could not load (the panel's).
+    path = _write(tmp_path, newline="\r\n")
+    before = path.read_bytes()
+    ps.saveProfile(str(path), "Beth", {"voicedTiltDbPerOct": -5.2})
+    assert path.read_bytes() != before
+    ps.writeFile(str(path), before)
+    assert path.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["phonemes.yaml"]
+
+
+@pytest.mark.parametrize("voice", ["Adam", "Benjamin", "Caleb", "David", "Robert"])
+def test_only_a_whisper_voice_is_one_a_profile_cannot_be(ps, voices, voice):
+    """Caleb is no voicing and full aspiration on every frame.  Class scales
+    hold neither safely (tests/nvda/test_driver_profile_save.py measures what
+    the profile becomes), so the panel says so before it saves."""
+    assert ps.isWhisper(voices[voice]) is (voice == "Caleb")
+    assert ps.isWhisper({}) is False and ps.isWhisper({"voiceAmplitude_mul": 0.0}) is False
+
+
 def test_the_repositorys_own_profiles_are_found_and_kept(ps, tmp_path):
     # The real file: CRLF or LF as checked out, Beth's block as shipped.
     src = (REPO / "packs" / "phonemes.yaml").read_bytes()

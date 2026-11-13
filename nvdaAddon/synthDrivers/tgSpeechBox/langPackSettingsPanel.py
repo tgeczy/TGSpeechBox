@@ -152,6 +152,28 @@ def _runInBackground(work, done) -> None:
     threading.Thread(target=run, name="TGSpeechBoxUpdateCheck", daemon=True).start()
 
 
+def _profileSaveReason(e) -> str:
+    """Why phonemes.yaml was not written, in the listener's language.
+
+    profile_save.py names its refusals by code (it has no _()).  Anything
+    else that goes wrong, a full disk say, is shown as the system words it.
+    """
+    from . import profile_save
+    if not isinstance(e, profile_save.ProfileSaveError):
+        return str(e)
+    sentences = {
+        "toneUnreadable": _("The profile's voicingTone line cannot be read: {}"),
+        "toneNotEditable": _("The profile's voicingTone cannot be edited as it is written: {}"),
+        "profilesNotABlock": _(
+            "The voiceProfiles section is not written as a block. Edit it in the phoneme editor."
+        ),
+        "profileOnOneLine": _("Profile '{}' is written on one line. Edit it in the phoneme editor."),
+        "badName": _("A profile cannot be named '{}'."),
+    }
+    sentence = sentences.get(e.code)
+    return sentence.format(e.detail) if sentence else str(e)
+
+
 _PANEL_CLS = None
 
 
@@ -1335,9 +1357,11 @@ def _getPanelClass():
             profileExists = fromProfile or profileName in (frontend.getVoiceProfileNames() or [])
             classScales = None
             notCarriedNote = ""
+            whisperNote = ""
             if not profileExists:
                 from .constants import voices
-                scales, notCarried = profile_save.presetClassScales(voices.get(profileName) or {})
+                preset = voices.get(profileName) or {}
+                scales, notCarried = profile_save.presetClassScales(preset)
                 if scales:
                     classScales = {cls: scales for cls in profile_save.ROOT_CLASSES}
                 if notCarried:
@@ -1345,6 +1369,16 @@ def _getPanelClass():
                         "These values of the built-in voice have no place in a profile's class scales "
                         "and are not carried over: {}. Use the phoneme editor to adjust the profile."
                     ).format(", ".join(notCarried))
+                # A whisper voice's profile is not that voice
+                # (profile_save.isWhisper says why, with the measurement).
+                # Saving is not refused; the listener is told first, in
+                # plain words, and decides.
+                if profile_save.isWhisper(preset):
+                    whisperNote = _(
+                        "{} is a whisper voice, and this button cannot put a whisper into a profile. "
+                        "The saved profile will not sound like {}: it will be quieter and partly voiced. "
+                        "To make a whisper profile, use the phoneme editor."
+                    ).format(profileName, profileName)
 
             # Build confirmation message
             if fromProfile:
@@ -1354,6 +1388,8 @@ def _getPanelClass():
                     "A profile named '{}' already exists. Replace its voice source with the built-in "
                     "voice of that name, as you hear it now? Its class scales and phoneme overrides stay."
                 ).format(profileName)]
+            elif whisperNote:
+                parts = [whisperNote, _("Make a voice profile named '{}' from it all the same?").format(profileName)]
             else:
                 parts = [_(
                     "Make a voice profile named '{}' from the built-in voice of that name, as you hear it now?"
@@ -1392,10 +1428,14 @@ def _getPanelClass():
                 phonemesPath = os.path.join(packDir, "packs", "phonemes.yaml")
                 if not os.path.isfile(phonemesPath):
                     phonemesPath = os.path.join(packDir, "phonemes.yaml")
+                # The file as it is, to put back if the frontend cannot
+                # load what is saved.
+                with open(phonemesPath, "rb") as f:
+                    fileBefore = f.read()
                 profile_save.saveProfile(phonemesPath, profileName, toneSet, toneRemove, classScales)
             except Exception as e:
                 wx.MessageBox(
-                    _("Error saving to phonemes.yaml: {}").format(str(e)),
+                    _("Error saving to phonemes.yaml: {}").format(_profileSaveReason(e)),
                     _("Error"),
                     wx.OK | wx.ICON_ERROR,
                     self,
@@ -1407,8 +1447,63 @@ def _getPanelClass():
             # Through the driver, which knows the language "auto"
             # stands for: the frontend takes the literal "auto",
             # loads default.yaml alone and calls that a success (#194).
+            #
+            # Nothing is saved until the frontend has read the file back.
+            # A reload that fails leaves the old profile playing: with the
+            # sliders reset the voice would jump, and with them left moved
+            # over a saved file the next reload would add their offset to
+            # the saved value a second time.  So the file goes back as it
+            # was, the sliders stay, and the listener is told.
+            reloadError = ""
             try:
-                synth.reloadLanguagePack()
+                reloaded = synth.reloadLanguagePack()
+                if not reloaded:
+                    reloadError = frontend.getLastError() or ""
+            except Exception as e:
+                reloaded = False
+                reloadError = str(e) or e.__class__.__name__
+            if not reloaded:
+                try:
+                    profile_save.writeFile(phonemesPath, fileBefore)
+                except Exception as e:
+                    wx.MessageBox(
+                        _(
+                            "TGSpeechBox could not load phonemes.yaml after the save, "
+                            "and the file could not be put back as it was: {}"
+                        ).format(str(e)),
+                        _("Error"),
+                        wx.OK | wx.ICON_ERROR,
+                        self,
+                    )
+                    evt.Skip()
+                    return
+                # The frontend may hold some of what it could not finish
+                # loading; it reads the file that was put back.
+                try:
+                    synth.reloadLanguagePack()
+                    if fromProfile:
+                        frontend.setVoiceProfile(profileName)
+                        synth._applyVoicingTone(profileName)
+                except Exception:
+                    pass
+                undone = [_(
+                    "TGSpeechBox could not load phonemes.yaml after the save, so the save was undone: "
+                    "the file is as it was before, and nothing was saved."
+                )]
+                if fromProfile:
+                    undone.append(_("The voice sliders you moved are where you left them."))
+                if reloadError:
+                    undone.append(reloadError)
+                wx.MessageBox(
+                    "\n\n".join(undone),
+                    _("Save Undone"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            try:
                 # A new profile can be chosen at once.  NVDA builds a
                 # driver's voice list one time and keeps it, so it is built
                 # again here.
@@ -1453,6 +1548,8 @@ def _getPanelClass():
                     "Saved profile '{}'. It is in the voice list as \"{}\"; "
                     "the built-in voice and its sliders are unchanged."
                 ).format(profileName, profileName + " (profile)")
+                if whisperNote:
+                    doneMsg += "\n\n" + whisperNote
                 if notCarriedNote:
                     doneMsg += "\n\n" + notCarriedNote
             wx.MessageBox(

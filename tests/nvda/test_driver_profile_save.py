@@ -458,3 +458,251 @@ def test_other_profiles_and_the_rest_of_the_file_are_untouched(harness, panel):
     assert new[:at] + new[at + added:] == old
     assert new[at] == b"  Robert:"
     assert after.count(b"\r\n") - before.count(b"\r\n") == (added if nl == b"\r\n" else 0)
+
+
+# ---------------------------------------------------------------------------
+# A save the frontend cannot load
+# ---------------------------------------------------------------------------
+
+def _failing_reload(d, how):
+    """reloadLanguagePack stubbed on the driver: it answers False, or raises.
+    Returns the staged file as each call found it."""
+    seen = []
+
+    def reload(*a, **k):
+        seen.append(_staged(d).read_bytes())
+        if how == "raises":
+            raise RuntimeError("the frontend is gone")
+        return False
+
+    d.reloadLanguagePack = reload
+    return seen
+
+
+@pytest.mark.parametrize("how", ["returns-false", "raises"])
+def test_a_profile_save_that_cannot_be_loaded_is_undone(harness, panel, heard, driver_config_section, how):
+    """The result of the reload was not looked at.  Answering False, the
+    sliders were reset all the same and the dialog said "Save Complete ...
+    the voice sounds the same" while the voice jumped; raising, the sliders
+    stayed moved under a message saying they were back at neutral, and the
+    next reload that worked added their offset to the saved value a second
+    time."""
+    d = harness.driver
+    d.voice = "profile:Beth"
+    d.voiceTilt, d.headSize = 60, 40
+    d.saveSettings()
+    file_before, tone_before, sliders_before = _staged(d).read_bytes(), heard(), _sliders(d)
+    seen = _failing_reload(d, how)
+
+    wx = panel(SAVE)
+
+    assert seen and seen[0] != file_before, "the frontend was not asked to read the saved file"
+    # No success is claimed, and the listener is told the save was undone.
+    assert "Save Complete" not in wx.shown
+    title, text = wx.messages[-1]
+    assert title == "Save Undone" and "undone" in text and "neutral" not in text
+    if how == "raises":
+        assert "the frontend is gone" in text
+    # The file is as it was, the sliders are where they were, in NVDA's copy too.
+    assert _staged(d).read_bytes() == file_before
+    assert _sliders(d) == sliders_before
+    assert driver_config_section()["voiceTilt"] == 60 and driver_config_section()["headSize"] == 40
+    # And the voice is the one that was heard, now and after a reload that works.
+    del d.reloadLanguagePack
+    assert not _same(heard(), tone_before)
+    assert d.reloadLanguagePack()
+    assert d.voice == "profile:Beth" and not _same(heard(), tone_before)
+
+
+@pytest.mark.parametrize("how", ["returns-false", "raises"])
+def test_a_built_in_voice_save_that_cannot_be_loaded_is_undone(harness, panel, heard, how):
+    d = harness.driver
+    d.voice = "David"
+    d.voiceTilt = 30
+    file_before, tone_before, sliders_before = _staged(d).read_bytes(), heard(), _sliders(d)
+    # Positions the profile's sliders had earlier in this session stay too.
+    d._perVoiceTilt["profile:David"] = 70
+    seen = _failing_reload(d, how)
+
+    wx = panel(SAVE)
+
+    assert seen and seen[0] != file_before
+    assert "Save Complete" not in wx.shown and wx.shown[-1] == "Save Undone"
+    assert _staged(d).read_bytes() == file_before
+    assert d._perVoiceTilt["profile:David"] == 70
+    del d.reloadLanguagePack
+    assert d.reloadLanguagePack()
+    # No profile was made, so none is offered.
+    assert PROFILE + "David" not in d.availableVoices
+    assert d.voice == "David" and _sliders(d) == sliders_before and not _same(heard(), tone_before)
+
+
+# ---------------------------------------------------------------------------
+# Caleb, the whisper voice
+# ---------------------------------------------------------------------------
+
+WHISPER = ("will not sound like Caleb", "quieter", "partly voiced", "phoneme editor")
+
+
+@pytest.mark.parametrize("answer", ["yes", "no"])
+def test_caleb_is_told_plainly_what_the_profile_will_be(harness, panel, answer):
+    """A whisper is no voicing and full aspiration on every frame, and class
+    scales hold neither safely (the test below measures it).  Saving is not
+    refused; the question opens with what will be lost, in plain words, and
+    the listener goes on or does not."""
+    d = harness.driver
+    d.voice = "Caleb"
+    file_before = _staged(d).read_bytes()
+
+    wx = panel(SAVE, answer=2 if answer == "yes" else 8)  # wx.YES, wx.NO
+
+    title, asked = wx.messages[0]
+    assert title == "Save Voice Profile Settings"
+    for words in WHISPER:
+        assert words in asked
+    # Before anything else in the question, the list of values included.
+    assert asked.index("will not sound like Caleb") < asked.index("Voice source values")
+    assert asked.index("will not sound like Caleb") < asked.index("Make a voice profile")
+    if answer == "no":
+        assert _staged(d).read_bytes() == file_before and len(wx.messages) == 1
+        assert PROFILE + "Caleb" not in d.availableVoices
+        return
+    assert "Save Complete" in wx.shown and PROFILE + "Caleb" in d.availableVoices
+    done = next(text for title, text in wx.messages if title == "Save Complete")
+    for words in WHISPER:
+        assert words in done
+
+
+@pytest.mark.parametrize("voice", ["Adam", "Benjamin", "David", "Robert"])
+def test_no_other_built_in_voice_gets_the_whisper_warning(harness, panel, voice):
+    d = harness.driver
+    d.voice = voice
+    wx = panel(SAVE)
+    assert "Save Complete" in wx.shown
+    assert not any("will not sound like" in text or "partly voiced" in text for _, text in wx.messages)
+
+
+def _rms(pcm: bytes) -> float:
+    import array
+    samples = array.array("h", pcm[:len(pcm) // 2 * 2])
+    return (sum(s * s for s in samples) / max(len(samples), 1)) ** 0.5
+
+
+@pytest.mark.parametrize("speed", [0.5, 1.0, 1.6, 2.0, 3.0])
+def test_what_caleb_is_told_is_true(harness, panel, record_frames, speed):
+    """"Quieter and partly voiced", measured.  Caleb's preset puts
+    voiceAmplitude 0 and aspirationAmplitude 1 on every frame.  His profile
+    has voiceAmplitude x0 on the vowel and consonant classes: the aspiration
+    is not there to carry the sound, and four frames a sentence keep a
+    voiceAmplitude of 0.25 or 0.5 (the review of #195 traced them to frames
+    the frontend puts in without a phoneme definition, which no class scales;
+    here they are only counted).  RMS at rate 1.0: 980 for Caleb, 588 for the
+    profile."""
+    from synthDrivers.tgSpeechBox import speechPlayer
+    d = harness.driver
+    d._curRate = speed
+    fields = [name for name, _ in speechPlayer.Frame._fields_]
+    text = "The quick brown fox jumps over the lazy dog, she sells sea shells."
+
+    def spoken():
+        log = record_frames(d)
+        d.cancel()
+        pcm, _latency, _feeds = harness.speak([text])
+        return _rms(pcm), [dict(zip(fields, frame)) for frame, _ex, _dur, _fade in log if frame is not None]
+
+    d.voice = "Caleb"
+    caleb_rms, caleb = spoken()
+    panel(SAVE)
+    d.voice = PROFILE + "Caleb"
+    profile_rms, profile = spoken()
+
+    assert len(caleb) > 50 and all(f["voiceAmplitude"] == 0 for f in caleb), "Caleb himself is voiced"
+    voiced = [f["voiceAmplitude"] for f in profile if f["voiceAmplitude"]]
+    print(f"\nrate {speed}: RMS {caleb_rms:.0f} -> {profile_rms:.0f}; "
+          f"{len(voiced)} of {len(profile)} frames voiced {sorted(set(voiced))}")
+    assert voiced, "the profile has no voiced frame: the warning says it has"
+    assert profile_rms < 0.8 * caleb_rms, "the profile is not quieter: the warning says it is"
+
+
+# ---------------------------------------------------------------------------
+# Every sentence of the dialogs is translatable
+# ---------------------------------------------------------------------------
+
+def _pseudo(s):
+    """A stand-in translation: the sentence in capitals, its {} left alone."""
+    import re
+    return "".join(part if part.startswith("{") else part.upper() for part in re.split(r"(\{[^{}]*\})", s))
+
+
+def _untranslated(text, *filled_in):
+    """The words of a dialog that did not go through _() (see `translated`),
+    apart from what was filled into the sentences: names, and the values to
+    write, one "key: number" a line."""
+    import re
+    lines = [line for line in text.splitlines() if line.split(":")[0].strip() not in FIELDS]
+    text = "\n".join(lines)
+    for detail in filled_in:
+        text = text.replace(detail, "")
+    return re.findall(r"[a-z]+", text)
+
+
+@pytest.fixture
+def translated(panel, monkeypatch):
+    """The panel, with a _() that puts what it is given in capitals.  In this
+    harness _() gives the English back, so a sentence that never went through
+    it reads the same as one that did; here it is the one still in small
+    letters."""
+    from synthDrivers.tgSpeechBox import langPackSettingsPanel as mod
+    monkeypatch.setattr(mod, "_", _pseudo, raising=False)
+    return panel
+
+
+def test_a_refused_save_gives_its_reason_translated(harness, translated, heard):
+    """A profile written on one line cannot be edited line by line
+    (profile_save.py).  The reason reached the dialog in English, outside
+    _()."""
+    d = harness.driver
+    _restage(d, lambda text: text.rstrip("\n") + "\n  Flat: {voicingTone: {speedQuotient: 1.8}}\n")
+    d.voice = "profile:Flat"
+    d.voiceTilt = 60
+    file_before = _staged(d).read_bytes()
+
+    wx = translated(SAVE)
+
+    assert _staged(d).read_bytes() == file_before and d.voiceTilt == 60
+    title, text = wx.messages[-1]
+    assert title == "ERROR" and "Flat" in text and "ONE LINE" in text
+    assert not _untranslated(text, "Flat"), "shown in English whatever NVDA's language"
+
+
+def test_every_refusal_has_a_translated_sentence(harness, translated):
+    from synthDrivers.tgSpeechBox import langPackSettingsPanel as mod, profile_save
+    for code in profile_save.REFUSALS:
+        text = mod._profileSaveReason(profile_save.ProfileSaveError(code, "Beth"))
+        assert text and not _untranslated(text, "Beth"), code
+    # Anything else that goes wrong (the disk, say) is shown as it is.
+    assert mod._profileSaveReason(OSError("disk full")) == "disk full"
+
+
+@pytest.mark.parametrize("case", ["caleb", "undone", "undone-with-a-reason"])
+def test_the_new_dialogs_are_translatable(harness, translated, case):
+    d = harness.driver
+    if case == "caleb":
+        d.voice = "Caleb"
+    else:
+        d.voice = "profile:Beth"
+        d.voiceTilt = 60
+        _failing_reload(d, "raises" if case == "undone-with-a-reason" else "returns-false")
+    wx = translated(SAVE)
+    d.__dict__.pop("reloadLanguagePack", None)
+    if case == "caleb":
+        assert "WILL NOT SOUND LIKE Caleb" in wx.messages[0][1]
+    else:
+        assert wx.shown[-1] == "SAVE UNDONE"
+    for title, text in wx.messages:
+        assert title == title.upper()
+        # Filled in: names ("(profile)" is the voice list's own name for it,
+        # voice_management.py), the preset's key that is not carried, and the
+        # exception's own words.
+        assert not _untranslated(text, "Caleb (profile)", "Caleb", "Beth", "aspirationAmplitude",
+                                 "the frontend is gone"), text

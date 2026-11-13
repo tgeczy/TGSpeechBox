@@ -23,8 +23,28 @@ import os
 import re
 
 
+#: Why a save is refused, by code, in English for a log.  The listener is
+#: shown the settings panel's sentence for the code, in NVDA's language:
+#: there is no _() here, where nothing needs NVDA.
+REFUSALS = {
+    "toneUnreadable": "cannot read the profile's voicingTone: %s",
+    "toneNotEditable": "cannot edit the profile's voicingTone as it is written: %s",
+    "profilesNotABlock": "voiceProfiles is not written as a block",
+    "profileOnOneLine": "profile %s is written on one line; edit it in the phoneme editor",
+    "badName": "a profile cannot be named %r",
+}
+
+
 class ProfileSaveError(Exception):
-    """phonemes.yaml is not written in a way this module can edit safely."""
+    """phonemes.yaml is not written in a way this module can edit safely.
+
+    `code` is a key of REFUSALS; `detail` is the line or the name it is about.
+    """
+
+    def __init__(self, code, detail=""):
+        text = REFUSALS[code]
+        Exception.__init__(self, text % detail if "%" in text else text)
+        self.code, self.detail = code, detail
 
 
 #: A profile's voice source: the keys of its voicingTone block, in the order
@@ -150,6 +170,22 @@ def presetClassScales(preset):
     return scales, notCarried
 
 
+def isWhisper(preset):
+    """-> True for a built-in voice that whispers: no voicing, and an
+    aspiration of its own, on every frame (Caleb).
+
+    A profile made from one is not that voice, and the listener is told so
+    before it is made.  The aspiration is an absolute value, which class
+    scales cannot hold, so the profile is quieter; and class scales act on
+    phonemes, so the frames the frontend puts in without a phoneme definition
+    keep their voicing (the review of #195 traced them to those).  Measured
+    in tests/nvda/test_driver_profile_save.py: RMS 980 against 588 on one
+    sentence at rate 1.0, and four voiced frames where Caleb has none.
+    """
+    silent = float(preset.get("voiceAmplitude", preset.get("voiceAmplitude_mul", 1.0))) == 0.0
+    return silent and float(preset.get("aspirationAmplitude", 0.0)) > 0.0
+
+
 # ---------------------------------------------------------------------------
 # The edit of phonemes.yaml
 #
@@ -228,7 +264,7 @@ def _editTone(lines, at, end, fieldIndent, toneSet, toneRemove, cr):
             if not item.strip():
                 continue
             if ":" not in item:
-                raise ProfileSaveError("cannot read the profile's voicingTone: " + _body(lines[toneAt]).strip())
+                raise ProfileSaveError("toneUnreadable", _body(lines[toneAt]).strip())
             key, value = item.split(":", 1)
             values[key.strip()] = value.strip()
         for key in toneRemove:
@@ -242,8 +278,7 @@ def _editTone(lines, at, end, fieldIndent, toneSet, toneRemove, cr):
                          + "}" + comment + lines[toneAt][len(body):])
         return
     if rest:
-        raise ProfileSaveError("cannot edit the profile's voicingTone as it is written: "
-                               + _body(lines[toneAt]).strip())
+        raise ProfileSaveError("toneNotEditable", _body(lines[toneAt]).strip())
     # A block: one key a line under "voicingTone:".
     toneEnd = _blockEnd(lines, toneAt, fieldIndent, end)
     keyIndent = next((_indent(lines[i]) for i in range(toneAt + 1, toneEnd) if not _blank(lines[i])),
@@ -298,7 +333,7 @@ def saveProfile(path, name, toneSet, toneRemove=(), classScales=None):
     for i, line in enumerate(lines):
         if _body(line).startswith("voiceProfiles:"):
             if _splitKey(line)[1]:
-                raise ProfileSaveError("voiceProfiles is not written as a block")
+                raise ProfileSaveError("profilesNotABlock")
             section = i
             break
     if section is None:
@@ -315,7 +350,7 @@ def saveProfile(path, name, toneSet, toneRemove=(), classScales=None):
             key, rest = _splitKey(lines[i])
             if key == name:
                 if rest:
-                    raise ProfileSaveError("profile %s is written on one line; edit it in the phoneme editor" % name)
+                    raise ProfileSaveError("profileOnOneLine", name)
                 found = i
                 break
 
@@ -328,7 +363,7 @@ def saveProfile(path, name, toneSet, toneRemove=(), classScales=None):
             _editTone(lines, found + 1, end, fieldIndent, toneSet, toneRemove, cr)
     else:
         if not name or name != name.strip() or re.search(r"[:#\r\n]", name):
-            raise ProfileSaveError("a profile cannot be named %r" % name)
+            raise ProfileSaveError("badName", name)
         pad = " " * profileIndent
         block = [pad + name + ":"]
         if toneSet:
@@ -354,12 +389,20 @@ def saveProfile(path, name, toneSet, toneRemove=(), classScales=None):
 
     out = "\n".join(lines).encode("utf-8")
     if out != raw:
-        tmp = path + ".tmp"
-        try:
-            with open(tmp, "wb") as f:
-                f.write(out)
-            os.replace(tmp, path)
-        finally:
-            if os.path.exists(tmp):
-                os.remove(tmp)
+        writeFile(path, out)
     return created
+
+
+def writeFile(path, raw):
+    """Make `raw` the content of the file at `path`, whole or not at all.
+
+    The save, and its undo when the frontend cannot load what was saved.
+    """
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "wb") as f:
+            f.write(raw)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)

@@ -3553,3 +3553,64 @@ msgstr ""
 #: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:992
 msgid "Downloading the update..."
 msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "The profile's voicingTone line cannot be read: {}"
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"The profile's voicingTone cannot be edited as it is written: {}"
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"The voiceProfiles section is not written as a block. Edit it in the phoneme editor."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"Profile '{}' is written on one line. Edit it in the phoneme editor."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "A profile cannot be named '{}'."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"{} is a whisper voice, and this button cannot put a whisper into a profile. The saved profile will not sound like {}: it will be quieter and partly voiced. To make a whisper profile, use the phoneme editor."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Make a voice profile named '{}' from it all the same?"
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"TGSpeechBox could not load phonemes.yaml after the save, and the file could not be put back as it was: {}"
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid ""
+"TGSpeechBox could not load phonemes.yaml after the save, so the save was undone: the file is as it was before, and nothing was saved."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "The voice sliders you moved are where you left them."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: a save that cannot be loaded, a whisper voice, why a save is refused (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py
+msgid "Save Undone"
+msgstr ""
