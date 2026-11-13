@@ -249,7 +249,9 @@ Settings load_settings(const std::wstring& ini_path)
             if (pm == kPitchModes[i].ini) { s.pitchMode = i; break; }
         }
     }
-    s.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", -1, ini_path.c_str());
+    // Stored as "inflectionScale" since 3.10; an older "pitchInflectionScale" is
+    // left behind (see tgsb_settings.cpp, #177).
+    s.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"inflectionScale", -1, ini_path.c_str());
 
     auto rd = [&](const wchar_t* key, int def) {
         return GetPrivateProfileIntW(L"VoicingTone", key, def, ini_path.c_str());
@@ -304,7 +306,7 @@ bool save_settings(const std::wstring& ini_path, const Settings& s)
             ? kPitchModes[s.pitchMode].ini : L"";
         WritePrivateProfileStringW(L"Audio", L"pitchMode", pmStr, ini_path.c_str());
     }
-    write_ini_int(ini_path, L"Audio", L"pitchInflectionScale", s.pitchInflectionScale);
+    write_ini_int(ini_path, L"Audio", L"inflectionScale", s.pitchInflectionScale);
 
     auto wr = [&](const wchar_t* key, int val) {
         write_ini_int(ini_path, L"VoicingTone", key, val);

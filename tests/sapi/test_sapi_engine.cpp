@@ -959,12 +959,12 @@ TEST_CASE("a pitch mode set back to the language default is the language's own a
         writeSettings("[Audio]\npitchMode=legacy\n");
         Engine engine(L"en-us");
         const auto legacy = pitchOf(engine, english, "[Audio]\npitchMode=legacy\n");
-        const auto scaled = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n");
+        const auto scaled = pitchOf(engine, english, "[Audio]\npitchMode=legacy\ninflectionScale=100\n");
         CHECK(pitchDistance(legacy, scaled) > different);
-        const auto unset = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=-1\n");
+        const auto unset = pitchOf(engine, english, "[Audio]\npitchMode=legacy\ninflectionScale=-1\n");
         CHECK(pitchDistance(legacy, unset) < same);
         // And the key gone from the file.
-        CHECK(pitchDistance(legacy, pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n")) > different);
+        CHECK(pitchDistance(legacy, pitchOf(engine, english, "[Audio]\npitchMode=legacy\ninflectionScale=100\n")) > different);
         CHECK(pitchDistance(legacy, pitchOf(engine, english, "[Audio]\npitchMode=legacy\n")) < same);
     }
 
@@ -972,14 +972,30 @@ TEST_CASE("a pitch mode set back to the language default is the language's own a
         writeSettings("");
         Engine engine(L"en-us");
         const auto own = pitchOf(engine, english, "");
-        const auto scaled = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n");
+        const auto scaled = pitchOf(engine, english, "[Audio]\npitchMode=legacy\ninflectionScale=100\n");
         CHECK(pitchDistance(own, scaled) > different);
-        // The scale is still set, but en-us's own mode does not use it.
-        const auto back = pitchOf(engine, english, "[Audio]\npitchMode=\npitchInflectionScale=100\n");
-        CHECK(pitchDistance(own, back) < same);
+        // The scale is still set, and since #177 en-us's own mode follows it too.
+        const auto back = pitchOf(engine, english, "[Audio]\npitchMode=\ninflectionScale=100\n");
+        CHECK(pitchDistance(own, back) > different);
+        // At its normal position (29 of 100, which is 0.58) the language's own melody is back.
+        CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\npitchMode=\ninflectionScale=29\n")) < same);
         // Choosing the mode again finds the scale still there.
-        const auto again = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n");
+        const auto again = pitchOf(engine, english, "[Audio]\npitchMode=legacy\ninflectionScale=100\n");
         CHECK(pitchDistance(scaled, again) < same);
+    }
+
+    SUBCASE("the scale an older settings app stored is left behind (#177)") {
+        // Until 3.10 the settings app wrote pitchInflectionScale=50 (a scale of 1.0) on every OK,
+        // and outside the classic and Fujisaki modes it did nothing.  Now that the scale works in
+        // every mode, that stored 50 would widen the melody of everyone who ever pressed OK by
+        // 1.7.  The key has a new name and the old one is not read.
+        writeSettings("");
+        Engine engine(L"en-us");
+        const auto own = pitchOf(engine, english, "");
+        CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\npitchInflectionScale" "=50\n")) < same);
+        CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\npitchInflectionScale" "=100\n")) < same);
+        CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\ninflectionScale=58\n")) > different);
+        CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\ninflectionScale=29\n")) < same);
     }
 
     SUBCASE("a new voice object, which takes over the cached runtime") {
@@ -1098,7 +1114,7 @@ TEST_CASE("the first OK in the settings app leaves the voice as it was (#205)") 
     auto apart = [](double x, double y) { return std::fabs(x - y) / std::min(x, y); };
     auto pressOk = [] { REQUIRE(settings_app_test::pressOk(settingsPath(), -1)); };
     auto savedInflection = [] {
-        return static_cast<int>(GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", -7, settingsPath().c_str()));
+        return static_cast<int>(GetPrivateProfileIntW(L"Audio", L"inflectionScale", -7, settingsPath().c_str()));
     };
 
     SUBCASE("a built-in voice") {
@@ -1129,7 +1145,7 @@ TEST_CASE("the first OK in the settings app leaves the voice as it was (#205)") 
         writeSettings("[Audio]\npitchMode=legacy\n");
         Engine engine(L"en-us");
         const Heard packs = hear(engine);
-        writeSettings("[Audio]\npitchMode=legacy\npitchInflectionScale=50\n");
+        writeSettings("[Audio]\npitchMode=legacy\ninflectionScale=50\n");
         CHECK(pitchDistance(packs.pitch, hear(engine).pitch) > 3.0);   // 1.0 is not the pack's 0.56
         writeSettings("[Audio]\npitchMode=legacy\n");
         pressOk();
@@ -1160,14 +1176,14 @@ TEST_CASE("the first OK in the settings app leaves the voice as it was (#205)") 
 
     SUBCASE("settings someone chose are kept by OK") {
         // No migration: a file that already says 50 keeps saying 50.
-        writeSettings("[Audio]\npitchMode=legacy\npitchInflectionScale=50\n[VoicingTone]\ncascadeBwScale=40\nvoiceTilt=60\n");
+        writeSettings("[Audio]\npitchMode=legacy\ninflectionScale=50\n[VoicingTone]\ncascadeBwScale=40\nvoiceTilt=60\n");
         Engine engine(L"en-us");
         const Heard chosen = hear(engine);
         pressOk();
         const Heard saved = hear(engine);
         CHECK(apart(chosen.rms, saved.rms) < 0.003);
         CHECK(pitchDistance(chosen.pitch, saved.pitch) < 0.5);
-        CHECK(GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", -7, settingsPath().c_str()) == 50);
+        CHECK(GetPrivateProfileIntW(L"Audio", L"inflectionScale", -7, settingsPath().c_str()) == 50);
         CHECK(GetPrivateProfileIntW(L"VoicingTone", L"cascadeBwScale", -7, settingsPath().c_str()) == 40);
     }
 }

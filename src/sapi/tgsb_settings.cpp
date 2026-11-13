@@ -178,7 +178,11 @@ wrapper_settings load_settings(const std::wstring& base_dir)
         GetPrivateProfileStringW(L"Audio", L"pitchMode", L"", pmBuf, 64, ini_path.c_str());
         out.pitchMode = pmBuf;
     }
-    out.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"pitchInflectionScale", -1, ini_path.c_str());
+    // "inflectionScale" since 3.10.  The older "pitchInflectionScale" is not read:
+    // the settings app wrote 50 (a scale of 1.0) there on every OK, which did
+    // nothing outside the classic and Fujisaki modes, and would widen every
+    // melody by 1.7 now that the scale works in all of them (#177).
+    out.pitchInflectionScale = GetPrivateProfileIntW(L"Audio", L"inflectionScale", -1, ini_path.c_str());
 
     // Voicing tone sliders (-1 = not set).
     auto readSlider = [&](const wchar_t* key) -> int {
