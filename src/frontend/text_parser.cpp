@@ -1196,19 +1196,15 @@ std::string prepareTextForEspeak(
                               std::isdigit(static_cast<unsigned char>(result[runStart - 2]));
         // Where the comma is the decimal mark (the pack's decimalSeparator),
         // a number with one comma is a decimal as well: "1,500" is one and a
-        // half.  A number with several commas ("1,234,567"), or with a dot
-        // and more digits after the group ("1,234.56"), is a decimal in no
-        // language, and is grouped as before (#167).
+        // half.  A number with several commas ("1,234,567", "1,234,56"), or
+        // with a dot and more digits after the group ("1,234.56"), is a
+        // decimal in no language, and is grouped as before (#167).
         const bool commaBefore =
-            runLen == 3 && runStart >= 2 && result[runStart - 1] == ',' &&
+            runStart >= 2 && result[runStart - 1] == ',' &&
             std::isdigit(static_cast<unsigned char>(result[runStart - 2]));
         const bool commaAfter =
-            ci + 7 < result.size() && result[ci + 4] == ',' &&
-            std::isdigit(static_cast<unsigned char>(result[ci + 5])) &&
-            std::isdigit(static_cast<unsigned char>(result[ci + 6])) &&
-            std::isdigit(static_cast<unsigned char>(result[ci + 7])) &&
-            (ci + 8 >= result.size() ||
-             !std::isdigit(static_cast<unsigned char>(result[ci + 8])));
+            ci + 5 < result.size() && result[ci + 4] == ',' &&
+            std::isdigit(static_cast<unsigned char>(result[ci + 5]));
         const bool dotAfter =
             ci + 5 < result.size() && result[ci + 4] == '.' &&
             std::isdigit(static_cast<unsigned char>(result[ci + 5]));

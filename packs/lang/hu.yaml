@@ -313,15 +313,15 @@ settings:
   spellingDiphthongMode: monophthong
   legacyPitchInflectionScale: 0.56
 
-  # The decimal mark is the comma: "3,16", "20 611,413"; thousands are grouped
-  # with a space, or a dot (A magyar helyesírás szabályai, 12. kiadás,
-  # Akadémiai Kiadó, 2015: 274., 291. b), 293.).  So "1,500" is a decimal and
-  # keeps its comma: eSpeak NG reads "egy egész ötszáz ezred", where the space
-  # it used to get made it "ezer ötszáz" (#167).
-  decimalSeparator: ","
-  # Left for the numbers that are no decimal: several commas, or a dot and
-  # more digits after the group ("1,234,567" → "1 234 567", "1,234.56" →
-  # "1 234.56").
+  # A comma before three digits is a thousands separator here: "1,500" is
+  # "ezer ötszáz" and "10,000" "tízezer", as they have always been read.  The
+  # rule book writes decimals with a comma and groups thousands with a space
+  # or a dot (A magyar helyesírás szabályai, 12. kiadás, Akadémiai Kiadó,
+  # 2015: 274., 291. b), 293.), and decimalSeparator: "," would read "1,500"
+  # that way ("egy egész ötszáz ezred").  Not set, by the maintainer's
+  # decision (#167): English-style numbers are what a screen reader user
+  # meets most, and "10,000" as "tíz egész nulla ezred" would confuse people.
+  # Decimals that cannot be thousands ("3,14", "0,125") are kept either way.
   thousandsSeparatorCommaToSpace: true
 
   dictSuffixes:
