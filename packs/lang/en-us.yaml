@@ -623,7 +623,6 @@ settings:
                           # tighter without hurting "three" etc.
 
     nasalF1Instant: true
-    nasalF2F3SpansPhone: true
 
     # ── Fade durations (ms) ──
     # Liquid↔vowel gets extra room — /ɹ/ has the largest F3 excursion

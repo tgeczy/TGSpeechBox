@@ -1738,10 +1738,8 @@ settings:
     velarF2Scale: 0.65
     velarF3Scale: 0.60
 
-    # Plosive/nasal-specific transition behavior.
-    plosiveSpansPhone: true       # formants ramp across entire plosive burst
+    # Nasal-specific transition behavior.
     nasalF1Instant: true          # F1 jumps nearly instantly at nasal boundaries
-    nasalF2F3SpansPhone: true     # F2/F3 ramp across entire nasal
 
     # Per-boundary-type fade times (ms).
     # Fast speech (speed > 1.0) shortens proportionally; slow speech
@@ -1791,7 +1789,7 @@ All settings have flat-key equivalents. You can use either the nested `boundaryS
 Flat-key naming convention: `boundarySmoothing` + field name in PascalCase. Examples:
 
 - `boundarySmoothingEnabled`, `boundarySmoothingF1Scale`, `boundarySmoothingF2Scale`, `boundarySmoothingF3Scale`
-- `boundarySmoothingPlosiveSpansPhone`, `boundarySmoothingNasalF1Instant`, `boundarySmoothingNasalF2F3SpansPhone`
+- `boundarySmoothingNasalF1Instant`
 - `boundarySmoothingVowelToStopFadeMs`, `boundarySmoothingStopToVowelFadeMs`, ... (all 13 fade times)
 - `boundarySmoothingLabialF1Scale`, `boundarySmoothingLabialF2Scale`, ... (all 12 place scales)
 - `boundarySmoothingWithinSyllableScale`, `boundarySmoothingWithinSyllableFadeScale`
@@ -1993,7 +1991,6 @@ Microprosody adds small F0 perturbations around consonant→vowel boundaries and
   # Phase 1: onset (backward-looking)
   microprosodyVoicelessF0RaiseEnabled: true
   microprosodyVoicelessF0RaiseHz: 15
-  microprosodyVoicelessF0RaiseEndHz: 8    # optional: separate value for vowel end (0 = same as RaiseHz)
   microprosodyVoicedF0LowerEnabled: true
   microprosodyVoicedF0LowerHz: 8
   microprosodyVoicedFricativeLowerScale: 0.6   # fricatives lower less than stops

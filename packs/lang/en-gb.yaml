@@ -423,7 +423,6 @@ settings:
     f3Scale: 0.80
 
     nasalF1Instant: true
-    nasalF2F3SpansPhone: true
 
     liquidToVowelFadeMs: 18
     vowelToLiquidFadeMs: 16

@@ -12,6 +12,12 @@ value: changing them changed nothing.
   on a word's first consonant.  No pass has read it since the coarticulation
   pass was rewritten around endCF values (commit 2f9d9d9); hu.yaml set 0.8
   and Tuning.md told tuners to lower it "if word onsets lose bite".
+- boundarySmoothing.plosiveSpansPhone, boundarySmoothing.nasalF2F3SpansPhone
+  and microprosodyVoicelessF0RaiseEndHz (#185): documented as "formants ramp
+  across entire plosive burst", "F2/F3 ramp across entire nasal" and a
+  separate pitch raise for the end of a vowel.  boundary_smoothing.cpp and
+  microprosody.cpp never read them; en-us, en-gb, en-au and tr set the
+  nasal one to true, its default.
 
 They are removed from the frontend, the packs, the docs and both lists, so
 nothing claims an effect it does not have.  A pack that still carries one of
@@ -46,19 +52,20 @@ RATES = [0.5, 1.0, 1.6, 2.0, 3.0]
 REMOVED = {
     "trillModulationFadeMs": ["trillModulationFadeMs"],
     "coarticulationWordInitialFadeScale": ["coarticulationWordInitialFadeScale"],
+    "boundarySmoothingPlosiveSpansPhone": ["boundarySmoothingPlosiveSpansPhone", "plosiveSpansPhone"],
+    "boundarySmoothingNasalF2F3SpansPhone": ["boundarySmoothingNasalF2F3SpansPhone", "nasalF2F3SpansPhone"],
+    "microprosodyVoicelessF0RaiseEndHz": ["microprosodyVoicelessF0RaiseEndHz"],
 }
 
 # Read but not used, and not removed here (outside #183-#185): four Fujisaki
-# settings that pitch_fujisaki.cpp never looks at.  Listed so the guard says
-# so, and fails when one more appears.
+# settings that pitch_fujisaki.cpp never looks at.  Tuning.md says they are
+# no longer used, but hu.yaml sets three of them and the NVDA panel offers
+# them.  Listed so the guard says so, and fails when one more appears.
 KNOWN_UNUSED = {
-    "boundarySmoothingNasalF2F3SpansPhone",
-    "boundarySmoothingPlosiveSpansPhone",
     "fujisakiDeclinationMax",
     "fujisakiDeclinationPostFloor",
     "fujisakiDeclinationScale",
     "fujisakiPhraseDecay",
-    "microprosodyVoicelessF0RaiseEndHz",
 }
 
 PLACES = {
@@ -124,6 +131,20 @@ def test_word_onsets_do_not_depend_on_the_old_word_initial_scale(lang, ipa, spee
     for scale in (0.3, 0.8, 1.0):
         snippet = f"coarticulationWordInitialFadeScale: {scale}\n"
         assert _frames(lang, ipa, speed, snippet) == stock, f"{lang} {ipa} @{speed}: {scale}"
+
+
+@pytest.mark.parametrize("speed", RATES)
+@pytest.mark.parametrize("lang", ["en-us", "en-gb", "en-au", "tr", "hu", "de"])
+def test_smoothing_and_pitch_do_not_depend_on_the_three_old_settings(lang, speed):
+    # "panna", "ta" and a sentence with nasals, plosives and vowels after
+    # voiceless consonants: the frames an old pack with the keys still gets.
+    old = ("boundarySmoothing.plosiveSpansPhone: false\n"
+           "boundarySmoothing.nasalF2F3SpansPhone: false\n"
+           "boundarySmoothingPlosiveSpansPhone: false\n"
+           "boundarySmoothingNasalF2F3SpansPhone: false\n"
+           "microprosodyVoicelessF0RaiseEndHz: 20\n")
+    for ipa in ["pˈænə", "tˈɑ", "mˈɑmɑ nˈɑnɑ", "kˈɑtɑ pˈɑpɑ sˈɑkɑ"]:
+        assert _frames(lang, ipa, speed, old) == _frames(lang, ipa, speed), f"{lang} {ipa} @{speed}"
 
 
 def _settings_read():

@@ -821,9 +821,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("boundarySmoothingF1Scale", lp.boundarySmoothingF1Scale);
   getNum("boundarySmoothingF2Scale", lp.boundarySmoothingF2Scale);
   getNum("boundarySmoothingF3Scale", lp.boundarySmoothingF3Scale);
-  getBool("boundarySmoothingPlosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
   getBool("boundarySmoothingNasalF1Instant", lp.boundarySmoothingNasalF1Instant);
-  getBool("boundarySmoothingNasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
   // Fade times (flat-key equivalents of nested boundarySmoothing block)
   getNum("boundarySmoothingVowelToStopFadeMs", lp.boundarySmoothingVowelToStopMs);
   getNum("boundarySmoothingStopToVowelFadeMs", lp.boundarySmoothingStopToVowelMs);
@@ -1015,7 +1013,6 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getBool("microprosodyEnabled", lp.microprosodyEnabled);
   getBool("microprosodyVoicelessF0RaiseEnabled", lp.microprosodyVoicelessF0RaiseEnabled);
   getNum("microprosodyVoicelessF0RaiseHz", lp.microprosodyVoicelessF0RaiseHz);
-  getNum("microprosodyVoicelessF0RaiseEndHz", lp.microprosodyVoicelessF0RaiseEndHz);
   getBool("microprosodyVoicedF0LowerEnabled", lp.microprosodyVoicedF0LowerEnabled);
   getNum("microprosodyVoicedF0LowerHz", lp.microprosodyVoicedF0LowerHz);
   getNum("microprosodyMinVowelMs", lp.microprosodyMinVowelMs);
@@ -1140,9 +1137,7 @@ if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMa
   getNumFrom(*bs, "f1Scale", lp.boundarySmoothingF1Scale);
   getNumFrom(*bs, "f2Scale", lp.boundarySmoothingF2Scale);
   getNumFrom(*bs, "f3Scale", lp.boundarySmoothingF3Scale);
-  getBoolFrom(*bs, "plosiveSpansPhone", lp.boundarySmoothingPlosiveSpansPhone);
   getBoolFrom(*bs, "nasalF1Instant", lp.boundarySmoothingNasalF1Instant);
-  getBoolFrom(*bs, "nasalF2F3SpansPhone", lp.boundarySmoothingNasalF2F3SpansPhone);
   getNumFrom(*bs, "vowelToStopFadeMs", lp.boundarySmoothingVowelToStopMs);
   getNumFrom(*bs, "stopToVowelFadeMs", lp.boundarySmoothingStopToVowelMs);
   getNumFrom(*bs, "vowelToFricFadeMs", lp.boundarySmoothingVowelToFricMs);

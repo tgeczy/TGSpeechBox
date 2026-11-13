@@ -408,9 +408,7 @@ class LanguagePack:
     boundary_smoothing_fric_to_stop_ms: float = 10.0
     boundary_smoothing_stop_to_fric_ms: float = 14.0
     boundary_smoothing_vowel_to_vowel_ms: float = 18.0
-    boundary_smoothing_plosive_spans_phone: bool = True
     boundary_smoothing_nasal_f1_instant: bool = True
-    boundary_smoothing_nasal_f2_f3_spans_phone: bool = True
     boundary_smoothing_high_rate_fade_ratio_floor: float = 0.40
     boundary_smoothing_affricate_to_vowel_hold: float = 0.0
     boundary_smoothing_fricative_to_vowel_hold: float = 0.0
@@ -470,7 +468,6 @@ class LanguagePack:
     microprosody_enabled: bool = False
     microprosody_voiceless_f0_raise_enabled: bool = True
     microprosody_voiceless_f0_raise_hz: float = 15.0
-    microprosody_voiceless_f0_raise_end_hz: float = 0.0
     microprosody_voiced_f0_lower_enabled: bool = True
     microprosody_voiced_f0_lower_hz: float = 8.0
     microprosody_min_vowel_ms: float = 25.0
@@ -925,9 +922,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.boundary_smoothing_f1_scale = gn("boundarySmoothingF1Scale", lp.boundary_smoothing_f1_scale)
     lp.boundary_smoothing_f2_scale = gn("boundarySmoothingF2Scale", lp.boundary_smoothing_f2_scale)
     lp.boundary_smoothing_f3_scale = gn("boundarySmoothingF3Scale", lp.boundary_smoothing_f3_scale)
-    lp.boundary_smoothing_plosive_spans_phone = gb("boundarySmoothingPlosiveSpansPhone", lp.boundary_smoothing_plosive_spans_phone)
     lp.boundary_smoothing_nasal_f1_instant = gb("boundarySmoothingNasalF1Instant", lp.boundary_smoothing_nasal_f1_instant)
-    lp.boundary_smoothing_nasal_f2_f3_spans_phone = gb("boundarySmoothingNasalF2F3SpansPhone", lp.boundary_smoothing_nasal_f2_f3_spans_phone)
     lp.boundary_smoothing_vowel_to_stop_ms = gn("boundarySmoothingVowelToStopFadeMs", lp.boundary_smoothing_vowel_to_stop_ms)
     lp.boundary_smoothing_stop_to_vowel_ms = gn("boundarySmoothingStopToVowelFadeMs", lp.boundary_smoothing_stop_to_vowel_ms)
     lp.boundary_smoothing_vowel_to_fric_ms = gn("boundarySmoothingVowelToFricFadeMs", lp.boundary_smoothing_vowel_to_fric_ms)
@@ -1013,7 +1008,6 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.microprosody_enabled = gb("microprosodyEnabled", lp.microprosody_enabled)
     lp.microprosody_voiceless_f0_raise_enabled = gb("microprosodyVoicelessF0RaiseEnabled", lp.microprosody_voiceless_f0_raise_enabled)
     lp.microprosody_voiceless_f0_raise_hz = gn("microprosodyVoicelessF0RaiseHz", lp.microprosody_voiceless_f0_raise_hz)
-    lp.microprosody_voiceless_f0_raise_end_hz = gn("microprosodyVoicelessF0RaiseEndHz", lp.microprosody_voiceless_f0_raise_end_hz)
     lp.microprosody_voiced_f0_lower_enabled = gb("microprosodyVoicedF0LowerEnabled", lp.microprosody_voiced_f0_lower_enabled)
     lp.microprosody_voiced_f0_lower_hz = gn("microprosodyVoicedF0LowerHz", lp.microprosody_voiced_f0_lower_hz)
     lp.microprosody_min_vowel_ms = gn("microprosodyMinVowelMs", lp.microprosody_min_vowel_ms)
@@ -1209,9 +1203,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.boundary_smoothing_f1_scale = _gn_from(_bs, "f1Scale", lp.boundary_smoothing_f1_scale)
         lp.boundary_smoothing_f2_scale = _gn_from(_bs, "f2Scale", lp.boundary_smoothing_f2_scale)
         lp.boundary_smoothing_f3_scale = _gn_from(_bs, "f3Scale", lp.boundary_smoothing_f3_scale)
-        lp.boundary_smoothing_plosive_spans_phone = _gb_from(_bs, "plosiveSpansPhone", lp.boundary_smoothing_plosive_spans_phone)
         lp.boundary_smoothing_nasal_f1_instant = _gb_from(_bs, "nasalF1Instant", lp.boundary_smoothing_nasal_f1_instant)
-        lp.boundary_smoothing_nasal_f2_f3_spans_phone = _gb_from(_bs, "nasalF2F3SpansPhone", lp.boundary_smoothing_nasal_f2_f3_spans_phone)
         lp.boundary_smoothing_vowel_to_stop_ms = _gn_from(_bs, "vowelToStopFadeMs", lp.boundary_smoothing_vowel_to_stop_ms)
         lp.boundary_smoothing_stop_to_vowel_ms = _gn_from(_bs, "stopToVowelFadeMs", lp.boundary_smoothing_stop_to_vowel_ms)
         lp.boundary_smoothing_vowel_to_fric_ms = _gn_from(_bs, "vowelToFricFadeMs", lp.boundary_smoothing_vowel_to_fric_ms)

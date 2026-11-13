@@ -290,10 +290,8 @@ def _getPanelClass():
                 "boundarySmoothing.liquidToStopFadeMs",
                 "boundarySmoothing.liquidToVowelFadeMs",
                 "boundarySmoothing.nasalF1Instant",
-                "boundarySmoothing.nasalF2F3SpansPhone",
                 "boundarySmoothing.nasalToStopFadeMs",
                 "boundarySmoothing.nasalToVowelFadeMs",
-                "boundarySmoothing.plosiveSpansPhone",
                 "boundarySmoothing.stopToFricFadeMs",
                 "boundarySmoothing.stopToVowelFadeMs",
                 "boundarySmoothing.vowelToFricFadeMs",
@@ -653,7 +651,6 @@ def _getPanelClass():
                 "microprosodyVoicedF0LowerHz",
                 "microprosodyVoicedFricativeLowerScale",
                 "microprosodyVoicelessF0RaiseEnabled",
-                "microprosodyVoicelessF0RaiseEndHz",
                 "microprosodyVoicelessF0RaiseHz",
 
                 # --- Nasalization ---

@@ -1154,10 +1154,8 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double boundarySmoothingStopToFricMs = 14.0;
   double boundarySmoothingVowelToVowelMs = 18.0;
 
-  // Plosive/nasal-specific transition behavior (universal defaults).
-  bool boundarySmoothingPlosiveSpansPhone = true;    // formants ramp across entire plosive
+  // Nasal-specific transition behavior (universal default).
   bool boundarySmoothingNasalF1Instant = true;       // F1 jumps instantly in nasals
-  bool boundarySmoothingNasalF2F3SpansPhone = true;  // F2/F3 ramp across entire nasal
 
   // Rate-adaptive fade ratio floor (used with shared highRateThreshold)
   double boundarySmoothingHighRateFadeRatioFloor = 0.40;
@@ -1324,7 +1322,6 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool microprosodyEnabled = false;
   bool microprosodyVoicelessF0RaiseEnabled = true;
   double microprosodyVoicelessF0RaiseHz = 15.0;
-  double microprosodyVoicelessF0RaiseEndHz = 0.0;  // 0 = full decay
   bool microprosodyVoicedF0LowerEnabled = true;
   double microprosodyVoicedF0LowerHz = 8.0;
   double microprosodyMinVowelMs = 25.0;
