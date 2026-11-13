@@ -41,7 +41,7 @@ def test_the_same_value_is_written_for_a_second_language(harness):
     d.legacyPitchInflectionScale = 40
     assert _in_file(d, "en-us") == 0.8
     d.language = "hu"
-    assert _in_file(d, "hu") == 0.56 and d.legacyPitchInflectionScale == 28
+    assert _in_file(d, "hu") == 0.58 and d.legacyPitchInflectionScale == 29
     d.legacyPitchInflectionScale = 40
     assert _in_file(d, "hu") == 0.8, "40 was dropped for Hungarian because English was set to 40 last"
     assert d.legacyPitchInflectionScale == 40
@@ -76,12 +76,16 @@ def test_the_pack_default_reads_as_29(harness):
     assert d.legacyPitchInflectionScale == 29
 
 
-@pytest.mark.parametrize("lang,held", [("de", 0.58), ("en-us", 0.56), ("hu", 0.56)])
+@pytest.mark.parametrize("lang,held", [("de", 0.58), ("en-us", 0.58), ("hu", 0.58), ("en-us", 0.56), ("hu", 0.56)])
 def test_escape_leaves_the_value_in_the_file(harness, driver_config_section, lang, held):
     """NVDA's saved settings replayed, as Escape in the voice panel does,
     with nothing changed in the dialog."""
     d = harness.driver
     d.language = lang
+    if held != 0.58:
+        # Every shipped pack has 0.58 since #177; 0.56 is what the old
+        # rounding left in five of them, and what a user's file may still hold.
+        _write(d, lang, held)
     assert _in_file(d, lang) == held
     d.saveSettings()  # as NVDA saves them on a first load, or on OK
     d.loadSettings()  # Escape
