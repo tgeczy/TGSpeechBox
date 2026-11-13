@@ -385,6 +385,13 @@ def _install_fake_nvda() -> None:
         def __init__(self):
             pass
 
+        def _get_availableVoices(self):
+            """synthDriverHandler.SynthDriver's: the voice list is built once
+            and kept, so a driver that gains a voice must build it again."""
+            if not hasattr(self, "_availableVoices"):
+                self._availableVoices = self._getAvailableVoices()
+            return self._availableVoices
+
         def initSettings(self):
             """autoSettings.initSettings, which NVDA's getSynthInstance calls
             right after construction: tell the config each setting's type
@@ -623,6 +630,69 @@ def harness():
         langPackYaml.commitUnsavedChanges()  # the next test starts from a saved state
         config.conf["speech"].pop("tgSpeechBox", None)
         _restore_lang_files()
+
+
+class FakeWx(types.ModuleType):
+    """wx, as far as the settings panel's button handlers go: message boxes
+    that are answered (Yes, unless `answer` says otherwise) and a file dialog
+    that picks `path`."""
+
+    OK = ICON_WARNING = ICON_ERROR = ICON_INFORMATION = ICON_QUESTION = 0
+    YES_NO = FD_OPEN = FD_FILE_MUST_EXIST = FD_SAVE = FD_OVERWRITE_PROMPT = 0
+    YES, NO, ID_OK = 2, 8, 5100
+
+    def __init__(self, path="", answer=None):
+        super().__init__("wx")
+        self.shown = []     # the titles of the message boxes
+        self.messages = []  # (title, text) of each
+        self.answer = self.YES if answer is None else answer
+        outer = self
+
+        class FileDialog:
+            def __init__(self, *a, **k): pass
+            def ShowModal(self): return outer.ID_OK
+            def GetPath(self): return str(path)
+            def Destroy(self): pass
+
+        self.FileDialog = FileDialog
+
+    def MessageBox(self, message, caption="", style=0, parent=None):
+        self.shown.append(caption)
+        self.messages.append((caption, message))
+        return self.answer
+
+    def CallAfter(self, fn, *a, **k):
+        pass
+
+
+@pytest.fixture
+def panel(monkeypatch):
+    """Returns run(handler name, picked file, answer): the settings panel
+    class's handler, called as wx would call it with a fake wx in place;
+    gives back that wx.  The staged phonemes.yaml, which the profile buttons
+    write, is put back afterwards."""
+    _stage_addon()
+    from synthDrivers.tgSpeechBox import langPackSettingsPanel as mod
+
+    gui = types.ModuleType("gui")
+    dialogs = types.ModuleType("gui.settingsDialogs")
+    dialogs.SettingsPanel = type("SettingsPanel", (), {})
+    gui.settingsDialogs = dialogs
+    monkeypatch.setitem(sys.modules, "gui", gui)
+    monkeypatch.setitem(sys.modules, "gui.settingsDialogs", dialogs)
+    monkeypatch.setattr(mod, "_PANEL_CLS", None)
+
+    def run(handler, path="", answer=None):
+        wx = FakeWx(path, answer)
+        monkeypatch.setitem(sys.modules, "wx", wx)
+        cls = mod._getPanelClass()
+        assert cls is not None
+        getattr(cls, handler)(object(), types.SimpleNamespace(Skip=lambda: None))
+        return wx
+
+    yield run
+    monkeypatch.setattr(mod, "_PANEL_CLS", None)
+    _copy_if_different(REPO / "packs" / "phonemes.yaml", STAGE / "packs" / "phonemes.yaml")
 
 
 @pytest.fixture(name="nvda_sequence")

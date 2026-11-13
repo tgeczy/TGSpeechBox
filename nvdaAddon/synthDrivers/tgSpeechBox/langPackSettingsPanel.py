@@ -1258,7 +1258,12 @@ def _getPanelClass():
             evt.Skip()
 
         def _onSaveVoiceProfileClick(self, evt):
-            """Save current voice profile slider values to phonemes.yaml via frontend API."""
+            """Save the voice that is heard into a profile in phonemes.yaml.
+
+            On a profile the voice sliders are offsets on its stored values,
+            so the composed values are saved and the sliders go back to rest;
+            a built-in voice becomes a profile of the same name (#195).
+            """
             try:
                 import wx
             except Exception:
@@ -1300,86 +1305,100 @@ def _getPanelClass():
                 evt.Skip()
                 return
 
-            # Get current voice - works for both profiles AND built-in voices
+            from . import profile_save
+
+            # A profile voice is saved into itself.  A built-in voice becomes
+            # a profile of its own name, which the voice list shows as
+            # "<name> (profile)"; the built-in voice itself stays as it is.
             curVoice = getattr(synth, "_curVoice", "") or "Adam"
             VOICE_PROFILE_PREFIX = "profile:"
-            if curVoice.startswith(VOICE_PROFILE_PREFIX):
-                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
-            else:
-                profileName = curVoice  # Built-in voice like "Adam"
+            fromProfile = curVoice.startswith(VOICE_PROFILE_PREFIX)
+            profileName = curVoice[len(VOICE_PROFILE_PREFIX):] if fromProfile else curVoice
 
-            # Get current slider values and convert to DSP values
-            tiltSlider = getattr(synth, "_curVoiceTilt", 50)
-            noiseModSlider = getattr(synth, "_curNoiseGlottalMod", 0)
-            f1Slider = getattr(synth, "_curPitchSyncF1", 50)
-            b1Slider = getattr(synth, "_curPitchSyncB1", 50)
-            sqSlider = getattr(synth, "_curSpeedQuotient", 50)
-            aspTiltSlider = getattr(synth, "_curAspirationTilt", 50)
-            bwSlider = getattr(synth, "_curCascadeBwScale", 50)
-            tremorSlider = getattr(synth, "_curVoiceTremor", 0)
-            creakSlider = getattr(synth, "_curFrameExCreakiness", 0)
-            breathSlider = getattr(synth, "_curFrameExBreathiness", 0)
-            jitterSlider = getattr(synth, "_curFrameExJitter", 0)
-            shimmerSlider = getattr(synth, "_curFrameExShimmer", 0)
-            sharpnessSlider = getattr(synth, "_curFrameExSharpness", 50)
+            # What is heard is the voice source the driver gives the player
+            # for this voice and these sliders: _applyVoicingTone composes a
+            # profile's stored values with the sliders, and nothing is worked
+            # out a second time here.
+            synth._lastAppliedVoicingTone = None
+            synth._applyVoicingTone(profileName if fromProfile else "")
+            tone = getattr(synth, "_lastAppliedVoicingTone", None)
+            if tone is None:
+                wx.MessageBox(
+                    _("The voice that is playing could not be read, so nothing was saved."),
+                    _("Cannot Save"),
+                    wx.OK | wx.ICON_WARNING,
+                    self,
+                )
+                evt.Skip()
+                return
+            heard = {key: getattr(tone, key) for key in profile_save.TONE_KEYS}
+            sliders = {slider[0]: getattr(synth, slider[0]) for slider in profile_save.SLIDERS}
+            # Without a voicingTone block of its own a profile plays the
+            # engine's voice source and the sliders are the values, as on a
+            # built-in voice.
+            hasStoredTone = fromProfile and frontend.hasExplicitVoicingTone()
+            toneSet, toneRemove = profile_save.toneChanges(heard, sliders, hasStoredTone)
 
-            # Convert VoicingTone sliders to DSP values
-            tiltDbPerOct = (tiltSlider - 50.0) * (24.0 / 50.0)
-            noiseModDepth = noiseModSlider / 100.0
-            f1DeltaHz = (f1Slider - 50.0) * 1.2
-            b1DeltaHz = (b1Slider - 50.0) * 1.0
-            if sqSlider <= 50.0:
-                speedQuotient = 0.5 + (sqSlider / 50.0) * 1.5
-            else:
-                speedQuotient = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
-            aspTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
+            if fromProfile and not toneSet:
+                wx.MessageBox(
+                    _("No voice slider is away from its neutral position, so profile '{}' "
+                      "already holds the voice you hear. Nothing was saved.").format(profileName),
+                    _("Save Voice Profile Settings"),
+                    wx.OK | wx.ICON_INFORMATION,
+                    self,
+                )
+                evt.Skip()
+                return
 
-            # Cascade bandwidth scale (0-100 -> 0.3-2.0, 50 = 1.0)
-            if bwSlider <= 50.0:
-                cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.0
-            else:
-                cascadeBwScale = 1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
-            cascadeBwScale = max(0.3, min(2.0, cascadeBwScale))
-
-            # Tremor depth (0-100 -> 0.0-0.4, clamped to 0.0-0.5)
-            tremorDepth = (tremorSlider / 100.0) * 0.4
-            tremorDepth = max(0.0, min(0.5, tremorDepth))
-
-            # Convert FrameEx sliders to DSP values
-            creakiness = creakSlider / 100.0
-            breathiness = breathSlider / 100.0
-            jitter = jitterSlider / 100.0
-            shimmer = shimmerSlider / 100.0
-            sharpness = 2.0 ** ((sharpnessSlider - 50.0) / 25.0)  # 0→0.25x, 50→1.0x, 100→4.0x
+            # A new profile made from a built-in voice takes that voice's
+            # shape (the preset's frame multipliers, which are not applied to
+            # a profile voice) as class scales.
+            profileExists = fromProfile or profileName in (frontend.getVoiceProfileNames() or [])
+            classScales = None
+            notCarriedNote = ""
+            if not profileExists:
+                from .constants import voices
+                scales, notCarried = profile_save.presetClassScales(voices.get(profileName) or {})
+                if scales:
+                    classScales = {cls: scales for cls in profile_save.ROOT_CLASSES}
+                if notCarried:
+                    notCarriedNote = _(
+                        "These values of the built-in voice have no place in a profile's class scales "
+                        "and are not carried over: {}. Use the phoneme editor to adjust the profile."
+                    ).format(", ".join(notCarried))
 
             # Build confirmation message
-            msg = _(
-                "Save the following slider settings to profile '{}'?\n\n"
-                "VoicingTone:\n"
-                "  voicedTiltDbPerOct: {:.2f}\n"
-                "  noiseGlottalModDepth: {:.2f}\n"
-                "  pitchSyncF1DeltaHz: {:.1f}\n"
-                "  pitchSyncB1DeltaHz: {:.1f}\n"
-                "  speedQuotient: {:.2f}\n"
-                "  aspirationTiltDbPerOct: {:.2f}\n\n"
-                "  cascadeBwScale: {:.2f}\n"
-                "  tremorDepth: {:.2f}\n\n"
-                "FrameEx:\n"
-                "  creakiness: {:.2f}\n"
-                "  breathiness: {:.2f}\n"
-                "  jitter: {:.2f}\n"
-                "  shimmer: {:.2f}\n"
-                "  sharpness: {:.2f}\n\n"
-                "This will update packs/phonemes.yaml."
-            ).format(
-                profileName,
-                tiltDbPerOct, noiseModDepth, f1DeltaHz, b1DeltaHz, speedQuotient, aspTiltDbPerOct,
-                cascadeBwScale, tremorDepth,
-                creakiness, breathiness, jitter, shimmer, sharpness,
-            )
+            if fromProfile:
+                parts = [_("Save the voice you hear now into profile '{}'?").format(profileName)]
+            elif profileExists:
+                parts = [_(
+                    "A profile named '{}' already exists. Replace its voice source with the built-in "
+                    "voice of that name, as you hear it now? Its class scales and phoneme overrides stay."
+                ).format(profileName)]
+            else:
+                parts = [_(
+                    "Make a voice profile named '{}' from the built-in voice of that name, as you hear it now?"
+                ).format(profileName)]
+            parts.append(_("Voice source values to write:\n{}").format(
+                "\n".join("  {}: {}".format(key, profile_save.formatValue(value)) for key, value in toneSet.items())
+            ))
+            if fromProfile:
+                parts.append(_(
+                    "The voice sliders you moved will go back to their neutral positions, "
+                    "because the profile will hold their effect."
+                ))
+            elif classScales:
+                parts.append(_("The built-in voice's own shape goes into the profile's class scales."))
+            if notCarriedNote:
+                parts.append(notCarriedNote)
+            parts.append(_(
+                "Voice quality sliders (creakiness, breathiness, jitter, shimmer, sharpness) "
+                "are listener settings and are not saved."
+            ))
+            parts.append(_("This will update packs/phonemes.yaml."))
 
             result = wx.MessageBox(
-                msg,
+                "\n\n".join(parts),
                 _("Save Voice Profile Settings"),
                 wx.YES_NO | wx.ICON_QUESTION,
                 self,
@@ -1389,54 +1408,12 @@ def _getPanelClass():
                 evt.Skip()
                 return
 
-            # Call frontend API to save
             try:
-                success = frontend.saveVoiceProfileSliders(
-                    profileName=profileName,
-                    voicedTiltDbPerOct=tiltDbPerOct,
-                    noiseGlottalModDepth=noiseModDepth,
-                    pitchSyncF1DeltaHz=f1DeltaHz,
-                    pitchSyncB1DeltaHz=b1DeltaHz,
-                    speedQuotient=speedQuotient,
-                    aspirationTiltDbPerOct=aspTiltDbPerOct,
-                    cascadeBwScale=cascadeBwScale,
-                    tremorDepth=tremorDepth,
-                    creakiness=creakiness,
-                    breathiness=breathiness,
-                    jitter=jitter,
-                    shimmer=shimmer,
-                    sharpness=sharpness,
-                )
-
-                if success:
-                    wx.MessageBox(
-                        _("Successfully saved slider settings for profile '{}'.\n\n"
-                          "The frontend will reload the settings on next speech.").format(profileName),
-                        _("Save Complete"),
-                        wx.OK | wx.ICON_INFORMATION,
-                        self,
-                    )
-
-                    # Trigger frontend reload and re-apply voice profile.
-                    # Through the driver, which knows the language "auto"
-                    # stands for: the frontend takes the literal "auto",
-                    # loads default.yaml alone and calls that a success (#194).
-                    try:
-                        synth.reloadLanguagePack()
-                        if curVoice.startswith(VOICE_PROFILE_PREFIX):
-                            frontend.setVoiceProfile(profileName)
-                            synth._applyVoicingTone(profileName)
-                    except Exception:
-                        pass
-                else:
-                    errMsg = frontend.getLastError() or "Unknown error"
-                    wx.MessageBox(
-                        _("Failed to save settings: {}").format(errMsg),
-                        _("Error"),
-                        wx.OK | wx.ICON_ERROR,
-                        self,
-                    )
-
+                packDir = getattr(frontend, "_packDir", None) or _getPacksDir()
+                phonemesPath = os.path.join(packDir, "packs", "phonemes.yaml")
+                if not os.path.isfile(phonemesPath):
+                    phonemesPath = os.path.join(packDir, "phonemes.yaml")
+                profile_save.saveProfile(phonemesPath, profileName, toneSet, toneRemove, classScales)
             except Exception as e:
                 wx.MessageBox(
                     _("Error saving to phonemes.yaml: {}").format(str(e)),
@@ -1444,6 +1421,67 @@ def _getPanelClass():
                     wx.OK | wx.ICON_ERROR,
                     self,
                 )
+                evt.Skip()
+                return
+
+            # Trigger frontend reload and re-apply voice profile.
+            # Through the driver, which knows the language "auto"
+            # stands for: the frontend takes the literal "auto",
+            # loads default.yaml alone and calls that a success (#194).
+            try:
+                synth.reloadLanguagePack()
+                # A new profile can be chosen at once.  NVDA builds a
+                # driver's voice list one time and keeps it, so it is built
+                # again here.
+                names = frontend.getVoiceProfileNames()
+                if names:
+                    synth._voiceProfiles = names
+                    synth._availableVoices = synth._getAvailableVoices()
+                if fromProfile:
+                    frontend.setVoiceProfile(profileName)
+                    # The profile holds the sliders' effect now.  At rest
+                    # they leave it as saved; left where they were, their
+                    # offset would be applied a second time.  NVDA's saved
+                    # copy follows, because Cancel in this dialog and a
+                    # configuration profile switch replay it.
+                    try:
+                        import config
+                        section = config.conf["speech"][synth.name]
+                    except Exception:
+                        section = None
+                    for setting, toneKey, rest, store in profile_save.SLIDERS:
+                        setattr(synth, setting, rest)
+                        if section is not None and str(section.get(setting)) != str(rest):
+                            section[setting] = rest
+                    synth._applyVoicingTone(profileName)
+                else:
+                    # The built-in voice keeps its sliders.  Positions kept
+                    # for the profile from earlier in this session belong to
+                    # the values it had then.
+                    for setting, toneKey, rest, store in profile_save.SLIDERS:
+                        getattr(synth, store, {}).pop(VOICE_PROFILE_PREFIX + profileName, None)
+            except Exception:
+                pass
+
+            if fromProfile:
+                doneMsg = _(
+                    "Saved the voice you hear into profile '{}'.\n\n"
+                    "The voice sliders you had moved are back at their neutral positions: "
+                    "the profile holds their effect now, so the voice sounds the same."
+                ).format(profileName)
+            else:
+                doneMsg = _(
+                    "Saved profile '{}'. It is in the voice list as \"{}\"; "
+                    "the built-in voice and its sliders are unchanged."
+                ).format(profileName, profileName + " (profile)")
+                if notCarriedNote:
+                    doneMsg += "\n\n" + notCarriedNote
+            wx.MessageBox(
+                doneMsg,
+                _("Save Complete"),
+                wx.OK | wx.ICON_INFORMATION,
+                self,
+            )
 
             evt.Skip()
 

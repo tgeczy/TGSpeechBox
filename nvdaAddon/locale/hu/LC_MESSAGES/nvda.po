@@ -3295,3 +3295,79 @@ msgstr ""
 #: synthDrivers/tgSpeechBox/migrate_config.py:176
 msgid "TGSpeechBox — Settings Migrated"
 msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1324
+msgid ""
+"The voice that is playing could not be read, so nothing was saved."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1341
+msgid ""
+"No voice slider is away from its neutral position, so profile '{}' already holds the voice you hear. Nothing was saved."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1362
+msgid ""
+"These values of the built-in voice have no place in a profile's class scales and are not carried over: {}. Use the phoneme editor to adjust the profile."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1369
+msgid "Save the voice you hear now into profile '{}'?"
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1371
+msgid ""
+"A profile named '{}' already exists. Replace its voice source with the built-in voice of that name, as you hear it now? Its class scales and phoneme overrides stay."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1376
+msgid ""
+"Make a voice profile named '{}' from the built-in voice of that name, as you hear it now?"
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1379
+msgid ""
+"Voice source values to write:\n{}"
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1383
+msgid ""
+"The voice sliders you moved will go back to their neutral positions, because the profile will hold their effect."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1388
+msgid ""
+"The built-in voice's own shape goes into the profile's class scales."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1391
+msgid ""
+"Voice quality sliders (creakiness, breathiness, jitter, shimmer, sharpness) are listener settings and are not saved."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1395
+msgid "This will update packs/phonemes.yaml."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1464
+msgid ""
+"Saved the voice you hear into profile '{}'.\n\nThe voice sliders you had moved are back at their neutral positions: the profile holds their effect now, so the voice sounds the same."
+msgstr ""
+
+#. Save Voice Profile Sliders to YAML: saving the voice that is heard (#195)
+#: synthDrivers/tgSpeechBox/langPackSettingsPanel.py:1470
+msgid ""
+"Saved profile '{}'. It is in the voice list as \"{}\"; the built-in voice and its sliders are unchanged."
+msgstr ""

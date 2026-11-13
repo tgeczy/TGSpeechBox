@@ -9,73 +9,16 @@ utterance lost its language: no year splitting, no number reading, none of
 the language's timing, until the language was changed or NVDA restarted.
 
 The panel's handlers are run here as wx would run them, with a wx that
-answers Yes to every question, on the real driver.
+answers Yes to every question (conftest.py's `panel`), on the real driver.
 """
 from __future__ import annotations
 
 import pathlib
 import shutil
-import sys
-import types
 
 import pytest
 
 TEXT = "The 21st of March, 1999."
-
-
-class _FakeWx(types.ModuleType):
-    """wx, as far as the two handlers go: message boxes that are answered
-    Yes and a file dialog that picks `path`."""
-
-    OK = ICON_WARNING = ICON_ERROR = ICON_INFORMATION = ICON_QUESTION = 0
-    YES_NO = FD_OPEN = FD_FILE_MUST_EXIST = FD_SAVE = FD_OVERWRITE_PROMPT = 0
-    YES, ID_OK = 2, 5100
-
-    def __init__(self, path=""):
-        super().__init__("wx")
-        self.shown = []  # the titles of the message boxes
-        outer = self
-
-        class FileDialog:
-            def __init__(self, *a, **k): pass
-            def ShowModal(self): return outer.ID_OK
-            def GetPath(self): return str(path)
-            def Destroy(self): pass
-
-        self.FileDialog = FileDialog
-
-    def MessageBox(self, message, caption="", style=0, parent=None):
-        self.shown.append(caption)
-        return self.YES
-
-    def CallAfter(self, fn, *a, **k):
-        pass
-
-
-@pytest.fixture
-def panel(monkeypatch):
-    """Returns run(handler name, picked file): the panel class's handler,
-    called with a fake wx in place; gives back that wx."""
-    from synthDrivers.tgSpeechBox import langPackSettingsPanel as mod
-
-    gui = types.ModuleType("gui")
-    dialogs = types.ModuleType("gui.settingsDialogs")
-    dialogs.SettingsPanel = type("SettingsPanel", (), {})
-    gui.settingsDialogs = dialogs
-    monkeypatch.setitem(sys.modules, "gui", gui)
-    monkeypatch.setitem(sys.modules, "gui.settingsDialogs", dialogs)
-    monkeypatch.setattr(mod, "_PANEL_CLS", None)
-
-    def run(handler, path=""):
-        wx = _FakeWx(path)
-        monkeypatch.setitem(sys.modules, "wx", wx)
-        cls = mod._getPanelClass()
-        assert cls is not None
-        getattr(cls, handler)(object(), types.SimpleNamespace(Skip=lambda: None))
-        return wx
-
-    yield run
-    monkeypatch.setattr(mod, "_PANEL_CLS", None)
 
 
 def _spoken(harness, record_frames):
@@ -87,12 +30,14 @@ def _spoken(harness, record_frames):
 
 
 def _save(harness, panel, tmp_path):
-    saved = []
-    # The save itself is #195's subject; here it must not touch the staged
-    # phonemes.yaml the other tests read.
-    harness.driver._frontend.saveVoiceProfileSliders = lambda **kw: saved.append(kw["profileName"]) or True
+    d = harness.driver
+    staged = pathlib.Path(d._packsDir) / "phonemes.yaml"
+    before = staged.read_bytes()
+    if d.voice.startswith("profile:"):
+        d.voiceTilt = 60  # a profile with no slider moved has nothing to save (#195)
     wx = panel("_onSaveVoiceProfileClick")
-    assert len(saved) == 1 and "Save Complete" in wx.shown
+    assert "Save Complete" in wx.shown
+    assert staged.read_bytes() != before  # the save happened, so the pack was reloaded
 
 
 def _import(harness, panel, tmp_path):
