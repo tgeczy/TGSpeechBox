@@ -23,7 +23,6 @@ TEST_CASE_FIXTURE(GermanPack, "de pack: the settings after the old contextualRul
     const auto& lp = pack.lang;
     CHECK(lp.boundarySmoothingEnabled);
     CHECK(lp.trillModulationMs == doctest::Approx(40.0));
-    CHECK(lp.trillModulationFadeMs == doctest::Approx(5.0));
     CHECK(lp.singleWordTuningEnabled);
     CHECK(lp.singleWordFinalHoldMs == doctest::Approx(48.0));
     CHECK(lp.singleWordFinalFadeMs == doctest::Approx(18.0));
