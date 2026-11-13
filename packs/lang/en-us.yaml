@@ -569,7 +569,7 @@ settings:
     # o (→ᵒ) for FORCE words, so BOTH must be targeted here.
     # Without this, ᵒːɻ transitions F3 from 2350→1760 (590 Hz cliff).
       - name: thought_pre_rhotic_close
-        phonemes: ["ᴐ", "ᴐː", "ᵒ", "ᵒː"]
+        phonemes: ["ᴐ", "ᵒ"]      # long too: "ᴐː" and "ᵒː" are not phoneme keys
         before: ["ɹ", "ɻ"]
         action: shift
         fieldShifts:
@@ -592,17 +592,24 @@ settings:
             targetHz: 2100
             blend: 1.0
 
-      # ── Diphthong offglide sharpening ──────────────────────────────
-      # When /ɪ/ is the second element of a tied diphthong (FACE /eɪ/,
-      # PRICE /aɪ/, CHOICE /ɔɪ/), push formants toward /i/ territory
-      # so the glide is audible instead of collapsing into the onset.
-      - name: diphthong_offglide_sharpen_ɪ
-        phonemes: ["ɪ"]
-        position: tied-from
-        action: shift
-        fieldShifts:
-          cf1: -40
-          cf2: 150
+      # ── Diphthong offglide sharpening: removed, it never ran (#191) ──
+      # A rule "diphthong_offglide_sharpen_ɪ" stood here, to push the /ɪ/ that
+      # ends FACE /eɪ/, PRICE /aɪ/ and CHOICE /ɔɪ/ toward /i/ (cf1 -40, cf2
+      # +150).  Its fieldShifts was written as a map, the loader reads a list
+      # (as in thought_pre_rhotic_close above), so it loaded with no shifts
+      # and en-us was tuned and approved by ear without it.  Measured, the
+      # working rule ends those glides at F1 320 Hz and F2 2050 Hz where they
+      # end at 360 and 1900 now, at every rate, in every FACE, PRICE and
+      # CHOICE word.  To try it, by ear first:
+      #   - name: diphthong_offglide_sharpen_ɪ
+      #     phonemes: ["ɪ"]
+      #     position: tied-from
+      #     action: shift
+      #     fieldShifts:
+      #       - field: cf1
+      #         deltaHz: -40
+      #       - field: cf2
+      #         deltaHz: 150
   boundarySmoothing:
     enabled: true
 
