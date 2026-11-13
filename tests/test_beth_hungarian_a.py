@@ -72,7 +72,8 @@ def packs_without_the_override(tmp_path_factory):
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     start = next(i for i, line in enumerate(lines) if line.rstrip() == "  Beth:")
     first = next(i for i in range(start, len(lines)) if lines[i].rstrip() == "    phonemeOverrides:")
-    last = next(i for i in range(first + 1, len(lines)) if lines[i].strip() == "cb4: 380")
+    # One phoneme to a line, the form the phoneme editor reads (tests/test_profile_overrides_inline.py).
+    last = next(i for i in range(first + 1, len(lines)) if lines[i].strip() == "á: {cf3: 2860, cb3: 300, cb4: 380}")
     lines[first:last + 1] = ["    phonemeOverrides: {}\n"]
     path.write_text("".join(lines), encoding="utf-8", newline="")
     return str(root)

@@ -10557,10 +10557,9 @@ voiceProfiles:
       # ear, and more so once her vowels held their own formants after a
       # consonant (#173).  A lower, wider F3 and a wider F4, chosen by ear
       # from two candidates, take the edge off; á is about 2 dB quieter.
-      "á":
-        cf3: 2860
-        cb3: 300
-        cb4: 380
+      # (One phoneme to a line: the phoneme editor reads an override only in
+      # this form, and a save there writes every profile back from what it read.)
+      á: {cf3: 2860, cb3: 300, cb4: 380}
   Bobby:
     voicingTone:
       voicingPeakPos: 0.88
