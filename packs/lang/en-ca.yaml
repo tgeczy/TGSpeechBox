@@ -34,12 +34,77 @@ normalization:
     - from: "sˈɑːɹi"
       to:   "sˈɔːɹi"
 
+    # ── PRICE and MOUTH, with Canadian Raising (#188) ────────────
+    # These rules used to sit in replacements, where they never ran: en.yaml's
+    # a → æ comes first there, so "my" was æ + ɪ and "house" æ + ʊ, two vowels
+    # each.  Here they run before it, the way en-us keeps its PRICE and MOUTH.
+    #
+    # Canadian Raising (Joos 1942, "A phonological dilemma in Canadian
+    # English", Language 18: 141-144; Chambers 1973, "Canadian raising",
+    # Canadian Journal of Linguistics 18: 113-135): before a voiceless
+    # consonant inside the word the diphthong starts higher, [ʌɪ] and [ʌʊ]:
+    # "right", "ice", "knife", "out", "house", "about".  Elsewhere it starts
+    # low, as in en-us: "ride", "eyes", "time", "my", "loud", "how", "down".
+    # Measured in Winnipeg, the onset's F1 is about 200 Hz lower before /t/
+    # (Hagiwara 2005, "Revisiting the Canadian English vowel space", Journal
+    # of the Acoustical Society of America 117, doi:10.1121/1.4787300); here
+    # ʌ's F1 is 120 Hz below ɑ's (580 against 700) and 150 Hz below ä's (730).
+    #
+    # One spelling first.  eSpeak NG ties its diphthongs (a͡ɪ) when a host asks
+    # for ties, and not on its command line.  A tie written over one that was
+    # already there is dropped after this phase, and en-ca has no
+    # autoTieDiphthongs to put it back (that would tie its other vowel pairs
+    # as well); a rule that makes the text longer keeps what it wrote.
+    - from: "a͡ɪ"
+      to:   "aɪ"
+    - from: "a͡ʊ"
+      to:   "aʊ"
+
+    # No raising before the stressed syllable: stress on the next syllable can
+    # stop it (Chambers 1973, as Thomas 1991, "The origin of Canadian Raising
+    # in Ontario", Canadian Journal of Linguistics 36, sums it up), so
+    # "citation", "titanic" and "myself" keep the low onset while "cite" and
+    # "titan" are raised.  eSpeak NG writes the stress mark before the vowel,
+    # so the consonant that opens the stressed syllable has the mark right
+    # after it.
+    - from: "aɪ"
+      to:   "ɑ͡ɪ"
+      when:
+        beforeClass: VOICELESS_BEFORE_STRESS
+    - from: "aɪ"
+      to:   "ʌ͡ɪ"
+      when:
+        beforeClass: VOICELESS_OBSTRUENTS
+    - from: "aɪ"
+      to:   "ɑ͡ɪ"
+
+    # MOUTH.  The glide is written ʊ̞, which is what en.yaml makes of every
+    # English ʊ; these rules keep what they write, so it is spelled out.
+    - from: "aʊ"
+      to:   "ʌ͡ʊ̞"
+      when:
+        beforeClass: VOICELESS_OBSTRUENTS
+    - from: "aʊ"
+      to:   "ä͡ʊ̞"
+
   classes:
     # Vowels (including schwa/r-colored and extra internal keys used by English packs).
     VOWELS: ["a", "e", "i", "o", "u", "ɐ", "ə", "ɜ", "ɝ", "ɑ", "ɒ", "ɔ", "ɛ", "æ", "ʊ", "ɪ", "ᵾ", "ᵿ", "ᴏ", "ᴐ", "ᴒ", "ã", "ẽ", "ĩ", "õ", "ũ", "ᴜ"]
 
     # Voiceless obstruents — Canadian Raising triggers before these.
-    VOICELESS_OBSTRUENTS: ["p", "t", "k", "f", "θ", "s", "ʃ", "ʔ", "h"]
+    # ɾ: eSpeak NG's en-us writes the flap only for /t/ ("writer" ɹˈaɪɾɚ,
+    # "rider" ɹˈaɪdɚ), and "writer" normally has the raised vowel (Chambers
+    # 1973).  No h: it only ever opens a syllable ("cowhide", "eyehole").
+    VOICELESS_OBSTRUENTS: ["p", "t", "k", "f", "θ", "s", "ʃ", "ʔ", "ɾ"]
+
+    # One voiceless consonant and then the primary stress mark: the consonant
+    # opens the stressed syllable ("citation" saɪtˈeɪʃən).
+    VOICELESS_BEFORE_STRESS: ["pˈ", "tˈ", "kˈ", "fˈ", "θˈ", "sˈ", "ʃˈ"]
+
+    # The tie bar (U+0361) that preReplacements put inside PRICE and MOUTH.
+    # It is a combining mark with nothing under it; if an editor drops it,
+    # "my" turns into "moy" and tests/test_en_ca_raising.py fails.
+    TIE_BAR: ["͡"]
 
   replacements:
 
@@ -60,46 +125,6 @@ normalization:
       to:   "ej"
     - from: "e͡ɪ"
       to:   "e͡j"
-
-    # ── Canadian Raising: PRICE ──────────────────────────────────
-    # Before voiceless obstruents: raise onset /a/ → /ʌ/ (F1 580 vs 700).
-    # "right" [ʌɪt], "ice" [ʌɪs], "knife" [nʌɪf]
-    # Before voiced or word-finally: normal low onset like en-us.
-    # "ride" [ɑɪd], "eye" [ɑɪ], "time" [tɑɪm]
-    - from: "a͡ɪ"
-      to:   "ʌ͡ɪ"
-      when:
-        beforeClass: VOICELESS_OBSTRUENTS
-    - from: "aɪ"
-      to:   "ʌ͡ɪ"
-      when:
-        beforeClass: VOICELESS_OBSTRUENTS
-
-    # Default PRICE (before voiced / word-final) — same onset as en-us.
-    - from: "a͡ɪ"
-      to:   "ɑ͡ɪ"
-    - from: "aɪ"
-      to:   "ɑ͡ɪ"
-
-    # ── Canadian Raising: MOUTH ──────────────────────────────────
-    # Before voiceless: raise onset /a/ → /ʌ/.
-    # "about" [əbʌʊt], "out" [ʌʊt], "house" [hʌʊs]
-    # Before voiced or word-finally: normal open onset.
-    # "loud" [laʊd], "how" [haʊ], "down" [daʊn]
-    - from: "a͡ʊ"
-      to:   "ʌ͡ʊ"
-      when:
-        beforeClass: VOICELESS_OBSTRUENTS
-    - from: "aʊ"
-      to:   "ʌ͡ʊ"
-      when:
-        beforeClass: VOICELESS_OBSTRUENTS
-
-    # Default MOUTH (before voiced / word-final) — same as en-us.
-    - from: "a͡ʊ"
-      to:   "ä͡ʊ"
-    - from: "aʊ"
-      to:   "ä͡ʊ"
 
     # ── GOAT ─────────────────────────────────────────────────────
     # Canadian GOAT stays backed — no American fronting (o → ᵒ).
@@ -143,8 +168,11 @@ normalization:
     # merge with THOUGHT. "cot" = "caught", "Don" = "dawn".
     - from: "ɑː"
       to:   "ᴐː"
+    # Not the onset of PRICE (ɑ͡ɪ, tied in preReplacements): "my" is not "moy".
     - from: "ɑ"
       to:   "ᴐ"
+      when:
+        notBeforeClass: TIE_BAR
 
     # Use the dedicated US/CA /r/ variant.
     - from: "ɹ"
