@@ -41,6 +41,8 @@ extern "C" {
  * 
  * All fields have sensible defaults matching the original hardcoded behavior,
  * so existing drivers that never call the setter will sound identical.
+ * One field differs between a player nobody has set a tone on and the
+ * defaults below: cascadeBwScale (see its comment).
  */
 typedef struct {
     /**
@@ -271,16 +273,21 @@ typedef struct {
      * Range: 0.3 to 2.0 (clamped by DSP)
      *   - 0.3: Very sharp/ringy formants, crystalline, may ring on transitions
      *   - 0.7: Noticeably sharper, clear vowel definition
-     *   - 0.9: default — mild narrowing for clearer vowels
-     *   - 1.0: neutral, slight muffle
+     *   - 0.9: SPEECHPLAYER_VOICINGTONE_DEFAULTS — mild narrowing for clearer vowels
+     *   - 1.0: neutral, slight muffle; what a new player runs
      *   - 1.2-1.4: Softer, warmer, formants blend more
      *
      * NOTE: the cascade additionally tightens F1 (x0.75) and F2 (x0.88)
      * relative to this scale (formantGenerator.h), so the effective
-     * F1/F2 scaling at the default is ~0.675/0.792 — narrower than this
+     * F1/F2 scaling at 0.9 is ~0.675/0.792 — narrower than this
      * value alone suggests.
      *
-     * Default: 0.9 (mild narrowing, matches TGSB_VOICING_TONE_DEFAULTS)
+     * Default: 0.9 in SPEECHPLAYER_VOICINGTONE_DEFAULTS, the tone a host
+     * starts from and sets (a NULL tone, the legacy layout and a struct too
+     * short to hold this field get it too).  A new player runs and reports
+     * 1.0 until speechPlayer_setVoicingTone is called: the cascade has
+     * always started there, and reporting 0.9 made a read followed by a
+     * write change the sound (#224).
      */
     double cascadeBwScale;
 
@@ -425,7 +432,7 @@ typedef struct {
     0.0,    /* pitchSyncB1DeltaHz (off by default) */ \
     2.0,    /* speedQuotient (neutral, matches original behavior) */ \
     0.0,    /* aspirationTiltDbPerOct (no tilt by default) */ \
-    0.9,    /* cascadeBwScale (mild narrowing for clearer vowels, less tubey than 0.8) */ \
+    0.9,    /* cascadeBwScale (mild narrowing, less tubey than 0.8; a new player runs 1.0 until a tone is set) */ \
     0.0,    /* tremorDepth (no tremor by default) */ \
     1.0,    /* nasalBwScale (no scaling) */ \
     1.0,    /* f4FreqScale (no scaling, base F4 ~3300 Hz) */ \

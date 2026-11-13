@@ -641,7 +641,8 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
 
   std::lock_guard<std::mutex> lock(h->mu);
 
-  // Initialize with the same defaults as SPEECHPLAYER_VOICINGTONE_DEFAULTS
+  // Initialize with the defaults of SPEECHPLAYER_VOICINGTONE_DEFAULTS (but a
+  // 5.5 dB high shelf where it has 4, and cascadeBwScale 1.0 where it has 0.9)
   // so that voice profiles only need to override fields they explicitly set.
   // Previously these were zeroed, which meant any profile with a partial
   // voicingTone: block would disable high-shelf EQ, pre-emphasis, etc.

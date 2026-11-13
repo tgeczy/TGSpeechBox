@@ -85,6 +85,35 @@ def test_player_voicing_tone_round_trips():
     assert t.highShelfFcHz == pytest.approx(2000.0)
 
 
+def test_a_new_player_reports_the_bandwidth_it_runs():
+    """#224: a new Player ran cascadeBwScale 1.0 and reported 0.9, so a tone
+    change that changed nothing (or named another setting) moved it to 0.9."""
+    with tgspeechbox.Frontend("en-us") as fe:
+        frames = fe.frames("həˈloʊ wˈɜːld")
+
+    def run(setup):
+        with tgspeechbox.Player() as pl:
+            setup(pl)
+            bw = pl.voicing_tone().cascadeBwScale
+            pl.queue(frames)
+            return bw, pl.synthesize()
+
+    bw_new, new = run(lambda pl: None)
+    bw_noop, noop = run(lambda pl: pl.set_voicing_tone())
+    bw_other, other = run(lambda pl: pl.set_voicing_tone(voicedTiltDbPerOct=0.0))
+    bw_one, one = run(lambda pl: pl.set_voicing_tone(cascadeBwScale=1.0))
+    assert len(new) > 5000
+    assert bw_new == pytest.approx(1.0)
+    assert bw_noop == pytest.approx(1.0)
+    assert bw_other == pytest.approx(1.0)
+    assert bw_one == pytest.approx(1.0)
+    assert noop == new, "setting the tone a new player reports changed the sound"
+    assert other == new, "naming another setting changed the bandwidth"
+    assert one == new, "a new player does not run cascadeBwScale 1.0"
+    bw_sharp, sharp = run(lambda pl: pl.set_voicing_tone(cascadeBwScale=0.9))
+    assert bw_sharp == pytest.approx(0.9) and sharp != new
+
+
 def test_struct_mirrors_match_the_c_headers():
     for gen in ("tools/gen_frame_ex.py", "tools/gen_voicing_tone.py"):
         r = subprocess.run([sys.executable, str(REPO / gen), "--check"], capture_output=True, text=True)

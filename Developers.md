@@ -200,7 +200,7 @@ This allows older drivers to continue working with newer DLLs, and vice versa.
 |-----------|------|---------|-------|-------------|
 | `speedQuotient` | double | 2.0 | 0.5–4.0 | Glottal pulse asymmetry. Lower (0.5–1.5) = softer/female-like; higher (2.5–4.0) = sharper/male/pressed. |
 | `aspirationTiltDbPerOct` | double | 0.0 | -12 to +12 | Spectral tilt for aspiration noise (negative = darker, positive = brighter), independent of `voicedTiltDbPerOct`. Caveat: the frication noise source shares this filter (`applyFricationTilt` reads the same smoothed value), so non-zero values also color fricatives — stacking with any per-phoneme `fricationTiltDb`, which is applied separately to the parallel amplitudes. |
-| `cascadeBwScale` | double | 0.9 | 0.3–2.0 | Global cascade formant bandwidth multiplier. Lower = sharper formant peaks; higher = softer/more muffled. |
+| `cascadeBwScale` | double | 0.9 | 0.3–2.0 | Global cascade formant bandwidth multiplier. Lower = sharper formant peaks; higher = softer/more muffled. 0.9 is the value in `SPEECHPLAYER_VOICINGTONE_DEFAULTS`, which a host gets when it starts from the defaults and calls `speechPlayer_setVoicingTone`. A new player runs and reports 1.0 (neutral) until a tone is set, and a voice profile's `voicingTone` that leaves the key out is 1.0 too. |
 | `tremorDepth` | double | 0.0 | 0.0–0.5 | Vocal tremor depth. A ~5.5 Hz LFO modulates amplitude for elderly/shaky voice. Stacks with jitter/shimmer. |
 
 ### V4 parameters (DSP version 6+) — vocal tract shape

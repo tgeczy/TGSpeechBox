@@ -341,6 +341,12 @@ public:
 
         // Initialize with default voicing tone
         currentTone = speechPlayer_getDefaultVoicingTone();
+        // Except the cascade bandwidth scale.  The cascade starts at 1.0 and
+        // only setVoicingTone changes it, so a new player has always run 1.0;
+        // report that, not the macro's 0.9, or reading the tone and setting
+        // it straight back changes the sound (#224).  The macro keeps its
+        // 0.9 for the hosts that start from it and set it.
+        currentTone.cascadeBwScale = 1.0;
 
         // High shelf: use defaults from voicing tone
         initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
