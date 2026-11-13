@@ -84,6 +84,15 @@ public:
     // The bookmarks the engine reported: the mark and its byte offset.
     struct Mark { std::wstring name; ULONGLONG offset; };
     std::vector<Mark> marks;
+    // Ask to skip skipCount sentences (ISpVoice::Skip) once this much audio
+    // has been written (bytes).  As in SAPI, SPVES_SKIP stays set until the
+    // engine answers with CompleteSkip.
+    size_t skipAfterBytes = SIZE_MAX;
+    long skipCount = 0;
+    bool skipRaised = false;
+    bool skipPending = false;
+    std::vector<long> skipsCompleted;   // what the engine reported
+    size_t bytesAtSkip = 0;             // audio written when it reported
     // When the first audio arrived (QueryPerformanceCounter ticks, 0 = none).
     LONGLONG firstWriteTicks = 0;
 
@@ -115,7 +124,9 @@ public:
 
     // ISpTTSEngineSite
     STDMETHODIMP_(DWORD) GetActions() override {
-        return bytes >= abortAfterBytes ? SPVES_ABORT : SPVES_CONTINUE;
+        if (bytes >= abortAfterBytes) return SPVES_ABORT;
+        if (!skipRaised && bytes >= skipAfterBytes) skipRaised = skipPending = true;
+        return skipPending ? SPVES_SKIP : SPVES_CONTINUE;
     }
     STDMETHODIMP Write(const void* buf, ULONG cb, ULONG* written) override {
         if (bytes >= abortAfterBytes) {  // a stopped host takes nothing more
@@ -135,8 +146,17 @@ public:
     }
     STDMETHODIMP GetRate(long* p) override { if (p) *p = rate; return S_OK; }
     STDMETHODIMP GetVolume(USHORT* p) override { if (p) *p = volume; return S_OK; }
-    STDMETHODIMP GetSkipInfo(SPVSKIPTYPE*, long*) override { return E_NOTIMPL; }
-    STDMETHODIMP CompleteSkip(long) override { return S_OK; }
+    STDMETHODIMP GetSkipInfo(SPVSKIPTYPE* type, long* count) override {
+        if (type) *type = SPVST_SENTENCE;
+        if (count) *count = skipCount;
+        return S_OK;
+    }
+    STDMETHODIMP CompleteSkip(long skipped) override {
+        skipPending = false;
+        skipsCompleted.push_back(skipped);
+        bytesAtSkip = bytes;
+        return S_OK;
+    }
 };
 
 struct Engine {
@@ -699,5 +719,129 @@ TEST_CASE("text in a spell tag is read letter by letter (#207)") {
             CHECK(site.marks[i].name == std::to_wstring(i + 1));
             if (i) CHECK(site.marks[i - 1].offset < site.marks[i].offset);
         }
+    }
+}
+
+// #208: a reading app's "next sentence" is ISpVoice::Skip.  The engine sees
+// SPVES_SKIP, asks GetSkipInfo what to skip and how many, moves, and reports
+// with CompleteSkip how many it skipped.  "If it was able to successfully
+// skip the entire number returned by GetSkipInfo, the engine should then
+// continue rendering text at the appropriate point.  Otherwise, it should
+// abort the current Speak call and return immediately" (SAPI 5.4, TTS Engine
+// Vendor Porting Guide; its example: +1 while in sentence two continues with
+// sentence three, -2 from sentence two reports -1 and aborts).  The engine
+// answered every skip with CompleteSkip(0) and stopped speaking.
+TEST_CASE("a skip moves by sentences and speech goes on (#208)") {
+    ComScope com;
+    Engine engine(L"en-us");
+    // Three sentences that cannot be mistaken for one another by length.
+    const std::wstring first = L"First sentence here.";
+    const std::wstring second = L"The second sentence is a good deal longer than the other two are, so it cannot be mistaken.";
+    const std::wstring third = L"Third one.";
+    const std::wstring all = first + L" " + second + L" " + third;
+    auto samples = [&](const std::wstring& text) {
+        HostSite site;
+        engine.speak(text, site);
+        return static_cast<double>(site.audio.size());
+    };
+    const double lenAll = samples(all);
+    const double lenFromSecond = samples(second + L" " + third);
+    const double lenThird = samples(third);
+    const double lenFirst = samples(first);
+    REQUIRE(lenFromSecond > lenThird * 3);
+    REQUIRE(lenAll > lenFromSecond * 1.1);
+    const size_t inFirst = engine.msToBytes(20.0);
+    // Well inside the second sentence: past the first one and the pause after it.
+    const size_t inSecond = static_cast<size_t>(lenFirst) * sizeof(int16_t) + engine.msToBytes(1000.0);
+    REQUIRE(inSecond < static_cast<size_t>(lenAll - lenThird) * sizeof(int16_t) - engine.msToBytes(1000.0));
+
+    struct Case { const char* what; size_t at; long count; long reported; double rest; };
+    const Case cases[] = {
+        {"+1 in the first sentence: on with the second", inFirst, 1, 1, lenFromSecond},
+        {"+2 in the first sentence: on with the third", inFirst, 2, 2, lenThird},
+        {"+1 in the second sentence: on with the third", inSecond, 1, 1, lenThird},
+        {"0 in the second sentence: the second again", inSecond, 0, 0, lenFromSecond},
+        {"-1 in the second sentence: back to the first", inSecond, -1, -1, lenAll},
+        {"0 in the first sentence: the first again", inFirst, 0, 0, lenAll},
+        // Fewer sentences than asked for: say how many, then stop.
+        {"+3 in the first sentence: only two follow", inFirst, 3, 2, 0.0},
+        {"+2 in the second sentence: only one follows", inSecond, 2, 1, 0.0},
+        {"-1 in the first sentence: none before it", inFirst, -1, 0, 0.0},
+        {"-2 in the second sentence: only one before it", inSecond, -2, -1, 0.0},
+    };
+    SUBCASE("forward, backward, and further than the text goes") for (const Case& c : cases) {
+        const std::string what = c.what;
+        CAPTURE(what);
+        HostSite site;
+        site.skipAfterBytes = c.at;
+        site.skipCount = c.count;
+        engine.speak(all, site);
+        REQUIRE(site.skipsCompleted.size() == 1);
+        CHECK(site.skipsCompleted[0] == c.reported);
+        const double rest = static_cast<double>(site.bytes - site.bytesAtSkip) / sizeof(int16_t);
+        MESSAGE(what << ": reported " << site.skipsCompleted[0] << ", " << rest << " samples after the skip, expected "
+                     << c.rest);
+        // What is spoken after the skip is the text from the sentence it
+        // landed on, with the silence that ends every Speak(); nothing at
+        // all when the skip could not be met.
+        CHECK(rest == doctest::Approx(c.rest).epsilon(0.02));
+        // The engine is as good as new afterwards.
+        HostSite next;
+        engine.speak(third, next);
+        CHECK(static_cast<double>(next.audio.size()) == doctest::Approx(lenThird).epsilon(0.01));
+    }
+
+    SUBCASE("bookmarks of skipped text are not reported, the others are") {
+        HostSite site;
+        site.skipAfterBytes = inFirst;
+        site.skipCount = 1;
+        engine.speak({{SPVA_Bookmark, L"1"}, {SPVA_Speak, first}, {SPVA_Bookmark, L"2"}, {SPVA_Speak, second},
+                      {SPVA_Bookmark, L"3"}, {SPVA_Speak, third}, {SPVA_Bookmark, L"4"}}, site);
+        REQUIRE(site.skipsCompleted.size() == 1);
+        CHECK(site.skipsCompleted[0] == 1);
+        // "1" was passed before the skip; "2" stands before the second
+        // sentence, where speech goes on, and "3" and "4" follow.
+        REQUIRE(site.marks.size() == 4);
+        for (size_t i = 0; i < 4; ++i) {
+            CHECK(site.marks[i].name == std::to_wstring(i + 1));
+            if (i) CHECK(site.marks[i - 1].offset <= site.marks[i].offset);
+            CHECK(site.marks[i].offset <= site.bytes);
+        }
+        CHECK(site.marks[1].offset >= site.bytesAtSkip);
+
+        HostSite two;
+        two.skipAfterBytes = inFirst;
+        two.skipCount = 2;
+        engine.speak({{SPVA_Bookmark, L"1"}, {SPVA_Speak, first}, {SPVA_Bookmark, L"2"}, {SPVA_Speak, second},
+                      {SPVA_Bookmark, L"3"}, {SPVA_Speak, third}, {SPVA_Bookmark, L"4"}}, two);
+        REQUIRE(two.marks.size() == 3);   // "2" belonged to the sentence skipped over
+        CHECK(two.marks[0].name == L"1");
+        CHECK(two.marks[1].name == L"3");
+        CHECK(two.marks[2].name == L"4");
+    }
+
+    SUBCASE("sentences in separate fragments, with spelled text between") {
+        HostSite plain;
+        engine.speak({{SPVA_Speak, third}}, plain);
+        HostSite site;
+        site.skipAfterBytes = inFirst;
+        site.skipCount = 2;   // over the rest of the first sentence and the spelled text
+        engine.speak({{SPVA_Speak, first}, {SPVA_SpellOut, L"ok"}, {SPVA_Speak, third}}, site);
+        REQUIRE(site.skipsCompleted.size() == 1);
+        CHECK(site.skipsCompleted[0] == 2);
+        CHECK(static_cast<double>(site.bytes - site.bytesAtSkip) / sizeof(int16_t)
+              == doctest::Approx(static_cast<double>(plain.audio.size())).epsilon(0.02));
+    }
+
+    SUBCASE("a host that cannot say what to skip is answered as before") {
+        // GetSkipInfo fails: nothing is skipped and the call ends.
+        struct NoInfoSite : HostSite {
+            STDMETHODIMP GetSkipInfo(SPVSKIPTYPE*, long*) override { return E_NOTIMPL; }
+        } site;
+        site.skipAfterBytes = inFirst;
+        engine.speak(all, site);
+        REQUIRE(site.skipsCompleted.size() == 1);
+        CHECK(site.skipsCompleted[0] == 0);
+        CHECK(site.bytes == site.bytesAtSkip);
     }
 }

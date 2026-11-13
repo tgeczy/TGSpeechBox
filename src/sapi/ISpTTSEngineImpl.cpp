@@ -631,8 +631,69 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                   bi, b.text.size(), b.bookmarks.size(), narrow.c_str());
     }
 
+    // Every batch's clauses (for spelled text, its characters), and where the
+    // sentences start: at the first clause of a batch and after a clause that
+    // ends with a full stop, a question mark or an exclamation mark.
+    const int pm = tgsb::get_settings_cached(rt_->base_dir()).pauseMode;
+    struct text_pos { size_t batch; size_t clause; };
+    std::vector<std::vector<sapi_clause>> batch_clauses(batches.size());
+    std::vector<text_pos> sentences;
+    for (size_t bi = 0; bi < batches.size(); ++bi) {
+        const auto& b = batches[bi];
+        if (b.text.empty()) continue;
+        batch_clauses[bi] = b.spell ? spell_clauses(b.text) : split_clauses(b.text, pm);
+        for (size_t ci = 0; ci < batch_clauses[bi].size(); ++ci) {
+            const char before = ci ? batch_clauses[bi][ci - 1].clause_type : '.';
+            if (before == '.' || before == '?' || before == '!')
+                sentences.push_back({ bi, ci });
+        }
+    }
+
+    // A skip request (ISpVoice::Skip, a reading app's "next sentence").  The
+    // host says how many sentences, forward or back, or 0 for the start of
+    // the current one.  The engine skips as many as the text has and reports
+    // that number; if it is the number asked for, speech goes on from there,
+    // otherwise the call ends (SAPI 5.4, TTS Engine Vendor Porting Guide,
+    // "Getting Real-Time Action Requests").  Every skip used to be answered
+    // with 0 and the end of the call (#208).  Returns false when the call
+    // ends, and otherwise leaves the place to go on from in skip_to.
+    text_pos skip_to{};
+    auto take_skip = [&](size_t at_batch, size_t at_clause) -> bool {
+        SPVSKIPTYPE type = SPVST_SENTENCE;
+        long wanted = 0;
+        long done = 0;
+        size_t cur = 0;  // the sentence being spoken: the last one that starts at or before here
+        const bool known = SUCCEEDED(pOutputSite->GetSkipInfo(&type, &wanted)) &&
+                           type == SPVST_SENTENCE && !sentences.empty();
+        if (known) {
+            for (size_t i = 0; i < sentences.size(); ++i) {
+                if (sentences[i].batch < at_batch ||
+                    (sentences[i].batch == at_batch && sentences[i].clause <= at_clause))
+                    cur = i;
+            }
+            const long back = static_cast<long>(cur);
+            const long ahead = static_cast<long>(sentences.size() - 1 - cur);
+            done = std::clamp(wanted, -back, ahead);
+        }
+        rt_->purge();
+        pOutputSite->CompleteSkip(done);
+        if (!known || done != wanted) {
+            ctx.aborted = true;
+            return false;
+        }
+        rt_->begin_stream();  // the sentence starts like the first one of a call
+        skip_to = sentences[static_cast<size_t>(static_cast<long>(cur) + done)];
+        return true;
+    };
+
     // ── Phase 2: Synthesize and play each batch ──
-    for (auto& batch : batches) {
+    size_t next_batch = 0;
+    size_t first_clause = 0;  // the clause to begin that batch at: not 0 after a skip into it
+    for (size_t bi = 0; bi < batches.size(); bi = next_batch) {
+        auto& batch = batches[bi];
+        const size_t start_clause = first_clause;
+        next_batch = bi + 1;
+        first_clause = 0;
         if (ctx.aborted) break;
 
         DWORD actions = pOutputSite->GetActions();
@@ -642,10 +703,10 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             break;
         }
         if (actions & SPVES_SKIP) {
-            pOutputSite->CompleteSkip(0);
-            rt_->purge();
-            ctx.aborted = true;
-            break;
+            if (!take_skip(bi, start_clause)) break;
+            next_batch = skip_to.batch;
+            first_clause = skip_to.clause;
+            continue;
         }
 
         // Bookmarks-only batch — fire at current audio position.
@@ -716,21 +777,27 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         // lands within one block.  Bookmarks fire at a position proportional
         // to their character offset inside the clause they fall in (before:
         // proportional across the whole batch).
-        const auto& settings = tgsb::get_settings_cached(rt_->base_dir());
-        const int pm = settings.pauseMode;
         // Clauses for intonation and the pauses after them; for spelled
         // text, its characters.
-        auto clauses = batch.spell ? spell_clauses(batch.text) : split_clauses(batch.text, pm);
+        const auto& clauses = batch_clauses[bi];
         const size_t total_chars = batch.text.size();
         std::vector<tgsb::sample_t> audio_buf;
         size_t bm_idx = 0;
+        // After a skip into this batch, the marks inside the text that was
+        // skipped over are not reported.
+        if (start_clause > 0 && start_clause <= clauses.size()) {
+            const size_t skipped_end = clauses[start_clause - 1].start + clauses[start_clause - 1].len;
+            while (bm_idx < batch.bookmarks.size() && batch.bookmarks[bm_idx].char_offset < skipped_end)
+                ++bm_idx;
+        }
+        bool skipped = false;  // a skip was taken inside this batch: go on at skip_to
 
         auto fire_bookmark = [&](size_t idx) {
             add_bookmark_event(pOutputSite, ctx.bytes_written,
                                batch.bookmarks[idx].mark.c_str());
         };
 
-        for (size_t ci = 0; ci < clauses.size() && !ctx.aborted; ++ci) {
+        for (size_t ci = start_clause; ci < clauses.size() && !ctx.aborted; ++ci) {
             const auto& clause = clauses[ci];
             const bool last_clause = (ci + 1 == clauses.size());
             const size_t clause_end = last_clause ? total_chars : clauses[ci + 1].start;
@@ -766,7 +833,8 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                 return last_clause || batch.bookmarks[idx].char_offset < clause_end;
             };
 
-            // An abort or skip from the host ends the batch.
+            // An abort from the host ends the call; a skip ends this clause,
+            // and the call too when it cannot be met.
             auto host_stopped = [&]() -> bool {
                 const DWORD a = pOutputSite->GetActions();
                 if (a & SPVES_ABORT) {
@@ -775,9 +843,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                     return true;
                 }
                 if (a & SPVES_SKIP) {
-                    pOutputSite->CompleteSkip(0);
-                    rt_->purge();
-                    ctx.aborted = true;
+                    skipped = take_skip(bi, ci);
                     return true;
                 }
                 return false;
@@ -854,6 +920,11 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         }
 
         if (ctx.aborted) break;  // marks after an abort are not reported
+        if (skipped) {           // nor the ones a skip passed over
+            next_batch = skip_to.batch;
+            first_clause = skip_to.clause;
+            continue;
+        }
 
         // Fire any remaining bookmarks (end-of-batch), also when the batch
         // made no sound: a host that waits for a mark must get it (#204).
