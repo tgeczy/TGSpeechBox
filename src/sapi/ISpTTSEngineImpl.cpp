@@ -679,7 +679,6 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         const size_t total_chars = batch.text.size();
         std::vector<tgsb::sample_t> audio_buf;
         size_t bm_idx = 0;
-        bool wrote_any = false;
 
         auto fire_bookmark = [&](size_t idx) {
             add_bookmark_event(pOutputSite, ctx.bytes_written,
@@ -792,11 +791,11 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                 if (!hand_over(sampleBuf.data(), static_cast<size_t>(got))) { stopped = true; break; }
             }
             if (stopped) break;
-            if (!clause_wrote) continue;
-            wrote_any = true;
 
-            // The pause after the clause, as every host leaves it.
-            if (clause.pause_ms > 0.0) {
+            // The pause after the clause, as every host leaves it.  A clause
+            // that made no sound (a dash rule, an ellipsis) leaves none, but
+            // its bookmarks fire like any other clause's (#204).
+            if (clause_wrote && clause.pause_ms > 0.0) {
                 auto padSamples = static_cast<size_t>(clause.pause_ms * rt_->sample_rate() / 1000.0 + 0.5);
                 audio_buf.assign(padSamples, tgsb::sample_t{0});
                 if (!hand_over(audio_buf.data(), audio_buf.size())) break;
@@ -810,9 +809,9 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         }
 
         if (ctx.aborted) break;  // marks after an abort are not reported
-        if (!wrote_any) continue;
 
-        // Fire any remaining bookmarks (end-of-batch).
+        // Fire any remaining bookmarks (end-of-batch), also when the batch
+        // made no sound: a host that waits for a mark must get it (#204).
         while (bm_idx < batch.bookmarks.size()) {
             fire_bookmark(bm_idx);
             ++bm_idx;

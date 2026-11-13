@@ -32,6 +32,46 @@ const CLSID kEngineClsid = {0x70e56986, 0x4b3c, 0x4ce1, {0xb1, 0xf1, 0xc8, 0x61,
 
 const wchar_t kTokenKey[] = L"Software\\TGSpeechBoxTests\\SapiEngineVoice";
 
+// The engine reads %APPDATA%\TGSpeechSapi\settings.ini and logs to the temp
+// folder.  Both are pointed into the staging folder before the DLL is loaded,
+// so the tests neither read the settings of whoever runs them nor leave
+// anything behind, and a test can write the settings.ini it needs.
+std::wstring stageDir() {
+    std::wstring dll = TGSB_SAPI_STAGE_DLL;   // <stage>/x64/TGSpeechSapi.dll
+    for (wchar_t& c : dll) if (c == L'/') c = L'\\';
+    dll.resize(dll.find_last_of(L'\\'));      // <stage>/x64
+    dll.resize(dll.find_last_of(L'\\'));      // <stage>
+    return dll;
+}
+std::wstring settingsPath() { return stageDir() + L"\\appdata\\TGSpeechSapi\\settings.ini"; }
+std::wstring tempDir() { return stageDir() + L"\\temp"; }
+
+// Replace the settings.ini with these "[Section]\nkey=value" lines; an empty
+// text removes the file (a fresh install has none).
+void writeSettings(const std::string& ini) {
+    const std::wstring path = settingsPath();
+    DeleteFileW(path.c_str());
+    if (ini.empty()) return;
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    REQUIRE(h != INVALID_HANDLE_VALUE);
+    DWORD written = 0;
+    WriteFile(h, ini.data(), static_cast<DWORD>(ini.size()), &written, nullptr);
+    CloseHandle(h);
+}
+
+const struct PrivateProfile {
+    PrivateProfile() {
+        const std::wstring appdata = stageDir() + L"\\appdata";
+        CreateDirectoryW(appdata.c_str(), nullptr);
+        CreateDirectoryW((appdata + L"\\TGSpeechSapi").c_str(), nullptr);
+        CreateDirectoryW(tempDir().c_str(), nullptr);
+        SetEnvironmentVariableW(L"APPDATA", appdata.c_str());
+        SetEnvironmentVariableW(L"TMP", tempDir().c_str());
+        SetEnvironmentVariableW(L"TEMP", tempDir().c_str());
+        DeleteFileW(settingsPath().c_str());
+    }
+} kPrivateProfile;
+
 // A SAPI host, as the engine sees it.
 class HostSite : public ISpTTSEngineSite {
 public:
@@ -39,7 +79,11 @@ public:
     // Answer SPVES_ABORT once this much audio has been written (bytes).
     size_t abortAfterBytes = SIZE_MAX;
     long rate = 0;
+    USHORT volume = 100;
     size_t bytes = 0;
+    // The bookmarks the engine reported: the mark and its byte offset.
+    struct Mark { std::wstring name; ULONGLONG offset; };
+    std::vector<Mark> marks;
     // When the first audio arrived (QueryPerformanceCounter ticks, 0 = none).
     LONGLONG firstWriteTicks = 0;
 
@@ -57,7 +101,13 @@ public:
     STDMETHODIMP_(ULONG) Release() override { return 1; }
 
     // ISpEventSink
-    STDMETHODIMP AddEvents(const SPEVENT*, ULONG) override { return S_OK; }
+    STDMETHODIMP AddEvents(const SPEVENT* events, ULONG count) override {
+        for (ULONG i = 0; events && i < count; ++i) {
+            if (events[i].eEventId == SPEI_TTS_BOOKMARK && events[i].lParam)
+                marks.push_back({reinterpret_cast<const wchar_t*>(events[i].lParam), events[i].ullAudioStreamOffset});
+        }
+        return S_OK;
+    }
     STDMETHODIMP GetEventInterest(ULONGLONG* p) override {
         if (p) *p = SPFEI_ALL_TTS_EVENTS;
         return S_OK;
@@ -84,7 +134,7 @@ public:
         return S_OK;
     }
     STDMETHODIMP GetRate(long* p) override { if (p) *p = rate; return S_OK; }
-    STDMETHODIMP GetVolume(USHORT* p) override { if (p) *p = 100; return S_OK; }
+    STDMETHODIMP GetVolume(USHORT* p) override { if (p) *p = volume; return S_OK; }
     STDMETHODIMP GetSkipInfo(SPVSKIPTYPE*, long*) override { return E_NOTIMPL; }
     STDMETHODIMP CompleteSkip(long) override { return S_OK; }
 };
@@ -95,7 +145,7 @@ struct Engine {
     ISpObjectWithToken* withToken = nullptr;
     WAVEFORMATEX fmt{};
 
-    explicit Engine(const wchar_t* langTag) {
+    explicit Engine(const wchar_t* langTag, const wchar_t* preset = L"Adam") {
         // The token: Attributes\TGSpeech_LangTag + TGSpeech_Preset.
         HKEY attrs = nullptr;
         const std::wstring attrsKey = std::wstring(kTokenKey) + L"\\Attributes";
@@ -105,7 +155,7 @@ struct Engine {
                            static_cast<DWORD>((wcslen(value) + 1) * sizeof(wchar_t)));
         };
         setStr(L"TGSpeech_LangTag", langTag);
-        setStr(L"TGSpeech_Preset", L"Adam");
+        setStr(L"TGSpeech_Preset", preset);
         RegCloseKey(attrs);
 
         ISpObjectToken* token = nullptr;
@@ -148,6 +198,31 @@ struct Engine {
         frag.ulTextLen = static_cast<ULONG>(text.size());
         frag.ulTextSrcOffset = 0;
         REQUIRE(SUCCEEDED(tts->Speak(0, SPDFID_WaveFormatEx, &fmt, &frag, &site)));
+    }
+
+    // One Speak() call with a fragment list, as SAPI builds it from XML
+    // markup: text, bookmarks (the text is the mark), spelled text, and the
+    // rate and volume a fragment carries from <rate> and <volume>.
+    struct Frag {
+        SPVACTIONS action;
+        std::wstring text;
+        long rateAdj = 0;
+        ULONG volume = 100;
+    };
+    void speak(const std::vector<Frag>& frags, HostSite& site) {
+        std::vector<SPVTEXTFRAG> list(frags.size());
+        ULONG offset = 0;
+        for (size_t i = 0; i < frags.size(); ++i) {
+            list[i].pNext = i + 1 < frags.size() ? &list[i + 1] : nullptr;
+            list[i].State.eAction = frags[i].action;
+            list[i].State.RateAdj = frags[i].rateAdj;
+            list[i].State.Volume = frags[i].volume;
+            list[i].pTextStart = frags[i].text.c_str();
+            list[i].ulTextLen = static_cast<ULONG>(frags[i].text.size());
+            list[i].ulTextSrcOffset = offset;
+            offset += list[i].ulTextLen + 1;
+        }
+        REQUIRE(SUCCEEDED(tts->Speak(0, SPDFID_WaveFormatEx, &fmt, list.data(), &site)));
     }
 
     size_t msToBytes(double ms) const {
@@ -395,4 +470,57 @@ TEST_CASE("releasing one engine leaves the other one speaking (#202)") {
         CHECK(level > 0.7);
         CHECK(level < 1.4);
     }
+}
+
+// #204: a bookmark is a promise to the host.  NVDA's SAPI5 driver moves the
+// caret and keeps Say All going on them, JAWS puts one between words.  When
+// the text they came with made no sound (a line that is only a dash rule, an
+// ellipsis, a no-break space), the engine dropped them: a clause that
+// rendered nothing skipped its own flush, and a batch that rendered nothing
+// skipped the end-of-batch one.
+TEST_CASE("bookmarks fire when their text makes no sound (#204)") {
+    ComScope com;
+    Engine engine(L"en-us");
+    struct Case { const wchar_t* text; bool silent; };
+    const Case cases[] = {
+        {L"x", false},            // the control: a text that speaks
+        {L"-", true},
+        {L"-----", true},
+        {L"...", true},
+        {L"—", true},        // em dash
+        {L" ", true},        // no-break space
+        {L"​", true},        // zero-width space
+        {L" ", true},
+    };
+    const size_t pad = engine.msToBytes(50.0);  // the silence that ends every Speak()
+    for (const Case& c : cases) {
+        CAPTURE(static_cast<unsigned>(c.text[0]));
+        CAPTURE(wcslen(c.text));
+        HostSite site;
+        engine.speak({{SPVA_Bookmark, L"7"}, {SPVA_Speak, c.text}, {SPVA_Bookmark, L"8"}}, site);
+        if (c.silent) CHECK(site.bytes == pad);   // the premise: nothing was spoken
+        else CHECK(site.bytes > pad);
+        CHECK(site.marks.size() == 2);
+        if (site.marks.size() != 2) continue;
+        CHECK(site.marks[0].name == L"7");
+        CHECK(site.marks[1].name == L"8");
+        CHECK(site.marks[0].offset <= site.marks[1].offset);
+        CHECK(site.marks[1].offset <= site.bytes);
+        CHECK(site.marks[0].offset % sizeof(int16_t) == 0);
+        CHECK(site.marks[1].offset % sizeof(int16_t) == 0);
+    }
+
+    // Silent text between spoken text, in one Speak() call: every mark, in
+    // order, none later than the audio.
+    HostSite mixed;
+    engine.speak({{SPVA_Bookmark, L"1"}, {SPVA_Speak, L"Desktop."}, {SPVA_Bookmark, L"2"}, {SPVA_Speak, L"-----"},
+                  {SPVA_Bookmark, L"3"}, {SPVA_Speak, L"Documents."}, {SPVA_Bookmark, L"4"}}, mixed);
+    REQUIRE(mixed.marks.size() == 4);
+    for (size_t i = 0; i < 4; ++i) {
+        CHECK(mixed.marks[i].name == std::to_wstring(i + 1));
+        if (i) CHECK(mixed.marks[i - 1].offset <= mixed.marks[i].offset);
+        CHECK(mixed.marks[i].offset <= mixed.bytes);
+    }
+    // The mark after "Desktop." comes after its audio, not at the start.
+    CHECK(mixed.marks[1].offset > mixed.marks[0].offset);
 }
