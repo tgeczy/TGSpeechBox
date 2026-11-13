@@ -194,6 +194,42 @@ def _profileSaveReason(e) -> str:
     return sentence.format(e.detail) if sentence else str(e)
 
 
+def _showSlidersInOpenVoicePanel(synth, settingIds) -> None:
+    """Set the voice panel's slider controls to the driver's values.
+
+    A profile save puts the driver's voice sliders at rest.  They were moved
+    in NVDA's voice panel, which is usually still open in the same settings
+    dialog, and NVDA does not read a driver's values into that panel again
+    (AutoSettingsMixin.refreshGui rebuilds it only for a new driver).  Its
+    controls stood at the old positions, and the next arrow press on one sent
+    "old position + 1": the whole old offset again, on top of a profile that
+    already holds it.
+
+    The voice panel is inside the Speech category's panel
+    (SpeechSettingsPanel.voicePanel), with a <setting id>Slider control for
+    each slider.  Anything not found is left alone.
+    """
+    try:
+        import wx
+        from gui import settingsDialogs
+        dialogCls = getattr(settingsDialogs, "NVDASettingsDialog", None)
+        if dialogCls is None:
+            return
+        for win in wx.GetTopLevelWindows():
+            if not isinstance(win, dialogCls):
+                continue
+            for catPanel in dict(getattr(win, "catIdToInstanceMap", None) or {}).values():
+                voicePanel = getattr(catPanel, "voicePanel", None)
+                if voicePanel is None:
+                    continue
+                for settingId in settingIds:
+                    slider = getattr(voicePanel, settingId + "Slider", None)
+                    if slider is not None:
+                        slider.SetValue(getattr(synth, settingId))
+    except Exception:
+        pass
+
+
 _PANEL_CLS = None
 
 
@@ -1569,10 +1605,17 @@ def _getPanelClass():
                     # they leave it as saved; left where they were, their
                     # offset would be applied a second time.  NVDA's saved
                     # copy follows, because Cancel in this dialog and a
-                    # configuration profile switch replay it.
+                    # configuration profile switch replay it.  That copy is
+                    # one set of sliders, for the voice NVDA has saved: when
+                    # the profile was only chosen in the voice panel and not
+                    # yet saved with OK, it holds another voice's sliders
+                    # and is left alone, or Cancel would bring that voice
+                    # back with its sliders wiped.
                     try:
                         import config
                         section = config.conf["speech"][synth.name]
+                        if section.get("voice") != VOICE_PROFILE_PREFIX + profileName:
+                            section = None
                     except Exception:
                         section = None
                     for setting, toneKey, rest, store in profile_save.SLIDERS:
@@ -1580,6 +1623,8 @@ def _getPanelClass():
                         if section is not None and str(section.get(setting)) != str(rest):
                             section[setting] = rest
                     synth._applyVoicingTone(profileName)
+                    _showSlidersInOpenVoicePanel(
+                        synth, [setting for setting, toneKey, rest, store in profile_save.SLIDERS])
                 else:
                     # The built-in voice keeps its sliders.  Positions kept
                     # for the profile from earlier in this session belong to

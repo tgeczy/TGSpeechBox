@@ -175,6 +175,101 @@ def test_nvdas_copy_of_the_sliders_follows(harness, panel, heard, nvda_replay_se
     assert d.voice == "profile:Beth"
 
 
+def test_nvdas_copy_is_left_alone_when_it_is_another_voices(harness, panel, heard, driver_config_section):
+    """NVDA's saved copy holds one set of sliders, and it belongs to the voice
+    NVDA has saved.  A listener who chooses a profile in the voice panel,
+    moves a slider and saves the profile has not pressed OK yet: the saved
+    voice is still the one from before.  Writing the rest positions there
+    wiped that voice's sliders, so Cancel brought back a David with a neutral
+    tilt and without his own head size."""
+    d = harness.driver
+    d.voice = "David"  # head size 100 is David's own
+    d.voiceTilt, d.speedQuotient = 70, 35
+    d.saveSettings()  # OK: NVDA's configuration holds David and his sliders
+    david = _sliders(d)
+    assert david["headSize"] == 100
+    tone_david = heard()
+
+    d.voice = "profile:Beth"  # in the voice panel, live, not saved
+    d.voiceTilt = 60
+    wx = panel(SAVE)
+
+    assert "Save Complete" in wx.shown
+    section = driver_config_section()
+    assert section["voice"] == "David"
+    assert (section["voiceTilt"], section["speedQuotient"], section["headSize"]) == (70, 35, 100)
+    assert d.voice == "profile:Beth" and _sliders(d) == NEUTRAL  # the profile itself is at rest, as before
+    d.loadSettings()  # Cancel
+    assert d.voice == "David" and _sliders(d) == david
+    assert not _same(heard(), tone_david)
+
+
+class _Slider:
+    def __init__(self, value):
+        self.value = value
+
+    def SetValue(self, value):
+        self.value = value
+
+    def GetValue(self):
+        return self.value
+
+
+def _open_settings_dialog(monkeypatch, **sliders):
+    """NVDA's settings dialog with the Speech category visited: the voice
+    panel sits inside the Speech category's panel (gui/settingsDialogs.py,
+    SpeechSettingsPanel.voicePanel), with one <setting>Slider per slider."""
+    import sys
+    import types
+    from conftest import FakeWx
+    dialogs = sys.modules["gui.settingsDialogs"]
+    dialog_cls = type("NVDASettingsDialog", (), {})
+    monkeypatch.setattr(dialogs, "NVDASettingsDialog", dialog_cls, raising=False)
+    voice_panel = types.SimpleNamespace(**{name + "Slider": _Slider(value) for name, value in sliders.items()})
+    dialog = dialog_cls()
+    dialog.catIdToInstanceMap = {1: None, 2: types.SimpleNamespace(), 3: types.SimpleNamespace(voicePanel=voice_panel)}
+    monkeypatch.setattr(FakeWx, "top_level_windows", (object(), dialog))
+    return voice_panel
+
+
+def test_an_open_voice_panel_shows_the_sliders_at_rest(harness, panel, heard, monkeypatch):
+    """The sliders were moved in NVDA's voice panel, which is still open in
+    the same settings dialog when the profile is saved.  NVDA does not read
+    a driver's values into that panel again, so its controls stood where
+    they were moved to, and the next arrow press on one sent "old position
+    + 1" to the driver: the whole old offset again, on top of a profile
+    that already holds it (5.3 dB/oct of tilt for one 0.48 step)."""
+    d = harness.driver
+    d.voice = "profile:Beth"
+    d.voiceTilt, d.headSize = 60, 40
+    voice_panel = _open_settings_dialog(monkeypatch, voiceTilt=60, headSize=40)
+
+    wx = panel(SAVE)
+
+    assert "Save Complete" in wx.shown
+    assert (voice_panel.voiceTiltSlider.GetValue(), voice_panel.headSizeSlider.GetValue()) == (50, 50)
+    saved = heard()
+    d.voiceTilt = voice_panel.voiceTiltSlider.GetValue() + 1  # one arrow press, as NVDA's panel sends it
+    assert abs(heard()["voicedTiltDbPerOct"] - saved["voicedTiltDbPerOct"]) < 0.6  # one step is 0.48 dB/oct
+
+
+def test_a_settings_dialog_without_the_voice_panel_is_no_trouble(harness, panel, monkeypatch):
+    """The Speech category not visited yet, or an NVDA whose dialog is built
+    differently: the save still completes."""
+    import sys
+    from conftest import FakeWx
+    d = harness.driver
+    d.voice = "profile:Beth"
+    d.voiceTilt = 60
+    dialog_cls = type("NVDASettingsDialog", (), {})
+    monkeypatch.setattr(sys.modules["gui.settingsDialogs"], "NVDASettingsDialog", dialog_cls, raising=False)
+    monkeypatch.setattr(FakeWx, "top_level_windows", (dialog_cls(), object()))  # no catIdToInstanceMap at all
+
+    wx = panel(SAVE)
+
+    assert "Save Complete" in wx.shown and _sliders(d) == NEUTRAL
+
+
 def test_the_voice_quality_sliders_stay_the_listeners(harness, panel, heard):
     d = harness.driver
     d.voice = "profile:Beth"

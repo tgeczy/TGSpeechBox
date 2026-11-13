@@ -664,6 +664,12 @@ class FakeWx(types.ModuleType):
     def CallAfter(self, fn, *a, **k):
         pass
 
+    # NVDA's open top-level windows; a test puts a settings dialog here.
+    top_level_windows = ()
+
+    def GetTopLevelWindows(self):
+        return list(type(self).top_level_windows)
+
 
 @pytest.fixture
 def panel(monkeypatch):
