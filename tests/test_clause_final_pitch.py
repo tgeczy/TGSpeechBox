@@ -681,6 +681,39 @@ def test_a_sound_does_not_start_its_pitch_ramp_twice(mode, lang, clause, speed):
     assert cut, "no sound of these phrases is cut into frames"
 
 
+@pytest.mark.parametrize("speed", SPEEDS)
+@pytest.mark.parametrize("clause", [".", "!", "?"])
+@pytest.mark.parametrize("lang", list(DIP_PHRASES))
+@pytest.mark.parametrize("mode", MODES)
+def test_the_ramp_is_cut_where_the_frame_is(mode, lang, clause, speed):
+    """Continuity alone would hold for a cut anywhere.  The dip frame takes
+    the share of the ramp that it takes of the sound's time, so the pitch
+    moves at one pace through both frames and never past the end pitch."""
+    cut = 0
+    for text, ipa in DIP_PHRASES[lang].items():
+        frames, trace = _frames(lang, mode, ipa, clause, speed)
+        starts = [e["frameIndex"] for e in trace] + [len(frames)]
+        for e, a, b in zip(trace, starts, starts[1:]):
+            if b - a != 2:
+                continue
+            dip, main = frames[a], frames[a + 1]
+            if dip.is_silence or main.is_silence:
+                continue
+            if dip.params["voiceAmplitude"] <= 0.0 or main.params["voiceAmplitude"] <= 0.0:
+                continue
+            if dip.params["voiceAmplitude"] >= main.params["voiceAmplitude"]:
+                continue  # two frames, but not a word-boundary dip
+            start, end = dip.params["voicePitch"], main.params["endVoicePitch"]
+            share = dip.duration_ms / (dip.duration_ms + main.duration_ms)
+            where = (f"{mode} {lang} '{text}{clause}' @{speed}, /{e['phonemeKey']}/: {start:.2f} to {end:.2f} Hz,"
+                     f" dip {dip.duration_ms:.1f} ms of {dip.duration_ms + main.duration_ms:.1f},"
+                     f" cut at {dip.params['endVoicePitch']:.2f} Hz")
+            assert 0.0 < share < 1.0, where
+            assert dip.params["endVoicePitch"] == pytest.approx(start + (end - start) * share, abs=0.05), where
+            cut += 1
+    assert cut, "no word-boundary dip in these phrases"
+
+
 # ---------------------------------------------------------------------------
 # The computed contour is what the DSP plays
 # ---------------------------------------------------------------------------

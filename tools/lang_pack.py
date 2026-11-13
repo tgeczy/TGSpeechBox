@@ -207,6 +207,7 @@ class LanguagePack:
     liquid_fade_ms: float = 20.0
     legacy_pitch_mode: str = 'espeak_style'
     legacy_pitch_inflection_scale: float = 0.58
+    legacy_exclamation_accent_scale: float = 1.5
     fujisaki_phrase_amp: float = 0.24
     fujisaki_primary_accent_amp: float = 0.24
     fujisaki_secondary_accent_amp: float = 0.12
@@ -256,6 +257,7 @@ class LanguagePack:
     klatt_continuation_rise_hz: float = 15.0
     klatt_glottal_lower_hz: float = 15.0
     klatt_smooth_alpha: float = 0.4
+    klatt_exclamation_accent_scale: float = 1.5
     post_stop_aspiration_enabled: bool = False
     post_stop_aspiration_phoneme: str = 'h'
     stop_closure_mode: str = 'vowel-and-cluster'
@@ -771,6 +773,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.secondary_stress_div = gn("secondaryStressDiv", lp.secondary_stress_div)
     lp.voice_profile_name = gs("voiceProfileName", lp.voice_profile_name)
     lp.legacy_pitch_inflection_scale = gn("legacyPitchInflectionScale", lp.legacy_pitch_inflection_scale)
+    lp.legacy_exclamation_accent_scale = gn("legacyExclamationAccentScale", lp.legacy_exclamation_accent_scale)
     lp.fujisaki_phrase_amp = gn("fujisakiPhraseAmp", lp.fujisaki_phrase_amp)
     lp.fujisaki_primary_accent_amp = gn("fujisakiPrimaryAccentAmp", lp.fujisaki_primary_accent_amp)
     lp.fujisaki_secondary_accent_amp = gn("fujisakiSecondaryAccentAmp", lp.fujisaki_secondary_accent_amp)
@@ -814,6 +817,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.klatt_continuation_rise_hz = gn("klattContinuationRiseHz", lp.klatt_continuation_rise_hz)
     lp.klatt_glottal_lower_hz = gn("klattGlottalLowerHz", lp.klatt_glottal_lower_hz)
     lp.klatt_smooth_alpha = gn("klattSmoothAlpha", lp.klatt_smooth_alpha)
+    lp.klatt_exclamation_accent_scale = gn("klattExclamationAccentScale", lp.klatt_exclamation_accent_scale)
     lp.post_stop_aspiration_enabled = gb("postStopAspirationEnabled", lp.post_stop_aspiration_enabled)
     lp.stop_closure_mode = gs("stopClosureMode", lp.stop_closure_mode)
     lp.stop_closure_cluster_gaps_enabled = gb("stopClosureClusterGapsEnabled", lp.stop_closure_cluster_gaps_enabled)
