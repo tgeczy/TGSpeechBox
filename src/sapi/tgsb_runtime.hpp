@@ -99,6 +99,11 @@ private:
 
     nvspFrontend_VoicingTone cached_voicing_tone_{};
     bool has_voicing_tone_ = false;
+    // The pitch mode and inflection scale from the settings that were last
+    // written into the loaded language pack ("" and -1: none), so that taking
+    // one away again can be noticed (#210).
+    std::wstring applied_pitch_mode_;
+    int applied_inflection_scale_ = -1;
     unsigned long long queued_samples_ = 0;
 
     // Frame callbacks for nvspFrontend.

@@ -250,6 +250,58 @@ struct Engine {
     }
 };
 
+// The pitch of `a` every 10 ms, in Hz, 0 where it is not voiced: the shortest
+// period with a strong autocorrelation over 40 ms, between 60 and 400 Hz.
+std::vector<double> pitchTrack(const std::vector<int16_t>& a, int sampleRate) {
+    std::vector<double> f0;
+    const int win = sampleRate * 40 / 1000, hop = sampleRate / 100;
+    const int minLag = sampleRate / 400, maxLag = sampleRate / 60;
+    std::vector<double> r(maxLag + 1);
+    for (size_t start = 0; start + win + maxLag < a.size(); start += hop) {
+        const int16_t* x = a.data() + start;
+        double energy = 0.0;
+        for (int i = 0; i < win; ++i) energy += static_cast<double>(x[i]) * x[i];
+        double best = 0.0;
+        if (energy / win > 150.0 * 150.0) {
+            for (int lag = minLag; lag <= maxLag; ++lag) {
+                double num = 0.0, den = 0.0;
+                for (int i = 0; i < win; ++i) {
+                    num += static_cast<double>(x[i]) * x[i + lag];
+                    den += static_cast<double>(x[i + lag]) * x[i + lag];
+                }
+                r[lag] = num / std::sqrt(energy * den + 1.0);
+                best = std::max(best, r[lag]);
+            }
+        }
+        double hz = 0.0;
+        if (best > 0.7) {
+            for (int lag = minLag + 1; lag < maxLag; ++lag) {
+                if (r[lag] >= 0.92 * best && r[lag] >= r[lag - 1] && r[lag] >= r[lag + 1]) {
+                    hz = static_cast<double>(sampleRate) / lag;
+                    break;
+                }
+            }
+        }
+        f0.push_back(hz);
+    }
+    return f0;
+}
+
+// How far two renders of one text are apart in pitch: the upper quartile of
+// the difference in Hz over the steps voiced in both (not the mean, so that
+// a step or two where the tracker lands an octave off does not count).
+// Renders with the same settings are within a fraction of a hertz of each
+// other.
+double pitchDistance(const std::vector<double>& a, const std::vector<double>& b) {
+    std::vector<double> diff;
+    for (size_t i = 0; i < std::min(a.size(), b.size()); ++i) {
+        if (a[i] > 0.0 && b[i] > 0.0) diff.push_back(std::fabs(a[i] - b[i]));
+    }
+    REQUIRE(diff.size() >= 50);
+    std::sort(diff.begin(), diff.end());
+    return diff[diff.size() * 3 / 4];
+}
+
 // First sample whose magnitude reaches `level`, or size() when none does.
 size_t onset(const std::vector<int16_t>& a, int level) {
     for (size_t i = 0; i < a.size(); ++i)
@@ -843,5 +895,98 @@ TEST_CASE("a skip moves by sentences and speech goes on (#208)") {
         REQUIRE(site.skipsCompleted.size() == 1);
         CHECK(site.skipsCompleted[0] == 0);
         CHECK(site.bytes == site.bytesAtSkip);
+    }
+}
+
+// #210: the settings app's pitch mode and inflection scale are written into
+// the loaded language pack before each utterance.  Taking them away again
+// ("Use Language Default", Reset) sent nothing, so the pack kept the last
+// mode and scale until the host was restarted or another language was
+// spoken.  The pitch of the same sentence tells the modes apart: two renders
+// with the same settings are within 0.1 Hz of each other, two modes several
+// hertz apart.
+TEST_CASE("a pitch mode set back to the language default is the language's own again (#210)") {
+    ComScope com;
+    struct Restore { ~Restore() { writeSettings(""); } } restore;
+    const double same = 0.5, different = 3.0;   // Hz
+    auto pitchOf = [](Engine& engine, const std::wstring& text, const std::string& ini) {
+        writeSettings(ini);
+        HostSite site;
+        engine.speak(text, site);
+        return pitchTrack(site.audio, engine.fmt.nSamplesPerSec);
+    };
+    const std::wstring english = L"We were away a year ago, and now we are home again.";
+
+    SUBCASE("every mode the settings app offers, and back") {
+        writeSettings("");
+        Engine engine(L"en-us");
+        const auto own = pitchOf(engine, english, "");
+        CHECK(pitchDistance(own, pitchOf(engine, english, "")) < same);
+        // en-us is espeak_style by its own pack, so that one changes nothing.
+        for (const char* mode : {"fujisaki_style", "impulse_style", "klatt_style", "legacy", "arato_style", "espeak_style"}) {
+            const std::string name = mode;
+            CAPTURE(name);
+            const auto chosen = pitchOf(engine, english, "[Audio]\npitchMode=" + name + "\n");
+            if (name != "espeak_style") CHECK(pitchDistance(own, chosen) > different);   // the mode is heard
+            // "Use Language Default", as the settings app saves it.
+            const auto back = pitchOf(engine, english, "[Audio]\npitchMode=\n");
+            CHECK(pitchDistance(own, back) < same);
+        }
+        // The settings file removed altogether.
+        CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\npitchMode=fujisaki_style\n")) > different);
+        CHECK(pitchDistance(own, pitchOf(engine, english, "")) < same);
+    }
+
+    SUBCASE("the inflection scale, with the mode kept") {
+        writeSettings("[Audio]\npitchMode=legacy\n");
+        Engine engine(L"en-us");
+        const auto legacy = pitchOf(engine, english, "[Audio]\npitchMode=legacy\n");
+        const auto scaled = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n");
+        CHECK(pitchDistance(legacy, scaled) > different);
+        const auto unset = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=-1\n");
+        CHECK(pitchDistance(legacy, unset) < same);
+        // And the key gone from the file.
+        CHECK(pitchDistance(legacy, pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n")) > different);
+        CHECK(pitchDistance(legacy, pitchOf(engine, english, "[Audio]\npitchMode=legacy\n")) < same);
+    }
+
+    SUBCASE("the mode, with the inflection scale kept") {
+        writeSettings("");
+        Engine engine(L"en-us");
+        const auto own = pitchOf(engine, english, "");
+        const auto scaled = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n");
+        CHECK(pitchDistance(own, scaled) > different);
+        // The scale is still set, but en-us's own mode does not use it.
+        const auto back = pitchOf(engine, english, "[Audio]\npitchMode=\npitchInflectionScale=100\n");
+        CHECK(pitchDistance(own, back) < same);
+        // Choosing the mode again finds the scale still there.
+        const auto again = pitchOf(engine, english, "[Audio]\npitchMode=legacy\npitchInflectionScale=100\n");
+        CHECK(pitchDistance(scaled, again) < same);
+    }
+
+    SUBCASE("a new voice object, which takes over the cached runtime") {
+        writeSettings("");
+        std::vector<double> own;
+        {
+            Engine engine(L"en-us");
+            own = pitchOf(engine, english, "");
+            CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\npitchMode=fujisaki_style\n")) > different);
+        }
+        Engine engine(L"en-us");
+        CHECK(pitchDistance(own, pitchOf(engine, english, "[Audio]\npitchMode=\n")) < same);
+    }
+
+    SUBCASE("Hungarian, and a language spoken in between") {
+        const std::wstring hungarian = L"Tavaly ilyenkor nem voltunk itthon, de most megint itt vagyunk.";
+        writeSettings("");
+        Engine hu(L"hu");
+        Engine en(L"en-us");
+        const auto ownHu = pitchOf(hu, hungarian, "");
+        const auto ownEn = pitchOf(en, english, "");
+        CHECK(pitchDistance(ownHu, pitchOf(hu, hungarian, "")) < same);
+        CHECK(pitchDistance(ownHu, pitchOf(hu, hungarian, "[Audio]\npitchMode=fujisaki_style\n")) > different);
+        CHECK(pitchDistance(ownEn, pitchOf(en, english, "[Audio]\npitchMode=fujisaki_style\n")) > different);
+        CHECK(pitchDistance(ownEn, pitchOf(en, english, "[Audio]\npitchMode=\n")) < same);
+        CHECK(pitchDistance(ownHu, pitchOf(hu, hungarian, "[Audio]\npitchMode=\n")) < same);
     }
 }

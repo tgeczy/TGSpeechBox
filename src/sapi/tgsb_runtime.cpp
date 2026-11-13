@@ -510,6 +510,9 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
             DEBUG_LOG("set_language: frontend failed for '%s': %s", tag_utf8.c_str(), err ? err : "(null)");
             return E_FAIL;
         }
+        // A pack fresh from its files carries no override from the settings.
+        applied_pitch_mode_.clear();
+        applied_inflection_scale_ = -1;
     }
 
     // eSpeak voice selection.
@@ -768,7 +771,21 @@ void runtime::apply_voicing_tone_if_available()
 
     speechPlayer_setVoicingTone(speech_player_, &dsp_tone);
 
-    // Apply pitch mode override from settings.
+    // Apply pitch mode override from settings.  An override is written into
+    // the loaded language pack and stays there, so when the mode goes back
+    // to "Use Language Default" or the scale to unset, the pack is loaded
+    // again to get the language's own value back (#210: it kept the last
+    // mode until the host was restarted).  What is still set is then applied
+    // as on every utterance.
+    if (frontend_ && !current_lang_tag_.empty() &&
+        ((s.pitchMode.empty() && !applied_pitch_mode_.empty()) ||
+         (s.pitchInflectionScale < 0 && applied_inflection_scale_ >= 0))) {
+        nvspFrontend_setLanguage(frontend_, utils::wstring_to_string(current_lang_tag_).c_str());
+    }
+    if (frontend_) {
+        applied_pitch_mode_ = s.pitchMode;
+        applied_inflection_scale_ = s.pitchInflectionScale;
+    }
     if (frontend_ && !s.pitchMode.empty()) {
         std::string yaml = "legacyPitchMode: " + utils::wstring_to_string(s.pitchMode) + "\n";
         if (s.pitchInflectionScale >= 0) {
