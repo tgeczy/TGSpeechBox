@@ -57,7 +57,6 @@ struct TgsbVoice: Identifiable, Hashable {
     }
 }
 
-@MainActor
 /// One-time clean-up of stored language pack overrides (#172).
 ///
 /// "Import pack" stores every setting of the imported file as an override
@@ -125,6 +124,7 @@ func tgsbMigrateStoredPackOverrides(_ defaults: UserDefaults?) {
     d.synchronize()
 }
 
+@MainActor
 class TgsbEngine: ObservableObject {
     @Published var isSpeaking = false
     @Published var selectedLanguage: TgsbLanguage {
