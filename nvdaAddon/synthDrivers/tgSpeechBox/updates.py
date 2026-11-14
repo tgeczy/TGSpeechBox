@@ -51,21 +51,35 @@ NOTHING_OFFERED = "nothing-offered"
 #: "TGSpeechBox-v310rc4-2026.11.14.nvda-addon", and the newest such asset wins.
 #: A file without the date (every release before this updater) is never
 #: offered: it cannot be newer than an add-on that has this code.
-ADDON_ASSET = re.compile(r"^TGSpeechBox-(?:.*-)?\d{4}\.\d{1,2}\.\d{1,2}\.nvda-addon$", re.I)
+#:
+#: A second build on the same day is the date with a number after it,
+#: 2026.11.14.1, then .2: the maintainer's habit for a rebuild.  It comes after
+#: the day's first build and before the next day's.
+ADDON_ASSET = re.compile(r"^TGSpeechBox-(?:.*-)?\d{4}\.\d{1,2}\.\d{1,2}(?:\.\d{1,3})?\.nvda-addon$", re.I)
 
-_DATE = re.compile(r"(?<!\d)(\d{4})\.(\d{1,2})\.(\d{1,2})(?!\d)")
+_DATE = re.compile(r"(?<!\d)(\d{4})\.(\d{1,2})\.(\d{1,2})(?:\.(\d{1,3}))?(?!\d)")
 
 _USER_AGENT = "TGSpeechBox-NVDA-addon"
 
 
 def parse_version(text):
-    """-> (year, month, day) from a manifest version or an asset name, or None."""
+    """-> (year, month, day) from a manifest version or an asset name, or None;
+    (year, month, day, build) for a same-day rebuild such as 2026.11.14.1.
+
+    The two shapes order as wanted when compared: a day's first build comes
+    before its rebuilds, and every rebuild before the next day.
+    """
     if not text:
         return None
     found = _DATE.search(str(text))
     if not found:
         return None
-    return tuple(int(part) for part in found.groups())
+    year, month, day, build = found.groups()
+    version = (int(year), int(month), int(day))
+    # .0 is the day's first build written out; it must not count as newer.
+    if build and int(build):
+        version += (int(build),)
+    return version
 
 
 def is_newer(latest, installed):

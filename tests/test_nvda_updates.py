@@ -68,6 +68,11 @@ RELEASES = [
     ("TGSpeechBox-2026.11.14.nvda-addon", (2026, 11, 14)),
     ("TGSpeechBox-v310rc301.nvda-addon", None),                    # no date: not a version we can order
     ("", None), (None, None), ("nonsense", None),
+    # A second build on the same day: the maintainer adds .1, .2, ... to the date.
+    ("2026.11.14.1", (2026, 11, 14, 1)),
+    ("TGSpeechBox-v310rc4-2026.11.14.1.nvda-addon", (2026, 11, 14, 1)),
+    ("TGSpeechBox-v310rc4-2026.11.14.12.nvda-addon", (2026, 11, 14, 12)),
+    ("2026.11.14.0", (2026, 11, 14)),                              # .0 is the day's first build
 ])
 def test_a_version_is_the_date(text, expected):
     assert updates.parse_version(text) == expected
@@ -81,11 +86,36 @@ def test_a_version_is_the_date(text, expected):
     ("2026.11.9", "2026.11.10", False),     # older than what is running
     ("2026.2.5", "2026.2.05", False),       # the same day written two ways
     ("", "2026.11.10", False), ("2026.11.10", "", False), ("nonsense", "2026.11.10", False),
+    # Same-day rebuilds.
+    ("2026.11.14.1", "2026.11.14", True),
+    ("2026.11.14.2", "2026.11.14.1", True),
+    ("2026.11.14.10", "2026.11.14.9", True),    # numbers, not strings
+    ("2026.11.15", "2026.11.14.3", True),       # the next day is after any rebuild
+    ("2026.11.14", "2026.11.14.1", False),
+    ("2026.11.14.1", "2026.11.14.1", False),
+    ("2026.11.14.0", "2026.11.14", False),
 ])
 def test_newer_means_a_later_date(latest, installed, newer):
     # Unreadable on either side is "not newer": say nothing rather than
     # announce an update that may not exist.
     assert updates.is_newer(latest, installed) is newer
+
+
+def test_a_same_day_rebuild_is_the_add_on_and_is_offered():
+    """The maintainer's habit for a second build on one day is 2026.11.14.1.
+    The first updater read only year, month and day, and did not take a file
+    named that way for the add-on at all, so nobody would ever have been
+    offered such a build."""
+    name = "TGSpeechBox-v310rc4-2026.11.14.1.nvda-addon"
+    assert updates.ADDON_ASSET.match(name)
+    releases = [release("v-310rc401", name), release("v-310rc4", "TGSpeechBox-v310rc4-2026.11.14.nvda-addon")]
+    version, page, url = updates.newest_addon(releases, "stable")
+    assert version == "2026.11.14.1"
+    assert url == f"{DL}/v-310rc401/{name}" and page.endswith("/v-310rc401")
+    assert updates.is_newer(version, "2026.11.14")          # who has the day's first build is offered it
+    assert not updates.is_newer(version, "2026.11.14.1")    # who has it is not
+    # And whatever order GitHub lists the two in.
+    assert updates.newest_addon(list(reversed(releases)), "stable")[0] == "2026.11.14.1"
 
 
 def test_the_stable_channel_takes_the_newest_full_release():

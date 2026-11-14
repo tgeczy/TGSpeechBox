@@ -51,6 +51,8 @@ def stage(tmp_path, version="2026.11.14", manifest=True):
     ("v-310rc4", "2026.11.14", "TGSpeechBox-v310rc4-2026.11.14.nvda-addon"),   # the git tag's own spelling
     ("v310", "2026.12.1", "TGSpeechBox-v310-2026.12.1.nvda-addon"),
     ("v311b1", "2027.1.9", "TGSpeechBox-v311b1-2027.1.9.nvda-addon"),
+    ("v310rc4", "2026.11.14.1", "TGSpeechBox-v310rc4-2026.11.14.1.nvda-addon"),   # a second build that day
+    ("v310rc4", "2026.11.14.12", "TGSpeechBox-v310rc4-2026.11.14.12.nvda-addon"),
 ])
 def test_the_file_is_named_after_the_manifest(tmp_path, tag, version, name):
     out = package.package(stage(tmp_path, version), tag, tmp_path / "out")
@@ -84,7 +86,9 @@ def test_the_files_sit_at_the_root_of_the_archive(tmp_path):
         assert "version=2026.11.14" in z.read("manifest.ini").decode("utf-8")
 
 
-@pytest.mark.parametrize("version", ["3.10", "2026.11", "v310rc4", "2026.13.1", "2026.2.30", ""])
+@pytest.mark.parametrize("version", ["3.10", "2026.11", "v310rc4", "2026.13.1", "2026.2.30", "",
+                                     "2026.11.14.0",      # the updater reads .0 as the day's first build
+                                     "2026.11.14.x", "2026.11.14.1.2", "2026.13.1.1"])
 def test_a_version_that_is_not_a_date_is_refused(tmp_path, version):
     # Better no file than one the updater can never offer.
     with pytest.raises(ValueError):

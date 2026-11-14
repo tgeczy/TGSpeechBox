@@ -10,7 +10,8 @@ synthDrivers/, globalPlugins/ and locale/ directly inside.  The file written is
 The add-on's update check (synthDrivers/tgSpeechBox/updates.py, #103) orders
 add-ons by the date at the end of that name and compares it with the version
 in the installed manifest, so the name is taken from the manifest here rather
-than typed: a name without the date is never offered as an update, and a name
+than typed.  A second build on the same day is the date with .1 after it
+(2026.11.14.1), then .2: a name without the date is never offered as an update, and a name
 whose date is later than the manifest inside it is offered again after every
 install.  tests/test_nvda_addon_package.py holds this to the updater's rule.
 """
@@ -23,14 +24,16 @@ import sys
 import zipfile
 
 _VERSION_LINE = re.compile(r"^\s*version\s*=\s*(.*?)\s*$", re.M)
-_VERSION = re.compile(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})$")
+# A date, or a date and the number of a rebuild that day (2026.11.14.1).
+_VERSION = re.compile(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:\.([1-9]\d{0,2}))?$")
 _TAG = re.compile(r"^v-?([0-9a-z]+)$")
 _SKIP_DIRS = {"__pycache__"}
 _SKIP_SUFFIXES = {".pyc", ".pyo"}
 
 
 def manifest_version(stage: pathlib.Path) -> str:
-    """-> the version in <stage>/manifest.ini; ValueError unless it is a real date, YYYY.M.D."""
+    """-> the version in <stage>/manifest.ini; ValueError unless it is a real date,
+    YYYY.M.D, with at most the number of a same-day rebuild after it (YYYY.M.D.1)."""
     manifest = stage / "manifest.ini"
     if not manifest.is_file():
         raise ValueError(f"no manifest.ini in {stage}")
@@ -38,9 +41,10 @@ def manifest_version(stage: pathlib.Path) -> str:
     version = found.group(1).strip("\"'") if found else ""
     parts = _VERSION.match(version)
     if not parts:
-        raise ValueError(f"manifest version {version!r} is not a date (YYYY.M.D); the update check could never offer it")
+        raise ValueError(f"manifest version {version!r} is not a date (YYYY.M.D, or YYYY.M.D.1 for a rebuild "
+                         "that day); the update check could never offer it")
     try:
-        datetime.date(*(int(p) for p in parts.groups()))
+        datetime.date(*(int(p) for p in parts.groups()[:3]))
     except ValueError:
         raise ValueError(f"manifest version {version!r} is not a real date") from None
     return version
