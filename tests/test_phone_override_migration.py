@@ -16,7 +16,10 @@ app and in the iOS system voice extension, which cannot be built or run on
 the machines these tests run on.  What can be held here, by reading the
 sources: all three name exactly the settings the frontend started to read,
 the two Swift copies are the same text, and each is called where stored
-overrides are about to be used.
+overrides are about to be used.  Android's TTS service and the iOS system
+voice also leave those settings out while the clean-up has not run: the
+service waits for the first unlock, and the system voice cannot write the
+shared settings on iOS at all.
 
 The second half holds the reason itself on the frontend: a stored 35 is heard
 now, at every rate.
@@ -65,6 +68,14 @@ def _swift_function(path):
     return src[start:src.index("\n}\n", start) + 3]
 
 
+def _swift_shared_list(path):
+    """The timing setting list and the filter that reads it."""
+    src = _text(path)
+    start = src.index("let tgsbTimingKeysUnreadBeforeSchema1: Set<String> = [")
+    end = src.index("func tgsbWithoutUnheardTimingKeys(", start)
+    return src[start:src.index("\n}\n", end) + 3]
+
+
 def test_android_names_the_settings_the_frontend_started_to_read():
     src = _text(ANDROID / "PackOverrideMigration.kt")
     start = src.index("TIMING_KEYS_UNREAD_BEFORE_SCHEMA_1: Set<String> = setOf(")
@@ -74,14 +85,15 @@ def test_android_names_the_settings_the_frontend_started_to_read():
 
 @pytest.mark.parametrize("path", [IOS_APP, IOS_VOICE], ids=["app", "system voice"])
 def test_ios_names_the_same_settings(path):
-    body = _swift_function(path)
-    start = body.index("let unheard: Set<String> = [")
-    listed = re.findall(r'"(\w+)"', body[start:body.index("]", start)])
+    shared = _swift_shared_list(path)
+    listed = re.findall(r'"(\w+)"', shared[:shared.index("]")])
     assert set(listed) == _frontend_timing_keys() and len(listed) == 16
 
 
 def test_the_two_ios_copies_are_one_text():
     assert _swift_function(IOS_APP) == _swift_function(IOS_VOICE)
+    assert _swift_shared_list(IOS_APP) == _swift_shared_list(IOS_VOICE)
+    assert "tgsbWithoutUnheardTimingKeys(stored)" in _swift_function(IOS_APP)
 
 
 def test_each_app_runs_it_before_stored_overrides_are_used():
@@ -100,6 +112,12 @@ def test_each_app_runs_it_before_stored_overrides_are_used():
     voice = _text(IOS_VOICE)
     apply = voice[voice.index("private func applyStoredOverrides("):]
     assert apply.index("tgsbMigrateStoredPackOverrides(d)") < apply.index('d?.string(forKey: "pack_overrides_')
+    # The system voice cannot write the shared settings on iOS, so until the
+    # app has run the clean-up it leaves the unheard values out itself.
+    apply = apply[:apply.index("\n    }\n")]
+    assert '(d?.integer(forKey: "pack_overrides_schema") ?? 0) < 1' in apply
+    assert "tgsbWithoutUnheardTimingKeys(obj) : obj" in apply
+    assert "for (k, v) in overrides {" in apply
 
 
 # ---------------------------------------------------------------------------

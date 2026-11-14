@@ -77,24 +77,6 @@ struct TgsbVoice: Identifiable, Hashable {
 func tgsbMigrateStoredPackOverrides(_ defaults: UserDefaults?) {
     let schemaKey = "pack_overrides_schema"
     guard let d = defaults, d.integer(forKey: schemaKey) < 1 else { return }
-    let unheard: Set<String> = [
-        "defaultVowelDurationMs",
-        "defaultFadeMs",
-        "postStopAspirationDurationMs",
-        "stopDurationMs",
-        "affricateDurationMs",
-        "voicelessFricativeDurationMs",
-        "voicedConsonantDurationMs",
-        "tapDurationMs",
-        "trillFallbackDurationMs",
-        "tiedVowelDurationMs",
-        "tiedFromVowelDurationMs",
-        "tiedFromVowelFadeMs",
-        "vowelBeforeLiquidDurationMs",
-        "vowelBeforeNasalDurationMs",
-        "fadeAfterLiquidMs",
-        "liquidFadeMs",
-    ]
     var changed = false
     for (name, value) in d.dictionaryRepresentation() {
         // "pack_overrides_version" and the schema mark are numbers, not text.
@@ -103,7 +85,7 @@ func tgsbMigrateStoredPackOverrides(_ defaults: UserDefaults?) {
               let data = json.data(using: .utf8),
               let stored = (try? JSONSerialization.jsonObject(with: data)) as? [String: String]
         else { continue }
-        let kept = stored.filter { !unheard.contains($0.key) }
+        let kept = tgsbWithoutUnheardTimingKeys(stored)
         if kept.count == stored.count { continue }
         if kept.isEmpty {
             d.removeObject(forKey: name)
@@ -122,6 +104,32 @@ func tgsbMigrateStoredPackOverrides(_ defaults: UserDefaults?) {
     }
     d.set(1, forKey: schemaKey)
     d.synchronize()
+}
+
+/// The phoneme timing settings the frontend did not read before 3.10
+/// release candidate 4 (#172, src/frontend/pack.cpp).
+let tgsbTimingKeysUnreadBeforeSchema1: Set<String> = [
+    "defaultVowelDurationMs",
+    "defaultFadeMs",
+    "postStopAspirationDurationMs",
+    "stopDurationMs",
+    "affricateDurationMs",
+    "voicelessFricativeDurationMs",
+    "voicedConsonantDurationMs",
+    "tapDurationMs",
+    "trillFallbackDurationMs",
+    "tiedVowelDurationMs",
+    "tiedFromVowelDurationMs",
+    "tiedFromVowelFadeMs",
+    "vowelBeforeLiquidDurationMs",
+    "vowelBeforeNasalDurationMs",
+    "fadeAfterLiquidMs",
+    "liquidFadeMs",
+]
+
+/// A language's overrides without the settings nobody ever heard.
+func tgsbWithoutUnheardTimingKeys(_ overrides: [String: String]) -> [String: String] {
+    overrides.filter { !tgsbTimingKeysUnreadBeforeSchema1.contains($0.key) }
 }
 
 @MainActor
