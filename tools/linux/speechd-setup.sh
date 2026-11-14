@@ -1,5 +1,6 @@
 #!/bin/bash
-# TGSpeechBox: Speech Dispatcher setup, sourced by install.sh.
+# TGSpeechBox: Speech Dispatcher setup and the file copy the installer uses,
+# sourced by install.sh.
 #
 # Speech Dispatcher finds output modules by itself: every sd_<name> program in
 # its module folders becomes the module <name>, set up by <name>.conf in a
@@ -15,6 +16,28 @@
 #
 # Test hooks: TGSB_SD_MODULE_DIR and TGSB_SD_CONFIG_DIR replace the folders
 # that would be found; answers to the questions are read from stdin.
+
+# Put a program or a library in place when the old one may be in use.
+#
+# A plain cp writes into the existing file.  On a running program Linux
+# refuses that ("Text file busy") and the installer stopped half done; on a
+# loaded library it does not refuse, and the code changes under the process
+# that has it mapped.  Someone reinstalling while a screen reader speaks
+# through TGSpeechBox has all of them in use: Speech Dispatcher runs sd_tgsb,
+# which has both libraries loaded.
+#
+# So the new file is written beside the old one and renamed over it.
+# Whatever is running keeps the old file until it exits; the next start gets
+# the new one.  $1 = the new file, $2 = where it goes.
+tgsb_install_file() {
+    local src="$1" dst="$2"
+    local tmp="$dst.tgsb-new.$$"
+    if cp "$src" "$tmp" && mv -f "$tmp" "$dst"; then
+        return 0
+    fi
+    rm -f "$tmp"
+    return 1
+}
 
 # The folder Speech Dispatcher loads sd_* programs from.
 tgsb_sd_module_dir() {
@@ -61,7 +84,7 @@ tgsb_sd_install() {
     mkdir -p "$config_dir"
 
     if [ -f "$bin_dir/sd_tgsb" ] && mkdir -p "$module_dir" 2>/dev/null; then
-        cp "$bin_dir/sd_tgsb" "$module_dir/sd_tgsb"
+        tgsb_install_file "$bin_dir/sd_tgsb" "$module_dir/sd_tgsb"
         chmod +x "$module_dir/sd_tgsb"
         # Your own edits to an existing tgsb.conf are kept.
         if [ ! -f "$config_dir/tgsb.conf" ]; then

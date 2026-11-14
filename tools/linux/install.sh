@@ -19,9 +19,17 @@ mkdir -p "$PREFIX/bin"
 mkdir -p "$PREFIX/lib"
 mkdir -p "$PREFIX/share/tgspeechbox"
 
-# Copy files
-cp "$SCRIPT_DIR/bin/tgsbRender" "$PREFIX/bin/tgsbRender"
-cp "$SCRIPT_DIR/lib/"*.so "$PREFIX/lib/"
+# tgsb_install_file: a copy that is safe onto a program or library in use.
+# shellcheck source=speechd-setup.sh
+. "$SCRIPT_DIR/speechd-setup.sh"
+
+# Copy files.  The program and the libraries may be running right now (an
+# upgrade while a screen reader speaks with them), so they are replaced by
+# rename, never written into.
+tgsb_install_file "$SCRIPT_DIR/bin/tgsbRender" "$PREFIX/bin/tgsbRender"
+for lib in "$SCRIPT_DIR/lib/"*.so; do
+    tgsb_install_file "$lib" "$PREFIX/lib/$(basename "$lib")"
+done
 cp -r "$SCRIPT_DIR/share/tgspeechbox/"* "$PREFIX/share/tgspeechbox/"
 
 # Backward-compat symlinks (keeps existing Speech Dispatcher configs working)
@@ -31,7 +39,7 @@ ln -sf libtgsbFrontend.so "$PREFIX/lib/libnvspFrontend.so"
 ln -sfn tgspeechbox "$PREFIX/share/nvspeechplayer"
 
 # Install wrapper script
-cp "$SCRIPT_DIR/bin/tgsp" "$PREFIX/bin/tgsp"
+tgsb_install_file "$SCRIPT_DIR/bin/tgsp" "$PREFIX/bin/tgsp"
 chmod +x "$PREFIX/bin/tgsp"
 chmod +x "$PREFIX/bin/tgsbRender"
 
@@ -42,7 +50,7 @@ ln -sf tgsp "$PREFIX/bin/nvsp"
 # Install tgsb-speak (clause-aware Speech Dispatcher wrapper)
 EXTRAS_SD="$PREFIX/share/tgspeechbox/extras/speech-dispatcher"
 if [ -f "$EXTRAS_SD/tgsb-speak" ]; then
-    cp "$EXTRAS_SD/tgsb-speak" "$PREFIX/bin/tgsb-speak"
+    tgsb_install_file "$EXTRAS_SD/tgsb-speak" "$PREFIX/bin/tgsb-speak"
     chmod +x "$PREFIX/bin/tgsb-speak"
 fi
 
