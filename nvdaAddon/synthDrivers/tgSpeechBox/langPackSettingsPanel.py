@@ -137,6 +137,30 @@ def _setUpdateChannel(channel: str) -> None:
         pass
 
 
+def _installDownloadedAddon(path: str) -> None:
+    """Hand a downloaded add-on file to NVDA to install.
+
+    NVDA's own install of an add-on file (gui.addonGui.handleRemoteAddonInstall:
+    the confirmation, then the restart question) is what runs when such a
+    file is opened from Explorer.  Called directly it needs no file
+    association, which only NVDA's installer writes: a portable NVDA installs
+    too, and the add-on goes into the copy that is running, not into an
+    installed one beside it.  Windows' "open" is kept for an NVDA without
+    that function.  Raises when neither can take the file.
+    """
+    handle = None
+    try:
+        from gui import addonGui
+        handle = getattr(addonGui, "handleRemoteAddonInstall", None)
+    except Exception:
+        handle = None
+    if handle is not None:
+        handle(path)
+    else:
+        # os.startfile is Windows-only but NVDA is Windows-only anyway
+        os.startfile(path)
+
+
 def _runInBackground(work, done) -> None:
     """Run work() off the GUI thread, then done(result, error) on it.
 
@@ -1122,14 +1146,12 @@ def _getPanelClass():
                 )
                 return
 
-            # Launch the downloaded file with the default handler (NVDA's addon installer)
-            # Note: os.startfile returns immediately; we can't know if user clicks "No" in NVDA's
-            # installer dialog. The temp file will be cleaned up on next download attempt.
+            # NVDA asks before it installs; a "No" there is not known here.
+            # The temp file will be cleaned up on next download attempt.
             try:
-                # os.startfile is Windows-only but NVDA is Windows-only anyway
-                os.startfile(downloadPath)
+                _installDownloadedAddon(downloadPath)
             except Exception as e:
-                # If startfile fails, show the path so user can install manually
+                # Show the path so the file can be installed by hand
                 wx.MessageBox(
                     _(
                         "Download complete, but failed to launch installer:\n{}\n\n"

@@ -16,6 +16,10 @@ the "Update channel" choice beside it:
 * nothing is asked of the network until the button is pressed, and on a
   secure screen there is no button at all;
 * the network is not waited for on the GUI thread;
+* the downloaded add-on is installed by NVDA itself, so a portable NVDA
+  installs too;
+* closing Settings before the answer arrives cancels the update, and
+  nothing pops up afterwards;
 * the old site is gone from the add-on.
 
 No NVDA, no wx and no network are needed: the panel class is built on a
@@ -162,6 +166,7 @@ class Env:
         self.asked = []       # URLs updates.py asked for
         self.fetched = []     # URLs downloaded
         self.started = []     # files handed to Windows to open
+        self.nvda_installs = []   # files handed to NVDA's own add-on install
         self.secure = False
         self.installed = "2026.11.14"
         self.releases = RELEASES
@@ -179,6 +184,7 @@ class Env:
         dialogs = types.ModuleType("gui.settingsDialogs")
         dialogs.SettingsPanel = type("SettingsPanel", (), {})
         gui.settingsDialogs = dialogs
+        self.gui = gui
         sdh = types.ModuleType("synthDriverHandler")
         sdh.getSynth = lambda: None  # no synthesizer for onSave to reload
         for name, mod in (("config", config), ("globalVars", gv), ("ui", ui), ("wx", self.wx),
@@ -240,6 +246,20 @@ class Env:
 
     def press(self, panel):
         panel._onUpdateClick(types.SimpleNamespace(Skip=lambda: None))
+
+    def give_nvda_its_own_install(self, fails=None):
+        """NVDA's gui.addonGui.handleRemoteAddonInstall, which every NVDA
+        since 2018 has: what runs when an add-on file is opened."""
+        addon_gui = types.ModuleType("gui.addonGui")
+
+        def handle(path):
+            if fails is not None:
+                raise fails
+            self.nvda_installs.append(path)
+
+        addon_gui.handleRemoteAddonInstall = handle
+        self.gui.addonGui = addon_gui
+        self.monkeypatch.setitem(sys.modules, "gui.addonGui", addon_gui)
 
 
 @pytest.fixture
@@ -660,6 +680,39 @@ def test_the_network_is_not_waited_for_on_the_gui_thread(env, monkeypatch):
     assert panel.updateButton.disabled == 0
 
 
+# ---------------------------------------------------------------------------
+# Installed by NVDA itself
+# ---------------------------------------------------------------------------
+
+def test_the_download_is_installed_by_nvda_itself(env):
+    """Opening the file through Windows needs the .nvda-addon association,
+    which only NVDA's installer writes: on a portable NVDA nothing followed,
+    and beside an installed NVDA the add-on went into the wrong copy."""
+    env.give_nvda_its_own_install()
+    env.press(env.panel())
+    assert env.nvda_installs == [env.addon_file]
+    assert env.started == [], "Windows was asked to open the file as well"
+    assert env.wx.titles == ["Update Available"]
+
+
+def test_an_nvda_without_its_own_install_gets_the_file_opened(env):
+    env.press(env.panel())           # this env's gui has no addonGui at all
+    assert env.started == [env.addon_file]
+    assert env.nvda_installs == []
+
+
+def test_nvdas_install_failing_names_the_file(env):
+    env.give_nvda_its_own_install(fails=RuntimeError("the add-on store is busy"))
+    env.press(env.panel())
+    assert env.wx.titles == ["Update Available", "Warning"]
+    assert env.addon_file in env.wx.messages[1][1] and "the add-on store is busy" in env.wx.messages[1][1]
+    assert env.started == []
+
+
+# ---------------------------------------------------------------------------
+# Settings closed meanwhile: the update is cancelled
+# ---------------------------------------------------------------------------
+
 def test_a_panel_that_is_gone_when_the_answer_arrives_shows_nothing(env):
     # The settings dialog was closed while the check was out; a destroyed wx
     # window is false.
@@ -668,3 +721,14 @@ def test_a_panel_that_is_gone_when_the_answer_arrives_shows_nothing(env):
     gone._onUpdateChecked(("2027.1.9", "page", OFFERED["prerelease"][1]), None)
     gone._onUpdateFetched(env.addon_file, None)
     assert env.wx.messages == [] and env.fetched == [] and env.started == []
+
+
+def test_a_download_that_arrives_after_settings_was_closed_is_not_installed(env):
+    """Closing Settings cancels the update: nothing is installed and nothing
+    pops up, also through NVDA's own install."""
+    env.give_nvda_its_own_install()
+    cls = env.mod._getPanelClass()
+    gone = type("Gone", (cls,), {"__bool__": lambda self: False})()
+    gone._onUpdateFetched(env.addon_file, None)
+    gone._onUpdateFetched(None, OSError("connection reset"))
+    assert env.nvda_installs == [] and env.started == [] and env.wx.messages == []
