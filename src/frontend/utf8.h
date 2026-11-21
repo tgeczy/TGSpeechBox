@@ -66,10 +66,19 @@ std::string stripInvisible(std::string_view s);
 // ligatures, superscripts), come back as they went in.
 std::string composeCanonical(const std::string& s);
 
+// The seven Latin ligatures of typeset text, U+FB00 to U+FB06 (ff, fi, fl,
+// ffi, ffl, long-s t, st), as the letters of their compatibility
+// decompositions (Unicode Character Database, UnicodeData.txt).  PDFs and
+// e-books write "office" with one character for "ffi", and the phonemizer
+// read that as "letter F B zero three" (tests/cpp/test_ligatures.cpp).
+// Everything else comes back as it went in.
+std::string foldLigatures(const std::string& s);
+
 // Normalize UTF-8 string to NFKC form.
 // Windows: NormalizeString (Vista+). Apple: CFStringNormalize.
-// Other platforms (Linux, Android): composeCanonical, which composes letters
-// and leaves compatibility forms alone.
+// Other platforms (Linux, Android): foldLigatures, then composeCanonical,
+// which composes letters.  The other compatibility forms (fullwidth letters,
+// superscripts) are left alone there.
 std::string normalizeNFKC(const std::string& s);
 
 // Convenience: stripInvisible + normalizeNFKC in one call.

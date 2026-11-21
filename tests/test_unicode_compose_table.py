@@ -84,9 +84,14 @@ def test_table_has_the_letters_the_packs_use(first, second, composed):
 
 def test_linux_and_android_branch_composes():
     """normalizeNFKC's branch for platforms with no system normalizer was
-    "return utf8;": it is composeCanonical now."""
+    "return utf8;": it is composeCanonical now, on text whose typeset
+    ligatures have been turned into their letters first (foldLigatures;
+    tests/cpp/test_ligatures.cpp holds what that does, on every platform).
+
+    This branch is not compiled on Windows, where these tests usually run,
+    so what is checked here is that it still calls the two functions."""
     text = (ROOT / "src" / "frontend" / "utf8.cpp").read_text(encoding="utf-8")
     branch = text[text.index("#elif defined(__APPLE__)", text.index("NFKC normalization")):]
     branch = branch[branch.index("#else"):branch.index("#endif")]
-    assert re.search(r"std::string normalizeNFKC\(const std::string& utf8\) \{ return composeCanonical\(utf8\); \}",
-                     branch)
+    assert re.search(r"std::string normalizeNFKC\(const std::string& utf8\) "
+                     r"\{ return composeCanonical\(foldLigatures\(utf8\)\); \}", branch)

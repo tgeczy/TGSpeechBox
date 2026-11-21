@@ -236,6 +236,30 @@ std::string stripInvisible(std::string_view s) {
   return u32ToUtf8(out);
 }
 
+// ── Ligatures ───────────────────────────────────────────────────────────────
+
+std::string foldLigatures(const std::string& s) {
+  // Every one of the seven is EF AC 80..86 in UTF-8: text with no such byte
+  // pair (nearly all text) is returned without being decoded.
+  if (s.find("\xEF\xAC") == std::string::npos) return s;
+  static const char32_t* const kLetters[7] = {
+      U"ff", U"fi", U"fl", U"ffi", U"ffl", U"st", U"st",  // U+FB00..U+FB06
+  };
+  const std::u32string in = utf8ToU32(s);
+  std::u32string out;
+  out.reserve(in.size() + 8);
+  bool changed = false;
+  for (char32_t c : in) {
+    if (c >= 0xFB00 && c <= 0xFB06) {
+      out += kLetters[c - 0xFB00];
+      changed = true;
+    } else {
+      out.push_back(c);
+    }
+  }
+  return changed ? u32ToUtf8(out) : s;
+}
+
 // ── Canonical composition ───────────────────────────────────────────────────
 //
 // Unicode's canonical composition (UAX #15, NFC) with the data cut down to
@@ -452,9 +476,11 @@ std::string normalizeNFKC(const std::string& utf8) {
 // Linux/Android: no system normalizer to call (nothing above the frontend
 // normalizes either: this was the identity until #169, and decomposed text
 // missed the dictionaries).  Letters and their combining marks are composed
-// here; the compatibility forms NFKC also folds (fullwidth letters,
-// ligatures, superscripts) are left as they are.
-std::string normalizeNFKC(const std::string& utf8) { return composeCanonical(utf8); }
+// here, and the Latin ligatures of typeset text are turned into their
+// letters first (foldLigatures: "office" written with the ffi ligature was
+// read out as a code point).  The other compatibility forms NFKC folds
+// (fullwidth letters, superscripts) are left as they are.
+std::string normalizeNFKC(const std::string& utf8) { return composeCanonical(foldLigatures(utf8)); }
 
 #endif
 
