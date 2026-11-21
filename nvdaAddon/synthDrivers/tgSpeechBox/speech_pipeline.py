@@ -20,6 +20,10 @@ try:
     from speech.commands import LangChangeCommand
 except Exception:  # older NVDA
     LangChangeCommand = None
+try:
+    from speech.commands import BreakCommand
+except Exception:  # an NVDA without it (every one since 2023.3 has it)
+    BreakCommand = None
 from .constants import languages as _languages
 from .espeak_bridge import espeakSetVoiceDirect as _espeakSetVoiceDirect
 
@@ -228,13 +232,21 @@ class SpeechPipelineMixin:
             return False
 
     def _buildBlocks(self, speechSequence, coalesceSayAll: bool = False):
-        """Convert an NVDA speechSequence into blocks: (text, [indexesAfterText], pitchOffset).
+        """Convert an NVDA speechSequence into blocks:
+        (text, [indexesAfterText], pitchOffset, language, pauseBeforeMs).
 
         When coalesceSayAll is True, we *delay* IndexCommands that occur mid-sentence.
         This prevents audible gaps when NVDA inserts index markers at visual line wraps
         during Say All.
+
+        pauseBeforeMs is NVDA's BreakCommand: silence of that length before
+        the block's text.  NVDA sends one in front of a delayed character
+        description ("b", and a second later "Bravo") and does not ask
+        whether the synthesizer supports it; dropped, the description came
+        straight after the letter (tests/nvda/test_driver_break_command.py).
         """
-        blocks = []  # list[tuple[str, list[int], int, str | None]]  (text, indexes, pitch, lang)
+        blocks = []  # list[tuple[str, list[int], int, str | None, float]]
+        pendingBreakMs = 0.0
         # Language requested by NVDA's automatic language switching for the
         # text that follows; None = the user's own language setting (#131).
         curLang = None
@@ -246,10 +258,11 @@ class SpeechPipelineMixin:
         bufPitchOffset = pitchOffset
 
         def flush():
-            nonlocal seenNonEmptyText, bufPitchOffset
+            nonlocal seenNonEmptyText, bufPitchOffset, pendingBreakMs
             raw = normalizeTextForEspeak(" ".join(textBuf))
             textBuf.clear()
-            blocks.append((raw, pendingIndexes.copy(), bufPitchOffset, curLang))
+            blocks.append((raw, pendingIndexes.copy(), bufPitchOffset, curLang, pendingBreakMs))
+            pendingBreakMs = 0.0
             pendingIndexes.clear()
             seenNonEmptyText = False
             bufPitchOffset = pitchOffset
@@ -268,6 +281,20 @@ class SpeechPipelineMixin:
                     flush()
                 curLang = self._resolveLangSwitchTag(getattr(item, "lang", None))
                 continue
+
+            # A pause: what came before it ends here, and the pause is made
+            # in front of whatever follows.
+            if BreakCommand and isinstance(item, BreakCommand):
+                if textBuf or pendingIndexes:
+                    flush()
+                try:
+                    breakMs = float(getattr(item, "time", 0) or 0)
+                except (TypeError, ValueError):
+                    breakMs = 0.0
+                if breakMs > 0:
+                    pendingBreakMs += breakMs
+                continue
+
             if isinstance(item, str):
                 if item:
                     if not textBuf and not pendingIndexes:
@@ -280,7 +307,8 @@ class SpeechPipelineMixin:
             if IndexCommand and isinstance(item, IndexCommand):
                 # Leading indexes (no text yet) should fire immediately.
                 if not seenNonEmptyText and not textBuf:
-                    blocks.append(("", [item.index], pitchOffset, curLang))
+                    blocks.append(("", [item.index], pitchOffset, curLang, pendingBreakMs))
+                    pendingBreakMs = 0.0
                     continue
 
                 pendingIndexes.append(item.index)
@@ -302,12 +330,12 @@ class SpeechPipelineMixin:
 
             # Ignore other command types.
 
-        # Trailing text (and/or delayed indexes)
-        if textBuf or pendingIndexes:
+        # Trailing text (and/or delayed indexes), or a pause with nothing after it
+        if textBuf or pendingIndexes or pendingBreakMs > 0:
             flush()
 
-        # Remove trailing empty blocks with no indexes
-        while blocks and (not blocks[-1][0]) and (not blocks[-1][1]):
+        # Remove trailing empty blocks with no indexes and no pause
+        while blocks and (not blocks[-1][0]) and (not blocks[-1][1]) and not blocks[-1][4]:
             blocks.pop()
 
         return blocks
@@ -331,7 +359,94 @@ class SpeechPipelineMixin:
         # IMPORTANT: Do NOT increment here — only cancel() bumps the counter.
         # If speak() bumped it, a benign second speak() (e.g. from synthDoneSpeaking)
         # would kill an in-flight _speakBg that was never cancelled.
-        self._enqueue(self._speakBg, list(speechSequence), self._speakGen)
+        self._enqueue(self._speakBgGuarded, list(speechSequence), self._speakGen)
+
+    def _speakBgGuarded(self, speakList, generation):
+        """_speakBg, and if anything in it raises, the utterance still ends
+        as NVDA needs it to.
+
+        NVDA waits for an utterance's last index before it speaks again.  An
+        utterance that died of an exception reported nothing, so say all
+        stopped there and everything that comes without a key press (live
+        regions, terminal output, notifications) queued unspoken until the
+        next key press (tests/nvda/test_driver_broken_text.py).  What was
+        queued before the fault is played; the indexes not yet queued are
+        queued after it, in order; and the utterance is handed to the audio
+        thread to finish in the usual way, which reports them and done.
+        A cancelled utterance reports nothing, as ever (#197).
+        """
+        self._uttQueuedIndexes = set()
+        self._uttKicked = False
+        try:
+            self._speakBg(speakList, generation)
+            return
+        except Exception:
+            log.error("TGSpeechBox: an utterance failed part way; its indexes are still reported", exc_info=True)
+        try:
+            if generation != self._speakGen:
+                return
+            for item in speakList:
+                if IndexCommand and isinstance(item, IndexCommand) and item.index not in self._uttQueuedIndexes:
+                    self._player.queueFrame(None, 0.0, 0.0, userIndex=int(item.index))
+            self._finishUtterance(generation)
+        except Exception:
+            log.error("TGSpeechBox: could not finish a failed utterance", exc_info=True)
+
+    # ---- The audio thread's part of an utterance ----
+
+    def _startAudioThread(self, generation) -> bool:
+        """Hand the utterance to the audio thread, unless it has been
+        cancelled; False if it has.  Called once per utterance: when its
+        first frames are queued (streaming), or at its end if it queued so
+        little that nothing started it."""
+        if generation != self._speakGen:
+            return False
+        self._audio.beginUtterance()
+        if generation != self._speakGen:
+            self._audio.isSpeaking = False
+            return False
+        self._audio.kick()
+        self._uttKicked = True
+        return True
+
+    def _finishUtterance(self, generation) -> None:
+        """Everything of the utterance is queued: the audio thread may end
+        when the DSP runs dry, and is started now if nothing started it."""
+        # Signal that all frames have been queued so the AudioThread
+        # knows it can exit when synthesize() returns empty.
+        self._audio.allFramesQueued = True
+        self._audio._framesReady.set()  # wake AudioThread if waiting
+        # If cancel() was called while the frames were being generated,
+        # don't start the audio thread.
+        if generation != self._speakGen:
+            return
+        if not self._uttKicked:
+            # No streaming kick happened (e.g. very short utterance).
+            self._startAudioThread(generation)
+
+    # ---- The rate ----
+
+    #: The frontend is asked for at most this speed; the rest is the DSP's.
+    _SYNTH_CAP = 2.0
+    #: What "Rate boost" multiplies the rate by.  The SAPI engine's
+    #: k_rate_boost is held to this number (tests/test_sapi_rate_boost.py).
+    _RATE_BOOST = 2.0
+
+    def _rateSplit(self):
+        """(speed for the frontend, DSP time stretch, the rate heard).
+
+        Automatic speed split: synthesis is capped at 2.0x and the excess
+        goes into DSP time-stretch (frame-advance), so a live 3x is frontend
+        2x plus 1.5x stretch.  Prevents formant mush at extreme rates.  Rate
+        boost doubles the rate first.  The stretch shortens every queued
+        frame, silences too, so a pause of a given length is queued longer
+        by it."""
+        heard = self._curRate
+        if getattr(self, '_rateBoost', False):
+            heard *= self._RATE_BOOST
+        if heard > self._SYNTH_CAP:
+            return self._SYNTH_CAP, heard / self._SYNTH_CAP, heard
+        return heard, 1.0, heard
 
     # ---- Background speak implementation ----
 
@@ -400,10 +515,23 @@ class SpeechPipelineMixin:
                 return 50.0 if pauseMode == "long" else 25.0
             return 0.0
 
-        for (text, indexesAfter, blockPitchOffset, blockLang) in blocks:
+        for (text, indexesAfter, blockPitchOffset, blockLang, pauseBeforeMs) in blocks:
             # Bail if cancel() invalidated this generation
             if generation != self._speakGen:
                 return
+
+            # NVDA's BreakCommand: silence of its length, as heard.  Above 2x
+            # the DSP's time stretch shortens a queued silence too, so the
+            # frame is longer by the stretch (as for the clause pauses below).
+            # NVDA's player keeps this silence at the start of an utterance:
+            # it turns its leading-silence trimming off for a sequence that
+            # begins with a BreakCommand (nvwave.WavePlayer._onPreSpeak).
+            if pauseBeforeMs > 0:
+                _, stretch, _ = self._rateSplit()
+                self._player.setTimeStretch(stretch)
+                dur = float(pauseBeforeMs) * stretch
+                self._player.queueFrame(None, dur, float(min(float(minFadeOutMs), dur)))
+                lastStreamWasVoiced = False
 
             # Speak text for this block, in the language NVDA asked for (#131).
             # Every text block sets its language, so nothing is restored on
@@ -578,20 +706,7 @@ class SpeechPipelineMixin:
 
                     ok = False
                     try:
-                        # Automatic speed split: cap synthesis at 2.0x and put
-                        # the excess into DSP time-stretch (frame-advance), so a
-                        # live 3x is frontend 2x plus 1.5x stretch.
-                        # Prevents formant mush at extreme rates.
-                        _SYNTH_CAP = 2.0
-                        _effectiveSpeed = self._curRate
-                        if getattr(self, '_rateBoost', False):
-                            _effectiveSpeed *= 2.0
-                        if _effectiveSpeed > _SYNTH_CAP:
-                            _synthSpeed = _SYNTH_CAP
-                            _timeStretch = _effectiveSpeed / _SYNTH_CAP
-                        else:
-                            _synthSpeed = _effectiveSpeed
-                            _timeStretch = 1.0
+                        _synthSpeed, _timeStretch, _effectiveSpeed = self._rateSplit()
                         self._player.setTimeStretch(_timeStretch)
 
                         # Use queueIPA_ExWithText for stress correction (ABI v4+).
@@ -625,11 +740,8 @@ class SpeechPipelineMixin:
                         if generation != self._speakGen:
                             return
                         self._audio.allFramesQueued = False
-                        self._audio.beginUtterance()
-                        if generation != self._speakGen:
-                            self._audio.isSpeaking = False
+                        if not self._startAudioThread(generation):
                             return
-                        self._audio.kick()
                         hadKickedAudio = True
 
                     # Optional punctuation pause (micro-silence) after the clause.
@@ -664,6 +776,7 @@ class SpeechPipelineMixin:
                             lastStreamWasVoiced = False
                         else:
                             self._player.queueFrame(None, 0.0, 0.0, userIndex=int(idx))
+                        self._uttQueuedIndexes.add(idx)
                     except Exception:
                         log.debug("TGSpeechBox: failed to queue index marker %r", idx, exc_info=True)
 
@@ -684,21 +797,4 @@ class SpeechPipelineMixin:
         if hadRealSpeech:
             self._player.queueFrame(None, 50.0, 50.0)
 
-        # Signal that all frames have been queued so the AudioThread
-        # knows it can exit when synthesize() returns empty.
-        self._audio.allFramesQueued = True
-        self._audio._framesReady.set()  # wake AudioThread if waiting
-
-        # Final generation check — if cancel() was called while we were
-        # generating IPA/frames above, don't start the audio thread.
-        if generation != self._speakGen:
-            return
-
-        if not hadKickedAudio:
-            # No streaming kick happened (e.g. very short utterance).
-            # Start the AudioThread now.
-            self._audio.beginUtterance()
-            if generation != self._speakGen:
-                self._audio.isSpeaking = False
-                return
-            self._audio.kick()
+        self._finishUtterance(generation)

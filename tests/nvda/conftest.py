@@ -352,9 +352,16 @@ def _install_fake_nvda() -> None:
         def __init__(self, lang): self.lang = lang
         def __repr__(self): return f"LangChangeCommand({self.lang!r})"
 
+    class BreakCommand:
+        """NVDA's: a pause of `time` milliseconds (speech/commands.py, in
+        every NVDA since before 2023.3)."""
+        def __init__(self, time=0): self.time = time
+        def __repr__(self): return f"BreakCommand(time={self.time})"
+
     commands.IndexCommand = IndexCommand
     commands.PitchCommand = PitchCommand
     commands.LangChangeCommand = LangChangeCommand
+    commands.BreakCommand = BreakCommand
     speech.commands = commands
     sys.modules["speech"] = speech
     sys.modules["speech.commands"] = commands
@@ -573,6 +580,77 @@ def record_frames(driver):
     return log
 
 
+def speak_recorded(harness, sequence):
+    """Speak `sequence` as a new stream and wait for it to finish; returns
+    (the frames the driver queued on the DSP for it, the audio it fed).
+
+    Compare the frames, not the audio: the voice has breath noise in it, so
+    two renders of the same text are never the same sample for sample, while
+    the frames queued for them are.  The driver is cancelled first, so every
+    utterance recorded starts a new stream: the first utterance after a
+    cancel has a short lead-in that the ones read on after it lack.  The
+    frames are a snapshot: record_frames goes on recording into its list for
+    every later utterance."""
+    harness.driver.cancel()
+    log = record_frames(harness.driver)
+    start = len(log)
+    pcm, _latency, _feeds = harness.speak(sequence)
+    return list(log[start:]), pcm
+
+
+def follow_wasapi_rule(player):
+    """Make `player` call back the way NVDA's WASAPI player does, in the one
+    respect FakeWavePlayer is kinder than it.
+
+    NVDA 2026.2, nvdaHelper/local/wasapi.cpp: a feed's onDone is called only
+    while the stream is playing (WasapiPlayer::feed and ::sync both test
+    playState), and only a feed that carries audio starts a stopped stream
+    (a feed of no bytes never enters the loop that calls client->Start).
+    The stream is stopped after every stop(), which is every cancel, and
+    once NVDA's ten-second idle check has closed it.  So an onDone given
+    with an empty feed to a stopped stream is never called unless audio
+    follows; idle() does not help, it is sync() and returns at once.
+
+    Returns close_stream(), which stops the stream the way the idle check
+    does: without dropping what the driver thinks of it.
+    """
+    player.playing = False
+    real_feed, real_idle, real_stop = player.feed, player.idle, player.stop
+
+    def feed(data, size=None, onDone=None):
+        n = len(bytes(data[:size] if size is not None else data))
+        if n:
+            player.playing = True
+        if player.playing:
+            return real_feed(data, size, onDone)
+        with player._lock:  # recorded as fed; its callback is kept by nobody
+            player.feeds.append((time.perf_counter(), b""))
+
+    def idle():
+        if player.playing:
+            real_idle()
+
+    def stop():
+        real_stop()
+        player.playing = False
+
+    def close_stream():
+        with player._lock:
+            del player._callbacks[:]
+            player._until = 0.0
+        player.playing = False
+
+    player.feed, player.idle, player.stop = feed, idle, stop
+    player.sync = idle
+    return close_stream
+
+
+def voiced_frames(frames):
+    """The frames with a voice in them: record_frames' entries that are not
+    silence."""
+    return [entry for entry in frames if entry[0] is not None]
+
+
 def pump_main_loop():
     """Run what the driver handed to core.callLater, as NVDA's loop would."""
     import core
@@ -709,6 +787,12 @@ def _nvda_sequence_fixture():
 @pytest.fixture(name="record_frames")
 def _record_frames_fixture():
     return record_frames
+
+
+@pytest.fixture(name="speak_recorded")
+def _speak_recorded_fixture(harness):
+    """speak_recorded(sequence) -> (frames, pcm), on this test's driver."""
+    return lambda sequence: speak_recorded(harness, sequence)
 
 
 @pytest.fixture(name="nvda_replay_settings")

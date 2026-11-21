@@ -34,15 +34,36 @@ _re_ellipsis_space = re.compile(r"\.{2,}(?=[A-Za-z0-9\u00C0-\u024F])")
 _SENT_END_RE = re.compile(r"(?:[.!?]+|\.{3})[)\]\"']*\s*$")
 
 
+_re_surrogate = re.compile("[\ud800-\udfff]")
+
+
+def repairSurrogates(text: str) -> str:
+    """Text that can be encoded as UTF-8: no surrogate left on its own.
+
+    Windows text is UTF-16.  A program that cuts a string in the middle of an
+    emoji, or a move by character inside one, hands NVDA half a surrogate
+    pair, and NVDA hands it on.  Encoding that as UTF-8 for the frontend
+    raised, and the whole utterance was lost with its indexes
+    (tests/nvda/test_driver_broken_text.py).  Two halves that do arrive
+    together and in order are joined into the character they stand for; a
+    half on its own is dropped.
+    """
+    if not _re_surrogate.search(text):
+        return text
+    return text.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "ignore")
+
+
 def normalizeTextForEspeak(text: str) -> str:
     """Normalize text before feeding to eSpeak.
-    
+
+    - Drops half surrogate pairs (repairSurrogates)
     - Converts newlines to spaces (so line wrapping doesn't introduce pauses)
     - Collapses whitespace runs
     - Strips leading/trailing whitespace
     """
     if not text:
         return ""
+    text = repairSurrogates(text)
     # Normalize Unicode ellipsis to three dots.
     text = _re_ellipsis_normalize.sub("...", text)
     # Insert space after ellipsis glued to next word ("owwwh...I'll" → "owwwh... I'll")

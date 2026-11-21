@@ -19,8 +19,12 @@ def _read(rel):
 
 def nvda_boost():
     src = _read("nvdaAddon/synthDrivers/tgSpeechBox/speech_pipeline.py")
-    m = re.search(r"'_rateBoost', False\):\s*\n\s*_effectiveSpeed \*= ([0-9.]+)", src)
+    # The factor is a constant of the pipeline, and _rateSplit, the one place
+    # the rate is worked out, multiplies by it when the setting is on.
+    m = re.search(r"^    _RATE_BOOST = ([0-9.]+)$", src, re.M)
     assert m, "the NVDA driver's rate boost was not found in speech_pipeline.py"
+    assert re.search(r"'_rateBoost', False\):\s*\n\s*heard \*= self\._RATE_BOOST\b", src), (
+        "_rateSplit does not multiply the rate by _RATE_BOOST")
     return float(m.group(1))
 
 

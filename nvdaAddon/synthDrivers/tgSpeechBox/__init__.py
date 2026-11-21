@@ -156,6 +156,12 @@ class SynthDriver(
         from speech.commands import LangChangeCommand
     except Exception:
         LangChangeCommand = None
+    # BreakCommand is not declared here, though the pipeline makes the pause
+    # when one arrives (speech_pipeline._buildBlocks).  NVDA sends it for
+    # delayed character descriptions whether or not a synthesizer declares
+    # it.  Declaring it would do more: NVDA's maths reader looks for it in
+    # this set (mathPres/MathCAT/speech.py) and would start putting pauses
+    # into maths speech, which is a change of its own to decide on.
     # LangChangeCommand: NVDA's automatic language switching (#131).  NVDA only
     # sends it when the synthesizer declares it; each one becomes a block
     # boundary in speech_pipeline._buildBlocks and the block's language is
