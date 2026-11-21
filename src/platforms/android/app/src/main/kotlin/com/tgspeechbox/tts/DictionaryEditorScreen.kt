@@ -137,9 +137,7 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
     ) { uri ->
         if (uri != null) {
             try {
-                val content = context.contentResolver.openInputStream(uri)?.use {
-                    it.bufferedReader().readText()
-                }
+                val content = context.contentResolver.openInputStream(uri)?.use { ImportText.read(it) }
                 if (content.isNullOrBlank()) {
                     Toast.makeText(context, "File is empty", Toast.LENGTH_SHORT).show()
                     return@rememberLauncherForActivityResult

@@ -132,6 +132,24 @@ func tgsbWithoutUnheardTimingKeys(_ overrides: [String: String]) -> [String: Str
     overrides.filter { !tgsbTimingKeysUnreadBeforeSchema1.contains($0.key) }
 }
 
+/// The largest file an import reads: the same limit as the Android app's
+/// (ImportText.MAX_BYTES; tests/test_phone_import_size.py holds them equal).
+/// The largest text the packs hold is 1.7 MB.
+let tgsbImportMaxBytes = 8 * 1024 * 1024
+
+/// The text of a file picked for import (a language pack, phoneme overrides,
+/// a dictionary), read whole only when it is small.  The picker hands over
+/// whatever was chosen, and reading the wrong file, a video say, into memory
+/// can get the app ended for the memory it takes.  `text` is nil when the
+/// file is not UTF-8 text, cannot be read, or is larger than
+/// tgsbImportMaxBytes; `tooLarge` says which.
+func tgsbReadImportText(_ url: URL) -> (text: String?, tooLarge: Bool) {
+    if let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size > tgsbImportMaxBytes {
+        return (nil, true)
+    }
+    return (try? String(contentsOf: url, encoding: .utf8), false)
+}
+
 @MainActor
 class TgsbEngine: ObservableObject {
     @Published var isSpeaking = false
@@ -556,8 +574,9 @@ class TgsbEngine: ObservableObject {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            return "Could not read file"
+        let picked = tgsbReadImportText(url)
+        guard let content = picked.text else {
+            return picked.tooLarge ? "File is too large" : "Could not read file"
         }
         if content.isEmpty { return "File is empty" }
 
@@ -1016,8 +1035,9 @@ class TgsbEngine: ObservableObject {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            return "Could not read file"
+        let picked = tgsbReadImportText(url)
+        guard let content = picked.text else {
+            return picked.tooLarge ? "File is too large" : "Could not read file"
         }
         if content.isEmpty { return "File is empty" }
 

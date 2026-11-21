@@ -1376,9 +1376,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     fun importPackYaml(context: Context, langTag: String, sourceUri: Uri): Boolean {
         val content = try {
-            context.contentResolver.openInputStream(sourceUri)?.use {
-                it.bufferedReader().readText()
-            }
+            context.contentResolver.openInputStream(sourceUri)?.use { ImportText.read(it) }
         } catch (e: Exception) {
             _importExportStatus.value = "Could not read file: ${e.message}"
             return false
@@ -1504,9 +1502,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     fun importPhonemeOverrides(context: Context, sourceUri: Uri) {
         val content = try {
-            context.contentResolver.openInputStream(sourceUri)?.use {
-                it.bufferedReader().readText()
-            }
+            context.contentResolver.openInputStream(sourceUri)?.use { ImportText.read(it) }
         } catch (e: Exception) {
             _importExportStatus.value = "Could not read file: ${e.message}"
             return

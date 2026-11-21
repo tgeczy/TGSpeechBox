@@ -490,8 +490,9 @@ struct DictionaryEditorView: View {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            statusMessage = "Could not read file"
+        let picked = tgsbReadImportText(url)
+        guard let content = picked.text else {
+            statusMessage = picked.tooLarge ? "File is too large" : "Could not read file"
             return
         }
         if content.isEmpty {
