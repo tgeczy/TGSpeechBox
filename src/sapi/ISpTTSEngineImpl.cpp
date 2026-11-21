@@ -78,6 +78,25 @@ bool write_bytes(ISpTTSEngineSite* site, const BYTE* data, ULONG bytes, ULONGLON
     return true;
 }
 
+// One block to the host, as speech and a <silence> both hand their audio
+// over: a block at a time, with a look at the host's stop request between
+// blocks.  Returns the bytes the host took.  0 means its buffer is full: the
+// caller asks again, and the short wait before that has been made here.
+// -1 means the write failed and the call is over (ctx.aborted is set).
+long long write_block(speak_context& ctx, ISpTTSEngineSite* site, const BYTE* data, size_t bytes)
+{
+    const ULONGLONG before = ctx.bytes_written;
+    if (!write_bytes(site, data, static_cast<ULONG>(bytes), ctx.bytes_written)) {
+        ctx.aborted = true;
+        return -1;
+    }
+    const long long took = static_cast<long long>(ctx.bytes_written - before);
+    if (took == 0) {
+        Sleep(5);
+    }
+    return took;
+}
+
 char detect_clause_type(const wchar_t* start, size_t len)
 {
     // Scan backward, skipping whitespace and closing quotes/brackets,
@@ -535,6 +554,7 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         ULONG first_text_src_offset;
         bool has_state;
         bool spell;  // read character by character (SPVA_SpellOut)
+        ULONG silence_ms = 0;  // a <silence>: nothing but this much silence
     };
 
     std::vector<speak_batch> batches;
@@ -616,6 +636,28 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                 if (f->pTextStart && f->ulTextLen > 0)
                     sb.text.assign(f->pTextStart, f->ulTextLen);
                 batches.push_back(std::move(sb));
+                break;
+            }
+            case SPVA_Silence: {
+                // <silence msec="N"/>: "the engine should produce silence
+                // for the specified number of milliseconds" (SAPI 5.4, TTS
+                // Engine Vendor Porting Guide).  It ended the batch like any
+                // unknown action and made no silence, so the text on both
+                // sides ran together.  The silence is a batch of its own, in
+                // its place between the text before and after it.
+                if (!cur.text.empty() || !cur.bookmarks.empty()) {
+                    batches.push_back(std::move(cur));
+                    cur = {};
+                    cur.has_state = false;
+                }
+                if (f->State.SilenceMSecs > 0) {
+                    speak_batch sb{};
+                    sb.has_state = false;
+                    // SAPI's own XML takes at most 65535 ms; a larger number
+                    // from a host is not a reason to write silence for days.
+                    sb.silence_ms = std::min<ULONG>(f->State.SilenceMSecs, 65535);
+                    batches.push_back(std::move(sb));
+                }
                 break;
             }
             default:
@@ -718,6 +760,31 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             if (!take_skip(bi, start_clause)) break;
             next_batch = skip_to.batch;
             first_clause = skip_to.clause;
+            continue;
+        }
+
+        // A <silence>: that many milliseconds of the host's time, written as
+        // they are (not through the synthesizer, whose clock runs faster
+        // above 2x).  In blocks, so that a stop is seen within one block and
+        // a host with a full buffer is waited for, as for speech.
+        if (batch.silence_ms > 0) {
+            const size_t total = static_cast<size_t>(
+                static_cast<double>(batch.silence_ms) * rt_->sample_rate() / 1000.0 + 0.5) * sizeof(tgsb::sample_t);
+            const std::vector<tgsb::sample_t> zeros(sampleBuf.size(), tgsb::sample_t{0});
+            size_t pos = 0;
+            while (pos < total) {
+                const DWORD a = pOutputSite->GetActions();
+                if (a & SPVES_ABORT) {
+                    rt_->purge();
+                    ctx.aborted = true;
+                    break;
+                }
+                if (a & SPVES_SKIP) break;  // answered before the next batch, above
+                const size_t chunk = std::min(total - pos, zeros.size() * sizeof(tgsb::sample_t));
+                const long long took = write_block(ctx, pOutputSite, reinterpret_cast<const BYTE*>(zeros.data()), chunk);
+                if (took < 0) break;
+                pos += static_cast<size_t>(took);
+            }
             continue;
         }
 
@@ -896,20 +963,12 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
                         if (th > ctx.bytes_written && th - ctx.bytes_written < chunk)
                             chunk = static_cast<size_t>(th - ctx.bytes_written);
                     }
-                    const ULONGLONG before = ctx.bytes_written;
-                    if (!write_bytes(pOutputSite, data + pos, static_cast<ULONG>(chunk), ctx.bytes_written)) {
-                        ctx.aborted = true;
-                        return false;
-                    }
                     // Advance by what the host took: Write may accept part of
                     // a chunk and then nothing (full buffer), and the rest is
-                    // retried after a short wait.
-                    const size_t took = static_cast<size_t>(ctx.bytes_written - before);
-                    if (took == 0) {
-                        Sleep(5);
-                        continue;
-                    }
-                    pos += took;
+                    // retried after the short wait write_block makes.
+                    const long long took = write_block(ctx, pOutputSite, data + pos, chunk);
+                    if (took < 0) return false;
+                    pos += static_cast<size_t>(took);
                 }
                 return true;
             };

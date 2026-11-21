@@ -228,12 +228,14 @@ struct Engine {
 
     // One Speak() call with a fragment list, as SAPI builds it from XML
     // markup: text, bookmarks (the text is the mark), spelled text, and the
-    // rate and volume a fragment carries from <rate> and <volume>.
+    // rate and volume a fragment carries from <rate> and <volume>, and the
+    // length of a <silence>.
     struct Frag {
         SPVACTIONS action;
         std::wstring text;
         long rateAdj = 0;
         ULONG volume = 100;
+        ULONG silenceMs = 0;
     };
     void speak(const std::vector<Frag>& frags, HostSite& site) {
         std::vector<SPVTEXTFRAG> list(frags.size());
@@ -243,6 +245,7 @@ struct Engine {
             list[i].State.eAction = frags[i].action;
             list[i].State.RateAdj = frags[i].rateAdj;
             list[i].State.Volume = frags[i].volume;
+            list[i].State.SilenceMSecs = frags[i].silenceMs;
             list[i].pTextStart = frags[i].text.c_str();
             list[i].ulTextLen = static_cast<ULONG>(frags[i].text.size());
             list[i].ulTextSrcOffset = offset;
@@ -690,6 +693,108 @@ TEST_CASE("volume and rate markup combine with the host's volume and rate (#206)
         // The sum stays inside SAPI's -10..+10.
         CHECK(mark5at10 == plain10);
         CHECK(markMinus5atMinus10 == plainMinus10);
+    }
+}
+
+// <silence msec="700"/> reaches the engine as an SPVA_Silence fragment with
+// no text and State.SilenceMSecs = 700: "the engine should produce silence
+// for the specified number of milliseconds" (SAPI 5.4, TTS Engine Vendor
+// Porting Guide).  The engine ended the batch of text there and did nothing
+// else, so the pause a document or a reading program asked for was not made
+// and the text on both sides ran together.  Found by checking this
+// repository against the audit of the maintainer's SSI-263 project (the same
+// fault there).
+//
+// The silence is the host's milliseconds whatever the rate: it is written
+// to the host as it is, not through the synthesizer's clock.
+TEST_CASE("a silence tag is that much silence where it stands") {
+    ComScope com;
+    Engine engine(L"en-us");
+    {
+        HostSite warm;
+        engine.speak(L"Desktop", warm);
+    }
+    // The same two sentences with a silence of `ms` between them.  A
+    // silence of 0 ms is the comparison: it ends the batch as any tag does,
+    // so the two sides are synthesized exactly as with a real silence.
+    auto spoken = [&](ULONG ms, long rate, HostSite& site) {
+        site.rate = rate;
+        engine.speak({{SPVA_Speak, L"Alpha is first."}, {SPVA_Silence, L"", 0, 100, ms},
+                      {SPVA_Bookmark, L"after"}, {SPVA_Speak, L"Bravo is second."}}, site);
+    };
+
+    SUBCASE("the silence is exact, in its place, with the same speech on both sides, at every rate") {
+        // Two renders of a sentence are not the same sample for sample (the
+        // voice has breath noise in it), so the comparison is by length,
+        // place and loudness.  The silence itself is exact: zeros.
+        auto rms = [](const std::vector<int16_t>& a, size_t from, size_t to) {
+            double sum = 0.0;
+            for (size_t i = from; i < to; ++i) sum += static_cast<double>(a[i]) * a[i];
+            return to > from ? std::sqrt(sum / static_cast<double>(to - from)) : 0.0;
+        };
+        for (long rate : {-5L, 0L, 3L, 5L, 8L}) {   // speeds 0.5, 1.0, 1.5, 2.0 and 3.0
+            CAPTURE(rate);
+            HostSite without, with;
+            spoken(0, rate, without);
+            spoken(700, rate, with);
+            const size_t extra = engine.msToBytes(700.0) / sizeof(int16_t);
+            // Longer by the silence and by nothing else, at any rate.
+            REQUIRE(with.audio.size() == without.audio.size() + extra);
+
+            // The bookmark stands right after the silence tag: in the render
+            // without a silence it marks where the first sentence ends.
+            REQUIRE(without.marks.size() == 1);
+            const size_t k = static_cast<size_t>(without.marks[0].offset) / sizeof(int16_t);
+            REQUIRE(k > 0);
+            REQUIRE(k < without.audio.size());
+            bool allZero = true;
+            for (size_t i = k; i < k + extra; ++i) allZero = allZero && with.audio[i] == 0;
+            CHECK(allZero);
+
+            // The same speech before it and after it: as loud, within 3%.
+            const double before = rms(without.audio, 0, k), after = rms(without.audio, k, without.audio.size());
+            REQUIRE(before > 300.0);   // "Alpha is first." is speech, not silence
+            REQUIRE(after > 300.0);    // and so is "Bravo is second."
+            CHECK(rms(with.audio, 0, k) == doctest::Approx(before).epsilon(0.03));
+            CHECK(rms(with.audio, k + extra, with.audio.size()) == doctest::Approx(after).epsilon(0.03));
+        }
+    }
+
+    SUBCASE("a bookmark after the silence is reported after it") {
+        HostSite without, with;
+        spoken(0, 0, without);
+        spoken(700, 0, with);
+        REQUIRE(without.marks.size() == 1);
+        REQUIRE(with.marks.size() == 1);
+        CHECK(with.marks[0].name == L"after");
+        CHECK(with.marks[0].offset == without.marks[0].offset + engine.msToBytes(700.0));
+    }
+
+    SUBCASE("a stop during a long silence ends the call there") {
+        HostSite reference;
+        spoken(0, 0, reference);
+        HostSite site;
+        // One second into what is at least a minute of silence.
+        site.abortAfterBytes = static_cast<size_t>(reference.marks.at(0).offset) + engine.msToBytes(1000.0);
+        spoken(60000, 0, site);
+        CHECK(site.bytes >= site.abortAfterBytes);
+        CHECK(site.bytes < site.abortAfterBytes + engine.msToBytes(500.0));   // not the rest of the minute
+        // And the next call is whole: nothing of the stopped one is left over.
+        HostSite next, clean;
+        engine.speak(L"Documents", next);
+        engine.speak(L"Documents", clean);
+        CHECK(next.audio.size() == clean.audio.size());
+    }
+
+    SUBCASE("a silence with nothing around it is still that long") {
+        HostSite site;
+        engine.speak({{SPVA_Silence, L"", 0, 100, 300}}, site);
+        const size_t want = engine.msToBytes(300.0);
+        CHECK(site.bytes >= want);
+        CHECK(site.bytes <= want + engine.msToBytes(60.0));          // the 50 ms that ends every call
+        bool allZero = true;
+        for (int16_t s : site.audio) allZero = allZero && s == 0;
+        CHECK(allZero);
     }
 }
 
