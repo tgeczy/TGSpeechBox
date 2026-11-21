@@ -36,6 +36,7 @@
 #include "speechPlayer.h"
 #include "voicingToneCompose.h"
 #include "nvspFrontend.h"
+#include "sd_ssml.h"
 
 // ============================================================================
 // eSpeak-NG runtime loading (same as tgsbRender.cpp)
@@ -858,17 +859,11 @@ int main(int argc, char** argv) {
       // SD sends pitch in -100..+100 (0=default), sliderPitchToBaseHz expects 0..100 (50=default)
       double pitch = sliderPitchToBaseHz((ssipPitch + 100) / 2);
 
-      // Strip SSML tags (SD wraps text in <speak>...</speak>)
-      {
-        std::string stripped;
-        bool inTag = false;
-        for (char c : text) {
-          if (c == '<') { inTag = true; continue; }
-          if (c == '>') { inTag = false; continue; }
-          if (!inTag) stripped += c;
-        }
-        text = stripped;
-      }
+      // A SPEAK message is SSML: SD wraps the text in <speak>...</speak> and
+      // writes "<", ">" and "&" as entities (sd_ssml.h).  A CHAR or a KEY is
+      // the character or key name as it is, and a "<" there is a character
+      // to be said, not the start of a tag.
+      if (cmd == "SPEAK") text = tgsb_sd::sdSsmlToText(text);
 
       // Handle language=c or language=NULL — use default
       if (language == "c" || language == "C" || language == "NULL" || language.empty()) {

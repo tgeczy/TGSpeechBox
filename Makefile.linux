@@ -96,8 +96,9 @@ endif
 RENDER_BIN = $(BUILDDIR)/tgsbRender
 SD_TGSB_BIN = $(BUILDDIR)/sd_tgsb
 
-# sd_tgsb sources
+# sd_tgsb sources, and the header-only parts it is built from
 SD_TGSB_SRCS = src/platforms/speechd/sd_tgsb.cpp
+SD_TGSB_HDRS = src/platforms/speechd/sd_ssml.h
 
 # Targets
 .PHONY: all clean dirs
@@ -124,7 +125,7 @@ $(RENDER_BIN): $(TOOLSDIR)/tgsbRender.cpp $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
 		$(LIBS) -lstdc++fs
 
 # Link sd_tgsb (native Speech Dispatcher module) statically
-$(SD_TGSB_BIN): $(SD_TGSB_SRCS) $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
+$(SD_TGSB_BIN): $(SD_TGSB_SRCS) $(SD_TGSB_HDRS) $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(SD_TGSB_SRCS) \
 		$(FRONTEND_LIB) $(SPEECHPLAYER_LIB) \
 		-static-libgcc -static-libstdc++ \
@@ -146,7 +147,7 @@ $(RENDER_BIN): $(TOOLSDIR)/tgsbRender.cpp $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
 		-Wl,-rpath,'$$ORIGIN'
 
 # Link sd_tgsb against shared libs
-$(SD_TGSB_BIN): $(SD_TGSB_SRCS) $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
+$(SD_TGSB_BIN): $(SD_TGSB_SRCS) $(SD_TGSB_HDRS) $(SPEECHPLAYER_LIB) $(FRONTEND_LIB)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(SD_TGSB_SRCS) \
 		-L$(BUILDDIR) -ltgspeechbox -ltgsbFrontend \
 		-Wl,-rpath,'$$ORIGIN' $(LIBS)
