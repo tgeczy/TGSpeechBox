@@ -110,15 +110,15 @@ std::uint64_t packFilesStamp(const nvsp_frontend::Handle* h) {
     for (fs::recursive_directory_iterator it(root, ec), end; !ec && it != end; it.increment(ec)) {
       std::error_code fec;
       if (!it->is_regular_file(fec)) continue;
-      for (char c : it->path().generic_string()) mix(static_cast<unsigned char>(c));
+      for (char c : nvsp_frontend::pathToUtf8(it->path())) mix(static_cast<unsigned char>(c));
       mix(static_cast<std::uint64_t>(it->file_size(fec)));
       mix(static_cast<std::uint64_t>(it->last_write_time(fec).time_since_epoch().count()));
     }
   };
-  const fs::path base(h->packDir);
+  const fs::path base = nvsp_frontend::pathFromUtf8(h->packDir);
   std::error_code ec;
   walk(fs::exists(base / "phonemes.yaml", ec) ? base : base / "packs");
-  if (!h->overrideDir.empty()) walk(fs::path(h->overrideDir) / "packs");
+  if (!h->overrideDir.empty()) walk(nvsp_frontend::pathFromUtf8(h->overrideDir) / "packs");
   return stamp;
 }
 
@@ -746,7 +746,7 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
   std::string phonemesPath = h->packDir + "/phonemes.yaml";
   
   // Read current file content
-  std::ifstream inFile(phonemesPath);
+  std::ifstream inFile(nvsp_frontend::pathFromUtf8(phonemesPath));
   if (!inFile.is_open()) {
     setError(h, "Cannot open phonemes.yaml for reading");
     return 0;
@@ -1011,7 +1011,7 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
   }
 
   // Write back to file
-  std::ofstream outFile(phonemesPath);
+  std::ofstream outFile(nvsp_frontend::pathFromUtf8(phonemesPath));
   if (!outFile.is_open()) {
     setError(h, "Cannot open phonemes.yaml for writing");
     return 0;
@@ -1303,9 +1303,9 @@ NVSP_FRONTEND_API char* nvspFrontend_exportData(
   auto findRoot = [](const std::string& dir) -> std::string {
     if (dir.empty()) return {};
     std::string direct = dir + "/phonemes.yaml";
-    { std::ifstream t(direct); if (t.good()) return dir; }
+    { std::ifstream t(nvsp_frontend::pathFromUtf8(direct)); if (t.good()) return dir; }
     std::string nested = dir + "/packs/phonemes.yaml";
-    { std::ifstream t(nested); if (t.good()) return dir + "/packs"; }
+    { std::ifstream t(nvsp_frontend::pathFromUtf8(nested)); if (t.good()) return dir + "/packs"; }
     return {};
   };
 
@@ -1329,7 +1329,7 @@ NVSP_FRONTEND_API char* nvspFrontend_exportData(
       std::string ovRoot = findRoot(h->overrideDir);
       if (!ovRoot.empty()) {
         std::string ovPath = ovRoot + "/lang/" + lang + ".yaml";
-        std::ifstream test(ovPath);
+        std::ifstream test(nvsp_frontend::pathFromUtf8(ovPath));
         if (test.good()) basePath = ovPath;
       }
     }
@@ -1343,7 +1343,7 @@ NVSP_FRONTEND_API char* nvspFrontend_exportData(
 
   // Verify file exists.
   {
-    std::ifstream test(basePath);
+    std::ifstream test(nvsp_frontend::pathFromUtf8(basePath));
     if (!test.good()) return nullptr;
   }
 

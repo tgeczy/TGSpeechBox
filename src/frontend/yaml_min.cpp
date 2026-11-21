@@ -11,6 +11,8 @@ Licensed under the MIT License. See LICENSE for details.
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+
+#include "utf8.h"  // pathFromUtf8
 #include <locale>
 #include <sstream>
 
@@ -95,7 +97,7 @@ struct Line {
 };
 
 static bool readLines(const std::string& path, std::vector<Line>& out, std::string& err) {
-  std::ifstream f(path, std::ios::binary);
+  std::ifstream f(nvsp_frontend::pathFromUtf8(path), std::ios::binary);
   if (!f) {
     err = "Could not open file";
     return false;

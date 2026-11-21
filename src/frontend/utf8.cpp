@@ -27,6 +27,40 @@ Licensed under the MIT License. See LICENSE for details.
 
 namespace nvsp_frontend {
 
+#ifdef _WIN32
+
+std::filesystem::path pathFromUtf8(const std::string& utf8) {
+  if (utf8.empty()) return {};
+  const int n = static_cast<int>(utf8.size());
+  // MB_ERR_INVALID_CHARS: text that is not UTF-8 fails here instead of
+  // coming back with replacement characters in a path that does not exist.
+  const int wlen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), n, nullptr, 0);
+  if (wlen <= 0) return std::filesystem::path(utf8);  // the system code page
+  std::wstring wide(static_cast<size_t>(wlen), L'\0');
+  MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), n, &wide[0], wlen);
+  return std::filesystem::path(wide);
+}
+
+std::string pathToUtf8(const std::filesystem::path& p) {
+  // Not p.string(): that converts to the system code page, and throws for a
+  // character the code page does not have.
+  const std::wstring& wide = p.native();
+  if (wide.empty()) return {};
+  const int n = static_cast<int>(wide.size());
+  const int len = WideCharToMultiByte(CP_UTF8, 0, wide.data(), n, nullptr, 0, nullptr, nullptr);
+  if (len <= 0) return {};
+  std::string out(static_cast<size_t>(len), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, wide.data(), n, &out[0], len, nullptr, nullptr);
+  return out;
+}
+
+#else
+
+std::filesystem::path pathFromUtf8(const std::string& utf8) { return std::filesystem::path(utf8); }
+std::string pathToUtf8(const std::filesystem::path& p) { return p.string(); }
+
+#endif
+
 static inline char32_t kReplacementChar = 0xFFFD;
 
 std::u32string utf8ToU32(std::string_view s) {

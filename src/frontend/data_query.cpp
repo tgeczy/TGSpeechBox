@@ -245,10 +245,10 @@ static void emitPhonemeRecords(const std::string& phonemeKey,
 // Find phonemes.yaml given a packDir.
 static std::string findPhonemesPath(const std::string& packDir) {
   namespace fs = std::filesystem;
-  fs::path direct = fs::path(packDir) / "phonemes.yaml";
-  if (fs::exists(direct)) return direct.string();
-  fs::path nested = fs::path(packDir) / "packs" / "phonemes.yaml";
-  if (fs::exists(nested)) return nested.string();
+  fs::path direct = nvsp_frontend::pathFromUtf8(packDir) / "phonemes.yaml";
+  if (fs::exists(direct)) return nvsp_frontend::pathToUtf8(direct);
+  fs::path nested = nvsp_frontend::pathFromUtf8(packDir) / "packs" / "phonemes.yaml";
+  if (fs::exists(nested)) return nvsp_frontend::pathToUtf8(nested);
   return {};
 }
 
@@ -256,11 +256,11 @@ static std::string findPhonemesPath(const std::string& packDir) {
 static std::string findLangDir(const std::string& packDir) {
   namespace fs = std::filesystem;
   // Check packDir/lang/
-  fs::path direct = fs::path(packDir) / "lang";
-  if (fs::exists(direct) && fs::is_directory(direct)) return direct.string();
+  fs::path direct = nvsp_frontend::pathFromUtf8(packDir) / "lang";
+  if (fs::exists(direct) && fs::is_directory(direct)) return nvsp_frontend::pathToUtf8(direct);
   // Check packDir/packs/lang/
-  fs::path nested = fs::path(packDir) / "packs" / "lang";
-  if (fs::exists(nested) && fs::is_directory(nested)) return nested.string();
+  fs::path nested = nvsp_frontend::pathFromUtf8(packDir) / "packs" / "lang";
+  if (fs::exists(nested) && fs::is_directory(nested)) return nvsp_frontend::pathToUtf8(nested);
   return {};
 }
 
@@ -372,12 +372,12 @@ collectReplacementTargets(const std::string& packDir, const std::string& langTag
 
   namespace fs = std::filesystem;
   for (const auto& name : unique) {
-    fs::path file = fs::path(langDir) / (name + ".yaml");
+    fs::path file = nvsp_frontend::pathFromUtf8(langDir) / (name + ".yaml");
     if (!fs::exists(file)) continue;
 
     yaml_min::Node root;
     std::string err;
-    if (!yaml_min::loadFile(file.string(), root, err)) continue;
+    if (!yaml_min::loadFile(nvsp_frontend::pathToUtf8(file), root, err)) continue;
 
     const yaml_min::Node* norm = root.get("normalization");
     if (!norm || !norm->isMap()) continue;

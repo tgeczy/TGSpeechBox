@@ -7,10 +7,25 @@ Licensed under the MIT License. See LICENSE for details.
 #ifndef TGSB_FRONTEND_UTF8_H
 #define TGSB_FRONTEND_UTF8_H
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 
 namespace nvsp_frontend {
+
+// A file-system path from the UTF-8 text the API takes (nvspFrontend.h:
+// packDirUtf8, overrideDirUtf8), and UTF-8 text back from a path.
+//
+// On Windows a narrow string handed to std::filesystem or std::ifstream is
+// read in the system code page, so a pack folder with any letter outside
+// ASCII in its path (a Windows account named Tamás or Győző holds the NVDA
+// add-on under such a path) was "not found" and the synthesizer did not
+// load.  Every path the frontend opens goes through these two
+// (tests/test_pack_dir_unicode.py).  Bytes that are not UTF-8 are taken in
+// the system code page, as all of them were before: a command-line tool
+// handing over its argv.  On other platforms both are the identity.
+std::filesystem::path pathFromUtf8(const std::string& utf8);
+std::string pathToUtf8(const std::filesystem::path& p);
 
 // Best-effort UTF-8 -> UTF-32. Invalid sequences become U+FFFD.
 std::u32string utf8ToU32(std::string_view s);

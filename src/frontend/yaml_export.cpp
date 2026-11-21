@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+
+#include "utf8.h"  // pathFromUtf8
 #include <sstream>
 #include <unordered_set>
 #include <cstdint>
@@ -762,7 +764,7 @@ std::string exportMergedYaml(
     // Read original file as lines.
     std::vector<std::string> origLines;
     {
-        std::ifstream fin(baseFilePath, std::ios::binary);
+        std::ifstream fin(nvsp_frontend::pathFromUtf8(baseFilePath), std::ios::binary);
         if (!fin) return {};
         std::string line;
         while (std::getline(fin, line)) {
